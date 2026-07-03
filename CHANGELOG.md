@@ -6,6 +6,10 @@ Sections per entry: **Added · Changed · Fixed · Removed**. Each line: `<what>
 
 ---
 
+## [0.99.0] - 2026-07-03
+
+- **KBB unit 2 (Batch #5: K4, K10, K11) — the balance rework.** K4: artifact rarity now DEPTH-SHIFTS — round 1 rolls exactly 64/30/5/1 C/U/R/L (no OP first-shop artifact), commons floor at 30%, legendaries cap at 8% as the run deepens. K10: longer rounds — enemies rounder (base HP 14, +2.4/round: the first enemy takes ≥2 correct answers, pinned), squad leaner (HP 40, block 6), and the attack window widened 5→7 (the fuzz caught 70%-correct players dying to ESCAPES at section-1 rates with the old window — median went 1→4). New "Ship fittings" shop section: permanent +1 Hull/Shield-floor/Block/Attack, ONE fitting per shop visit (pinned), price 8+2/section; +1 Shield floor introduces squad.startShield (battle-start shield). K11: repair/brace values shrunk to match the smaller pools (healPower 6, repairHeal 12, rechargeShield 10; brace = block = 6). kbb-balance LOCKED targets re-verified GREEN after tuning (70%/random median 4 ≥3, 50% median 1 ≤2, 85%/good cap-reach 22% ≤50). Pins: kbb-run 57 (+6), verify-build re-pins for the sanctioned constants. Controls: static weights + fitting spam + one-shot enemy → 4 pins fell → restored. Two scope slips in new pins caught by the unpiped gate before shipping.
+
 ## [0.98.1] - 2026-07-03
 
 - **Gate repair (honesty note).** v0.98.0 was pushed with ONE red verify-build pin: the consumable-cap fixture filled inventory from CONSUMABLE_IDS (3 ids after Purge's removal) against a cap of 4, so the full-inventory rejection test went vacuous-red — and my ship pipeline masked the failure by piping the gate through `grep PASSED` (grep's exit code won the && chain). The fixture now fills to the CAP by cycling ids; the shipped code itself was never wrong. Process fix applied: gates now run with their raw exit code checked, never piped before the commit step. 458/458, 14 suites, exit 0.

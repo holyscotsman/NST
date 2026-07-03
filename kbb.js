@@ -38,16 +38,19 @@
 
   // ---- 2. CONFIG (all tunables). Fuzz checks invariants, not balance. ----
   var CONFIG = {
-    squad: { hp: 50, maxHp: 50, basePower: 12, block: 8, healPower: 10, coins: 6 },   // v0.46.0 K4 re-tune (fuzz targets in kbb-balance.cjs)
-    maxAttacks: 5, maxArtifacts: 5, consumableCap: 4, roundsPerSection: 5,
-    enemyBaseHp: 9, hpPerRound: 2.0, hpPerSection: 0.11, bossHpMult: 1.3,
-    intentBase: 2.5, intentPerRound: 0.35, intentPerSection: 0.09,   // v0.46.0 K4: softer chip; deaths should come from the ladder, not attrition
+    // (v0.99.0, K10/K11, Jason) longer rounds: rounder enemies (>=2 questions round 1),
+    // leaner squad; repair/brace values shrink to match. Fuzz targets re-verified below.
+    squad: { hp: 40, maxHp: 40, basePower: 12, block: 6, healPower: 6, coins: 6, startShield: 0 },
+    maxAttacks: 7, maxArtifacts: 5, consumableCap: 4, roundsPerSection: 5,   // (v0.99.0, K10) window widened with the rounder enemies
+    enemyBaseHp: 14, hpPerRound: 2.4, hpPerSection: 0.10, bossHpMult: 1.3,
+    intentBase: 2.2, intentPerRound: 0.30, intentPerSection: 0.08,   // v0.46.0 K4: softer chip; deaths should come from the ladder, not attrition
     coinBase: 3, bossCoinMult: 2.5,
     artifactPrice: { common: 6, uncommon: 10, rare: 16, legendary: 24 },
     pricePerSection: 0.15, minPriceFactor: 0.4, rerollBase: 4, rerollPerSection: 1,
     shopArtifactCount: 3, shopConsumableCount: 2,
-    rarityWeights: { common: 0.55, uncommon: 0.28, rare: 0.13, legendary: 0.04 },
-    repairHeal: 22, rechargeShield: 16,
+    rarityWeights: { common: 0.55, uncommon: 0.28, rare: 0.13, legendary: 0.04 },   // fallback only — live rolls use rarityWeightsFor(run) (K4)
+    repairHeal: 12, rechargeShield: 10,
+    boostPriceBase: 8, boostPricePerSection: 2,
     gateDifficulty: 3, speedThresholdMs: 6000, damageCap: 1e9, fuzzSectionCap: 12
   };
   function sectionBand(section) {
@@ -464,7 +467,7 @@
       lastDamage: 0, lastIncoming: 0, lastToHp: 0
     };
     run.phase = 'battle';
-    run.squad.shield = 0;                 // shield does not carry between battles
+    run.squad.shield = run.squad.startShield || 0;   // (v0.99.0, K10) fittings can raise the floor; no carry-over otherwise
     fireSide(run, 'onBattleStart', {});
     run._api.addShield(run.squad.block);
   }
@@ -588,12 +591,23 @@
     return Math.max(1, Math.round(6 * (1 + (run.section - 1) * CONFIG.pricePerSection) * priceDiscount(run)));
   }
   function rerollCost(run) { return CONFIG.rerollBase + (run.section - 1) * CONFIG.rerollPerSection; }
-  function weightedPick(pool, rng) {
+  // (v0.99.0, K4, Jason) round 1 rolls 64/30/5/1 C/U/R/L; rarer creeps in as the run deepens
+  // (commons floor 30%, legendaries cap 8%) — no OP artifact can headline the first shop.
+  function rarityWeightsFor(run) {
+    var d = (run.section - 1) + (run.round - 1) / CONFIG.roundsPerSection;
+    var c = Math.max(0.30, 0.64 - 0.06 * d);
+    var l = Math.min(0.08, 0.01 + 0.012 * d);
+    var r = Math.min(0.20, 0.05 + 0.025 * d);
+    var u = Math.max(0.15, 1 - c - l - r);
+    return { common: c, uncommon: u, rare: r, legendary: l };
+  }
+  function weightedPick(pool, rng, weights) {
     if (!pool.length) return null;
+    var W2 = weights || CONFIG.rarityWeights;
     var total = 0, i;
-    for (i = 0; i < pool.length; i++) total += (CONFIG.rarityWeights[pool[i].rarity] || 0.1);
+    for (i = 0; i < pool.length; i++) total += (W2[pool[i].rarity] || 0.1);
     var t = rng.next() * total, acc = 0;
-    for (i = 0; i < pool.length; i++) { acc += (CONFIG.rarityWeights[pool[i].rarity] || 0.1); if (t <= acc) return pool[i]; }
+    for (i = 0; i < pool.length; i++) { acc += (W2[pool[i].rarity] || 0.1); if (t <= acc) return pool[i]; }
     return pool[pool.length - 1];
   }
   function rollArtifactOffers(run) {
@@ -602,7 +616,7 @@
     var avail = ARTIFACTS.filter(function (a) { return !owned[a.id]; });
     var offers = [], n = Math.min(CONFIG.shopArtifactCount, avail.length);
     for (var k = 0; k < n; k++) {
-      var pick = weightedPick(avail, run.rng); if (!pick) break;
+      var pick = weightedPick(avail, run.rng, rarityWeightsFor(run)); if (!pick) break;
       offers.push({ id: pick.id, price: artifactPrice(run, pick.rarity) });
       avail.splice(avail.indexOf(pick), 1);
     }
@@ -613,9 +627,31 @@
     for (var k = 0; k < CONFIG.shopConsumableCount; k++) offers.push({ id: run.rng.pick(CONSUMABLE_IDS), price: consumablePrice(run) });
     run.shop.consumables = offers;
   }
+  var BOOSTS = [   // (v0.99.0, K10, Jason) permanent +1 fittings; ONE purchase per shop visit
+    { id: 'fit-hp',     name: '+1 Hull plating',  stat: 'hp' },
+    { id: 'fit-shield', name: '+1 Shield floor',  stat: 'shield' },
+    { id: 'fit-block',  name: '+1 Block',         stat: 'block' },
+    { id: 'fit-power',  name: '+1 Attack power',  stat: 'power' }
+  ];
+  function boostPrice(run) { return CONFIG.boostPriceBase + (run.section - 1) * CONFIG.boostPricePerSection; }
+  function shopBuyBoost(run, idx) {
+    if (run.phase !== 'shop' || !run.shop) return { ok: false, reason: 'not-shop' };
+    if (run.shop.boostBought) return { ok: false, reason: 'one-per-shop' };
+    var bDef = BOOSTS[idx]; if (!bDef) return { ok: false, reason: 'no-offer' };
+    var price = boostPrice(run);
+    if (run.squad.coins < price) return { ok: false, reason: 'coins' };
+    run.squad.coins -= price; run.shop.boostBought = true;
+    var s = run.squad;
+    if (bDef.stat === 'hp') { s.maxHp += 1; s.hp += 1; }
+    else if (bDef.stat === 'shield') { s.startShield = (s.startShield || 0) + 1; }
+    else if (bDef.stat === 'block') { s.block += 1; }
+    else { s.basePower += 1; }
+    if (run.ctx.telemetry) run.ctx.telemetry.emit({ t: 'shop_purchase', game: 'KBB', itemId: bDef.id, cost: price });
+    return { ok: true, stat: bDef.stat };
+  }
   function buildShop(run) {
     fireSide(run, 'onShopEnter', {});
-    run.shop = { artifacts: [], consumables: [], rerollCost: rerollCost(run) };
+    run.shop = { artifacts: [], consumables: [], rerollCost: rerollCost(run), boostBought: false };
     rollArtifactOffers(run); rollConsumableOffers(run);
   }
   function shopBuyArtifact(run, offerIndex) {
@@ -710,7 +746,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     var seed = (opts.seed != null) ? opts.seed : (ctx.rng ? ctx.rng.int(2147483647) : 12345);
     var rng = ctx.rng ? ctx.rng.fork('kbb-run:' + seed) : makeRng(seed);
     var squad = {
-      hp: CONFIG.squad.hp, maxHp: CONFIG.squad.maxHp, shield: 0,
+      hp: CONFIG.squad.hp, maxHp: CONFIG.squad.maxHp, shield: 0, startShield: CONFIG.squad.startShield || 0,
       basePower: CONFIG.squad.basePower, block: CONFIG.squad.block,
       healPower: CONFIG.squad.healPower, coins: CONFIG.squad.coins, artifacts: []
     };
@@ -746,6 +782,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     submitAnswer: submitAnswer, computeDamage: computeDamage,
     shopBuyArtifact: shopBuyArtifact, shopReplaceArtifact: shopReplaceArtifact,
     shopBuyConsumable: shopBuyConsumable, shopReroll: shopReroll,
+    shopBuyBoost: shopBuyBoost, BOOSTS: BOOSTS, rarityWeightsFor: rarityWeightsFor,
     sellArtifact: sellArtifact, isSellable: isSellable, sellRefund: sellRefund,
     useConsumable: useConsumable, leaveShop: leaveShop,
     equipArtifact: equipArtifact, hasArtifact: hasArtifact,
@@ -2170,6 +2207,21 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
           card.appendChild(body); card.appendChild(side); p.appendChild(card);
         })(i);
       }
+      p.appendChild(el(s.doc, 'div', 'kbb-sec', 'Ship fittings \u2014 one per visit, permanent +1'));
+      var bwrap = s.doc.createElement('div'); bwrap.className = 'kbb-cons';
+      for (var bfi = 0; bfi < KBB.BOOSTS.length; bfi++) {
+        (function (bi) {
+          var bdef = KBB.BOOSTS[bi], price = KBB._test ? (CONFIG.boostPriceBase + (run.section - 1) * CONFIG.boostPricePerSection) : 8;
+          var bc = s.doc.createElement('div'); bc.className = 'c' + (run.shop.boostBought ? ' full' : '');
+          bc.innerHTML = '<div class="cn">' + bdef.name + '</div><div class="cd">Permanent. One fitting per shop.</div>';
+          var bb = s.doc.createElement('button'); bb.className = 'kbb-btn alt';
+          bb.textContent = run.shop.boostBought ? 'Fitted' : ('Buy ' + price + 'c');
+          bb.disabled = run.shop.boostBought || run.squad.coins < price;
+          bb.onclick = function () { shopBuyBoost(s.run, bi); renderMain(s); renderSquad(s); renderCoins(s); };
+          bc.appendChild(bb); bwrap.appendChild(bc);
+        })(bfi);
+      }
+      p.appendChild(bwrap);
       p.appendChild(el(s.doc, 'div', 'kbb-sec', 'Consumables'));
       var cwrap = s.doc.createElement('div'); cwrap.className = 'kbb-cons';
       var cfull = run.consumables.length >= CONFIG.consumableCap;

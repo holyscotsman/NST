@@ -751,8 +751,9 @@ async function runFrames(n = 6) {
   console.log("\nG1b. KBB agency layer (v0.46.0 K5) + combat re-tune (K4)");
   {
     const K = w.KBB;
-    ok("re-tune landed (basePower 12, heal 10, intents 2.5/0.35)",
-       K.CONFIG.squad.basePower === 12 && K.CONFIG.squad.healPower === 10 && K.CONFIG.intentBase === 2.5 && K.CONFIG.intentPerRound === 0.35);
+    ok("re-tune landed (v0.99 K10/K11: basePower 12, heal 6, intents 2.2/0.30, window 7)",
+      K.CONFIG.squad.basePower === 12 && K.CONFIG.squad.healPower === 6
+      && K.CONFIG.intentBase === 2.2 && K.CONFIG.intentPerRound === 0.30 && K.CONFIG.maxAttacks === 7);
     let qn = 0;
     const provider = { next() { return { question: { id: "aq" + (qn++), difficulty: 2, domain: "d", options: ["a", "b", "c", "d"], correctIndex: 0, stem: "s", explanation: "e" }, reason: "t" }; } };
     const kctx = { rng: K.makeRng(4242), questions: provider };
@@ -921,7 +922,7 @@ async function runFrames(n = 6) {
     const ctx = SN.makeContext("KBB");
     ok("ctx.assets wired — armBoss sprite inlined + reachable by games", ctx.assets && typeof ctx.assets.armBoss === "string" && ctx.assets.armBoss.indexOf("data:image/") === 0);
     const run = KBB.createRun(ctx, { seed: 7 });
-    ok("starting HP is 50 (combat retune — poor build fails ~section 6-8)", run.squad.maxHp === 50 && run.squad.hp === 50);
+    ok("starting HP is 40 (v0.99 K10: leaner squad, rounder enemies)", w.KBB.CONFIG.squad.hp === 40 && w.KBB.CONFIG.enemyBaseHp === 14);
     ok("starts with ~1 common in coins (6)", run.squad.coins === 6);
     ok("battle start grants shield from block (6)", run.squad.shield === KBB.CONFIG.squad.block);
 

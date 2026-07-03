@@ -101,7 +101,14 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.98.0 — KBB unit 1: tour, Purge, DESTROYED, blur fix, no timers (K1/K2/K3/K7/K8/K9)
+## v0.99.0 — KBB unit 2: rarity curve, fittings, longer rounds (K4/K10/K11)
+
+kbb-balance re-tuned GREEN (window 5→7 was the key — escapes were killing 70% players).
+kbb-run 57. REMAINING: K5/K6 (battle choreography + SFX), CC C1-C12, G2 save/resume,
+G3 intro, G4 full-scan. NOTE v0.98.0 shipped one red pin (masked by a piped gate) —
+fixed in v0.98.1; gates now run unpiped before every commit.
+
+> **Earlier this session (v0.98.x):** KBB unit 1 + gate repair
 
 kbb-run 51. The blur root cause: hidden 2D canvas measured 0 → 320px fallback stretched.
 REMAINING: KBB K4/K10/K11 (rarity curve + balance — will re-baseline kbb-balance locked

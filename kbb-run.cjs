@@ -189,6 +189,37 @@ function newWindow() {
   })();
 })();
 
+/* ============ KBB UNIT 2 (v0.99.0, K4/K10/K11) ============ */
+(function unit2() {
+  group('UNIT 2: rarity curve, fittings, longer rounds');
+  var V = newWindow(), K = V.KBB;
+  var run = K.createRun(H.makeCtx(K, { seed: SEED + 51 }), { seed: SEED + 51 });
+  var w1 = K.rarityWeightsFor({ section: 1, round: 1 });
+  ok(Math.abs(w1.common - 0.64) < 1e-9 && Math.abs(w1.uncommon - 0.30) < 1e-9
+     && Math.abs(w1.rare - 0.05) < 1e-9 && Math.abs(w1.legendary - 0.01) < 1e-9,
+     'K4: round 1 rolls exactly 64/30/5/1');
+  var w9 = K.rarityWeightsFor({ section: 4, round: 3 });
+  ok(w9.common < w1.common && w9.rare > w1.rare && w9.legendary > w1.legendary && w9.legendary <= 0.08,
+     'K4: deeper runs shift rarer (commons shrink, legendary capped at 8%)');
+  // fittings: +1, one per shop
+  run.phase = 'shop'; K._test.buildShop(run);
+  run.squad.coins = 99;
+  var p0 = run.squad.basePower;
+  var b1 = K.shopBuyBoost(run, 3);
+  ok(b1.ok === true && run.squad.basePower === p0 + 1, 'K10: +1 Attack fitting applies permanently');
+  var b2 = K.shopBuyBoost(run, 0);
+  ok(b2.ok === false && b2.reason === 'one-per-shop', 'K10: ONE fitting per shop visit');
+  K._test.buildShop(run);
+  var b3 = K.shopBuyBoost(run, 1);
+  ok(b3.ok === true && run.squad.startShield === 1, 'K10: next shop allows another; +1 Shield floor raises startShield');
+  // round 1 needs >= 2 correct hits
+  var run2 = K.createRun(H.makeCtx(K, { seed: SEED + 52 }), { seed: SEED + 52 });
+  var d0 = K.drawQuestion(run2), q0 = run2.battle.question;
+  var r0 = K.submitAnswer(run2, q0.multi ? q0.correctIndices : q0.correctIndex, 8000, 'attack');
+  ok(r0.correct === true && r0.win === false && run2.battle.enemy.hp > 0,
+     'K10: one correct answer no longer one-shots the first enemy');
+})();
+
 /* ============ KBB UNIT 1 (v0.98.0, K1/K2/K3/K8/K9/K7) ============ */
 (function unit1() {
   group('UNIT 1: tour blocks answering, Purge gone, DESTROYED state, no timer artifacts, sharp canvas');
