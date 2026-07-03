@@ -490,6 +490,21 @@ Commit: `P2·5 — balance/pacing analysis (no-tune conclusion) → PLAYTEST §E
 
 ---
 
+## 🛑 STOP — end of the night run (after P2·5)
+
+**Why stopped:** the remaining candidate pool no longer meets the rubric at acceptable risk:
+the verify-build section split is FORBIDDEN by Phase-2's own rules (a refactor of a working
+system); the 01 spec-sync deserves a fresh session (a sloppy spec write is worse than an
+absent one in this codebase's ask-don't-assume culture); JSDoc/QA-renumber score 1–2 on
+mission value. Per "never idle-loop, never pad," stopping at the quality cliff beats
+forcing a 14th unit. The ☀️ MORNING SUMMARY at the top of this file is current and final:
+**14 commits, 13 shipped units (9 Phase-1 + 4 code Phase-2 + 1 analysis), v0.51.0 →
+v0.64.0, gate 345 → 412 pins + three per-game engine harnesses + fairness 25 — every code
+unit negative-controlled. All 7 machine-eye defects found tonight were fixed tonight.**
+All commits pushed to `origin/main` (github.com/holyscotsman/StarNix) for the morning read.
+
+---
+
 **PHASE 1 COMPLETE: all NINE units shipped, v0.52.0 → v0.60.0, gate grown 345 → 407
 verify-build assertions (+ ARM RUN 46, KBB RUN 26, fairness 25, view-smoke +5) — every
 code unit green-gated with a bite-proven negative control before commit. Phase 2 next;
