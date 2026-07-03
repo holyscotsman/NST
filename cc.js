@@ -264,6 +264,8 @@
     this._boostPending = false;
     this._boostTargetScore = 0;
     this._nextCoinAt = cfg.BASE_GAP * 0.5;
+    // (v0.102.0, C9, Jason) squeeze stretches: the canyon narrows to TWO lanes for 1-2 km
+    this._squeezeUntil = 0; this._squeezeSide = SIDE_LEFT; this._nextSqueezeAt = 700;
     this._gateZones = [];                // absolute distances of live gates; obstacle rows keep clear of these (fairness)
 
     this.pending = null;             // { question, power, kind, startedMs }
@@ -669,6 +671,13 @@
     }
     // obstacle rows — skip any that would land inside a gate's keep-clear window
     while (this.distance + cfg.DRAW_DIST >= this._nextRowAt) {
+      // (v0.102.0, C9) periodic squeeze: pick a side, hold it for 1-2 km, rest 1.5-2.5 km.
+      // Same side for the WHOLE stretch — consistent open lanes stay fair at MIN_GAP.
+      if (this._nextRowAt >= this._nextSqueezeAt && this._nextRowAt >= this._squeezeUntil) {
+        this._squeezeSide = this.rng.next() < 0.5 ? SIDE_LEFT : SIDE_RIGHT;
+        this._squeezeUntil = this._nextRowAt + 1000 + this.rng.next() * 1000;
+        this._nextSqueezeAt = this._squeezeUntil + 1500 + this.rng.next() * 1000;
+      }
       if (!this._nearGateZone(this._nextRowAt)) this._spawnRow(this._nextRowAt - this.distance);
       var gap = cfg.BASE_GAP - (this.speed - cfg.BASE_SPEED) * cfg.GAP_K;
       if (gap < cfg.MIN_GAP) gap = cfg.MIN_GAP; else if (gap > cfg.BASE_GAP) gap = cfg.BASE_GAP;
@@ -677,7 +686,9 @@
     // (v0.73.0, J9) energy CELLS — the v0.28 coin pipeline revived as the Garage currency.
     // Lines spawn between rows, never inside a gate's keep-clear zone; collecting feeds
     // coinScore, banked into profile.ccCells at run end.
-    while (this.distance + cfg.DRAW_DIST >= this._nextCoinAt) {
+    // (v0.102.0, C6) coins trail the ROW horizon by a full line-length: every obstacle a
+    // line could overlap is already live, so _coinFix sees the whole truth when routing.
+    while (this.distance + cfg.DRAW_DIST - 20 >= this._nextCoinAt) {
       if (!this._nearGateZone(this._nextCoinAt)) this._spawnCoinLine(this._nextCoinAt - this.distance);
       this._nextCoinAt += cfg.BASE_GAP * (0.9 + this.rng.next() * 0.6);
     }
@@ -687,6 +698,14 @@
    * path; `_rowOpenLane` records a guaranteed-clear lane. */
   CCSim.prototype._spawnRow = function (zAhead) {
     var rng = this.rng, r = rng.next();
+    // (v0.102.0, C9) inside a squeeze stretch: the wall holds ONE side the whole time —
+    // no new wall obstacles, no ducks; only the persistent side wall, sometimes + a jump.
+    if (this.distance + zAhead < this._squeezeUntil) {
+      this._spawnNarrow(this._squeezeSide, zAhead);
+      if (r < 0.35) this._spawnLowRock(1, zAhead);              // jump obstacles allowed, NO ducking
+      this._rowOpenLane = (this._squeezeSide === SIDE_LEFT) ? 2 : 0;
+      return;
+    }
     if (r < 0.10) {                                  // (v0.56.0) sweeper: a low beam panning the canyon — jump it (or slip past where it isn't)
       this._spawnSweep(zAhead);
       this._rowOpenLane = 1;                         // jump clears from anywhere (worst case); coins stay centre
@@ -765,6 +784,34 @@
     return o;
   };
 
+  // (v0.102.0, C6, Jason) coins never clip obstacles: the line SNAKES into open lanes at
+  // sealed rows, hops over jump walls, stays low near arches, and skips the sweeper's z
+  // (its beam pans every lane). Reads only existing obstacle state — zero extra rng draws,
+  // so downstream spawn sequences are untouched.
+  CCSim.prototype._coinFix = function (lane, z) {
+    var cfg = this.cfg, items = this.obstacles.items, n = items.length;
+    var outLane = lane, hop = false, low = false, skip = false, i, o, dz;
+    for (i = 0; i < n; i++) {
+      o = items[i]; if (!o.active) continue;
+      dz = Math.abs(o.z - z); if (dz >= 2.4) continue;
+      if (o.type === OB_SWEEP) { if (dz < 1.4) skip = true; }
+      else if (o.type === OB_LOWROCK) { hop = true; }
+      else if (o.type === OB_ARCH) { low = true; }
+    }
+    // sealed-lane check via the SAME truth the collision uses
+    var probe = { x: 0, y: 0, topY: cfg.PLAYER_H }, tryLanes = [outLane, 1, 0, 2], t;
+    for (t = 0; t < tryLanes.length; t++) {
+      var L = tryLanes[t], sealed = false;
+      probe.x = (L - 1) * cfg.LANE_W;
+      for (i = 0; i < n; i++) {
+        o = items[i]; if (!o.active || o.type !== OB_NARROW) continue;
+        if (Math.abs(o.z - z) >= 2.4) continue;
+        if (this._hitsObstacle(o, probe)) { sealed = true; break; }
+      }
+      if (!sealed) { outLane = L; break; }
+    }
+    return { lane: outLane, hop: hop, low: low, skip: skip };
+  };
   CCSim.prototype._spawnCoinLine = function (zAhead) {
     var cfg = this.cfg, rng = this.rng;
     if (rng.next() > cfg.COIN_LINE_CHANCE) return;
@@ -772,10 +819,16 @@
     var count = cfg.COIN_RUN_MIN + rng.int(cfg.COIN_RUN_MAX - cfg.COIN_RUN_MIN + 1);
     var arc = rng.next() < 0.3;                  // some lines arc up (collect by jumping)
     for (var i = 0; i < count; i++) {
+      var cz = zAhead + i * cfg.COIN_SPACING;
+      var fix = this._coinFix(lane, cz);
+      lane = fix.lane;                           // the line follows the dodge — a visible guide path
+      if (fix.skip) continue;
       var c = this.coins.acquire();
       if (!c) return;
-      c.lane = lane; c.x = (lane - 1) * cfg.LANE_W; c.z = zAhead + i * cfg.COIN_SPACING;
-      c.y = arc ? 0.6 + cfg.JUMP_HEIGHT * Math.sin(Math.PI * (i + 1) / (count + 1)) * 0.5 : 0.6;
+      var baseY = arc && !fix.low ? 0.6 + cfg.JUMP_HEIGHT * Math.sin(Math.PI * (i + 1) / (count + 1)) * 0.5 : 0.6;
+      if (fix.hop && !fix.low) baseY = Math.max(baseY, 0.6 + cfg.JUMP_HEIGHT * 0.55);
+      c.lane = lane; c.x = (lane - 1) * cfg.LANE_W; c.z = cz;
+      c.y = baseY;
       c.tested = false; c.collected = false;
     }
   };

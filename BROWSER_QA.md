@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-C14 — Coin routing + squeezes (added v0.102.0).** Coin lines visibly dodge into open lanes
+  and arc over rocks — following them should always be SAFE (that's the design: coins teach the
+  path). Every ~2.5-4 km the canyon squeezes to two lanes for 1-2 km: wall holds one side, jumps
+  only, never ducks. Flag if a squeeze feels unfair at high speed.
+
 - **QA-C13 — CC unit 1 (added v0.101.0).** Telegraphs read as real arrows (head + stem). The panning
   hazard is now visibly a scanner DRONE dragging a beam, and the how-to names it. Before a run, the
   how-to card lists what you have equipped. Coins are worth 1 each; check Garage prices feel right

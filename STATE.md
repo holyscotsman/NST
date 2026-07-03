@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.101.0 — CC unit 1: real arrows, scanner drone identity, loadout strip, value-1 coins (C1/C2/C11/C12)
+## v0.102.0 — CC unit 2: coin routing + squeeze stretches (C6/C9)
+
+cc-run 43 (coin-clip audit 0/300), fairness 25 green through squeezes. REMAINING: C7 boost
+rework, C10 barrel roll + C4 90° turns, C5/C8/C3 mountains+cinematics, G2 save/resume,
+G3 intro, G4 full-scan.
+
+> **Earlier this session (v0.101.0):** CC unit 1
 
 REMAINING batch #5: C6 coins-avoid-obstacles + C9 squeeze stretches, C7 boost rework,
 C10 barrel roll + C4 90° turns, C5/C8/C3 mountains+cinematics, G2 save/resume, G3 intro,

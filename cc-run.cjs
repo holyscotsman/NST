@@ -47,6 +47,56 @@ function runToQuestion(sim, maxSecs, pinShields) {
   return false;
 }
 
+/* ============ C6/C9 (v0.102.0): coin routing + squeeze stretches ============ */
+(function coinsAndSqueeze() {
+  group('C6/C9: coins never clip obstacles; squeeze stretches hold one side, no ducks');
+  var sim = mkSim(SEED + 61), dt = 1 / 60, bad = { sealed: 0, low: 0, sweep: 0 }, audits = 0;
+  var sawSqueeze = false, squeezeArch = 0, squeezeSweep = 0, squeezeOffSide = 0, archOutside = 0;
+  var realRow = sim._spawnRow.bind(sim);
+  sim._spawnRow = function (zAhead) {
+    var before = sim.obstacles.items.filter(function (o) { return o.active; }).length;
+    var inSq = (sim.distance + zAhead) < sim._squeezeUntil;
+    realRow(zAhead);
+    var items = sim.obstacles.items;
+    for (var i = 0; i < items.length; i++) {
+      var o = items[i];
+      if (!o.active || Math.abs(o.z - zAhead) > 0.5) continue;
+      if (inSq) {
+        sawSqueeze = true;
+        if (o.type === E.OB_ARCH) squeezeArch++;
+        if (o.type === E.OB_SWEEP) squeezeSweep++;
+        if (o.type === E.OB_NARROW && o.side !== sim._squeezeSide) squeezeOffSide++;
+      } else if (o.type === E.OB_ARCH) archOutside++;
+    }
+  };
+  for (var t = 0; t < 60 * 150; t++) {
+    if (sim.phase === 'RUN') sim.shields = 99;
+    sim.step(dt);
+    if (sim.phase === 'QUESTION') { sim.answer(0); sim.resumeAfterQuestion(); }
+    if (t % 30 === 0) {
+      audits++;
+      var cs = sim.coins.items, os = sim.obstacles.items;
+      for (var ci = 0; ci < cs.length; ci++) {
+        var cn = cs[ci]; if (!cn.active || cn.collected) continue;
+        for (var oi = 0; oi < os.length; oi++) {
+          var ob = os[oi]; if (!ob.active) continue;
+          var dz = Math.abs(ob.z - cn.z);
+          if (ob.type === E.OB_NARROW && dz < 1.0
+              && sim._hitsObstacle(ob, { x: (cn.lane - 1) * CFG.LANE_W, y: 0, topY: CFG.PLAYER_H })) bad.sealed++;
+          if (ob.type === E.OB_LOWROCK && dz < 0.8 && cn.y < 0.6 + CFG.JUMP_HEIGHT * 0.5) bad.low++;
+          if (ob.type === E.OB_SWEEP && dz < 1.0) bad.sweep++;
+        }
+      }
+    }
+  }
+  ok(bad.sealed === 0 && bad.low === 0 && bad.sweep === 0,
+     'C6: across 150s (' + audits + ' audits) no coin sits in a sealed lane, under a jump wall, or on a sweeper (' + JSON.stringify(bad) + ')');
+  ok(sawSqueeze, 'C9: squeeze stretches occur');
+  ok(squeezeArch === 0 && squeezeSweep === 0 && squeezeOffSide === 0,
+     'C9: inside a stretch — zero arches (no ducks), zero sweepers, the wall NEVER switches sides');
+  ok(archOutside > 0, 'C9: arches still spawn outside stretches (mix intact)');
+})();
+
 /* ============ 1) RESET + SPAWN DISCIPLINE ============ */
 (function resetSpawn() {
   group('RESET + SPAWN: clean state, row gaps, gate cadence');
