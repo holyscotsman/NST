@@ -101,7 +101,12 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.104.0 — CC unit 4: 90° turns + barrel roll (C4/C10)
+## v0.105.0 — CC unit 5: passing mountains, textured ridge, flybys (C5/C8/C3) — CC COMPLETE
+
+view-smoke +2. Batch #5 game items ALL DONE (ARM 10, KBB 11, CC 12). REMAINING: G2
+save/resume, G3 intro cinematic, G4 full-scan workflow. Browser QA owed v0.92–v0.105.
+
+> **Earlier this session (v0.104.0):** CC unit 4
 
 cc-run 55, view-smoke +3. Turn↔boost interplay: overrun corners autopilot; boost cancels
 live warnings. REMAINING: C5/C8/C3 mountains+cinematics, G2 save/resume, G3 intro, G4 scan.

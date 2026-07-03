@@ -203,6 +203,22 @@ if (view) {
       && view._endCap.position.z < -(sim.cfg.DRAW_DIST - 10));
   }
 
+  // (v0.105.0, C8/C3) mountains pass by (30 children forever, frozen under reduced motion)
+  {
+    const zs0 = view.peaks.children.map(m2 => m2.position.z);
+    sim.speed = sim.cfg.MAX_SPEED;
+    for (let f = 0; f < 90; f++) view.render(1 / 60);
+    const zs1 = view.peaks.children.map(m2 => m2.position.z);
+    const moved = zs1.filter((z, i2) => z !== zs0[i2]).length;
+    ok("C8: peaks drift +z with travel (" + moved + "/30 moved)", moved === 30 && view.peaks.children.length === 30);
+    const savedRM = view.reducedMotion; view.reducedMotion = true;
+    const zs2 = view.peaks.children.map(m2 => m2.position.z);
+    for (let f = 0; f < 30; f++) view.render(1 / 60);
+    const frozen = view.peaks.children.every((m2, i2) => m2.position.z === zs2[i2]);
+    ok("C8: reduced motion freezes the range", frozen);
+    view.reducedMotion = savedRM;
+  }
+
   // (v0.104.0, C10) barrel roll: additive full spin over _bank; reduced motion never spins
   {
     view._bank = 0.1; view._rollT = 0;

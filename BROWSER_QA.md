@@ -229,6 +229,10 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-C17 — Living canyon (added v0.105.0).** Intro shot: no mountain crosses the chasm; near
+  ridge shows rock texture. In flight: the ranges visibly slide past (near faster than far) with
+  fresh silhouettes; every ~26 s a BCM ship sweeps across the sky. Reduced motion: ranges hold still.
+
 - **QA-C16 — Turns + barrel roll (added v0.104.0).** At ~255 km a gold MOVE LEFT/RIGHT banner
   flashes ~4 s out: reach the matching outer lane or you clip the wall (one shield). Made corners
   kick a satisfying roll. Double-tap a direction: two-lane move with a full barrel roll (single

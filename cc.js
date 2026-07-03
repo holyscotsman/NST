@@ -1333,6 +1333,12 @@
     // QA-C1 asks for. Far row stays fogged: that wash IS the haze.
     var matNear = new THREE.MeshStandardMaterial({ color: 0x4a4056, roughness: 1.0, metalness: 0.0, fog: false });
     var matFar = new THREE.MeshStandardMaterial({ color: 0x2c2536, roughness: 1.0, metalness: 0.0 });
+    // (v0.105.0, C5, Jason: "better texture") rock texture on the near ridge when the asset
+    // exists — tinted by the same pinned color, so flat-color fallback and pins are unchanged.
+    try {
+      var Apk = this._A || {};
+      if (Apk.ccRock || Apk.ccSurface) { matNear.map = this._tex(Apk.ccRock || Apk.ccSurface, 3, 2, true); if (matNear.needsUpdate !== undefined) matNear.needsUpdate = true; }
+    } catch (ePk) {}
     this._peakMatNear = matNear; this._peakMatFar = matFar;   // (P2·2) pinned by cc-view-smoke
     this._disposables.push(matNear); this._disposables.push(matFar);
     var lip = cfg.LANE_W * 1.5 + 2.6;             // outer wall |x|
@@ -1370,13 +1376,16 @@
         var f = i / 8;
         var h = 7 + ((i * 37) % 13);                              // 7..19
         var r = 5.5 + ((i * 23) % 5) + h * 0.16;                  // wider bases under taller peaks
-        var xOff = lip + 12 + f * 58 + ((i * 13) % 6);            // |x| ~21..79
+        // (v0.105.0, C5, Jason) near ridge pushed OUT (+9) so no peak ever reads as
+        // crossing the chasm from the raised intro camera; heights unchanged.
+        var xOff = lip + 21 + f * 58 + ((i * 13) % 6);            // |x| ~30..88
         var z = -22 - f * 40 - ((i * 7) % 9);                     // z ~-22..-70
         var g = this._track(crag(new THREE.ConeGeometry(r, h, 7, 4), CRAG_AMT, h));   // 4 height segs = 3 craggable rings
         var m = new THREE.Mesh(g, matNear);
         m.position.set(side * xOff, RIM_Y + h / 2 - 0.8, z);
         if (m.rotation) m.rotation.y = i * 1.1;
         if (m.scale) m.scale.set(1 + ((i * 17) % 4) * 0.12, 1, 0.8 + ((i * 11) % 3) * 0.18);   // asymmetric footprints
+        m.userData = m.userData || {}; m.userData.par = 0.30; m.userData.z0 = z; m.userData.wrap = 96;   // (v0.105.0, C8) pass-by parallax
         grp.add(m);
       }
       // far ridge: 6 tall dark silhouettes sitting in the fog band — the hazed range on the horizon
@@ -1391,6 +1400,7 @@
         mk.position.set(side * xk, RIM_Y + hk / 2 - 1.2, zk);
         if (mk.rotation) mk.rotation.y = k * 0.9 + 0.4;
         if (mk.scale) mk.scale.set(1.15, 1, 0.75);                // flattened toward the camera = layered backdrop
+        mk.userData = mk.userData || {}; mk.userData.par = 0.12; mk.userData.z0 = zk; mk.userData.wrap = 96;   // (C8) far row crawls
         grp.add(mk);
       }
     }
@@ -1741,6 +1751,37 @@
     if (this.texWallR) this.texWallR.offset.x = wo;
     if (this.texWallLN) this.texWallLN.offset.x = wo;
     if (this.texWallRN) this.texWallRN.offset.x = wo;
+    // (v0.105.0, C8, Jason) the mountains actually PASS: each peak drifts +z at its row's
+    // parallax rate and wraps far ahead with a deterministic re-jitter (position-hash — no
+    // rng, zero allocation, same 30 children forever). Frozen under reduced motion.
+    if (this.peaks && this.peaks.children && !this.reducedMotion) {
+      var pk = this.peaks.children, pv = sim.speed * dt;
+      for (var pi = 0; pi < pk.length; pi++) {
+        var pm = pk[pi], pu = pm.userData;
+        if (!pu || !pu.par) continue;
+        pm.position.z += pv * pu.par;
+        if (pm.position.z > 24) {
+          pm.position.z -= pu.wrap;
+          var ph2 = Math.sin((pm.position.x + pm.position.z) * 12.9898 + pi * 78.233) * 43758.5453;
+          var pn = ph2 - Math.floor(ph2);
+          pm.position.x += (pn - 0.5) * 6;                      // fresh silhouette each lap
+          if (pm.rotation) pm.rotation.y += pn * 2.4;
+        }
+      }
+    }
+    // (v0.105.0, C3, Jason) ambient flythrough: every so often one squadron ship peels off
+    // and sweeps across the sky band — pure view-side set dressing off the forked view clock.
+    if (this.squadron && this.squadron.children.length && !this.reducedMotion) {
+      if (!this._flyT && ((this._t + 11) % 26) < dt * 2) { this._flyT = 0.0001; this._flyIdx = (this._flyIdx || 0) % this.squadron.children.length; }
+      if (this._flyT) {
+        this._flyT += dt / 5;                                    // a 5s sweep
+        var fsh = this.squadron.children[this._flyIdx], fk2 = Math.min(1, this._flyT);
+        var fe = fk2 * fk2 * (3 - 2 * fk2);
+        fsh.position.x = -16 + 32 * fe;
+        fsh.position.y = 8.5 + Math.sin(fe * Math.PI) * 3.2;
+        if (this._flyT >= 1) { this._flyT = 0; this._flyIdx++; }   // bob loop re-adopts it next frame
+      }
+    }
     // planet surface scrolls along travel like the floor (its own rate for the larger tiles)
     var so = -d * 0.14;
     if (this.texSurfL) this.texSurfL.offset.y = so;
@@ -1752,6 +1793,7 @@
     if (this.squadron) {
       var sc = this.squadron.children, sq2 = this._squad, tt = this._t;
       for (i = 0; i < sc.length; i++) {
+        if (this._flyT && i === this._flyIdx) continue;          // (v0.105.0, C3) mid-flyby: the sweep owns this ship
         var qb = sq2[i];
         sc[i].position.y = qb.y + Math.sin(tt * 1.5 + qb.ph) * 0.34;
         sc[i].position.x = qb.x + Math.sin(tt * 0.8 + qb.ph) * 0.72;
