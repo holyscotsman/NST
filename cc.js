@@ -1510,17 +1510,23 @@
         this.spawnSparks(p.x, 0.15, 0, this.reducedMotion ? 0 : 6);            // dust puff at the touch-down point
       }
     }
-    var squash = 1 - 0.30 * this._duckF - 0.22 * this._landT * this._landT;   // (Jason v0.47.0) gentler duck squash
+    // (v0.72.0, J4) duck rework — Jason disliked the deflate. The read is now a COMMITTED
+    // POWER-DIVE: steep nose-down (0.5 rad), a real drop toward the deck, a slight forward
+    // stretch (speed), NO vertical squash at all (landing squash stays), and the engine
+    // plume flares during the dive like an afterburner kick.
+    var squash = 1 - 0.22 * this._landT * this._landT;                        // landing squash only
     this.ship.position.x = p.x;
-    this.ship.position.y = 0.6 + p.y - 0.10 * this._duckF + (this._introLift || 0);   // (Jason v0.47.0) barely sinks — the read is the nose-down dive, not dropping to the floor
+    this.ship.position.y = 0.6 + p.y - 0.28 * this._duckF + (this._introLift || 0);   // dives toward the deck (was 0.10)
     this.ship.rotation.z = this._bank;
-    if (this.ship.rotation && typeof this.ship.rotation.x === 'number') this.ship.rotation.x = 0.22 * this._duckF;   // (Jason v0.47.0) duck pitches the nose down — reads as diving UNDER the arch
+    if (this.ship.rotation && typeof this.ship.rotation.x === 'number') this.ship.rotation.x = 0.5 * this._duckF;   // steep dive-under
     this.ship.scale.y = squash;
-    this.ship.scale.x = 1 + 0.18 * this._duckF + 0.12 * this._landT;
+    this.ship.scale.x = 1 + 0.06 * this._duckF + 0.12 * this._landT;
+    if (this.ship.scale && typeof this.ship.scale.z === 'number') this.ship.scale.z = 1 + 0.10 * this._duckF;   // forward stretch = speed
 
-    // (04 task 8) boost rocket plume — flare + fast flicker while boosting, hidden otherwise
+    // (04 task 8) boost rocket plume — flare + fast flicker while boosting; (J4) it also
+    // flares as an afterburner kick during the dive-under
     if (this.shipPlume) {
-      var boosting = !!sim.boostActive;
+      var boosting = !!sim.boostActive || this._duckF > 0.35;
       if (this.shipPlume.visible !== boosting) this.shipPlume.visible = boosting;
       if (boosting && this.shipPlumeMat && typeof this.shipPlumeMat.opacity === "number") {
         this.shipPlumeMat.opacity = 0.6 + 0.35 * Math.sin(this._t * 38);   // rocket-exhaust flicker

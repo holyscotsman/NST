@@ -214,6 +214,10 @@ if (view) {
     sim.player.ducking = true;
     for (let f = 0; f < 30; f++) view.render(1 / 60);
     ok("ducking pitches the nose down (dive-under read)", view.ship.rotation.x > 0.15);
+    // (v0.72.0, J4) the rework's contract: STEEP dive, NO deflate, afterburner flare
+    ok("J4: full duck is a steep power-dive (pitch >= 0.4) with ZERO vertical squash",
+       view.ship.rotation.x >= 0.4 && view.ship.scale.y === 1);
+    ok("J4: the plume flares as an afterburner during the dive", !!view.shipPlume && view.shipPlume.visible === true);
     sim.player.ducking = false; sim.player.duckT = 0;
     for (let f = 0; f < 40; f++) view.render(1 / 60);
     ok("pitch releases when the duck ends", view.ship.rotation.x < 0.05);

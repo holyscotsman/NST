@@ -622,6 +622,14 @@ other three modules. Negctrl (cap disabled) failed exactly its pin. Gate 418/418
 Commit: `v0.71.0 — J7/J8 150-word display caps (+expanders)`.
 **Remaining from Jason's batch:** J4 CC duck rework, J9 CC shop.
 
+**J4 SHIPPED (v0.72.0):** duck = committed power-dive (pitch 0.5, deck-drop 0.28, forward
+stretch, NO squash) + afterburner plume flare during the dive. Pose shot `64-*.png`; the
+motion feel is Jason's QA-C5 re-judge. Sprite answer: not required, but a supplied
+`ccShipDuck` would sharpen it — asset-gated swap is a one-unit follow-up. View-smoke +2;
+negctrl (pitch reverted) failed exactly its pin. Gate 418/418.
+Commit: `v0.72.0 — J4 CC duck power-dive rework`.
+**Remaining: J9 CC shop (the big one) — next.**
+
 ---
 
 ## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above
