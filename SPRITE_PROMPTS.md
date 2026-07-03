@@ -129,6 +129,20 @@ rock prompt; strong dark outline contrast against a deep-violet nebula is the re
 
 ---
 
+## Optional sprite (new, v0.76.0)
+
+### `ccShipDuck` — the CC dive pose · ships at 512×512 · top-rear 3/4, nose DOWN
+
+> Wired-and-waiting: CC's duck is now a nose-down power-dive (v0.72.0); this sprite would replace the
+> flat `ccShip` during the dive for a sharper read. Asset-gated — zero code risk if never supplied.
+>
+> **Prompt:** "The SAME fighter as `ccShip` (match its hull design, colors and materials exactly) seen
+> from the chase camera: **top-rear three-quarter view with the nose pitched steeply DOWN** into a dive,
+> wings level (no roll), tail and twin aqua `#1FDDE9` engine nozzles raised toward the viewer and firing
+> hard — bright elongated exhaust with a small afterburner flare. The fuselage foreshortens toward the
+> lowered nose. Same faceted light-grey/charcoal paneling and iris `#7855FA` trim as `ccShip`.
+> [+ Style suffix]"
+
 ## Optional texture
 
 ### `ccGroundN` — normal map for the CC chasm floor · ships at 1024×1024 · seamless
