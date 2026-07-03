@@ -429,6 +429,13 @@
     var top = s.querySelector(".sx-menu-top");
     function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", fn); top.appendChild(b); }
     if (this.lastGameId && StarNix.getGame(this.lastGameId)) topBtn("Continue", function () { self.enterGame(self.lastGameId); });
+    // (v0.87.0, L1) the due queue becomes playable: one tap -> Study mode on exactly those cards
+    var dueQs = this._dueQuestions(30);
+    if (dueQs.length) {
+      var dueBtn = el("button", "sx-btn sx-btn-ghost sx-due-chip", "\u23F0 " + dueQs.length + " due \u00b7 Review \u25b8");
+      this._on(dueBtn, "click", function () { self.showExam(null, { questions: dueQs, mode: "study" }); });
+      top.appendChild(dueBtn);
+    }
     topBtn("Stats / Codex", function () { self.showStats(); });
     topBtn("Settings", function () { self.showSettings(); });
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
@@ -598,6 +605,7 @@
         reducedMotion: rm,
         extraTime: !!(core.profile && core.profile.settings && core.profile.settings.extraTime),   // (v0.84.0, B2)
         onComplete: function (sum) { self._recordExam(sum); },
+        onRedrill: function (qs) { self.showExam(null, { questions: qs, mode: "study" }); },   // (v0.87.0, L2)
         onExit: function () { self.showMenu(); },
         onRetry: function () { self.showExam(count, opts); }
       });
@@ -748,6 +756,22 @@
 
   // (v0.51.0) Weakest questions: seen-and-shaky first — lowest Leitner bucket, then broken streak,
   // then most misses, then longest-unseen. Unseen questions are excluded (nothing to drill yet).
+  // (v0.87.0, L1) the questions whose Leitner interval has lapsed, most overdue first —
+  // the menu chip serves exactly this queue into Study mode.
+  Shell.prototype._dueQuestions = function (n) {
+    var core = StarNix.core, out = [];
+    try {
+      var now = core.clock && core.clock.now ? core.clock.now() : Date.now();
+      var dueSet = {};
+      var ids = core.mastery.dueList ? core.mastery.dueList(now) : [];
+      for (var d = 0; d < ids.length; d++) dueSet[ids[d]] = true;
+      var pool = core.questions.pool();
+      for (var i = 0; i < pool.length; i++) if (dueSet[pool[i].id]) out.push({ q: pool[i], m: core.mastery.get(pool[i].id) });
+      out.sort(function (a, b) { return (a.m.lastSeen - b.m.lastSeen) || (a.m.bucket - b.m.bucket); });
+    } catch (e) {}
+    return out.slice(0, n || 30).map(function (x) { return x.q; });
+  };
+
   Shell.prototype._weakestQuestions = function (n) {
     var core = StarNix.core, out = [];
     try {
@@ -1268,6 +1292,8 @@
       ".sx-crest{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--iris300);margin-bottom:8px;opacity:.9;}",
       ".sx-crest-x{flex-shrink:0;}",
       ".sx-menu-top{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:6px 0 18px;}",
+      ".sx-due-chip{border-color:var(--gold);color:var(--gold);}",
+      ".sx-due-chip:hover{background:rgba(255,200,87,.12);}",
       ".sx-cards{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:480px;margin:0 auto;}",
       ".sx-card{width:100%;max-width:440px;text-align:left;background:rgba(20,20,29,.9);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;font-family:inherit;color:var(--text);transition:transform .08s,border-color .12s,box-shadow .12s;}",
       ".sx-card:hover{transform:translateY(-3px);}",

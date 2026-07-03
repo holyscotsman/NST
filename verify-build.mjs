@@ -1008,6 +1008,9 @@ async function runFrames(n = 6) {
     ok("exam review lists exactly the 1 missed question", cont.querySelectorAll(".sx-exam-rv").length === 1);
     ok("exam onComplete fires with the summary on completion", !!completed && completed.pct === 50 && completed.total === 2 && completed.correct === 1);
 
+    // L2 (v0.87.0): without an onRedrill callback the redrill action must not render
+    ok("no onRedrill -> no redrill button", !cont.querySelector('[data-a="redrill"]'));
+
     // exit via the results-screen Menu button -> teardown + onExit
     const menuBtn = Array.prototype.slice.call(cont.querySelectorAll(".sx-exam-btn")).filter(b => b.getAttribute("data-a") === "menu")[0];
     if (menuBtn) menuBtn.click();
@@ -1082,6 +1085,45 @@ async function runFrames(n = 6) {
       const hB = EX.run({ mode: "blitz", container: cB, questions: mk(), count: 4, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, extraTime: true, onExit: () => {}, onRetry: () => {} });
       ok("extra time stretches the Blitz decay window by 1.6x", Math.abs(hB._state.qWindow - EX.windowFor(1) * 1.6) < 1);
       hB.teardown();
+    }
+
+    // L1/L2 (v0.87.0): the due queue becomes playable + misses redrill straight into Study
+    console.log("\nL1/L2. Due-review chip + miss redrill");
+    {
+      const poolL = SN.core.questions.pool();
+      const seedIds = [poolL[0].id, poolL[1].id, poolL[2].id];
+      seedIds.forEach(id => SN.core.mastery.record(id, false));         // bucket 0 = always due
+      const dueIds = SN.core.mastery.dueList(SN.core.clock.now());
+      ok("mastery.dueList serves the lapsed queue (seeded 3, got " + dueIds.length + ")",
+        seedIds.every(id => dueIds.indexOf(id) >= 0));
+      shell.showMenu();
+      const chip = w.document.querySelector(".sx-due-chip");
+      ok("menu shows the gold due chip with the count", !!chip && /3|due/.test(chip.textContent));
+      chip.click();
+      ok("chip launches Study mode on exactly the due subset",
+        shell.screen === "exam" && shell._exam._state.mode === "study" && shell._exam._state.order.length >= 3);
+      shell.showMenu();
+
+      const cR = w.document.createElement("div"); w.document.body.appendChild(cR);
+      let redrilled = null;
+      const rdPool = [
+        { id: "rd1", domain: "vms", difficulty: 1, stem: "R1", options: ["a", "b"], correctIndex: 0, explanation: "e" },
+        { id: "rd2", domain: "vms", difficulty: 1, stem: "R2", options: ["a", "b"], correctIndex: 0, explanation: "e" }
+      ];
+      const hR = EX.run({ mode: "study", container: cR, questions: rdPool, count: 2, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, onRedrill: (qs) => { redrilled = qs; }, onExit: () => {}, onRetry: () => {} });
+      for (let qi = 0; qi < 2; qi++) {
+        const dq = hR._state.order[hR._state.view], wrongIdx = (dq.correctIndex + 1) % dq.options.length;
+        cR.querySelectorAll(".sx-exam-opt")[wrongIdx].click();                     // select
+        const cf = cR.querySelector(".sx-exam-confirm"); if (cf) cf.click();       // grade
+        await wait(300);
+        const nx = cR.querySelector(".sx-exam-fb .primary"); if (nx) nx.click();   // continue
+        await wait(300);
+      }
+      const rdBtn = cR.querySelector('[data-a="redrill"]');
+      ok("end screen offers 'Redrill the 2 missed'", !!rdBtn && /Redrill the 2/.test(rdBtn.textContent));
+      rdBtn.click();
+      ok("redrill hands back exactly the missed questions", !!redrilled && redrilled.length === 2
+        && redrilled.every(q => /^rd/.test(q.id)));
     }
   }
 

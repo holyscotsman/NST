@@ -6,6 +6,10 @@ Sections per entry: **Added · Changed · Fixed · Removed**. Each line: `<what>
 
 ---
 
+## [0.87.0] - 2026-07-03
+
+- **The due queue becomes playable + misses redrill (Batch #4, L1+L2).** L1: new core seam `mastery.dueList(now)` (ids whose Leitner interval has lapsed); the menu now shows a gold "⏰ N due · Review ▸" chip whenever cards are due — one tap launches Study mode on exactly that queue (most-overdue first, capped at 30 — a session-sized task). The spacing engine finally has a surface that SERVES it instead of just displaying counts. L2: the exam end screen now offers "Redrill the N missed ▸" (only when an onRedrill callback is wired — pinned both ways), dropping straight into Study mode on the missed questions: miss → read explanation → immediately retrieve again. Pins: verify-build 444 (+6: dueList queue, chip render, chip→study-on-subset, no-callback→no-button, redrill offer, redrill hands back exactly the misses). Negative controls: chip suppressed and redrill-offer suppressed → each pin failed (harness then crashes loudly on the missing element — red gate either way) → restored.
+
 ## [0.86.0] - 2026-07-03
 
 - **Pages privacy: app-only deploys (Batch #4, B5).** GitHub Pages was deploy-from-branch, publicly serving the ENTIRE repo — every spec, STATE.md, BROWSER_QA.md, and the question-authoring pipeline (starnix_questions.md) were live URLs. New `.github/workflows/pages.yml` publishes an artifact containing only `index.html` (+.nojekyll), and the repo's Pages config is switched to build_type=workflow (via gh api). Side effect: any bookmarked doc URLs now 404 — intended. Gate: verify-build 438 (+1 pin: the workflow ships app-only, no `cp -r`); negative control (workflow pointed at repo root) failed exactly that pin. Live cutover verified post-push: app serves 200 with the new BUILD_VERSION, STATE.md serves 404.

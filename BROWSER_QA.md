@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-E9 — Due chip + redrill (added v0.87.0).** After some play, the menu grows a gold "⏰ N due ·
+  Review ▸" chip — tapping it opens Study mode on your lapsed cards (chip hides at zero due). Finish
+  any exam with misses: the end screen's primary button is now "Redrill the N missed ▸" and reruns
+  exactly those questions in Study mode.
+
 - **QA-K9 — Reduced-motion info + phone stack (added v0.85.0).** Reduced motion ON in KBB: damage/heal
   numbers and the DESTROYED banner still appear (static, no slide/shake/beams). On a phone: the question
   panel sits directly under the battle view (no scrolling past artifacts each turn), and in the shop

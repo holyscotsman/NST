@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.86.0";
+  var BUILD_VERSION = "0.87.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -226,6 +226,16 @@
       },
       get: function (id) { return map[id]; },
       all: function () { return map; },
+      // (v0.87.0, L1) ids whose review interval has lapsed — the servable due queue.
+      dueList: function (now) {
+        var out = [];
+        for (var k in map) {
+          if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+          var m = map[k];
+          if (m.seen && (m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0)) <= now) out.push(k);
+        }
+        return out;
+      },
       summary: function () {
         var totalSeen = 0, uniqueCorrect = 0, uniqueIncorrect = 0, masteredCount = 0;
         for (var k in map) {

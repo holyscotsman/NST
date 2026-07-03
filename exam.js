@@ -633,7 +633,9 @@
         html += '<div class="sx-exam-dom"><h4>Review &middot; ' + sum.wrong.length + " missed</h4></div>";
         html += '<div class="sx-exam-review"></div>';
       }
-      html += '<div class="sx-exam-actions"><button class="sx-exam-btn primary" type="button" data-a="retry">Retake</button><button class="sx-exam-btn ghost" type="button" data-a="menu">&larr; Menu</button></div>';
+      var redrill = (sum.wrong.length && typeof opts.onRedrill === "function")
+        ? '<button class="sx-exam-btn primary" type="button" data-a="redrill">Redrill the ' + sum.wrong.length + ' missed \u25b8</button>' : "";   // (v0.87.0, L2)
+      html += '<div class="sx-exam-actions">' + redrill + '<button class="sx-exam-btn ' + (redrill ? "ghost" : "primary") + '" type="button" data-a="retry">Retake</button><button class="sx-exam-btn ghost" type="button" data-a="menu">&larr; Menu</button></div>';
       end.innerHTML = html;
 
       if (sum.wrong.length) {
@@ -658,6 +660,7 @@
           on(btn, "click", function () {
             var a = btn.getAttribute("data-a");
             teardown();
+            if (a === "redrill") { opts.onRedrill(sum.wrong.map(function (r) { return r.q; })); }   // (v0.87.0, L2) miss -> immediate retrieval
             if (a === "retry") { if (typeof opts.onRetry === "function") opts.onRetry(); else run(opts); }
             else onExit();
           });

@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.86.0 — Pages privacy: app-only deploys (B5)
+## v0.87.0 — Due-review chip + miss redrill (L1+L2)
+
+mastery.dueList seam; gold menu chip serves the due queue into Study (≤30, most overdue
+first); exam end screen redrills the missed set. verify 444. NEXT: L3 optionNotes in games,
+L4+L5 Leitner promotion gating + longer intervals (ship together, one re-baseline).
+
+> **Earlier this session (v0.86.0):** Pages app-only deploys
 
 Pages switched deploy-from-branch → Actions workflow publishing ONLY index.html; repo docs
 and the question bank are no longer public URLs. verify 438. NEXT: L1+L2 due chip + miss
