@@ -545,6 +545,31 @@ Commit: `v0.66.0 — Trail cosmetics earned forever (ruling #3)`.
 
 ---
 
+## Phase 2 · iteration 8 — MINI-SPEC (before build)
+
+**What:** the owed spec re-syncs, per doc discipline (never overwrite; write the successor
+`_vX_Y` with a Change history entry): **02_ARM v1_4** — the §Death-by-timeout section now
+describes real canon (field scans damage `QUESTION_TIMEOUT_DMG = 14`; depot forgiving;
+lethal-timeout stale-Continue guard; Jason's ruling); **01_SHARED_CORE v1_5** — document the
+v0.52–v0.66 core surface: completed `persistence.submitScore`, the seven new profile fields
+(xp, rankSeen, streaks, streaksBest, achievements, daily, trailsUnlocked), and the four new
+`StarNix.*` namespaces (xp, achievements, daily, cosmetics) with their pure/deterministic
+guarantees and gate coverage pointers.
+**Why (rubric):** mission 3/5 — the ask-don't-assume culture runs on specs matching code;
+six shipped systems are currently spec-invisible. Verifiability 3/5 (docs; the gate proves
+nothing changed in code — full check must stay 415/415 untouched). Blast radius 5/5 (two new
+.md files + index refs). Size 3/5.
+**Negative control:** n/a (no code, no new assertions — the deliverable is the documents;
+the gate re-run proves zero code drift).
+
+**RESULT (v0.67.0):** both successors shipped — `02_v1_4` (timeout canon + the honest
+history correction) and `01_v1_5` (§14: submitScore completion, 7 profile fields, 4
+namespaces, open items). v1_3/v1_4 preserved untouched; §9a frozen contract untouched.
+Gate re-ran 415/415 — zero drift. The 01 doc-sync debt from units 2–7 is CLEARED.
+Commit: `v0.67.0 — Spec re-sync: 02_v1_4 + 01_v1_5`.
+
+---
+
 ## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above
 
 **Why stopped:** the remaining candidate pool no longer meets the rubric at acceptable risk:
