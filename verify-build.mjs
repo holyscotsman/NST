@@ -300,7 +300,7 @@ async function runFrames(n = 6) {
     ok("station total = sectors x cores-per-sector", armT.total() === armT.sectorsTotal() * 5);
     ok("station is 12 sectors / 60 cores (3 tiers x 20)", armT.sectorsTotal() === 12 && armT.total() === 60);
     ok("tiers: 1-4 Easy, 5-8 Medium, 9-12 Hard", armT.tierOf(1) === 0 && armT.tierOf(4) === 0 && armT.tierOf(5) === 1 && armT.tierOf(8) === 1 && armT.tierOf(9) === 2 && armT.tierOf(12) === 2);
-    ok("boss sectors are 4/8/12 (Increment-2 hook)", armT.isBossSector(4) && armT.isBossSector(8) && armT.isBossSector(12) && !armT.isBossSector(1) && !armT.isBossSector(5) && !armT.isBossSector(9));
+    ok("boss sectors are 3/6/9/12 (v0.96 A6: two regulars then a dreadnought)", armT.isBossSector(3) && armT.isBossSector(6) && armT.isBossSector(9) && armT.isBossSector(12) && !armT.isBossSector(1) && !armT.isBossSector(2) && !armT.isBossSector(4) && !armT.isBossSector(5));
     ok("starts in sector 1", armT.sectorNum() === 1);
     const s1ceil0 = armT.bandCeil(0);
     armT.nextSector();                   // advance to sector 2 (re-briefs)

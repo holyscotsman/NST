@@ -86,8 +86,8 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   ok(m.length >= 1 && m[m.length - 1].id === qid1 && m[m.length - 1].correct === true
      && m[m.length - 1].meta && m[m.length - 1].meta.game === 'ARM',
      'right answer → mastery.record(id, true, {game:"ARM"})');
-  ok(T.coins() === coins0 + 25 && T.held().indexOf(qid1) >= 0 && T.cores()[1].state === 'collected'
-     && T.state() === 'SECTOR', 'right answer → +25 coins, core collected into cargo, back to SECTOR');
+  ok(T.coins() === coins0 + 15 && T.held().indexOf(qid1) >= 0 && T.cores()[1].state === 'collected'
+     && T.state() === 'SECTOR', 'right answer → +15 coins, core collected into cargo, back to SECTOR');
   T.prepCore(4); T.arrive(4);
   var qid4 = T.cores()[4].qid, coins1 = T.coins();
   T.answer(false);
@@ -130,8 +130,8 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   T.dock();
   ok(T.state() === 'DEPOT_Q' && T.hasQuestion(), 'docking opens the depot install question for the carried core');
   T.answer(true);
-  ok(T.state() === 'DEPOT_SUM' && T.station() === station0 + 1 && T.coins() === coins0 + 40,
-     'right install → station +1, +40 coins, delivery summary');
+  ok(T.state() === 'DEPOT_SUM' && T.station() === station0 + 1 && T.coins() === coins0 + 25,
+     'right install → station +1, +25 coins, delivery summary');
   T.closeSummary();
   ok(T.state() === 'SHOP', 'summary → SHOP');
   T.closeShop();
@@ -241,6 +241,14 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   ok(/BOSS_FLOW = 920/.test(H.ARM_SRC) && /bt \* BOSS_FLOW \* depth/.test(H.ARM_SRC)
      && /bossActive\) drawBossRush\(\)/.test(H.ARM_SRC) && /three static faint shafts/.test(H.ARM_SRC),
      'boss arena rushes upward: BOSS_FLOW streaks behind the world, calm under reduced motion');
+  // (v0.96.0, A6) economy + cadence sources
+  ok(/sec % 3 === 0/.test(H.ARM_SRC) && /MAX_TIER = 8/.test(H.ARM_SRC)
+     && /baseCost = \{ engine: 120, maneuver: 110, capacitor: 130, shieldCell: 130, rapid: 140 \}/.test(H.ARM_SRC)
+     && /lvl\[k\] \* 60/.test(H.ARM_SRC),
+     'A6: bosses every 3rd sector; 8 tiers; sector-income-scaled prices (base 110-140, slope 60)');
+  ok(/Math\.pow\(1\.06, lvl\.engine\)/.test(H.ARM_SRC) && /Math\.pow\(1\.05, lvl\.maneuver\)/.test(H.ARM_SRC)
+     && /Math\.pow\(0\.93, lvl\.rapid\)/.test(H.ARM_SRC) && /maxCharges = 1 \+ lvl\.capacitor/.test(H.ARM_SRC),
+     'A6: per-tier effects halved (same 8-tier endpoint), capacitor exempt at +1/tier');
   // (v0.95.0, A4/A5) briefing rework sources
   ok(/BCM DREADNOUGHT parked on our lane/.test(H.ARM_SRC) && /bossQueue\.length \+ " station cores/.test(H.ARM_SRC)
      && /pour fire into the ACTIVE port/.test(H.ARM_SRC),
@@ -249,7 +257,7 @@ var detSector3 = null;   // captured for the determinism probe against window 2
      && /body: why, close:/.test(H.ARM_SRC),
      'A5: teach line = explain first, answer as the closing line');
   // (v0.94.0, A2/A3) spread + aim assist + belt-cleared seam
-  ok(/AIM_ASSIST = 0\.1;/.test(H.ARM_SRC) && /runRng\.next\(\) - 0\.5\) \* 0\.03 \* lvl\.rapid/.test(H.ARM_SRC)
+  ok(/AIM_ASSIST = 0\.1;/.test(H.ARM_SRC) && /runRng\.next\(\) - 0\.5\) \* Math\.min\(0\.06, 0\.015 \* lvl\.rapid\)/.test(H.ARM_SRC)
      && /Math\.max\(-0\.05, Math\.min\(0\.05, dA \* AIM_ASSIST\)\)/.test(H.ARM_SRC),
      'A2: rapid-fire spread (runRng) + capped whisper aim assist');
   ok(/asteroids\.length === 0\) markBeltCleared\(\)/.test(H.ARM_SRC) && /p\.armBeltCleared = true/.test(H.ARM_SRC),
@@ -259,7 +267,7 @@ var detSector3 = null;   // captured for the determinism probe against window 2
      'A1: Consumables are GONE from the hangar (no tab state, no repair item)');
   ok(/simonTier === 0 \? 5 : simonTier === 1 \? 6 : 8/.test(H.ARM_SRC),
      'A7: Simon caps pinned at easy 5 / medium 6 / hard 8');
-  ok(/maxShields = 100;/.test(H.ARM_SRC) && /shieldRegenDelay = 4 \* Math\.pow\(0\.82, lvl\.shieldCell\)/.test(H.ARM_SRC)
+  ok(/maxShields = 100;/.test(H.ARM_SRC) && /shieldRegenDelay = 4 \* Math\.pow\(0\.91, lvl\.shieldCell\)/.test(H.ARM_SRC)
      && !/ds: "\+25 max shields"/.test(H.ARM_SRC),
      'A8: Shield Cell buys RECHARGE (delay+rate), capacity fixed at 100');
   ok(/charges >= 1 \? 1 : \(1 - rechargeTimer \/ rechargeTime\)/.test(H.ARM_SRC),

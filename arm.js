@@ -54,9 +54,8 @@
   var DEFAULT_W = 960, DEFAULT_H = 600;
 
   /* ---- Station shape: 60 cores across 12 sectors in 3 difficulty tiers ----- */
-  /* Each tier = 3 standard sectors + 1 boss sector (4/8/12). The boss ENCOUNTER */
-  /* is Increment 2; until then a boss sector plays as a standard sector so the   */
-  /* station stays completable. Endless ("keep going") is Increment 3.           */
+  /* (v0.96.0, A6, Jason) cadence: TWO standard sectors, then a dreadnought —   */
+  /* bosses at 3/6/9/12 (four per campaign, finale still sector 12).            */
   var CORES_PER_SECTOR = 5;
   var SECTORS = 12;                        // 3 tiers x (3 standard + 1 boss)
   var TOTAL = SECTORS * CORES_PER_SECTOR;  // 60-core station target
@@ -65,7 +64,7 @@
   var ENEMY_SHOT_DMG_BY_TIER = [10, 14, 18]; // enemy-bullet shield damage, by tier (was a flat 10)
   var BOSS_WP_HP_BY_TIER = [6, 9, 12];       // boss weakpoint shots-to-break per shed, by tier
   function tierOf(sec) { return sec <= 4 ? 0 : (sec <= 8 ? 1 : 2); }   // 0 Easy / 1 Medium / 2 Hard
-  function isBossSector(sec) { return sec % 4 === 0; }                 // 4, 8, 12 (Increment 2 hook)
+  function isBossSector(sec) { return sec % 3 === 0; }                 // (v0.96.0, A6) 3/6/9/12 — two regulars then a dreadnought
 
   // Fixed core layout + per-core challenge assignment (from the standalone).
   var LAYOUT = [
@@ -627,13 +626,15 @@
     /* ---------------------------------------------------------------------- */
     function shipR() { return SHIP_BASE_R + held.length * 5; }
     function deriveStats() {
-      shipThrust = 300 * Math.pow(1.12, lvl.engine);
-      shipTurn = 3.2 * Math.pow(1.10, lvl.maneuver);
-      maxCharges = 1 + lvl.capacitor;                       // start 1; Capacitor adds burst capacity
+      // (v0.96.0, A6) 8 tiers per item at HALF the per-tier effect (same endpoint as the
+      // old 4-tier curve, twice the climb). Capacitor exempt per Jason: still +1/tier.
+      shipThrust = 300 * Math.pow(1.06, lvl.engine);
+      shipTurn = 3.2 * Math.pow(1.05, lvl.maneuver);
+      maxCharges = 1 + lvl.capacitor;                       // start 1; Capacitor adds burst capacity (exempt)
       maxShields = 100;                                     // (v0.93.0, A8) capacity is fixed — Shield Cell now buys RECHARGE
-      shieldRegenDelay = 4 * Math.pow(0.82, lvl.shieldCell);   // 4s → ~1.8s at tier 4
-      shieldRegenRate = 18 * Math.pow(1.18, lvl.shieldCell);   // 18/s → ~35/s at tier 4
-      rechargeTime = 0.45 * Math.pow(0.86, lvl.rapid);      // seconds per charge; Rapid Fire shortens it
+      shieldRegenDelay = 4 * Math.pow(0.91, lvl.shieldCell);
+      shieldRegenRate = 18 * Math.pow(1.09, lvl.shieldCell);
+      rechargeTime = 0.45 * Math.pow(0.93, lvl.rapid);      // seconds per charge; Rapid Fire shortens it
       bulletSpeed = 540;
       if (charges === undefined) { charges = maxCharges; rechargeTimer = rechargeTime; }
       if (shields === undefined) shields = maxShields;
@@ -689,7 +690,7 @@
     function drawCoreQuestions() {
       // one question per core, distinct across the WHOLE run (usedIds persists between sectors).
       // No domain filter: a single domain has too few questions for multi-sector no-reuse.
-      cores = []; bossQueue = []; bossActive = isBossSector(sector);   // boss sectors (4/8/12): the boss holds the cores
+      cores = []; bossQueue = []; bossActive = isBossSector(sector);   // boss sectors (3/6/9/12): the boss holds the cores
       var ptypes = runRng.shuffle(PUZZLE_TYPES.slice()), pj = 0;   // per-sector puzzle order (runRng is forked per sector)
       var pos = randomCorePositions(runRng);                      // seeded core positions, regenerated each sector
       for (var i = 0; i < LAYOUT.length; i++) {
@@ -1120,7 +1121,7 @@
     function askCore(core) {
       core.qOpen = true; clearActiveEBullets(); setState("QUESTION");
       showQuestion(core.q, "⟟ Core scan · " + conceptTag(core), false, function (ok) {
-        if (ok) { coins += 25; held.push(core); core.state = "collected"; sfx("collect"); showToast("Core secured  +25 ⬡"); burst(core.x, core.y, COL.aqua, 16); }
+        if (ok) { coins += 15; held.push(core); core.state = "collected"; sfx("collect"); showToast("Core secured  +15 \u2b21"); burst(core.x, core.y, COL.aqua, 16); }
         else { core.state = "lost"; sectorLost.push(core.q); sfx("wrong"); showToast("Core destabilized — lost for now"); }
         core.qOpen = false; afterResolve();
       });
@@ -1275,7 +1276,7 @@
       var core = dq[dqi];
       setState("DEPOT_Q");
       showQuestion(core.q, "⬢ Depot install " + (dqi + 1) + " / " + dq.length + " · " + conceptTag(core), true, function (ok) {
-        if (ok) { stationBuild++; coins += 40; dIn++; dCoins += 40; sfx("correct"); }
+        if (ok) { stationBuild++; coins += 25; dIn++; dCoins += 25; sfx("correct"); }
         else { dLost++; sfx("wrong"); }
         dqi++; hud(); stepDeposit();
       });
@@ -1859,14 +1860,16 @@
     function showShop(back) {
       setState("SHOP"); panel.className = "arm-panel iris"; clear(panel);
       var ups = [
-        { ic: "🚀", nm: "Engine Boost", ds: "+12% thrust", key: "engine" },
-        { ic: "🎯", nm: "Maneuvering", ds: "+10% turn rate", key: "maneuver" },
+        { ic: "🚀", nm: "Engine Boost", ds: "+6% thrust", key: "engine" },
+        { ic: "🎯", nm: "Maneuvering", ds: "+5% turn rate", key: "maneuver" },
         { ic: "🔋", nm: "Capacitor", ds: "+1 charge (fire bursts)", key: "capacitor" },
         { ic: "💠", nm: "Shield Cell", ds: "Faster shield recharge", key: "shieldCell" },   // (v0.93.0, A8) was +25 max shields
-        { ic: "⚡", nm: "Rapid Fire", ds: "−14% recharge time", key: "rapid" },
+        { ic: "⚡", nm: "Rapid Fire", ds: "−7% recharge time", key: "rapid" },
       ];
-      var baseCost = { engine: 55, maneuver: 50, capacitor: 55, shieldCell: 65, rapid: 70 };
-      function upCost(k) { return baseCost[k] + lvl[k] * 40; }
+      // (v0.96.0, A6) priced so a full-clear sector (~250 ⬡ post-retune) buys 1, sometimes 2
+      var MAX_TIER = 8;
+      var baseCost = { engine: 120, maneuver: 110, capacitor: 130, shieldCell: 130, rapid: 140 };
+      function upCost(k) { return baseCost[k] + lvl[k] * 60; }
 
       panel.appendChild(mk("div", "arm-eyebrow e-gold", "⚙ Hangar bay"));
       var h = mk("h2", null, "Outfit your ship "); var bal = mk("span", "arm-balance", coins + " ⬡"); h.appendChild(bal); panel.appendChild(h);
@@ -1874,16 +1877,16 @@
       var grid = mk("div", "arm-shopgrid"); panel.appendChild(grid);
       {
         for (var i = 0; i < ups.length; i++) (function (it) {
-          var L = lvl[it.key], capped = L >= 4, cost = upCost(it.key), afford = coins >= cost && !capped;
+          var L = lvl[it.key], capped = L >= MAX_TIER, cost = upCost(it.key), afford = coins >= cost && !capped;
           var item = mk("div", "arm-item");
           item.appendChild(mk("div", "arm-ic", it.ic));
           var info = mk("div", "arm-info");
           info.appendChild(mk("div", "arm-nm", it.nm)); info.appendChild(mk("div", "arm-ds", it.ds));
           var pips = mk("div", "arm-pips");
-          for (var p = 0; p < 4; p++) pips.appendChild(mk("span", "arm-pip" + (p < L ? " on" : "")));
+          for (var p = 0; p < MAX_TIER; p++) pips.appendChild(mk("span", "arm-pip" + (p < L ? " on" : "")));
           info.appendChild(pips); item.appendChild(info);
           var b = btn("arm-buy", capped ? "MAX" : (cost + " ⬡"), function () {
-            if (coins >= cost && lvl[it.key] < 4) { coins -= cost; lvl[it.key]++; deriveStats(); if (it.key === "capacitor") charges = maxCharges; sfx("correct"); hud(); showShop(back); }
+            if (coins >= cost && lvl[it.key] < MAX_TIER) { coins -= cost; lvl[it.key]++; deriveStats(); if (it.key === "capacitor") charges = maxCharges; sfx("correct"); hud(); showShop(back); }
           });
           if (!afford) b.disabled = true; item.appendChild(b); grid.appendChild(item);
         })(ups[i]);
@@ -1898,7 +1901,7 @@
       try { return !!(win && (win.STARNIX_DEV || (win.location && win.location.search && /[?&]dev\b/.test(win.location.search)))); } catch (e) { return false; }
     }
     function devSkipToBoss() {
-      sector = 4; usedIds = []; held = []; sectorLost = [];   // jump straight to the first dreadnought (tier 1)
+      sector = 3; usedIds = []; held = []; sectorLost = [];   // jump straight to the first dreadnought
       drawCoreQuestions(); buildSectorWorld();
       shields = maxShields; charges = maxCharges; invuln = 0;  // give a clean ship so the fight is testable
       setState("SECTOR");
@@ -2017,7 +2020,7 @@
             if (--en.hp <= 0) {
               burst(en.x, en.y, COL.peach, 12); sfx("explode");
               enemies[i] = enemies[enemies.length - 1]; enemies.pop();
-              coins += 6; hud();
+              coins += 3; hud();   // (v0.96.0, A6) income halved — upgrades are the long game now
             } else { burst(en.x, en.y, COL.peach, 5); sfx("hit"); }
             break;
           }
@@ -2044,7 +2047,7 @@
           if (dist2(ast.x, ast.y, sb.x, sb.y) < ast.r + 3) {
             sb.active = false; ast.hp--; burst(ast.x, ast.y, "#aeb0c4", 5); sfx("hit");
             if (ast.hp <= 0) {
-              burst(ast.x, ast.y, "#cfd2ff", 16); sfx("explode"); coins += 2; hud();
+              burst(ast.x, ast.y, "#cfd2ff", 16); sfx("explode"); coins += 1; hud();
               if (ast.r >= 22) {
                 for (var f = 0; f < 2; f++) {
                   var ang2 = runRng.next() * TAU, nr = ast.r * 0.58, vc = 7 + rint(3), vv = [];
@@ -2103,7 +2106,7 @@
       // (v0.94.0, A2) Rapid Fire tiers loosen the barrel a touch (deterministic via runRng),
       // and every shot drifts a whisper toward the nearest threat — enemies in the field,
       // the active weakpoint in the boss arena. Allocation-free scan per 01 §13.
-      var ang = ship.angle + ((lvl.rapid > 0 && runRng) ? (runRng.next() - 0.5) * 0.03 * lvl.rapid : 0);
+      var ang = ship.angle + ((lvl.rapid > 0 && runRng) ? (runRng.next() - 0.5) * Math.min(0.06, 0.015 * lvl.rapid) * 2 : 0);
       var tx = 0, ty = 0, hasT = false, bd = 1e18;
       if (bossActive && boss && boss.active) { var wpA = wpPos(boss.wpActive); tx = wpA.x; ty = wpA.y; hasT = true; }
       else { for (var ei = 0; ei < enemies.length; ei++) { var en2 = enemies[ei]; var ddx = en2.x - ship.x, ddy = en2.y - ship.y, dd = ddx * ddx + ddy * ddy; if (dd < bd) { bd = dd; tx = en2.x; ty = en2.y; hasT = true; } } }
@@ -2699,7 +2702,7 @@
         bossEnabled: function () { return bossActive; },
         bossInfo: function () { var dead = 0; if (boss && boss.wps) for (var i = 0; i < boss.wps.length; i++) if (boss.wps[i].dead) dead++; return { active: !!(boss && boss.active), wpHp: boss ? boss.wpHp : 0, wpMax: boss ? boss.wpMax : 0, queue: bossQueue.length, dying: !!(boss && boss.dying), cores: cores.length, wpDead: dead, wpActive: boss ? boss.wpActive : 0, wpCount: boss && boss.wps ? boss.wps.length : 0 }; },
         hitWeakpoint: function (n) { var k = 0; while (k++ < (n || 1)) { if (!boss || !boss.active || boss.dying) break; if (--boss.wpHp <= 0) shedCore(); } },
-        setupBossSector: function () { sector = 4; usedIds = []; held = []; sectorLost = []; runRng = RNG.fork("arm-boss-test"); ship.x = ENTRY_X; ship.y = ENTRY_Y; ship.vx = ship.vy = 0; drawCoreQuestions(); buildSectorWorld(); setState("SECTOR"); return { enabled: bossActive, queue: bossQueue.length, cores: cores.length }; },
+        setupBossSector: function () { sector = 3; usedIds = []; held = []; sectorLost = []; runRng = RNG.fork("arm-boss-test"); ship.x = ENTRY_X; ship.y = ENTRY_Y; ship.vx = ship.vy = 0; drawCoreQuestions(); buildSectorWorld(); setState("SECTOR"); return { enabled: bossActive, queue: bossQueue.length, cores: cores.length }; },
         solvePuzzle: function () { var d = pendingPuzzleDone; if (d) { pendingPuzzleDone = null; d(); return true; } return false; },
         openPuzzleAt: function (idx, type) { var c = cores[idx]; if (c) { if (type) c.puzType = type; else c.puzType = c.puzType || c.ch.type; openPuzzle(c); return puzzleCore && (puzzleCore.puzType || puzzleCore.ch.type); } return null; },
         puzzleInfo: function () {

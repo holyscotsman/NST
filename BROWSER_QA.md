@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-A12 — Economy + cadence (added v0.96.0).** Sector 3 is now the first Dreadnought (two
+  regulars before every boss). Hangar: 8 pips per upgrade, each tier subtler; after a full-clear
+  sector you should afford ONE upgrade (occasionally two). Say if the squeeze feels wrong — knobs
+  are baseCost/slope in arm.js showShop and the income constants.
+
 - **QA-A11 — Briefing rework (added v0.95.0).** Core briefs: Vega explains the why FIRST and only
   names the answer in his final line — confirm you actually read differently now. Before a boss
   sector: he announces a Dreadnought holding your cores and gives the kill plan at the engage beat.

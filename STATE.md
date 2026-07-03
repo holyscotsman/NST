@@ -101,7 +101,14 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.95.0 — ARM unit 3: Vega explains-first + Dreadnought pre-boss brief (A4/A5)
+## v0.96.0 — ARM unit 4: economy + cadence (A6) — bosses 3/6/9/12, 8 half-effect tiers, halved income
+
+arm-run 80, verify 458. REMAINING in batch #5: A10 boss patterns (missiles + dual lasers),
+KBB K1-K11 (map needed — mapper crashed; kbb.js knowledge is fresh though), CC C1-C12,
+G2 save/resume, G3 intro, G4 full-scan workflow. Balance NOTE for Jason QA: sector income
+~250 vs first prices 110-140 — tune baseCost/slope if it feels too tight/loose.
+
+> **Earlier this session (v0.95.0):** ARM unit 3 briefings
 
 verify 458, arm-run 78. NEXT: A6 economy+cadence (heaviest ARM unit — 12-sector pins move),
 A10 boss patterns; then KBB (needs fresh map), CC, G2 save/resume, G3 intro, G4 full scan.
