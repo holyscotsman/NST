@@ -213,6 +213,10 @@ function newWindow() {
   V.step(2);
   ok(!q('.kbb-howto') && doc.querySelectorAll('.kbb-opt').length > 0, 'skipping the tour leaves the live first battle ready');
   ok(doc.querySelectorAll('.kbb-action').length === 3 && !!q('.kbb-act-hint'), 'action row + hint render');
+  // (v0.78.0, JB2) the left panel is 5 always-visible artifact slots; a fresh run = all empty
+  var slots0 = doc.querySelectorAll('.kbb-arts-card .kbb-slot');
+  ok(slots0.length === 5 && doc.querySelectorAll('.kbb-arts-card .kbb-slot.empty').length === 5,
+     'JB2: left panel renders 5 artifact slots, all empty at mount (' + slots0.length + ')');
   ok(ctx._rec.tracks.some(function (t) { return t.id === 'kbb'; }), "mount plays the 'kbb' bed");
 
   // Advance across whatever screen is up (feedback Continue / shop "Next battle") until options exist.
@@ -266,6 +270,29 @@ function newWindow() {
   } else {
     ok(false, 'boss-music probe could not reach a live battle');
     ok(false, "bed returns to 'kbb' after the boss flag clears (unreached)");
+  }
+
+  // (v0.78.0, JB2) shop chrome: actions pinned OUTSIDE the scroll region (no scrolling for
+  // Reroll / Next battle). Reach a feedback screen, flip the run to shop, Continue renders it.
+  if (toQuestion()) {
+    q('.kbb-opt:not(:disabled)').click();
+    var s4 = q('.kbb-submit'); if (s4 && !s4.disabled) s4.click();
+    V.step(2);
+    var run4 = KBB._test.state().run;
+    run4.phase = 'shop'; KBB._test.buildShop(run4);
+    var c4 = q('.kbb-cont:not(.kbb-submit)'); if (c4) { c4.click(); V.step(2); }
+    var shopP = q('.kbb-main.is-shop');
+    var actions = q('.kbb-shop-actions'), scroll = q('.kbb-shop-scroll');
+    ok(!!shopP && !!actions && !!scroll && actions.parentNode === shopP && scroll.parentNode === shopP,
+       'JB2: shop renders with a scroll region and a PINNED action row (both direct children)');
+    var btns = actions ? actions.querySelectorAll('.kbb-btn') : [];
+    var hasRe = false, hasNext = false;
+    for (var bi = 0; bi < btns.length; bi++) { var bt = (btns[bi].textContent || '').toLowerCase(); if (bt.indexOf('reroll') >= 0) hasRe = true; if (bt.indexOf('next') >= 0 || bt.indexOf('start run') >= 0) hasNext = true; }
+    ok(hasRe && hasNext && !scroll.contains(actions),
+       'JB2: Reroll + Next battle live in the pinned row, never inside the scroll');
+  } else {
+    ok(false, 'JB2 shop-structure probe could not reach a question');
+    ok(false, 'JB2 pinned-row probe unreached');
   }
 
   // unmount cleanliness

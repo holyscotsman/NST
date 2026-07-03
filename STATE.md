@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.77.0 — CC crash/cadence bundle (Jason batch #3: JB4/5/6 done; JB2/JB1/JB3 queued)
+## v0.78.0 — KBB layout (JB2 done; JB1 Jukebox + JB3 battle FX remain)
+
+Left panel = 5 always-visible artifact slot cards (empty dashed → filled card on buy); shop
+actions (Reroll/Next battle) pinned outside the scroll. kbb-run 31, control clean, Playwright
+shots 72–73 confirm. NEXT: JB1 Jukebox dev section, then JB3 KBB battle cinematics.
+
+> **Earlier this session (v0.77.0):** CC crash/cadence bundle (JB4/5/6)
 
 Crash screen says SHIP DOWN + Garage auto-opens; speed shake cycles per 40 km window
 (quadratic ramp, resets at boundary, reduced-motion honored, pinned); boost gate every

@@ -6,6 +6,10 @@ Sections per entry: **Added · Changed · Fixed · Removed**. Each line: `<what>
 
 ---
 
+## [0.78.0] - 2026-07-03
+
+- **KBB layout rework (Jason batch #3, JB2).** The left panel now renders 5 always-visible artifact SLOTS (Slot N — empty as dashed invites; a purchase fills its slot with the full card: category color bar, name, rarity badge, description) — the dead space under the old tiny tile row is gone. The shop panel is restructured so **Reroll and Next battle never scroll away**: `.kbb-main.is-shop` is a flex column with the Resupply header pinned top, a `.kbb-shop-scroll` region for wares, and a `.kbb-shop-actions` row pinned bottom (border-top separator); mobile falls back to natural document flow. Pins: kbb-run 31 (+3: 5-empty-slots at mount, pinned action row is a direct child outside the scroll, Reroll+Next live in it). Negative control: slots reverted to filled-only + actions re-nested in the scroll → exactly the 3 new pins failed → restored. Playwright verified (shots 72–73): actions row bottom 774 < panel bottom 788 at 1280×800.
+
 ## [0.77.0] - 2026-07-03
 
 - **CC crash + cadence bundle (Jason batch #3, JB4/JB5/JB6).** JB4: the game-over now says what happened — "💥 SHIP DOWN — you crashed" — and the Garage panel auto-opens on the crash screen so refit-before-restart is the default loop, not a hidden toggle. JB5: the speed camera-shake now CYCLES instead of pinning at max forever — amplitude scales by the square of (scored km % 40)/40, so each 40 km window builds from calm to full and resets at the boundary (reduced-motion still zeroes it; `_lastShakeAmp` exposed and pinned by cc-view-smoke: near-max at 39.9 km → near-zero at 40.1 km). JB6: `GATES_PER_BOOST` 5→2 — the boost gate fires every 2 gates = every 20 km scored (was 50 km). Pins: cc-run 39 (+JB6 cadence), cc-view-smoke +1 (shake cycle boundary), verify-build 423 (+JB4 source). Negative control: all three reverted → exactly the 3 new pins failed → re-applied.

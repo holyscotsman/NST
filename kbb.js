@@ -896,6 +896,17 @@
     css.push('.kbb-rar-rare{color:' + P.aqua + ';background:rgba(31,221,233,.14);}');
     css.push('.kbb-rar-legendary{color:' + P.gold + ';background:rgba(255,200,87,.16);}');
     css.push('.kbb-arts{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}');
+    // (v0.78.0, JB2) the left panel is 5 always-visible artifact SLOTS — empty ones invite,
+    // filled ones show the full card; the shop pins Reroll/Next-battle outside its scroll.
+    css.push('.kbb-slots{display:flex;flex-direction:column;flex-wrap:nowrap;gap:8px;}');
+    css.push('.kbb-slot{border:1px solid ' + P.border + ';border-left:3px solid ' + P.iris300 + ';border-radius:10px;background:rgba(28,28,40,.65);padding:8px 10px;min-height:44px;}');
+    css.push('.kbb-slot.empty{border-style:dashed;border-left-width:1px;background:rgba(28,28,40,.28);display:flex;align-items:center;justify-content:center;color:' + P.dim + ';font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;}');
+    css.push('.kbb-slot .nm{font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;}');
+    css.push('.kbb-slot .nm .rar{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:auto;}');
+    css.push('.kbb-slot .desc{font-size:10.5px;line-height:1.45;color:' + P.dim + ';margin-top:3px;}');
+    css.push('.kbb-main.is-shop{display:flex;flex-direction:column;overflow:hidden;}');
+    css.push('.kbb-shop-scroll{flex:1 1 auto;min-height:0;overflow:auto;padding-right:4px;}');
+    css.push('.kbb-shop-actions{flex:none;margin-top:10px;padding-top:10px;border-top:1px solid ' + P.border + ';}');
     css.push('.kbb-tile{position:relative;display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;padding:6px 9px 6px 7px;border-radius:9px;border:1px solid ' + P.border + ';background:rgba(28,28,40,.65);outline:none;}');
     css.push('.kbb-tile .sw{width:8px;height:18px;border-radius:3px;flex:none;}');
     css.push('.kbb-tile.empty{opacity:.32;font-weight:500;}');
@@ -951,7 +962,7 @@
     css.push('.kbb-ht-skip{background:transparent;border:none;color:' + P.dim + ';font-weight:700;font-size:12px;cursor:pointer;padding:6px 8px;font-family:inherit;}');
     css.push('.kbb-ht-skip:hover{color:' + P.text + ';}');
     // narrow fallback: laptop/landscape is the target; below this we stack to one column so nothing breaks
-    css.push('@media (max-width:820px){.kbb-root{display:flex;flex-direction:column;height:auto;min-height:100%;overflow:auto;}.kbb-top{align-self:center;}.kbb-combat{height:250px;flex:none;}.kbb-combat.is-cine{height:auto;}.kbb-leftcol{min-height:0;}.kbb-arts-card{flex:none;overflow:visible;}.kbb-enemy{align-self:stretch;}.kbb-main{overflow:visible;}}');
+    css.push('@media (max-width:820px){.kbb-root{display:flex;flex-direction:column;height:auto;min-height:100%;overflow:auto;}.kbb-top{align-self:center;}.kbb-combat{height:250px;flex:none;}.kbb-combat.is-cine{height:auto;}.kbb-leftcol{min-height:0;}.kbb-arts-card{flex:none;overflow:visible;}.kbb-enemy{align-self:stretch;}.kbb-main{overflow:visible;}.kbb-main.is-shop{display:block;overflow:visible;}.kbb-shop-scroll{overflow:visible;}}');
     st.textContent = css.join('');
     (doc.head || doc.documentElement).appendChild(st);
   }
@@ -1737,9 +1748,21 @@
       var p = s.artPanel; p.textContent = '';
       var sq = s.run.squad;
       p.appendChild(el(s.doc, 'div', 'kbb-eyebrow', 'Artifacts \u00b7 ' + sq.artifacts.length + '/' + CONFIG.maxArtifacts));
-      var arts = s.doc.createElement('div'); arts.className = 'kbb-arts';
-      if (sq.artifacts.length === 0) arts.appendChild(el(s.doc, 'div', 'kbb-tile empty', 'None equipped \u2014 buy them in the shop'));
-      else for (var i = 0; i < sq.artifacts.length; i++) arts.appendChild(artifactTile(s, sq.artifacts[i].def, i, false));
+      // (v0.78.0, JB2) always render maxArtifacts SLOTS: filled = full card, empty = invite
+      var arts = s.doc.createElement('div'); arts.className = 'kbb-arts kbb-slots';
+      for (var i = 0; i < CONFIG.maxArtifacts; i++) {
+        var slot = s.doc.createElement('div');
+        var a = sq.artifacts[i];
+        if (a) {
+          slot.className = 'kbb-slot';
+          slot.style.borderLeftColor = CAT_COLOR[a.def.category] || PALETTE.iris;
+          slot.innerHTML = '<div class="nm"><span class="sw" style="width:8px;height:14px;border-radius:3px;flex:none;background:' + (CAT_COLOR[a.def.category] || PALETTE.iris) + '"></span>' + a.def.name + '<span class="rar kbb-rar-' + a.def.rarity + '">' + a.def.rarity + '</span></div><div class="desc">' + a.def.description + '</div>';
+        } else {
+          slot.className = 'kbb-slot empty';
+          slot.textContent = 'Slot ' + (i + 1) + ' \u2014 empty';
+        }
+        arts.appendChild(slot);
+      }
       p.appendChild(arts);
       if (s.run.consumables.length) {
         var crow = s.doc.createElement('div'); crow.className = 'kbb-shoprow';
@@ -1949,9 +1972,12 @@
 
     function renderShop(s, p) {
       var run = s.run;
+      p.className = 'kbb-main is-shop';        // (v0.78.0, JB2) head + actions pinned, middle scrolls
+      var outer = p;
       var head = s.doc.createElement('div'); head.className = 'kbb-shop-h';
       head.innerHTML = '<div class="kbb-name">Resupply</div><div class="kbb-statline"><span class="kbb-coin">' + run.squad.coins + 'c</span><span>artifacts <b>' + run.squad.artifacts.length + '</b>/' + CONFIG.maxArtifacts + '</span></div>';
       p.appendChild(head);
+      var sc = el(s.doc, 'div', 'kbb-shop-scroll'); outer.appendChild(sc); p = sc;
       var full = run.squad.artifacts.length >= CONFIG.maxArtifacts, i;
       if (s.ui.replaceOffer >= 0) {
         var off0 = run.shop.artifacts[s.ui.replaceOffer];
@@ -2005,14 +2031,14 @@
         sell.innerHTML = 'Drag an artifact here to <b>sell</b> for 50% &nbsp;\u00B7&nbsp; legendary / cursed / once-per-run can\u2019t be sold';
       }
       p.appendChild(sell);
-      var shoprow = s.doc.createElement('div'); shoprow.className = 'kbb-shoprow'; shoprow.style.marginTop = '10px';
+      var shoprow = s.doc.createElement('div'); shoprow.className = 'kbb-shoprow kbb-shop-actions';
       var rb = s.doc.createElement('button'); rb.className = 'kbb-btn alt';
       rb.textContent = 'Reroll ' + run.shop.rerollCost + 'c'; rb.disabled = run.squad.coins < run.shop.rerollCost;
       rb.onclick = function () { shopReroll(s.run); s.ui.replaceOffer = -1; renderMain(s); renderSquad(s); renderCoins(s); };
       var lv = s.doc.createElement('button'); lv.className = 'kbb-btn';
       lv.textContent = run._preRun ? 'Start run \u25B8' : (run.round < CONFIG.roundsPerSection ? 'Next battle \u2192' : 'Next section \u2192');
       lv.onclick = function () { onLeaveShop(s); };
-      shoprow.appendChild(rb); shoprow.appendChild(lv); p.appendChild(shoprow);
+      shoprow.appendChild(rb); shoprow.appendChild(lv); outer.appendChild(shoprow);   // pinned, never scrolls away
     }
     function onBuyArtifact(s, oi, full) {
       if (full) { s.ui.replaceOffer = oi; renderMain(s); return; }
