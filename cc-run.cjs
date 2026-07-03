@@ -163,5 +163,65 @@ function runToQuestion(sim, maxSecs, pinShields) {
   ok(fingerprint(SEED + 5) !== fingerprint(SEED + 6), 'different seed -> different world');
 })();
 
+/* ============ 6) THE GARAGE (v0.73.0, J9): cells, upgrades, purchase math ============ */
+(function garage() {
+  group('GARAGE (J9): cells spawn+collect, upgrades bite, purchase math holds');
+  var sim = mkSim(SEED + 7);
+  sim.shields = 99;
+  var dt = 1 / 60;
+  for (var i = 0; i < 60 * 30; i++) { if (sim.phase === 'RUN') sim.shields = 99; sim.step(dt); if (sim.phase === 'QUESTION') { sim.answer(sim.pending.question.correctIndex); sim.resumeAfterQuestion(); } }
+  ok(sim.coinScore > 0 || sim.coins.items.some(function (c) { return c.active; }),
+     'energy cells spawn into the live run and get collected (v0.28 pipeline revived; ' + sim.coinScore + ' banked in 30s)');
+  // direct collect: drop a cell right on the nose
+  var c0 = sim.coins.acquire(); c0.lane = sim.player.lane; c0.x = sim.player.x; c0.y = 0.6; c0.z = 0.4; c0.tested = false; c0.collected = false;
+  var cellsBefore = sim.coinScore;
+  sim.step(dt);
+  ok(sim.coinScore === cellsBefore + 10, 'flying through a cell collects it (+10 -> ' + sim.coinScore + ')');
+  // upgrades: hull + plating
+  var s2 = mkSim(SEED + 8);
+  s2.applyUpgrades({ hull: 2, plating: 1 });
+  s2.reset();
+  ok(s2.shields === CFG.SHIELDS_START + 2, 'hull tier 2: runs start at ' + (CFG.SHIELDS_START + 2) + ' shields');
+  s2._placeObstacle(E.OB_LOWROCK, 1, 0, 0.5);
+  var sh0 = s2.shields;
+  s2.step(dt);
+  ok(s2.shields === sh0 && s2._platingLeft === 0 && s2.collisions === 1,
+     'ablative plating eats the FIRST crash (shields intact, flag consumed)');
+  stepFor(s2, 1.2);                                    // let the i-frames lapse
+  s2._placeObstacle(E.OB_LOWROCK, 1, 0, 0.5);
+  s2.step(dt);
+  ok(s2.shields === sh0 - 1, 'the SECOND crash costs a shield as normal (plating is once per run)');
+  // boost upgrade: +50% covered distance
+  var s3 = mkSim(SEED + 9);
+  s3.applyUpgrades({ boost: 1 });
+  s3._gatesPassed = CFG.GATES_PER_BOOST - 1;
+  ok(runToQuestion(s3, 90, CFG.SHIELDS_MAX), 'boost-upgrade probe reaches the trigger gate');
+  s3.answer(s3.pending.question.correctIndex);
+  var sc0 = s3.scoreDistance;
+  s3.resumeAfterQuestion();
+  stepFor(s3, CFG.BOOST_TIME + 1.5);
+  var gained = s3.scoreDistance - sc0;
+  ok(gained >= CFG.BOOST_KM * 1500 * 0.95, 'overcharged boost covers ~+50% (' + Math.round(gained / 1000) + ' km vs stock ' + CFG.BOOST_KM + ')');
+  // passive magnet: a neighbouring-lane cell drifts toward the player
+  var s4 = mkSim(SEED + 10);
+  s4.applyUpgrades({ magnet: 1 });
+  var cm = s4.coins.acquire(); cm.lane = 0; cm.x = -CFG.LANE_W; cm.y = 0.6; cm.z = 4; cm.tested = false; cm.collected = false;
+  var dx0 = Math.abs(cm.x - s4.player.x);
+  for (var m = 0; m < 30; m++) s4.step(dt);
+  ok(cm.collected || Math.abs(cm.x - s4.player.x) < dx0, 'passive cell magnet pulls cells in without a buff');
+  // purchase math (pure, profile-level)
+  var prof = { ccCells: 1000, ccUpgrades: {} };
+  var st = CC.garage.state(prof);
+  ok(st.length === 4 && st.map(function (i) { return i.price; }).join(',') === '400,600,500,800',
+     'catalog prices pinned: hull 400 / boost 600 / magnet 500 / plating 800');
+  var b1 = CC.garage.buy(prof, 'hull');
+  ok(b1.ok && prof.ccCells === 600 && prof.ccUpgrades.hull === 1, 'buying hull T1 debits 400 and records the tier');
+  ok(CC.garage.state(prof)[0].price === 900 && CC.garage.buy(prof, 'hull').ok === false,
+     'hull T2 costs 900 — and 600 cells cannot afford it (no debt, no free tiers)');
+  var b3 = CC.garage.buy(prof, 'magnet');
+  ok(b3.ok && prof.ccCells === 100 && CC.garage.buy(prof, 'magnet').ok === false,
+     'magnet buys once then reports maxed');
+})();
+
 console.log('\n' + (fails ? ('CC RUN: ' + fails + ' FAILED of ' + total) : ('CC RUN: ALL GREEN (' + total + '/' + total + ')')));
 if (fails) process.exit(1);

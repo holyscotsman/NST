@@ -632,6 +632,51 @@ Commit: `v0.72.0 — J4 CC duck power-dive rework`.
 
 ---
 
+## J9 MINI-SPEC — "The Garage" (CC persistent shop) — written before build
+
+**Currency:** ENERGY CELLS collected in-flight. The v0.28 coin removal left the whole
+pickup pipeline dormant (`_spawnCoinLine`, the coins pool, `_advanceCoins` with magnet/
+coinX2 handling) — revive it as cells (internal names stay `coin*` to minimize churn;
+display says "cells"). Spawn cell lines between obstacle rows (`_nextCoinAt` cadence
+exists); collecting increments the sim's `coinScore`. ~30–60/run early → prices are
+multi-run (Jason: "quite a bit pricey").
+**Wallet:** `profile.ccCells` — banked at game over (the module's `showOver` already
+loads+saves the profile for bests.CC; bank cells in the same transaction).
+**Upgrades:** `profile.ccUpgrades = { hull: 0-2, boost: 0-1, magnet: 0-1, plating: 0-1 }`:
+hull +1 max shield per tier (400 / 900 cells) · boost +50% km (600) · passive cell magnet
+at 40% MAGNET_RANGE (500) · plating: first crash each run costs no shield (800).
+**Application:** the module's async profile load (the settings block) reads `ccUpgrades`
+and calls `sim.applyUpgrades(u)` — sets `_upShields/_upBoostKm/_upMagnet/_upPlating`,
+consumed at `reset()` (shields start) and in the boost/magnet/crash paths. Pure sim, no
+globals; fairness untouched (upgrades only help; cells are non-colliding pickups).
+**UI:** HUD cell counter (`.cc-cells`, aqua ⬡ count); GARAGE panel on the game-over
+overlay ("Garage ▸" button): 4 rows (name/desc/tier/price/Buy), buys persist immediately,
+balance shown; pricey = no discounts.
+**Pins (cc-run + verify-build source pins):** cells spawn + collect on contact; gameOver
+leaves `coinScore` bankable; pure `CC.garage` price/tier math (canBuy/buy) unit-pinned;
+`applyUpgrades` → reset gives SHIELDS_START+tier, boost covers ~150 km, plating absorbs
+the FIRST crash only (flag consumed, second crash costs); prices pinned.
+**Negative control:** plating never consumed (absorbs every hit) → its pin fails.
+
+**RESULT (v0.73.0):** shipped as spec'd — cells revived (score purity re-pinned: the wallet
+and the km score never mix), wallet banking in the bests transaction, the four pricey
+upgrades live (hull/boost/magnet/plating) with the pure garage math on `CC.garage`, HUD ⬡
+counter + game-over Garage panel. cc-run 26→38; fairness untouched 25/25; negctrl (plating
+never consumed = infinite armor) failed exactly its 2 pins. Two honest re-pins: the CC
+Menu-button pin re-anchored by text (Garage sits beside it) and the v0.28 "coins removed"
+pin superseded by Jason's direction. Gate **421/421**.
+Commit: `v0.73.0 — J9 The CC Garage (cells + persistent upgrades)`.
+
+---
+
+## 🏁 JASON'S NINE-ITEM BATCH: COMPLETE
+J1 shake ✔ (v0.69) · J2 boss-music cutoff ✔ (v0.69) · J3 Chill toggle ✔ (v0.68) ·
+J4 duck power-dive ✔ (v0.72) · J5 2-min rotation ✔ (v0.70) · J6 KBB blanks/flow ✔ (v0.68) ·
+J7 Vega cap ✔ (v0.71) · J8 explanation caps ✔ (v0.71) · J9 the Garage ✔ (v0.73).
+Eyes/ears owed: QA-C5 duck feel, QA-C10 Garage, rotation in-ear, the calmer ARM camera.
+
+---
+
 ## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above
 
 **Why stopped:** the remaining candidate pool no longer meets the rubric at acceptable risk:

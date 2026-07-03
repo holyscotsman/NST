@@ -244,7 +244,8 @@
     this.buffs.magnet = 0; this.buffs.invincible = 0; this.buffs.coinX2 = 0; this.buffs.slowmo = 0;
 
     this.phase = PHASE_RUN;
-    this.shields = cfg.SHIELDS_START;
+    this.shields = cfg.SHIELDS_START + (this._up ? this._up.hull : 0);   // (J9) hull tiers
+    this._platingLeft = (this._up && this._up.plating) ? 1 : 0;          // (J9) once per run
     this.distance = 0;
     this.scoreDistance = 0;          // 04 task 7: dramatized distance (km HUD + 10km gate cadence), decoupled from world-scroll
     this.scoreSpeed = cfg.SCORE_SPEED;
@@ -316,7 +317,7 @@
     var adv = effSpeed * dt;
     this.distance += adv;
     // 04 task 7/8: scored distance accrues at SCORE_SPEED — or covers BOOST_KM over ~BOOST_TIME during a boost
-    this.scoreSpeed = this.boostActive ? (cfg.BOOST_KM * 1000 / cfg.BOOST_TIME) : cfg.SCORE_SPEED;
+    this.scoreSpeed = this.boostActive ? ((cfg.BOOST_KM + (this._up ? this._up.boostKm : 0)) * 1000 / cfg.BOOST_TIME) : cfg.SCORE_SPEED;
     this.scoreDistance += this.scoreSpeed * dt;
     if (this.boostActive && this.scoreDistance >= this._boostTargetScore) {
       this.boostActive = false;
@@ -437,7 +438,26 @@
     return Math.sin((o.sweepPhase || 0) + o.z * this.cfg.SWEEP_FREQ) * this.cfg.LANE_W;
   };
 
+  // (v0.73.0, J9) Garage upgrades — persistent, profile-fed, help-only (fairness untouched).
+  CCSim.prototype.applyUpgrades = function (u) {
+    u = u || {};
+    this._up = {
+      hull: Math.max(0, Math.min(2, u.hull | 0)),
+      boostKm: u.boost ? this.cfg.BOOST_KM * 0.5 : 0,
+      magnet: !!u.magnet,
+      plating: !!u.plating
+    };
+    if (this.phase === 'RUN' && this.distance < 1) {           // fresh run: apply immediately
+      this.shields = this.cfg.SHIELDS_START + this._up.hull;
+      this._platingLeft = this._up.plating ? 1 : 0;
+    }
+  };
   CCSim.prototype._onCrash = function () {
+    if (this._platingLeft > 0) {                               // (J9) ablative plating eats the first hit
+      this._platingLeft--;
+      this.iframe = this.cfg.COLLIDE_IFRAME; this.hitFlash = this.cfg.HIT_FLASH;
+      return;
+    }
     this.shields -= this.cfg.COLLISION_SHIELD_COST;
     this.iframe = this.cfg.COLLIDE_IFRAME;     // shield-loss grace: blocks chained hits for this window
     this.hitFlash = this.cfg.HIT_FLASH;        // sharp damage flash (view); distinct from the protected glow
@@ -446,12 +466,13 @@
 
   CCSim.prototype._advanceCoins = function (adv, dt) {
     var cfg = this.cfg, p = this.player, items = this.coins.items, n = items.length, i;
-    var magnet = this.buffs.magnet > 0;
+    var magnetR = this.buffs.magnet > 0 ? cfg.MAGNET_RANGE : ((this._up && this._up.magnet) ? cfg.MAGNET_RANGE * 0.4 : 0);   // (J9) passive Garage magnet
+    var magnet = magnetR > 0;
     var mult = this.buffs.coinX2 > 0 ? 2 : 1;
     for (i = 0; i < n; i++) {
       var c = items[i]; if (!c.active) continue;
       c.z -= adv;
-      if (magnet && !c.collected && c.z > 0 && c.z < cfg.MAGNET_RANGE) {
+      if (magnet && !c.collected && c.z > 0 && c.z < magnetR) {
         var dx = p.x - c.x; var step = cfg.MAGNET_PULL * dt;
         if (dx > step) c.x += step; else if (dx < -step) c.x -= step; else c.x = p.x;
         var dy = p.y + 0.5 - c.y; if (dy > step) c.y += step; else if (dy < -step) c.y -= step; else c.y = p.y + 0.5;
@@ -598,7 +619,7 @@
   // 04 task 8: blast forward — invulnerable, canyon fast-forwards, scored distance covers BOOST_KM over ~BOOST_TIME.
   CCSim.prototype._activateBoost = function () {
     this.boostActive = true;
-    this._boostTargetScore = this.scoreDistance + this.cfg.BOOST_KM * 1000;
+    this._boostTargetScore = this.scoreDistance + (this.cfg.BOOST_KM + (this._up ? this._up.boostKm : 0)) * 1000;   // (J9) overcharged boost
     this._emit && this._emit('boost');
     if (this.ctx.telemetry && typeof this.ctx.telemetry.emit === 'function') {
       this.ctx.telemetry.emit({ t: 'powerup', game: 'CC', kind: 'boost' });
@@ -653,7 +674,13 @@
       if (gap < cfg.MIN_GAP) gap = cfg.MIN_GAP; else if (gap > cfg.BASE_GAP) gap = cfg.BASE_GAP;
       this._nextRowAt += gap;
     }
-    // coins removed (04 task 7): score is distance only.
+    // (v0.73.0, J9) energy CELLS — the v0.28 coin pipeline revived as the Garage currency.
+    // Lines spawn between rows, never inside a gate's keep-clear zone; collecting feeds
+    // coinScore, banked into profile.ccCells at run end.
+    while (this.distance + cfg.DRAW_DIST >= this._nextCoinAt) {
+      if (!this._nearGateZone(this._nextCoinAt)) this._spawnCoinLine(this._nextCoinAt - this.distance);
+      this._nextCoinAt += cfg.BASE_GAP * (0.9 + this.rng.next() * 0.6);
+    }
   };
 
   /* Spawn one solvable obstacle row at `zAhead`. Every pattern leaves a single-action-clear
@@ -1697,6 +1724,8 @@
         Promise.resolve(ctx.persistence.load()).then(function (prof) {
           if (prof && prof.settings) {
             if (prof.settings.reducedMotion != null) settings.reducedMotion = !!prof.settings.reducedMotion;
+            garageProfile = prof;                              // (v0.73.0, J9)
+            if (prof.ccUpgrades) sim.applyUpgrades(prof.ccUpgrades);
             if (prof.settings.music != null && ctx.audio) ctx.audio.setMusic && ctx.audio.setMusic(!!prof.settings.music);
             if (prof.settings.sfx != null && ctx.audio) ctx.audio.setSfx && ctx.audio.setSfx(!!prof.settings.sfx);
             if (view) view.reducedMotion = settings.reducedMotion;
@@ -1864,25 +1893,67 @@
 
       // ---- game over ----
       function showOver() {
+        var banked = sim.coinScore | 0;                        // (v0.73.0, J9) cells earned this run
         if (ctx.persistence && typeof ctx.persistence.load === 'function') {
           Promise.resolve(ctx.persistence.load()).then(function (prof) {
             prof = prof || {}; prof.bests = prof.bests || {};
             var best = prof.bests.CC || 0;
             if (sim.runStats.points > best) { prof.bests.CC = sim.runStats.points; }
             prof.totals = prof.totals || {};
+            prof.ccCells = (prof.ccCells | 0) + banked;        // (J9) bank the wallet
+            garageProfile = prof;
             if (ctx.persistence.save) ctx.persistence.save(prof);
+            if (el.ovrCells) el.ovrCells.textContent = '\u2b21 +' + banked + ' cells banked \u00b7 balance ' + (prof.ccCells | 0);
           }).catch(function () {});
         }
         el.ovrTitle.textContent = 'Run ended';
         el.ovrStats.innerHTML =
           row('Distance', (sim.runStats.points / 1000).toFixed(2) + ' km') +
+          row('Cells collected', banked) +
           row('Unique correct', sim.runStats.uniqueCorrect) +
           row('Unique incorrect', sim.runStats.uniqueIncorrect);
         el.gameover.style.display = 'flex';
       }
+      // (v0.73.0, J9) The Garage — pricey persistent upgrades bought with banked cells.
+      var garageProfile = null;
+      function renderGarage() {
+        if (!el.garagePanel) return;
+        var p = garageProfile || {};
+        var st = garageState(p);
+        el.garagePanel.textContent = '';
+        var bal = document.createElement('div'); bal.className = 'cc-gar-bal';
+        bal.textContent = '\u2b21 ' + ((p.ccCells | 0)) + ' cells';
+        el.garagePanel.appendChild(bal);
+        st.forEach(function (it) {
+          var rowEl = document.createElement('div'); rowEl.className = 'cc-gar-row' + (it.canBuy ? '' : ' locked');
+          var body = document.createElement('div'); body.className = 'cc-gar-body';
+          var nm = document.createElement('div'); nm.className = 'cc-gar-name';
+          nm.textContent = it.name + (it.max > 1 ? ' \u00b7 ' + it.tier + '/' + it.max : (it.tier ? ' \u00b7 owned' : ''));
+          var ds = document.createElement('div'); ds.className = 'cc-gar-desc'; ds.textContent = it.desc;
+          body.appendChild(nm); body.appendChild(ds); rowEl.appendChild(body);
+          if (it.price != null) {
+            var buy = document.createElement('button'); buy.className = 'cc-btn cc-gar-buy';
+            buy.textContent = '\u2b21 ' + it.price;
+            buy.disabled = !it.canBuy;
+            buy.addEventListener('click', function () {
+              var r = garageBuy(garageProfile, it.id);
+              if (r.ok) {
+                if (ctx.persistence && ctx.persistence.save) ctx.persistence.save(garageProfile);
+                sim.applyUpgrades(garageProfile.ccUpgrades);   // next run (and a fresh one) wears it
+                renderGarage();
+              }
+            });
+            rowEl.appendChild(buy);
+          } else {
+            var done = document.createElement('span'); done.className = 'cc-gar-max'; done.textContent = '\u2713 maxed';
+            rowEl.appendChild(done);
+          }
+          el.garagePanel.appendChild(rowEl);
+        });
+      }
 
       // ---- HUD ----
-      var hudCache = { shields: -1, score: -1, dist: -1, buffs: '' };
+      var hudCache = { shields: -1, score: -1, dist: -1, buffs: '', cells: -1 };
       function updateHud() {
         if (sim.shields !== hudCache.shields) {
           hudCache.shields = sim.shields;
@@ -1897,6 +1968,8 @@
         if (km10 !== hudCache.score) { hudCache.score = km10; el.score.textContent = (km10 / 10).toFixed(1) + ' km'; }
         var spd = sim.boostActive ? -1 : Math.round(sim.scoreSpeed);
         if (spd !== hudCache.dist) { hudCache.dist = spd; el.dist.textContent = sim.boostActive ? 'BOOST \u26A1' : spd + ' m/s'; }
+        var cl = sim.coinScore | 0;
+        if (el.cells && cl !== hudCache.cells) { hudCache.cells = cl; el.cells.textContent = '\u2b21 ' + cl; }   // (J9)
         var bk = buffStr(sim.buffs);
         if (bk !== hudCache.buffs) { hudCache.buffs = bk; el.buffs.textContent = bk; }
       }
@@ -2043,6 +2116,12 @@
       bindBtn(el.btnRestart, function () {
         sim.reset(); el.gameover.style.display = 'none'; hudCache.shields = -1; resume();
       });
+      bindBtn(el.btnGarage, function () {                    // (v0.73.0, J9) toggle the Garage
+        var open = el.garagePanel.style.display !== 'none';
+        el.garagePanel.style.display = open ? 'none' : 'block';
+        el.btnGarage.textContent = open ? 'Garage \u25B8' : 'Close garage \u25B4';
+        if (!open) renderGarage();
+      });
       bindBtn(el.btnExit, function () {
         if (ctx.exit) ctx.exit();   // contract: shell injects ctx.exit in enterGame -> returns to menu
       });
@@ -2094,6 +2173,7 @@
     var shieldPips = ce('div', 'cc-pips'); shieldWrap.appendChild(slabel); shieldWrap.appendChild(shieldPips); hud.appendChild(shieldWrap);
     var score = ce('div', 'cc-score'); hud.appendChild(score);
     var dist = ce('div', 'cc-dist'); hud.appendChild(dist);
+    var cells = ce('div', 'cc-cells'); hud.appendChild(cells);   // (J9) this-run energy cells
     var buffs = ce('div', 'cc-buffs'); hud.appendChild(buffs);
     var replay = ce('button', 'cc-replay'); replay.textContent = '↻ intro'; hud.appendChild(replay);
 
@@ -2113,8 +2193,11 @@
     var ovrPanel = ce('div', 'cc-panel'); gameover.appendChild(ovrPanel);
     var ovrTitle = ce('div', 'cc-ovr-title'); ovrPanel.appendChild(ovrTitle);
     var ovrStats = ce('div', 'cc-ovr-stats'); ovrPanel.appendChild(ovrStats);
+    var ovrCells = ce('div', 'cc-ovr-cells'); ovrPanel.appendChild(ovrCells);   // (J9) banked-cells line
+    var garagePanel = ce('div', 'cc-garage'); garagePanel.style.display = 'none'; ovrPanel.appendChild(garagePanel);   // (J9)
     var ovrBtns = ce('div', 'cc-ovr-btns'); ovrPanel.appendChild(ovrBtns);
     var btnRestart = ce('button', 'cc-btn'); btnRestart.textContent = 'Run again'; ovrBtns.appendChild(btnRestart);
+    var btnGarage = ce('button', 'cc-btn ghost'); btnGarage.textContent = 'Garage \u25B8'; ovrBtns.appendChild(btnGarage);   // (J9)
     var btnExit = ce('button', 'cc-btn ghost'); btnExit.textContent = 'Menu'; ovrBtns.appendChild(btnExit);
 
     // intro cutscene overlay (camera fly-in happens on the 3D layer; captions + Skip live here)
@@ -2126,9 +2209,9 @@
 
     return { root: root, canvas: canvas, fallback: fallback, hud: hud, shieldPips: shieldPips, score: score, dist: dist, buffs: buffs,
       kLeft: kLeft, kRight: kRight, kJump: kJump, kDuck: kDuck, replay: replay,
-      overlay: overlay, qStem: qStem, qOpts: qOpts, qFeedback: qFeedback, qTimer: qTimer,
+      overlay: overlay, qStem: qStem, qOpts: qOpts, qFeedback: qFeedback, qTimer: qTimer, cells: cells,
       intro: intro, introCap: introCap, introEyebrow: introEyebrow, introSkip: introSkip,
-      gameover: gameover, ovrTitle: ovrTitle, ovrStats: ovrStats, btnRestart: btnRestart, btnExit: btnExit };
+      gameover: gameover, ovrTitle: ovrTitle, ovrStats: ovrStats, ovrCells: ovrCells, garagePanel: garagePanel, btnGarage: btnGarage, btnRestart: btnRestart, btnExit: btnExit };
   }
   function ce(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
   function key(label) { var k = ce('button', 'cc-key'); k.textContent = label; return k; }
@@ -2207,6 +2290,17 @@
     '.cc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #23232f;font-size:14px;}' +
     '.cc-row b{color:#FFC857;}' +
     '.cc-ovr-btns{display:flex;gap:10px;margin-top:18px;}' +
+    '.cc-cells{font-size:13px;color:#1FDDE9;font-weight:700;}' +
+    '.cc-ovr-cells{margin:6px 0 2px;color:#1FDDE9;font-size:14px;font-weight:700;}' +
+    '.cc-garage{margin:10px 0 4px;text-align:left;display:flex;flex-direction:column;gap:7px;}' +
+    '.cc-gar-bal{color:#1FDDE9;font-weight:800;font-size:14px;margin-bottom:2px;}' +
+    '.cc-gar-row{display:flex;align-items:center;gap:10px;border:1px solid #34344a;border-radius:10px;padding:8px 10px;background:rgba(10,10,18,.55);}' +
+    '.cc-gar-row.locked{opacity:.55;}' +
+    '.cc-gar-body{flex:1;min-width:0;}' +
+    '.cc-gar-name{font-size:13px;font-weight:700;color:#F2F2F7;}' +
+    '.cc-gar-desc{font-size:11.5px;color:#9a9aad;}' +
+    '.cc-gar-buy{flex:none;padding:6px 12px;}' +
+    '.cc-gar-max{flex:none;color:#92DD23;font-weight:700;font-size:12px;}' +
     '.cc-fb-more{margin-top:7px;}.cc-fb-more summary{cursor:pointer;color:#1FDDE9;font-size:12.5px;font-weight:600;}.cc-fb-more div{margin-top:5px;}' +
     '.cc-replay{pointer-events:auto;position:absolute;top:44px;right:0;padding:5px 11px;border-radius:9px;border:1px solid #34344a;background:rgba(20,20,29,.55);color:#9a9aad;font-family:inherit;font-size:11px;cursor:pointer;backdrop-filter:blur(3px);}' +   /* (P2·3, PLAYTEST A4) own row below the readout — no km/speed collision */
     '.cc-replay:hover{border-color:#7855FA;color:#AC9BFD;}' +
@@ -2230,7 +2324,40 @@
     '.cc-howto-cont{width:100%;}' +
     '</style>';
 
+  // (v0.73.0, J9) The Garage — pure catalog + purchase math (DOM-free, harness-pinned).
+  // Pricey by design (Jason): multi-run saves. Wallet: profile.ccCells; tiers: profile.ccUpgrades.
+  var GARAGE_ITEMS = [
+    { id: 'hull',    name: 'Reinforced hull',   desc: '+1 starting shield per tier.',          tiers: [400, 900] },
+    { id: 'boost',   name: 'Overcharged boost', desc: 'Boost covers +50% distance.',           tiers: [600] },
+    { id: 'magnet',  name: 'Cell magnet',       desc: 'Cells drift toward you, always.',       tiers: [500] },
+    { id: 'plating', name: 'Ablative plating',  desc: 'First crash each run costs no shield.', tiers: [800] }
+  ];
+  function garageState(profile) {
+    var up = (profile && profile.ccUpgrades) || {};
+    var cells = (profile && profile.ccCells) | 0;
+    return GARAGE_ITEMS.map(function (it) {
+      var tier = up[it.id] | 0;
+      var next = tier < it.tiers.length ? it.tiers[tier] : null;
+      return { id: it.id, name: it.name, desc: it.desc, tier: tier, max: it.tiers.length, price: next, canBuy: next != null && cells >= next };
+    });
+  }
+  function garageBuy(profile, id) {
+    if (!profile) return { ok: false, reason: 'no-profile' };
+    var it = null;
+    for (var i = 0; i < GARAGE_ITEMS.length; i++) if (GARAGE_ITEMS[i].id === id) it = GARAGE_ITEMS[i];
+    if (!it) return { ok: false, reason: 'unknown' };
+    var up = profile.ccUpgrades || (profile.ccUpgrades = {});
+    var tier = up[id] | 0;
+    if (tier >= it.tiers.length) return { ok: false, reason: 'maxed' };
+    var price = it.tiers[tier];
+    if ((profile.ccCells | 0) < price) return { ok: false, reason: 'cells' };
+    profile.ccCells = (profile.ccCells | 0) - price;
+    up[id] = tier + 1;
+    return { ok: true, price: price, tier: tier + 1 };
+  }
+
   return { CCSim: CCSim, CCView: CCView, createCCModule: createCCModule, CONFIG: CONFIG,
     _enums: { OB_NARROW: OB_NARROW, OB_LOWROCK: OB_LOWROCK, OB_ARCH: OB_ARCH, OB_SWEEP: OB_SWEEP, SIDE_LEFT: SIDE_LEFT, SIDE_RIGHT: SIDE_RIGHT, POWER_KINDS: POWER_KINDS },
+    garage: { ITEMS: GARAGE_ITEMS, state: garageState, buy: garageBuy },
     makeFallbackRng: makeFallbackRng };
 });

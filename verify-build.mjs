@@ -394,7 +394,8 @@ async function runFrames(n = 6) {
   // (Menu button -> ctx.exit -> shell.exitGame). CC previously called a never-defined
   // ctx.onExit, so the button was a silent no-op; because the bad call sat behind an `if`,
   // nothing threw and the structural harness stayed green. Click the actual button here.
-  const ccMenuBtn = ccRoot.querySelector(".cc-ovr-btns .cc-btn.ghost");
+  // (v0.73.0) the Garage button now sits beside Menu (both ghost) — find Menu by TEXT, the pin's actual intent
+  const ccMenuBtn = Array.from(ccRoot.querySelectorAll(".cc-ovr-btns .cc-btn")).find(b => /menu/i.test(b.textContent || ""));
   ok("CC exposes an in-game Menu (exit) button", !!ccMenuBtn);
   if (ccMenuBtn) ccMenuBtn.click();
   ok("CC Menu button returns to the shell menu (ctx.exit wired)", shell.screen === "menu");
@@ -413,7 +414,17 @@ async function runFrames(n = 6) {
     const cfg7 = ccSim.cfg;
     for (let f = 0; f < 60; f++) ccSim.step(1 / 60);     // ~1s of RUN (first gate is 20s out, so no interruption)
     ok("scored distance accrues at ~500 m/s", Math.abs(ccSim.scoreDistance - cfg7.SCORE_SPEED) < cfg7.SCORE_SPEED * 0.05);
-    ok("score() returns scored distance, coins removed", ccSim.score() === Math.floor(ccSim.scoreDistance) && ccSim.coinScore === 0);
+    // (v0.73.0, J9) cells are BACK by Jason's direction — the pin's surviving truth is score PURITY:
+    // km score is distance ONLY; collecting a cell feeds the wallet, never the score.
+    ok("score() returns scored distance (cells never pollute it)", ccSim.score() === Math.floor(ccSim.scoreDistance));
+    {
+      const sc7 = ccSim.coinScore;
+      const cell = ccSim.coins.acquire(); cell.lane = ccSim.player.lane; cell.x = ccSim.player.x; cell.y = 0.6; cell.z = 0.4; cell.tested = false; cell.collected = false;
+      const km7 = ccSim.score();
+      ccSim.step(1 / 60);
+      ok("J9: a collected cell feeds the wallet, not the km score",
+        ccSim.coinScore === sc7 + 10 && Math.abs(ccSim.score() - km7) < 20);
+    }
     ok("gate threshold is a 10 km multiple", ccSim._nextGateScore % (cfg7.GATE_KM * 1000) === 0);
     // 04 task 8: every 5 gates -> boost (invuln + ~100 km fast-forward, then normal cadence resumes)
     ccSim.reset();
@@ -1653,6 +1664,16 @@ async function runFrames(n = 6) {
     core.profile.trailsUnlocked = {};
     core.profile.achievements = {};
     shell.showMenu();
+  }
+
+  // J9 (v0.73.0): the CC Garage — module-side source pins (the engine behavior is cc-run's 38)
+  console.log("\nJ9. CC Garage source pins (banking + HUD + panel ship in the build)");
+  {
+    ok("J9: run-end banking + Garage UI + HUD cell counter are in the build",
+      html.includes("prof.ccCells = (prof.ccCells | 0) + banked") && html.includes("cc-garage")
+      && html.includes("cc-cells") && html.includes("Garage \\u25B8"));
+    ok("J9: upgrades load from the profile into the live sim",
+      html.includes("if (prof.ccUpgrades) sim.applyUpgrades(prof.ccUpgrades)"));
   }
 
   // P2·3 (v0.63.0): PLAYTEST A4–A6 cleanup — source pins (layout geometry is jsdom-invisible;

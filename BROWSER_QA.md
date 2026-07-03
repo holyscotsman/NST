@@ -179,3 +179,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   WRONG: the chip crowding the score/quit on narrow widths, a pulse under reduced motion, or the chip
   visible in Study/Sim. Math + reset are gate-pinned; this is the fit/feel confirm. Note for Jason: old
   Blitz bests predate the multiplier — expect them to fall.
+
+- **QA-C10 — The Garage + energy cells (added v0.73.0, browser-blind).** In CC: aqua cell lines spawn between
+  obstacles (some arc — jump to collect); a ⬡ counter ticks in the HUD; the game-over panel shows "+N cells
+  banked · balance M" and a "Garage ▸" button opening four upgrade rows (hull ×2 tiers / boost / magnet /
+  plating; 400–900 cells). CORRECT: cells readable at speed but not distracting; prices FEEL pricey (a
+  multi-run save per Jason's intent); buys persist across reload; hull tiers visibly add starting shield
+  pips; plating's free first hit reads via the flash-without-pip-loss. WRONG: cells inside a gate's clear
+  zone, a buy that doesn't stick, or the panel overflowing at mobile widths. Engine/economy math is
+  gate-pinned (cc-run 38/38); this is the look/feel/price-sanity confirm.
