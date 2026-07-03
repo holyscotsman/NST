@@ -102,6 +102,9 @@
     { id: 'metadata-ring', name: 'Metadata Ring', rarity: 'legendary', category: 'damage',
       description: '+0.2 mult per artifact owned.',
       hooks: { modifyDamage: function (c, d) { d.mult += 0.2 * c.squad.artifacts.length; } } },
+    { id: 'prism-focus', name: 'Prism Focus', rarity: 'rare', category: 'damage',
+      description: '+12 flat damage on your first attack of each battle.',
+      hooks: { modifyDamage: function (c, d) { if (c.battle && c.battle.attackIndex === 0) d.flat += 12; } } },
     /* SUSTAIN */
     { id: 'nanobot-swarm', name: 'Nanobot Swarm', rarity: 'common', category: 'sustain',
       description: 'Heal 6 on each correct answer (scales with heal power).',
@@ -124,6 +127,9 @@
     { id: 'lazarus-protocol', name: 'Lazarus Protocol', rarity: 'rare', category: 'sustain',
       description: 'Once per run, survive a lethal hit at 1 HP.',
       noSell: true, hooks: {} },
+    { id: 'one-click-repair', name: 'One-Click Repair', rarity: 'uncommon', category: 'sustain',
+      description: 'Using any consumable also grants +6 shield.',
+      hooks: { onConsumableUsed: function (c) { c.api.addShield(6); } } },
     /* DEFENSE */
     { id: 'adaptive-shielding', name: 'Adaptive Shielding', rarity: 'common', category: 'defense',
       description: '+8 shield at battle start and before each enemy attack.',
@@ -155,6 +161,11 @@
       hooks: {
         onBattleStart: function (c) { c.api.addShield(20); },
         onEnemyAttack: function (c, incoming) { return Math.round(incoming * 0.7); } } },
+    { id: 'erasure-coding', name: 'Erasure Coding', rarity: 'uncommon', category: 'defense',
+      description: 'Every third enemy attack is halved.',
+      hooks: { onEnemyAttack: function (c, incoming) {
+        var n = (c.inst.state.n || 0) + 1; c.inst.state.n = n;
+        return (n % 3 === 0) ? Math.round(incoming * 0.5) : incoming; } } },
     /* ECONOMY */
     { id: 'curator', name: 'Curator', rarity: 'common', category: 'economy',
       description: '+3 coins per battle won.',
@@ -176,6 +187,9 @@
     { id: 'golden-cache', name: 'Golden Cache', rarity: 'legendary', category: 'economy',
       description: '+10 coins per battle and an extra 10% off shop prices.',
       hooks: { modifyCoinGain: function (c, coins) { return coins + 10; } } },
+    { id: 'snapshot-ledger', name: 'Snapshot Ledger', rarity: 'common', category: 'economy',
+      description: '+1 coin on every correct answer.',
+      hooks: { onCorrect: function (c) { c.api.addCoins(1); } } },
     /* UTILITY */
     { id: 'witness-daemon', name: 'Witness Daemon', rarity: 'uncommon', category: 'utility',
       description: 'Reveal one wrong option on every question.',
@@ -248,6 +262,9 @@
     { id: 'singularity-seed', name: 'Singularity Seed', rarity: 'legendary', category: 'scaling',
       description: '+1 base power and +1 max HP after each battle won (permanent).',
       hooks: { onBattleWon: function (c) { c.api.addBasePower(1); c.api.addMaxHp(1); } } },
+    { id: 'cluster-expand', name: 'Cluster Expand', rarity: 'uncommon', category: 'scaling',
+      description: '+1 block after each battle won (permanent).',
+      hooks: { onBattleWon: function (c) { c.squad.block += 1; } } },
     /* DOMAIN */
     { id: 'data-locality', name: 'Data Locality', rarity: 'uncommon', category: 'domain', domain: 'storage',
       description: 'Correct storage-domain answers deal x2 damage.',
@@ -258,6 +275,9 @@
     { id: 'flow-firewall', name: 'Flow Firewall', rarity: 'uncommon', category: 'domain', domain: 'security',
       description: '+0.8 mult on security-domain questions.',
       hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'security') d.mult += 0.8; } } },
+    { id: 'lcm-pipeline', name: 'LCM Pipeline', rarity: 'uncommon', category: 'domain', domain: 'lifecycle',
+      description: '+0.8 mult on lifecycle-domain questions.',
+      hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'lifecycle') d.mult += 0.8; } } },
     { id: 'hypervisor-core', name: 'Hypervisor Core', rarity: 'uncommon', category: 'domain', domain: 'vms',
       description: '+0.6 mult on VM-domain questions.',
       hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'vms') d.mult += 0.6; } } },

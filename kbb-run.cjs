@@ -92,6 +92,103 @@ function newWindow() {
   ok(runD.squad.hp >= 0, 'hp never goes negative on the loss path');
 })();
 
+/* ============ 1b) ENGINE: the v0.55.0 artifact batch (+6), targeted deltas ============ */
+(function artifactBatch() {
+  group('ENGINE: v0.55 artifacts — equip via the public seam, pin each effect');
+  var V = newWindow(), K = V.KBB;
+  var right = function (q) { return q.multi ? q.correctIndices.slice() : q.correctIndex; };
+  var wrongA = function (q) { return q.multi ? [q.correctIndices[0]] : ((q.correctIndex + 1) % q.options.length); };
+
+  // fresh battle-phase run; optionally equip one artifact and bulk up the enemy so it survives probes
+  function mkRun(seed, artId, fatEnemy) {
+    var run = K.createRun(H.makeCtx(K, { seed: seed }), { seed: seed });
+    if (artId) K.equipArtifact(run, artId);
+    if (fatEnemy && run.battle && run.battle.enemy) { run.battle.enemy.hp = run.battle.enemy.maxHp = 500; }
+    return run;
+  }
+  function attackDamages(run, n) {
+    var out = [];
+    for (var t = 0; t < n; t++) {
+      var d = K.drawQuestion(run), q = d.question;
+      var res = K.submitAnswer(run, right(q), 8000, 'attack');
+      out.push(res.damage || 0);
+      if (run.phase === 'lost') break;
+    }
+    return out;
+  }
+
+  // prism-focus: +12 flat on the FIRST attack of a battle only (paired same-seed runs)
+  var pf0 = attackDamages(mkRun(SEED + 20, null, true), 2);
+  var pf1 = attackDamages(mkRun(SEED + 20, 'prism-focus', true), 2);
+  ok(pf1[0] - pf0[0] === 12 && pf1[1] - pf0[1] === 0,
+     'prism-focus: first attack +12 (' + pf0[0] + '->' + pf1[0] + '), second attack unchanged (' + pf0[1] + '->' + pf1[1] + ')');
+
+  // lcm-pipeline: +0.8 mult on lifecycle-domain questions only (domain forced onto the live
+  // battle question in BOTH paired runs — the harness bank only serves storage/vms)
+  (function () {
+    var base = mkRun(SEED + 21, null, true), art = mkRun(SEED + 21, 'lcm-pipeline', true);
+    var deltas = [];
+    for (var t = 0; t < 2; t++) {
+      var qb = K.drawQuestion(base).question, qa = K.drawQuestion(art).question;
+      if (t === 0) { base.battle.question.domain = 'lifecycle'; art.battle.question.domain = 'lifecycle'; }
+      var rb = K.submitAnswer(base, right(qb), 8000, 'attack'), ra = K.submitAnswer(art, right(qa), 8000, 'attack');
+      deltas.push((ra.damage || 0) - (rb.damage || 0));
+    }
+    ok(deltas[0] > 0 && deltas[1] === 0,
+       'lcm-pipeline: lifecycle questions hit harder (+' + deltas[0] + '), other domains unchanged (' + deltas[1] + ')');
+  })();
+
+  // erasure-coding: every THIRD incoming enemy attack halved (probe via wrong-answer counters)
+  (function () {
+    var run = mkRun(SEED + 22, 'erasure-coding', true);
+    var seen = [];
+    for (var t = 0; t < 3; t++) {
+      var q = K.drawQuestion(run).question;
+      var intent = run.battle.enemy.intent || 0;
+      var res = K.submitAnswer(run, wrongA(q), 8000, 'attack');
+      seen.push({ intent: intent, landed: res.enemyAttacked ? run.battle.lastIncoming : null });
+      if (run.phase === 'lost') break;
+    }
+    ok(seen.length === 3 && seen[0].landed === seen[0].intent && seen[1].landed === seen[1].intent
+       && seen[2].landed === Math.round(seen[2].intent * 0.5),
+       'erasure-coding: attacks 1+2 land full (' + seen[0].landed + ',' + (seen[1] && seen[1].landed) + '), third halved ('
+       + (seen[2] && seen[2].intent) + '->' + (seen[2] && seen[2].landed) + ')');
+  })();
+
+  // snapshot-ledger: +1 coin on a correct answer (fat enemy = no battle-won coin noise)
+  (function () {
+    var run = mkRun(SEED + 23, 'snapshot-ledger', true);
+    var c0 = run.squad.coins;
+    var q = K.drawQuestion(run).question;
+    K.submitAnswer(run, right(q), 8000, 'attack');
+    ok(run.squad.coins === c0 + 1, 'snapshot-ledger: correct answer pays +1 coin (' + c0 + '->' + run.squad.coins + ')');
+  })();
+
+  // one-click-repair: consumables also grant +6 shield (full useConsumable path)
+  (function () {
+    var run = mkRun(SEED + 24, 'one-click-repair', false);
+    run.consumables.push('recharge');
+    var s0 = run.squad.shield;
+    var r = K.useConsumable(run, 'recharge');
+    ok(r.ok === true && run.squad.shield === s0 + K.CONFIG.rechargeShield + 6,
+       'one-click-repair: recharge grants base ' + K.CONFIG.rechargeShield + ' +6 bonus shield (' + s0 + '->' + run.squad.shield + ')');
+  })();
+
+  // cluster-expand: +1 block per battle won, permanent squad state
+  (function () {
+    var run = mkRun(SEED + 25, 'cluster-expand', false);
+    var b0 = run.squad.block, wins = 0, guard = 0;
+    while (wins < 1 && guard++ < 12) {
+      var d = K.drawQuestion(run); var q = d && d.question;
+      if (!q) { try { K.leaveShop(run); } catch (e) {} continue; }
+      var res = K.submitAnswer(run, right(q), 8000, 'attack');
+      if (res.win) wins++;
+      if (run.phase === 'lost') break;
+    }
+    ok(wins === 1 && run.squad.block === b0 + 1, 'cluster-expand: battle win adds +1 block (' + b0 + '->' + run.squad.block + ')');
+  })();
+})();
+
 /* ================= 2) DOM ================= */
 (function domFlow() {
   group('DOM: mount -> skip intro -> Start run -> answered turns -> boss music -> unmount');

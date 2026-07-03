@@ -139,3 +139,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   should appear OVER the running game without breaking it, and the tile shows unlocked on the next Progress
   visit. WRONG: peach styling, toast re-firing for the same achievement, or a tile count ≠ 12. Structure is
   gate-pinned (K5); this is the look/fit confirm.
+
+- **QA-K6 — The six v0.55 artifacts in the shop (added v0.55.0, browser-blind).** Reach a KBB shop and reroll a
+  few times. CORRECT: Prism Focus / One-Click Repair / Erasure Coding / Snapshot Ledger / Cluster Expand /
+  LCM Pipeline appear in the rotation with readable descriptions at shop-card size; rarity pricing looks
+  consistent with peers (common 6 / uncommon 10 / rare 16 base). Play with one equipped and confirm the
+  effect FEELS legible in combat (e.g. Erasure Coding's every-third-halved isn't confusing without a visual
+  cue — if it is, report; a proc flash would be a follow-up). Engine behavior is gate-pinned (kbb-run 26/26);
+  this is the fit/readability confirm.

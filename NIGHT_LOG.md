@@ -116,3 +116,41 @@ calls and correctly stayed green). Restored, re-ran, 378/378.
 - 01 doc-sync now also owes the achievements surface.
 
 Commit: `v0.54.0 — Achievements`.
+
+---
+
+## v0.55.0 — Unit 4: KBB artifact batch (+6)
+
+**Shipped:** six artifacts on existing `fireSide`/hook seams; pool 58 → 64; **balance targets
+untouched** and the locked gate re-ran green with identical margins (random median 4 ≥3, poor
+median 1 ≤2, good cap 36% ≤50%).
+- Prism Focus (rare, damage): +12 flat on the first attack of each battle.
+- One-Click Repair (uncommon, sustain): consumables also +6 shield — first consumer of the
+  previously-UNUSED `onConsumableUsed` hook seam.
+- Erasure Coding (uncommon, defense): every third incoming attack halved (`inst.state` counter
+  through `applyIncoming`'s chained onEnemyAttack).
+- Snapshot Ledger (common, economy): +1 coin per correct answer.
+- Cluster Expand (uncommon, scaling): +1 block per battle won (permanent; mirrors
+  Reinforced Hull's direct `squad.block` mutation pattern).
+- LCM Pipeline (uncommon, domain lifecycle): +0.8 mult on lifecycle questions.
+
+**Balance strategy:** two fuzz-dead by construction (the balance harness never uses
+consumables; its synthetic bank is all storage-domain), four mid-power within rarity norms.
+Verified empirically before writing tests — margins didn't move.
+
+**Catch during design:** the first draft had `affinity-rules` (vms domain) — the full-pool
+survey showed `hypervisor-core` already owns vms (+0.6 mult), and that lifecycle +
+performance were the only uncovered domains. Swapped to LCM Pipeline. Performance domain
+remains open for a future artifact.
+
+**Assertion delta:** kbb-run 20 → **26** (+6 targeted engine tests: paired same-seed damage
+deltas, per-hit `lastIncoming` trace, coin/shield/block deltas through the public seams +
+`equipArtifact`). Full gate ALL GREEN 378/378 + 26/26 + balance, exit 0.
+
+**Negative control:** stripped Prism Focus's first-attack condition (fires every attack) →
+exactly its pin failed (25/26). Restored, re-green.
+
+**Punted:** a visual proc cue for Erasure Coding (flagged in QA-K6 — needs eyes first);
+a performance-domain artifact (the last empty domain slot).
+
+Commit: `v0.55.0 — KBB artifact batch (+6)`.
