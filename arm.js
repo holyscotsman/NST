@@ -1150,12 +1150,15 @@
       showToast("Core freed \u2014 catch it");
     }
     var LASER_CHARGE = 1.3, LASER_FIRE = 0.55, LASER_HALF = 34;   // S4 boss laser: charge time, beam time, beam half-width
-    var WP_DEFS = [                                                // 5 weakpoints on the dreadnought hull (arrowhead points down)
-      { ox: -0.58, oy: -0.30 },   // 0 left wing
-      { ox: +0.32, oy: +0.20 },   // 1 right lower
-      { ox:  0.00, oy: -0.04 },   // 2 centre reactor
-      { ox: -0.32, oy: +0.20 },   // 3 left lower
-      { ox: +0.58, oy: -0.30 }    // 4 right wing
+    // (v0.82.0, Jason) all 5 weakpoints sit on the PROW — the front of the ship, facing the
+    // player below (prow points down, so front = positive oy). Arrow formation down the nose;
+    // ox stays inside the vector-fallback wedge taper at each oy so both hull renderings work.
+    var WP_DEFS = [
+      { ox: -0.40, oy: +0.06 },   // 0 left forward battery
+      { ox: +0.20, oy: +0.20 },   // 1 right prow port
+      { ox:  0.00, oy: +0.31 },   // 2 nose lance
+      { ox: -0.20, oy: +0.20 },   // 3 left prow port
+      { ox: +0.40, oy: +0.06 }    // 4 right forward battery
     ];
     function makeWeakpoints() {
       var out = [];
@@ -2181,8 +2184,7 @@
         if (w.dead) {                                 // destroyed: dark broken socket
           c2d.globalAlpha = 0.55; c2d.fillStyle = "#2c2c38"; c2d.strokeStyle = "#15151c"; c2d.lineWidth = 2;
           c2d.beginPath(); c2d.arc(p.x, p.y, boss.wpR * 0.7, 0, TAU); c2d.fill(); c2d.stroke();
-        } else if (isActive) {                        // (v0.76.0 revamp) ACTIVE = a full lock-on reticle you cannot miss
-          var t76 = now() / 1000;
+        } else if (isActive) {                        // (v0.82.0) ACTIVE = beacon + burning core, NO gold ring (Jason)
           var pulse = 0.55 + 0.45 * Math.sin(boss.flash * 9);
           // beacon shaft: a gold quest-marker beam rising from the target
           var grad = c2d.createLinearGradient(p.x, p.y - 92, p.x, p.y);
@@ -2191,21 +2193,6 @@
           // pulsing gold core
           c2d.shadowBlur = 26; c2d.shadowColor = COL.gold; c2d.globalAlpha = pulse; c2d.fillStyle = COL.gold;
           c2d.beginPath(); c2d.arc(p.x, p.y, boss.wpR, 0, TAU); c2d.fill();
-          // rotating reticle: outer ring + four corner ticks orbiting the target (RETICLE_R)
-          var RETICLE_R = boss.wpR + 16, rot = reducedMotion ? 0 : t76 * 1.6;
-          c2d.globalAlpha = 0.9; c2d.shadowBlur = 12; c2d.strokeStyle = COL.gold; c2d.lineWidth = 2;
-          c2d.beginPath(); c2d.arc(p.x, p.y, RETICLE_R, 0, TAU); c2d.stroke();
-          c2d.lineWidth = 4;
-          for (var tk = 0; tk < 4; tk++) {
-            var a0 = rot + tk * Math.PI / 2 - 0.28;
-            c2d.beginPath(); c2d.arc(p.x, p.y, RETICLE_R, a0, a0 + 0.56); c2d.stroke();
-          }
-          // lock-on ping: an expanding ring right after this weakpoint activates
-          if (boss.flash < 0.6 && !reducedMotion) {
-            var pk = boss.flash / 0.6;
-            c2d.globalAlpha = 0.55 * (1 - pk); c2d.lineWidth = 2.5;
-            c2d.beginPath(); c2d.arc(p.x, p.y, RETICLE_R + pk * 46, 0, TAU); c2d.stroke();
-          }
           // HP arc stays the damage read
           c2d.globalAlpha = 1; c2d.shadowBlur = 0; c2d.strokeStyle = COL.peach; c2d.lineWidth = 3;
           c2d.beginPath(); c2d.arc(p.x, p.y, boss.wpR + 8, -Math.PI / 2, -Math.PI / 2 + TAU * (boss.wpHp / boss.wpMax)); c2d.stroke();
@@ -2366,10 +2353,39 @@
 
       c2d.globalAlpha = 1;
     }
+    // (v0.82.0, Jason) boss backdrop: the arena tears UPWARD at hyperspeed — background only.
+    // Camera is locked during the fight, so the rush is a pure function of time over the shared
+    // stars array (like drawWarp's radial flow): no allocation, no per-star state, nothing
+    // mutated. Reduced motion gets a calm path: three static faint shafts, no motion at all.
+    var BOSS_FLOW = 920;                                            // px/s vertical rush
+    function drawBossRush() {
+      if (!c2d) return;
+      c2d.save();
+      if (reducedMotion) {
+        c2d.globalAlpha = 0.08; c2d.fillStyle = COL.iris300;
+        c2d.fillRect(W * 0.22, 0, 2, H); c2d.fillRect(W * 0.5, 0, 2, H); c2d.fillRect(W * 0.78, 0, 2, H);
+        c2d.restore(); return;
+      }
+      var bt = now() / 1000;
+      c2d.lineWidth = 2;
+      for (var i = 0; i < stars.length; i++) {
+        var st = stars[i];
+        var depth = 0.35 + st.d * 0.75;                             // parallax: deep layers crawl, near layers scream
+        var sy = (st.y + bt * BOSS_FLOW * depth) % (H + 70) - 35;   // upward flight = streaks race DOWN the screen
+        var sx = st.x % W;
+        var len = 22 + depth * 58;
+        c2d.globalAlpha = (0.10 + 0.26 * depth) * (0.5 + 0.5 * st.a);
+        c2d.strokeStyle = (i & 1) ? COL.aqua : COL.iris300;
+        c2d.beginPath(); c2d.moveTo(sx, sy - len); c2d.lineTo(sx, sy); c2d.stroke();
+      }
+      c2d.restore(); c2d.globalAlpha = 1;
+    }
+
     function drawSector() {
       if (!c2d) return;
       c2d.clearRect(0, 0, W, H);
       drawNebula(camX, camY);
+      if (bossActive) drawBossRush();                               // (v0.82.0) vertical hyperspeed under the fight
       drawStarsParallax(false);                                     // (A1) layered backdrop, behind the world
       var shx = 0, shy = 0;
       if (shakeAmt > 0 && !reducedMotion) { shx = (Math.random() - 0.5) * shakeAmt * 2; shy = (Math.random() - 0.5) * shakeAmt * 2; }   // (v0.69.0, J1) 01 §12: no jitter under reduced motion

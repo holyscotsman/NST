@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.81.0 — CC death-path fix (Jason bug: no crash screen after losing)
+## v0.82.0 — ARM boss rework (reticle gone, prow weakpoints, hyperspeed rush)
+
+Gold reticle + ping removed (beacon/core/HP-arc carry the read); WP_DEFS all moved to the
+prow (front = +oy, fallback-wedge-safe ox); drawBossRush: BOSS_FLOW 920 vertical streak
+field behind the fight, reduced-motion calm path. arm-run 65, control exact, shots 83–84.
+
+> **Earlier this session (v0.81.0):** CC death-path fix + cc-death-paths suite (gate now 14)
 
 showOver only ran from the See-results click: collision deaths showed nothing, killing
 timeouts soft-locked the question overlay. RAF loop now renders lethal-timeout feedback

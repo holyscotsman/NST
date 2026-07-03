@@ -212,9 +212,19 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   T.step(1.0);                                       // death sequence blasts raise shake
   T.engageReturn(); T.flushWarp();
   ok(T.state() === 'HOME' && T.shake() === 0, 'J1: no leaked shake at the home station (was frozen 11-18px forever)');
-  // (v0.76.0) boss revamp regression guards: the lock-on reticle + living-dreadnought markers
-  ok(/RETICLE_R = boss\.wpR \+ 16/.test(H.ARM_SRC) && /beacon shaft/.test(H.ARM_SRC) && /lock-on ping/.test(H.ARM_SRC),
-     'active weakpoint = full lock-on reticle (ring + ticks + beacon + activation ping)');
+  // (v0.82.0, Jason) reticle REMOVED by request — active weakpoint reads via beacon + burning
+  // core + peach HP arc, with no gold ring of any kind. Honest re-pin of the v0.76 guard.
+  ok(!/RETICLE_R/.test(H.ARM_SRC) && !/lock-on ping/.test(H.ARM_SRC)
+     && /beacon shaft/.test(H.ARM_SRC) && /pulsing gold core/.test(H.ARM_SRC) && /HP arc stays the damage read/.test(H.ARM_SRC),
+     'active weakpoint = beacon + burning core + HP arc, NO gold ring (v0.82 rework)');
+  // (v0.82.0) all five weakpoints sit on the PROW: every WP_DEFS oy is positive (front = +oy)
+  var wpBlock = (H.ARM_SRC.match(/WP_DEFS = \[[\s\S]*?\];/) || [''])[0];
+  ok(wpBlock.length > 0 && (wpBlock.match(/oy: \+0\./g) || []).length === 5 && !/oy: -/.test(wpBlock),
+     'weakpoints are front-mounted: 5 ports, all oy positive, none astern');
+  // (v0.82.0) boss backdrop: vertical hyperspeed rush, time-driven, reduced-motion calm path
+  ok(/BOSS_FLOW = 920/.test(H.ARM_SRC) && /bt \* BOSS_FLOW \* depth/.test(H.ARM_SRC)
+     && /bossActive\) drawBossRush\(\)/.test(H.ARM_SRC) && /three static faint shafts/.test(H.ARM_SRC),
+     'boss arena rushes upward: BOSS_FLOW streaks behind the world, calm under reduced motion');
   ok(/hull sway/.test(H.ARM_SRC) && /running lights sweep the hull/.test(H.ARM_SRC),
      'the dreadnought lives: sway + engine wash + running lights (all sin-clock, no rng, no shake)');
   // (v0.75.0) hyperdrive re-time (Jason: fluid, not slow motion): 1.0s countdown + 2.2s tunnel,
