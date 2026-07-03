@@ -904,6 +904,44 @@
   /* =================================================================== *
    * settings  (01 §12)
    * =================================================================== */
+  /* Ship-trail picker (v0.57.0 unit 7) — one swatch per cosmetic. Unlocked = selectable
+   * (mastery-gated per domain via questions.stats()); locked = dimmed + requirement hint.
+   * Selecting stores BOTH the id (settings.shipTrail) and the resolved hex
+   * (settings.shipTrailColor) so game render paths never need stats() or globals. */
+  Shell.prototype._buildTrailPicker = function (host) {
+    if (!host || !StarNix.cosmetics) { if (host) host.style.display = "none"; return; }
+    var self = this, core = StarNix.core, settings = core.profile.settings;
+    var stats = null; try { stats = core.questions.stats(); } catch (e) {}
+    var current = StarNix.cosmetics.resolve(settings, stats);
+    StarNix.cosmetics.LIST.forEach(function (def) {
+      var un = StarNix.cosmetics.unlocked(def, stats);
+      var b = el("button", "sx-trail" + (un ? "" : " locked") + (current.id === def.id ? " on" : ""));
+      b.type = "button"; b.setAttribute("data-trail", def.id);
+      var sw = el("span", "sx-trail-swatch"); sw.style.background = def.color;
+      b.appendChild(sw);
+      var body = el("span", "sx-trail-body");
+      body.appendChild(el("span", "sx-trail-name", def.name));
+      body.appendChild(el("span", "sx-trail-req", un ? (current.id === def.id ? "Equipped" : "Unlocked")
+        : "Master " + Math.round(StarNix.cosmetics.THRESHOLD * 100) + "% of " + def.domain));
+      b.appendChild(body);
+      if (un) {
+        self._on(b, "click", function () {
+          settings.shipTrail = def.id;
+          settings.shipTrailColor = def.color;
+          try { core.persistence.save(core.profile); } catch (e2) {}
+          try { core.audio.sfx("click"); } catch (e3) {}
+          var all = host.querySelectorAll(".sx-trail");
+          for (var i = 0; i < all.length; i++) {
+            all[i].classList.toggle("on", all[i].getAttribute("data-trail") === def.id);
+            var req = all[i].querySelector(".sx-trail-req");
+            if (req && !all[i].classList.contains("locked")) req.textContent = (all[i].getAttribute("data-trail") === def.id) ? "Equipped" : "Unlocked";
+          }
+        });
+      } else { b.disabled = true; }
+      host.appendChild(b);
+    });
+  };
+
   Shell.prototype.showSettings = function () {
     this._clearScreen();
     this.screen = "settings";
@@ -915,6 +953,7 @@
     s.innerHTML = '<div class="sx-panel"><div class="sx-eyebrow">Settings</div><h2 class="sx-h2">Options</h2>'
       + '<div class="sx-seclabel">Audio</div><div class="sx-sliders"></div>'
       + '<div class="sx-seclabel">Display &amp; input</div><div class="sx-toggles"></div>'
+      + '<div class="sx-seclabel">Ship trail</div><div class="sx-trails"></div>'
       + '<div class="sx-seclabel">Data</div><div class="sx-data"></div>'
       + '<div class="sx-row"></div></div>';
     var sliderBox = s.querySelector(".sx-sliders");
@@ -923,6 +962,7 @@
 
     this._buildVolumeSliders(sliderBox);
     this._buildToggles(box);
+    this._buildTrailPicker(s.querySelector(".sx-trails"));
 
     // ---- reset progress (two-tap confirm; persists a fresh profile, then reloads) ----
     var resetBtn = el("button", "sx-btn sx-btn-danger", "Reset all progress");
@@ -1300,7 +1340,16 @@
       ".sx-daily-prog{color:var(--aqua);font-weight:700;font-size:12px;flex:none;}",
       ".sx-daily-claim{padding:4px 10px;font-size:11px;border:1px solid var(--gold);color:var(--gold);background:transparent;border-radius:8px;cursor:pointer;flex:none;}",
       ".sx-daily-claimed{color:var(--gold);font-weight:700;font-size:11px;flex:none;}",
-      ".sx-daily-stats{margin:4px 0 10px;max-width:none;}"
+      ".sx-daily-stats{margin:4px 0 10px;max-width:none;}",
+      // Ship-trail picker (v0.57.0 unit 7)
+      ".sx-trails{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;text-align:left;margin:4px 0 10px;}",
+      ".sx-trail{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:rgba(10,10,18,.55);cursor:pointer;color:var(--text);font-family:var(--font);}",
+      ".sx-trail.on{border-color:var(--gold);box-shadow:0 0 10px rgba(255,200,87,.14);}",
+      ".sx-trail.locked{opacity:.4;cursor:default;}",
+      ".sx-trail-swatch{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:0 0 8px rgba(255,255,255,.15) inset;}",
+      ".sx-trail-body{display:flex;flex-direction:column;gap:1px;min-width:0;}",
+      ".sx-trail-name{font-size:12px;font-weight:700;}",
+      ".sx-trail-req{font-size:11px;color:var(--mid);}"
     ].join("");
     document.head.appendChild(st);
   };

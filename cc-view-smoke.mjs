@@ -181,6 +181,15 @@ if (view) {
     if (sw2) sw2.z = -50; view.reducedMotion = false;
     ok("reduced motion: sweeper + static telegraph render clean (no slide)", !rmErr);
   }
+  // (v0.57.0) mastery cosmetic: the boost plume takes the shell-resolved trail tint at
+  // construction; stock stays gold. (Mock materials record the constructed color.)
+  {
+    ok("stock plume is gold (no cosmetic set)", !!view.shipPlumeMat && view.shipPlumeMat.color && view.shipPlumeMat.color.value === 0xFFC857);
+    let v2 = null, v2err = null;
+    try { v2 = new CC.CCView(THREE, sim, canvas, { reducedMotion: false, shipTrailColor: "#92DD23" }); } catch (e) { v2err = e; }
+    ok("trail-tinted view builds; plume wears the mastery color", !v2err && !!v2 && v2.shipPlumeMat.color.value === 0x92DD23);
+    try { if (v2) v2.dispose(); } catch (e) {}
+  }
   {
     sim.player.ducking = true;
     for (let f = 0; f < 30; f++) view.render(1 / 60);

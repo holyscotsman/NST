@@ -221,3 +221,32 @@ pins failed (390/392). Restored, re-green 392/392.
 pure cosmetics); mission variety beyond 6 templates.
 
 Commit: `v0.57.0 — Daily missions`.
+
+---
+
+## v0.58.0 — Unit 7: Mastery-gated cosmetics (ship trails)
+
+**Shipped:** six pure-vector trail tints; each domain variant unlocks at 50% of that
+domain mastered (`questions.stats().domains[].masteredPct`); standard iris always free.
+- **Architecture call:** games never touch stats() or globals. The Settings picker persists
+  BOTH `settings.shipTrail` (id) and `settings.shipTrailColor` (shell-resolved hex);
+  `StarNix.cosmetics.resolve` re-validates the lock so a hand-edited locked pick falls back
+  to standard (the negctrl proves this bites). Render paths read the hex or fall back.
+- Applied in all three games, jsdom-guarded, one visible accent each:
+  ARM thruster flame (sprite + vector hulls; `_test.palette().trail`), KBB procedural hero
+  engine flames (`liveState.trailColor`), CC boost plume (CCView `opts.shipTrailColor`).
+- Settings: "Ship trail" swatch grid; locked = dimmed + "Master 50% of <domain>".
+
+**Assertion delta:** verify-build 392 → **402** (+10 K7) + cc-view-smoke +2. Full gate ALL
+GREEN, exit 0. The K7 domain unlock is REAL: it masters half of the smallest bank domain's
+questions and drives the actual picker DOM + both game mounts through the shell.
+
+**Negative control:** resolve() lock bypass (locked picks stick — the cosmetic-cheating
+hazard) → exactly the resolve pin failed (401/402). Restored, re-green.
+
+**Punted:** CC always-on engine glow variant (only the boost plume is ship-owned; an
+always-on glow would need a new mesh — Phase-2 candidate); mastery-decay behavior (if a
+domain later drops below 50%, resolve() reverts the trail to standard on next mount —
+deliberate and pinned via resolve, but Jason may prefer earned-forever; one-line change).
+
+Commit: `v0.58.0 — Mastery-gated ship trails`.

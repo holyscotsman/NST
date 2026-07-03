@@ -129,6 +129,7 @@
     var Q, MAST, AUD, RNG, THEME, TEL, PERS, SET, EXIT, TESTMODE;
     var runRng;                       // forked per run for determinism
     var COL;                          // palette
+    var TRAIL;                        // (v0.57.0 unit 7) resolved ship-trail tint (cosmetic)
 
     // ---- teardown bookkeeping ----
     var listeners = [];               // {target,type,fn,opts}
@@ -319,6 +320,7 @@
 
       highContrast = !!SET.colorblind;             // #12 P2: high-contrast canvas + DOM palette
       COL = paletteFrom(THEME, highContrast);
+      TRAIL = SET.shipTrailColor || COL.aqua;      // (v0.57.0 unit 7) mastery cosmetic: shell-resolved hex, falls back to the stock aqua
       reducedMotion = !!SET.reducedMotion; extraTime = !!SET.extraTime;
       musicOn = SET.music !== false; sfxOn = SET.sfx !== false;
 
@@ -2098,7 +2100,7 @@
         c2d.shadowBlur = 10; c2d.shadowColor = COL.aqua; c2d.fillStyle = COL.aqua; c2d.globalAlpha = 0.9; c2d.fillRect(-4, -4, 8, 8); c2d.restore();
       }
       c2d.globalAlpha = 1; c2d.shadowBlur = 0;
-      if (input.thrust && state === "SECTOR") { c2d.shadowBlur = 16; c2d.shadowColor = COL.aqua; c2d.fillStyle = COL.aqua; c2d.globalAlpha = 0.85 + (reducedMotion ? 0.1 : 0.15 * runRng.next()); c2d.beginPath(); c2d.moveTo(-13, -5); c2d.lineTo(-13 - (9 + (reducedMotion ? 4 : runRng.next() * 10)), 0); c2d.lineTo(-13, 5); c2d.closePath(); c2d.fill(); c2d.globalAlpha = 1; }
+      if (input.thrust && state === "SECTOR") { c2d.shadowBlur = 16; c2d.shadowColor = TRAIL; c2d.fillStyle = TRAIL; c2d.globalAlpha = 0.85 + (reducedMotion ? 0.1 : 0.15 * runRng.next()); c2d.beginPath(); c2d.moveTo(-13, -5); c2d.lineTo(-13 - (9 + (reducedMotion ? 4 : runRng.next() * 10)), 0); c2d.lineTo(-13, 5); c2d.closePath(); c2d.fill(); c2d.globalAlpha = 1; }   // (v0.57.0) thruster flame wears the mastery trail tint
       if (spriteReady(SPR.hero)) { drawSprite(SPR.hero, 40); c2d.restore(); c2d.shadowBlur = 0; return; }   // S3: asset hull (cargo + thrust already drawn); below is the vector fallback
       c2d.shadowBlur = 8; c2d.shadowColor = COL.iris600; c2d.fillStyle = "#5a32c8"; c2d.strokeStyle = COL.aqua; c2d.lineWidth = 1.3;
       c2d.beginPath(); c2d.moveTo(-1, -3); c2d.lineTo(-7, -19); c2d.lineTo(-13, -17); c2d.lineTo(-12, -4); c2d.closePath(); c2d.fill(); c2d.stroke();
@@ -2485,7 +2487,7 @@
       root.__armTest = {
         step: function (dt) { tick(dt == null ? 1 / 60 : dt); },
         state: function () { return state; },
-        palette: function () { return { highContrast: highContrast, border: COL.border, aqua: COL.aqua, text: COL.text, mid: COL.mid }; },
+        palette: function () { return { highContrast: highContrast, border: COL.border, aqua: COL.aqua, text: COL.text, mid: COL.mid, trail: TRAIL }; },
         station: function () { return stationBuild; },
         total: function () { return TOTAL; },
         sectorNum: function () { return sector; },

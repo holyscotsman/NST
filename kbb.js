@@ -992,10 +992,12 @@
       var container = el(doc, 'div', 'kbb-root' + (reduced ? ' kbb-reduced' : ''));
       root.appendChild(container);
 
+      var trailColor = null;   // (v0.57.0 unit 7) mastery cosmetic — shell-resolved hex or null (stock colors)
+      try { trailColor = (ctx && ctx.settings && ctx.settings.shipTrailColor) || null; } catch (eT) {}
       var s = {
         ctx: ctx, doc: doc, root: root, container: container, run: run,
         reduced: reduced, raf: 0, timers: [], qShownAt: 0, locked: false, paused: false,
-        canvas: null, c2d: null, onKey: null, best: 0,
+        canvas: null, c2d: null, onKey: null, best: 0, trailColor: trailColor,
         use3D: false, three: null, _lastCW: 0, _lastCH: 0, _artDirty: false
       };
       state = s; liveState = s;
@@ -1236,7 +1238,7 @@
       g.beginPath(); g.arc(2, 0, 2.4, 0, 6.283); g.fill();
       g.restore(); g.shadowBlur = 0;
     }
-    function drawNeonFighter(g, x, y, sc, col, reduced, lead) {
+    function drawNeonFighter(g, x, y, sc, col, reduced, lead, trailCol) {
       g.save(); g.translate(x, y); g.scale(sc, sc); g.lineJoin = 'round';
       if (!reduced) { g.shadowColor = col; g.shadowBlur = lead ? 13 : 8; }
       g.beginPath(); g.moveTo(-13, 0); g.lineTo(15, -4.5); g.lineTo(23, 0); g.lineTo(15, 4.5); g.closePath();
@@ -1245,7 +1247,7 @@
       g.beginPath(); g.moveTo(1, 0); g.lineTo(-11, -6.5); g.lineTo(-3, 0); g.moveTo(1, 0); g.lineTo(-11, 6.5); g.lineTo(-3, 0);
       g.strokeStyle = lead ? PALETTE.iris300 : col; g.lineWidth = lead ? 1.2 : 1.0; g.stroke();
       g.beginPath(); g.arc(4, 0, lead ? 2.1 : 1.5, 0, 6.283); g.fillStyle = PALETTE.aqua; if (!reduced) g.shadowBlur = 7; g.fill();
-      if (!reduced) { g.beginPath(); g.arc(-13, 0, lead ? 2.6 : 1.8, 0, 6.283); g.fillStyle = lead ? PALETTE.peach : col; g.shadowColor = lead ? PALETTE.gold : col; g.shadowBlur = 11; g.fill(); }
+      if (!reduced) { g.beginPath(); g.arc(-13, 0, lead ? 2.6 : 1.8, 0, 6.283); g.fillStyle = trailCol || (lead ? PALETTE.peach : col); g.shadowColor = trailCol || (lead ? PALETTE.gold : col); g.shadowBlur = 11; g.fill(); }   // (v0.57.0) engine flame wears the mastery trail tint when set
       g.restore();
     }
     function drawBillboard(g, img, x, y, size, col, glow, faceLeft) {
@@ -1269,7 +1271,7 @@
         var hy = y + sp.dy * sc + (reduced ? 0 : Math.sin(ts / 680 + sp.ph) * 3);
         var img = assetImg(s, sp.key);
         if (img) drawBillboard(g, img, hx, hy, 46 * sc * sp.scl, sp.col, reduced ? 0 : (sp.lead ? 14 : 9), false);
-        else drawNeonFighter(g, hx, hy, sc * 0.92 * sp.scl, sp.col, reduced, sp.lead);
+        else drawNeonFighter(g, hx, hy, sc * 0.92 * sp.scl, sp.col, reduced, sp.lead, s.trailColor);
       }
     }
     function drawEnemy(g, s, e, cx, y, sc, ts) {

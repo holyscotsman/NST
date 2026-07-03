@@ -165,3 +165,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   Same strip appears on the Progress screen. Next calendar day: three NEW missions, unclaimed progress gone.
   WRONG: rows overflowing/truncated badly on mobile widths, a claim that doesn't stick, or the same missions
   two days running. Logic is gate-pinned (K6, 14 asserts); this is the fit/legibility confirm.
+
+- **QA-M4 — Ship trail cosmetics (added v0.58.0, browser-blind).** Settings → "Ship trail": six swatches;
+  locked ones dimmed with "Master 50% of <domain>". With a variant equipped: ARM's thruster flame (thrust in
+  a sector), KBB's hero engine flames (2D fighters), and CC's boost plume (every 5th gate) all wear the color.
+  CORRECT: the tint is obvious in each game but doesn't hurt readability (ARM flame vs enemy fire, CC plume
+  vs gold gates); swatch selection persists across reload; the standard iris option always available.
+  WRONG: a tint bleeding into non-ship UI, a locked swatch selectable, or the color not surviving reload.
+  Logic is gate-pinned (K7 + view-smoke); this is the in-game look confirm.

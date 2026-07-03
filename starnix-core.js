@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.57.0";
+  var BUILD_VERSION = "0.58.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -442,6 +442,42 @@
     profile.daily.missions[i].claimed = true;
     addXP(profile, st.xp);
     return st.xp;
+  }
+
+  /* =================================================================== *
+   * 4e. Mastery-gated cosmetics — ship trail tints (v0.57.0 unit 7)
+   * Pure vector color only (no new assets). One variant per exam domain,
+   * unlocked when that domain's masteredPct crosses the threshold. Games
+   * never call stats(): the SHELL resolves the pick and stores BOTH the id
+   * (settings.shipTrail) and the resolved hex (settings.shipTrailColor);
+   * render paths read the hex or fall back to their existing colors.
+   * =================================================================== */
+  var COSMETICS = [
+    { id: "standard",    name: "NX standard", color: "#7855FA", domain: null },   // always unlocked
+    { id: "aqua-stream", name: "Aqua stream", color: "#1FDDE9", domain: "storage" },
+    { id: "mantis-wake", name: "Mantis wake", color: "#92DD23", domain: "vms" },
+    { id: "gold-vector", name: "Gold vector", color: "#FFC857", domain: "networking" },
+    { id: "peach-blaze", name: "Peach blaze", color: "#FF6B5B", domain: "security" },
+    { id: "iris-bloom",  name: "Iris bloom",  color: "#AC9BFD", domain: "architecture" }
+  ];
+  var COSMETIC_THRESHOLD = 0.5;   // the domain's masteredPct needed to unlock its trail
+  function cosmeticUnlocked(def, stats) {
+    if (!def) return false;
+    if (!def.domain) return true;
+    if (!stats || !stats.domains) return false;
+    for (var i = 0; i < stats.domains.length; i++) {
+      var d = stats.domains[i];
+      if (d.domain === def.domain) return (d.masteredPct || 0) >= COSMETIC_THRESHOLD;
+    }
+    return false;
+  }
+  // The selected variant if it exists AND is (still) unlocked; else the standard trail.
+  function resolveCosmetic(settings, stats) {
+    var id = settings && settings.shipTrail;
+    for (var i = 0; i < COSMETICS.length; i++) {
+      if (COSMETICS[i].id === id) return cosmeticUnlocked(COSMETICS[i], stats) ? COSMETICS[i] : COSMETICS[0];
+    }
+    return COSMETICS[0];
   }
 
   /* =================================================================== *
@@ -1041,6 +1077,14 @@
     LIST: ACH_LIST,
     evaluate: evaluateAchievements,
     onUnlock: function (fn) { achOnUnlock = (typeof fn === "function") ? fn : null; }
+  };
+
+  /* Cosmetics surface (v0.57.0 unit 7) — pure defs + unlock/resolve helpers. */
+  StarNix.cosmetics = {
+    LIST: COSMETICS,
+    THRESHOLD: COSMETIC_THRESHOLD,
+    unlocked: cosmeticUnlocked,
+    resolve: resolveCosmetic
   };
 
   /* Daily-missions surface (v0.56.0 unit 6) — pure generation + profile-bound state.

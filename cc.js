@@ -814,6 +814,8 @@
     this.THREE = THREE; this.sim = sim; this.canvas = canvas;
     opts = opts || {};
     this.reducedMotion = !!opts.reducedMotion;
+    // (v0.57.0 unit 7) mastery cosmetic: shell-resolved trail hex ("#RRGGBB") or null = stock gold plume
+    this.shipTrailColor = (typeof opts.shipTrailColor === "string" && /^#[0-9a-fA-F]{6}$/.test(opts.shipTrailColor)) ? opts.shipTrailColor : null;
     // Own RNG for purely-visual randomness (dust, sparks). Forked, so it NEVER consumes the
     // sim's stream — spawns/solvability stay deterministic and harness-reproducible.
     this.vrng = (sim.rng && typeof sim.rng.fork === 'function') ? sim.rng.fork('ccview') : makeFallbackRng(0xC0FFEE);
@@ -1309,7 +1311,7 @@
     grp.add(this.shipGlow);
 
     // (04 task 8) boost rocket plume — additive cone trailing behind the ship; shown + flickered during boost
-    var plumeMat = new THREE.MeshBasicMaterial({ color: 0xFFC857, transparent: true });
+    var plumeMat = new THREE.MeshBasicMaterial({ color: this.shipTrailColor ? parseInt(this.shipTrailColor.slice(1), 16) : 0xFFC857, transparent: true });   // (v0.57.0) plume wears the mastery trail tint
     if (plumeMat.opacity !== undefined) plumeMat.opacity = 0;
     if (THREE.AdditiveBlending) plumeMat.blending = THREE.AdditiveBlending;
     if (plumeMat.depthWrite !== undefined) plumeMat.depthWrite = false;
@@ -1689,7 +1691,7 @@
       var view = null;
       var THREE = (typeof window !== 'undefined') ? window.THREE : (typeof self !== 'undefined' ? self.THREE : undefined);
       if (THREE) {
-        try { view = new CCView(THREE, sim, el.canvas, { reducedMotion: settings.reducedMotion }); }
+        try { view = new CCView(THREE, sim, el.canvas, { reducedMotion: settings.reducedMotion, shipTrailColor: (ctx.settings && ctx.settings.shipTrailColor) || null }); }
         catch (e) { view = null; el.fallback.style.display = 'flex'; el.fallback.textContent = '3D unavailable — ' + (e && e.message || e); }
       } else {
         el.fallback.style.display = 'flex';

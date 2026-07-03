@@ -1482,6 +1482,88 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // K7. Mastery-gated cosmetics (v0.57.0 unit 7)
+  console.log("\nK7. Cosmetics (unlock predicate / picker / persistence / applied in ARM+KBB)");
+  {
+    const core = SN.core, C = SN.cosmetics;
+    SN.achievements.LIST.forEach(d => { core.profile.achievements[d.id] = 1; });   // no surprise unlock XP
+    ok("cosmetics API: 6 palette-locked variants + threshold 0.5 + pure helpers",
+      !!C && C.LIST.length === 6 && C.THRESHOLD === 0.5 && C.LIST[0].id === "standard" && C.LIST[0].domain === null
+      && C.LIST.every(d => /^#[0-9A-F]{6}$/i.test(d.color)) && typeof C.unlocked === "function" && typeof C.resolve === "function");
+    {
+      const stats = { domains: [{ domain: "storage", masteredPct: 0.5 }, { domain: "vms", masteredPct: 0.49 }] };
+      const aqua = C.LIST.find(d => d.id === "aqua-stream"), mantis = C.LIST.find(d => d.id === "mantis-wake");
+      ok("unlock predicate: standard always; 0.50 unlocks; 0.49 does not; missing stats locks",
+        C.unlocked(C.LIST[0], null) === true && C.unlocked(aqua, stats) === true
+        && C.unlocked(mantis, stats) === false && C.unlocked(aqua, null) === false);
+      ok("resolve: unlocked pick sticks; locked or unknown falls back to standard",
+        C.resolve({ shipTrail: "aqua-stream" }, stats).id === "aqua-stream"
+        && C.resolve({ shipTrail: "mantis-wake" }, stats).id === "standard"
+        && C.resolve({ shipTrail: "nope" }, stats).id === "standard"
+        && C.resolve(null, stats).id === "standard");
+    }
+    // unlock a REAL domain by mastering half its (smallest) bank slice, then pick it in Settings
+    const st0 = core.questions.stats();
+    const smallest = st0.domains.slice().sort((a, b) => a.total - b.total)[0];
+    const domQs = core.questions.pool().filter(q => q.domain === smallest.domain);
+    const need = Math.ceil(domQs.length * 0.5);
+    const seededIds = [];
+    for (let i = 0; i < need; i++) {
+      core.profile.mastery[domQs[i].id] = { id: domQs[i].id, seen: 1, correct: 1, incorrect: 0, streak: 1, bucket: 4, lastSeen: core.clock.now() };
+      seededIds.push(domQs[i].id);
+    }
+    const def = C.LIST.find(d => d.domain === smallest.domain);
+    const chosen = def || C.LIST.find(d => d.domain === "storage");   // every LIST domain may not match the smallest — fall back to seeding storage
+    if (!def) {
+      // seed storage instead so a pickable variant is genuinely unlocked
+      seededIds.forEach(id => delete core.profile.mastery[id]); seededIds.length = 0;
+      const sQs = core.questions.pool().filter(q => q.domain === "storage");
+      for (let i = 0; i < Math.ceil(sQs.length * 0.5); i++) {
+        core.profile.mastery[sQs[i].id] = { id: sQs[i].id, seen: 1, correct: 1, incorrect: 0, streak: 1, bucket: 4, lastSeen: core.clock.now() };
+        seededIds.push(sQs[i].id);
+      }
+    }
+    ok("a real domain crosses the 50% mastery gate (" + chosen.domain + ")",
+      C.unlocked(chosen, core.questions.stats()) === true);
+    shell.showSettings();
+    {
+      const swatches = w.document.querySelectorAll(".sx-trail");
+      const lockedN = w.document.querySelectorAll(".sx-trail.locked").length;
+      ok("picker: 6 swatches; standard equipped by default; locked variants dimmed with a requirement",
+        swatches.length === 6 && !!w.document.querySelector('.sx-trail.on[data-trail="standard"]')
+        && lockedN >= 1 && /Master 50% of/.test(w.document.querySelector(".sx-trail.locked .sx-trail-req").textContent));
+      const target = w.document.querySelector('.sx-trail[data-trail="' + chosen.id + '"]');
+      ok("picker: the newly unlocked variant is selectable", !!target && !target.classList.contains("locked"));
+      target.dispatchEvent(new w.Event("click", { bubbles: true }));
+      ok("selection persists BOTH the id and the resolved hex",
+        core.profile.settings.shipTrail === chosen.id && core.profile.settings.shipTrailColor === chosen.color
+        && target.classList.contains("on"));
+    }
+    // applied in the live games (jsdom mount through the shell)
+    shell.showMenu();
+    shell.enterGame("ARM");
+    await wait(10);
+    ok("ARM: the mounted palette carries the trail tint", shell.currentGameRoot.__armTest.palette().trail === chosen.color);
+    shell.exitGame();
+    shell.enterGame("KBB");
+    await wait(10);
+    ok("KBB: the mounted view state carries the trail tint", w.KBB._test.state().trailColor === chosen.color);
+    shell.exitGame();
+    // fallback: with the cosmetic cleared, ARM returns to stock aqua
+    delete core.profile.settings.shipTrail; delete core.profile.settings.shipTrailColor;
+    shell.enterGame("ARM");
+    await wait(10);
+    {
+      const pal = shell.currentGameRoot.__armTest.palette();
+      ok("ARM fallback: no cosmetic -> the thruster stays stock aqua", pal.trail === pal.aqua);
+    }
+    shell.exitGame();
+    // hygiene
+    seededIds.forEach(id => { delete core.profile.mastery[id]; });
+    core.profile.achievements = {};
+    shell.showMenu();
+  }
+
   SN.core.audio = realAudio;
 
   console.log("\nTotal frame errors across all games: " + frameErrors.length);
