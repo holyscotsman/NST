@@ -229,6 +229,10 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-A11 — Briefing rework (added v0.95.0).** Core briefs: Vega explains the why FIRST and only
+  names the answer in his final line — confirm you actually read differently now. Before a boss
+  sector: he announces a Dreadnought holding your cores and gives the kill plan at the engage beat.
+
 - **QA-A10 — Spread + assist + hidden achievement (added v0.94.0).** With Rapid Fire tiers, volleys
   fan very slightly; shots near a target drift subtly onto it (should feel generous, never magnetic).
   Clear every asteroid in one sector: next answer pops a hidden achievement toast (Belt sweeper);

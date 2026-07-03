@@ -205,6 +205,13 @@ async function runFrames(n = 6) {
       const o = armT.briefOptions();
       ok("teach step offers understand / repeat / explain further", o.includes("I understand") && o.includes("Repeat") && o.includes("Explain further"));
       ok("commander briefing teaches the answer (info to learn, not a quiz)", armT.briefText().indexOf(armT.briefCoreAnswer()) >= 0);
+      // A5 (v0.95.0): the answer lands LAST — the lead line must NOT contain it, the closing line must
+      {
+        const keys = [...w.document.querySelectorAll(".arm-comms-key")];
+        ok("A5: Vega explains first — answer only in the CLOSING line",
+          keys.length >= 2 && keys[0].textContent.indexOf(armT.briefCoreAnswer()) < 0
+          && keys[keys.length - 1].textContent.indexOf(armT.briefCoreAnswer()) >= 0);
+      }
       armT.briefPick(1); armT.briefPick(1); armT.briefPick(1);   // ask to repeat 3x
       ok("repeating 3x on a core makes the commander terse (easter egg)", armT.briefInfo().frustrated === true);
       armT.briefPick(2);                 // "Explain further" -> ELI5

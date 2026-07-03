@@ -241,6 +241,13 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   ok(/BOSS_FLOW = 920/.test(H.ARM_SRC) && /bt \* BOSS_FLOW \* depth/.test(H.ARM_SRC)
      && /bossActive\) drawBossRush\(\)/.test(H.ARM_SRC) && /three static faint shafts/.test(H.ARM_SRC),
      'boss arena rushes upward: BOSS_FLOW streaks behind the world, calm under reduced motion');
+  // (v0.95.0, A4/A5) briefing rework sources
+  ok(/BCM DREADNOUGHT parked on our lane/.test(H.ARM_SRC) && /bossQueue\.length \+ " station cores/.test(H.ARM_SRC)
+     && /pour fire into the ACTIVE port/.test(H.ARM_SRC),
+     'A4: pre-boss brief names the Dreadnought, counts the cores, teaches the kill');
+  ok(/close: "So the key here is " \+ key/.test(H.ARM_SRC) && /listen close\." , *body: why/.test(H.ARM_SRC.replace(/\s+/g, ' ')) === false
+     && /body: why, close:/.test(H.ARM_SRC),
+     'A5: teach line = explain first, answer as the closing line');
   // (v0.94.0, A2/A3) spread + aim assist + belt-cleared seam
   ok(/AIM_ASSIST = 0\.1;/.test(H.ARM_SRC) && /runRng\.next\(\) - 0\.5\) \* 0\.03 \* lvl\.rapid/.test(H.ARM_SRC)
      && /Math\.max\(-0\.05, Math\.min\(0\.05, dA \* AIM_ASSIST\)\)/.test(H.ARM_SRC),

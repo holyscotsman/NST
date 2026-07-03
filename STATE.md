@@ -101,7 +101,12 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.94.0 — ARM unit 2: spread + aim assist, hidden Belt sweeper (A2/A3)
+## v0.95.0 — ARM unit 3: Vega explains-first + Dreadnought pre-boss brief (A4/A5)
+
+verify 458, arm-run 78. NEXT: A6 economy+cadence (heaviest ARM unit — 12-sector pins move),
+A10 boss patterns; then KBB (needs fresh map), CC, G2 save/resume, G3 intro, G4 full scan.
+
+> **Earlier this session (v0.94.0):** ARM unit 2
 
 verify 457 (ach list now 13, hidden rendering pinned), arm-run 76. NEXT: A4/A5 briefings,
 A6 economy+cadence, A10 boss patterns; then KBB units (K-map needed — mapper crashed),

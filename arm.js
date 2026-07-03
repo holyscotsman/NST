@@ -720,6 +720,12 @@
       return [1, d];
     }
     function setupBriefing() {
+      if (bossActive) {
+        // (v0.95.0, A4, Jason) the pre-boss brief: name the threat, count the cores, teach the kill.
+        briefIntro = "Pilot \u2014 this one's different. Long-range scans show a BCM DREADNOUGHT parked on our lane, and it's holding " + bossQueue.length + " station cores in its hull racks. Be prepared: that is a warship, not a patrol.";
+        briefOutro = "Tactics: its hull ports glow gold under a beacon \u2014 pour fire into the ACTIVE port until it vents a core, then CATCH the core and answer to lock it in. When its laser charges, get OFF the line before it fires. Five ports, five cores. Bring that monster down \u2014 hyperdrive when you're ready.";
+        return;
+      }
       briefIntro = sector <= 1
         ? "Pilot \u2014 a BCM Disruptor hit shattered the MCI Station into " + cores.length + " knowledge cores. I'll brief each one before you fly."
         : "Sector " + sector + " of " + SECTORS + ", pilot \u2014 " + cores.length + " more cores ahead, and the BCM's pushing harder. I'll brief each before you launch.";
@@ -727,9 +733,9 @@
         ? "Last of them. Clear this sector and the Station's whole again \u2014 hyperdrive when you're ready."
         : "That's the loadout. Guarded cores: clear the threat or solve the lock, then prove the concept to extract. Hyperdrive when you're ready.";
     }
-    // Per-core teaching. Cmdr. Vega DELIVERS the intel — leads with the correct answer, then the
-    // authored brief/explanation as the why — so the briefing is the study phase: the player learns
-    // the fact, recalls it to extract the core, and the spaced scheduler re-tests it across later
+    // Per-core teaching. (v0.95.0, A5, Jason: "I end up just reading the answer and ignoring
+    // the why") Vega now EXPLAINS first and lands the answer as the closing line — the study
+    // phase forces the why before the what; the spaced scheduler re-tests it across later
     // sessions. Content is sourced ONLY from authored, verified fields (the correct option(s),
     // q.briefing, q.explanation, q.deepExplain). Never AI-generated, never invented. NOTE: authored
     // q.briefing/q.deepExplain were written non-revealing (old design), so they SUPPORT the reveal
@@ -747,16 +753,15 @@
       var key = ans.length > 1
         ? ans.slice(0, -1).join(", ") + " and " + ans[ans.length - 1]
         : "\u201c" + ans[0] + "\u201d";
-      // lead with the answer (a short, scannable line); the authored brief/explanation renders as its
-      // own separate paragraph (the "why") so it no longer runs together into a wall of text.
       var why = q.briefing || q.explanation || "";
-      return { lead: "Intel, pilot \u2014 the key here is " + key + ".", body: why };
+      // explanation first; the answer is the CLOSING line so the why gets read (A5)
+      return { lead: "Intel, pilot \u2014 listen close.", body: why, close: "So the key here is " + key + "." };
     }
     function eli5Line(core) {
       var q = core.q, ans = correctAnswerText(q);
       var plain = ans.length > 1 ? ans.join(" and ") : "\u201c" + ans[0] + "\u201d";
       var extra = q.deepExplain || q.explanation || "";   // surface the deepest authored detail we have
-      return { lead: "Plainly, pilot \u2014 the right read is " + plain + ".", body: extra };
+      return { lead: "Plainly, pilot \u2014 walk it through with me.", body: extra, close: "Which is why the right read is " + plain + "." };
     }
     function frustrationLine() {
       return briefRepeat >= 4
@@ -771,6 +776,7 @@
         commsMsg.innerHTML = "";
         commsMsg.appendChild(mk("div", "arm-comms-key", parts.lead));
         if (parts.body) commsMsg.appendChild(mk("div", "arm-comms-why", parts.body));
+        if (parts.close) commsMsg.appendChild(mk("div", "arm-comms-key", parts.close));   // (A5) the answer lands LAST
       } else {
         var capV = capWords(parts || "", 120);     // (J7) Vega never exceeds 120 words (Jason v0.75.0)
         commsMsg.textContent = capV.rest ? (capV.s + "\u2026") : capV.s;
