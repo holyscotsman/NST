@@ -24,7 +24,7 @@ taste calls. Fixes deliberately NOT implemented here (they feed Phase 2).
   scale, and/or missing fog on the far row; the flat-shaded normals make faces read smooth).
   QA-C1 defines this exact look as WRONG, so it's objective by contract. *Knobs: `_buildPeaks`
   crag `amt`, per-vertex noise scale, a fog/haze tint on the far row.* **Severity: high
-  (CC's establishing shot is the game's face).**
+  (CC's establishing shot is the game's face).** → **FIXED v0.62.0** (root cause: 1-height-segment cones made the jitter a no-op; now segmented + rewritten crag + near-row fog opt-out; see `59/60-cc-peaks-v2/v3.png` — Jason's QA-C1 eyes-on still the final word).
 - **A3 — Progress screen shows a doubled "Daily missions" header.** `06-progress-top.png`:
   the `.sx-dom-head` "DAILY MISSIONS" section label sits directly above the strip's own
   "Daily missions · <date>" head. *Fix: suppress the inner head when hosted on the stats

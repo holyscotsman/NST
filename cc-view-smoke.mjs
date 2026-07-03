@@ -41,6 +41,7 @@ function material(opts) {
   return {
     color: colorObj(opts.color), emissive: colorObj(opts.emissive),
     emissiveIntensity: opts.emissiveIntensity, roughness: opts.roughness, metalness: opts.metalness,
+    fog: opts.fog,                                  // (P2·2) peaks pin needs the near-row fog opt-out visible
     map: null, normalMap: null, normalScale: new Vec(1, 1),
     dispose() {}
   };
@@ -181,6 +182,21 @@ if (view) {
     if (sw2) sw2.z = -50; view.reducedMotion = false;
     ok("reduced motion: sweeper + static telegraph render clean (no slide)", !rmErr);
   }
+  // (v0.61.0 P2·2, PLAYTEST A2) craggy peaks: 30 ridge meshes (2 sides × 9 near + 6 far),
+  // near row opted OUT of fog (true rock value), far row fogged (the haze layer). The crag
+  // ROOT-CAUSE fix — cones must carry height segments or the jitter has no vertices to move —
+  // is pinned at source level so a refactor can't silently regress it back to smooth cones.
+  {
+    ok("peaks: 30 ridge meshes across both sides", !!view.peaks && view.peaks.children.length === 30);
+    ok("peaks: near row keeps true rock value (fog:false), far row rides the haze",
+      !!view._peakMatNear && view._peakMatNear.fog === false
+      && !!view._peakMatFar && view._peakMatFar.fog !== false
+      && view._peakMatNear.color.value !== view._peakMatFar.color.value);
+    const src = fs.readFileSync("./cc.js", "utf8");
+    ok("peaks: crag amplitude + height-segmented cones pinned at source (the no-op-jitter root cause)",
+      /CRAG_AMT = 0\.42/.test(src) && /ConeGeometry\(r, h, 7, 4\)/.test(src) && /ConeGeometry\(rk, hk, 6, 3\)/.test(src));
+  }
+
   // (v0.57.0) mastery cosmetic: the boost plume takes the shell-resolved trail tint at
   // construction; stock stays gold. (Mock materials record the constructed color.)
   {

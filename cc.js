@@ -1193,19 +1193,37 @@
   CCView.prototype._buildPeaks = function (cfg) {
     var THREE = this.THREE;
     var grp = this.peaks = new THREE.Group();
-    var matNear = new THREE.MeshStandardMaterial({ color: 0x453a4e, roughness: 1.0, metalness: 0.0 });
+    // (P2·2) near row opts OUT of the distance fog so it keeps its true dark rock value —
+    // the fog was washing BOTH rows to the same pale tint and erasing the layered read
+    // QA-C1 asks for. Far row stays fogged: that wash IS the haze.
+    var matNear = new THREE.MeshStandardMaterial({ color: 0x4a4056, roughness: 1.0, metalness: 0.0, fog: false });
     var matFar = new THREE.MeshStandardMaterial({ color: 0x2c2536, roughness: 1.0, metalness: 0.0 });
+    this._peakMatNear = matNear; this._peakMatFar = matFar;   // (P2·2) pinned by cc-view-smoke
     this._disposables.push(matNear); this._disposables.push(matFar);
     var lip = cfg.LANE_W * 1.5 + 2.6;             // outer wall |x|
-    function crag(geo, amt) {                     // deterministic craggy silhouette (guarded for the headless mock)
+    // (v0.61.0 P2·2, PLAYTEST A2) crag rewrite. ROOT CAUSE of the smooth traffic-cones: the
+    // cones were built with ONE height segment, so the only vertices were the apex (x=z=0 —
+    // radial jitter multiplies zero) and the planted base ring — crag() was a geometric no-op.
+    // Cones now carry height segments (rings between base and tip), and those rings get BOTH
+    // radial jitter (silhouette breaks) and a height wobble (jagged shoulders). Base ring
+    // stays planted; the apex gets a lateral kink so summits stop being perfect spikes.
+    var CRAG_AMT = 0.42;                          // radial jitter amplitude (near row; far row runs lower)
+    function crag(geo, amt, h) {                  // deterministic; guarded for the headless mock
       var pa = geo.attributes && geo.attributes.position;
       if (!pa || !pa.array) return geo;
-      var a = pa.array;
+      var a = pa.array, half = (h || 2) / 2;
       for (var vi = 0; vi < a.length; vi += 3) {
-        if (a[vi + 1] < -0.45) continue;                                        // keep the base ring planted
-        var hsh = Math.sin(a[vi] * 12.9 + a[vi + 1] * 78.2 + a[vi + 2] * 37.7) * 43758.5453;
-        var j = 1 + amt * ((hsh - Math.floor(hsh)) - 0.5) * 2;
-        a[vi] *= j; a[vi + 2] *= j;                                             // jitter radially, not in height
+        var y = a[vi + 1];
+        if (y <= -half + 0.01) continue;                                        // keep the base ring planted
+        var hsh = Math.sin(a[vi] * 12.9 + y * 78.2 + a[vi + 2] * 37.7) * 43758.5453;
+        var n01 = hsh - Math.floor(hsh);
+        if (a[vi] === 0 && a[vi + 2] === 0) {                                   // apex: kink it sideways
+          a[vi] += (n01 - 0.5) * amt * 3.2; a[vi + 2] += (((n01 * 7.13) % 1) - 0.5) * amt * 3.2;
+          continue;
+        }
+        var j = 1 + amt * (n01 - 0.5) * 2;
+        a[vi] *= j; a[vi + 2] *= j;                                             // radial: breaks the cone silhouette
+        a[vi + 1] += (((n01 * 3.77) % 1) - 0.5) * amt * half * 0.5;             // height wobble: jagged shoulders
       }
       pa.needsUpdate = true;
       if (geo.computeVertexNormals) geo.computeVertexNormals();
@@ -1219,7 +1237,7 @@
         var r = 5.5 + ((i * 23) % 5) + h * 0.16;                  // wider bases under taller peaks
         var xOff = lip + 12 + f * 58 + ((i * 13) % 6);            // |x| ~21..79
         var z = -22 - f * 40 - ((i * 7) % 9);                     // z ~-22..-70
-        var g = this._track(crag(new THREE.ConeGeometry(r, h, 7), 0.22));
+        var g = this._track(crag(new THREE.ConeGeometry(r, h, 7, 4), CRAG_AMT, h));   // 4 height segs = 3 craggable rings
         var m = new THREE.Mesh(g, matNear);
         m.position.set(side * xOff, RIM_Y + h / 2 - 0.8, z);
         if (m.rotation) m.rotation.y = i * 1.1;
@@ -1233,7 +1251,7 @@
         var rk = 11 + ((k * 19) % 7) + hk * 0.2;
         var xk = lip + 8 + fk * 74 + ((k * 31) % 10);             // |x| ~17..99 (can sit closer laterally — depth separates it)
         var zk = -62 - fk * 44 - ((k * 5) % 7);                   // z ~-62..-110 (deep in the fog)
-        var gk = this._track(crag(new THREE.ConeGeometry(rk, hk, 6), 0.14));
+        var gk = this._track(crag(new THREE.ConeGeometry(rk, hk, 6, 3), CRAG_AMT * 0.6, hk));   // softer far-row crags (haze does the rest)
         var mk = new THREE.Mesh(gk, matFar);
         mk.position.set(side * xk, RIM_Y + hk / 2 - 1.2, zk);
         if (mk.rotation) mk.rotation.y = k * 0.9 + 0.4;

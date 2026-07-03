@@ -340,6 +340,35 @@ Commit: `v0.61.0 — Menu fold fix + daily strip layout (PLAYTEST A1/A3)`.
 
 ---
 
+## Phase 2 · iteration 2 — MINI-SPEC (before build)
+
+**What:** PLAYTEST A2 — CC peaks read as smooth grey-pink traffic-cones (QA-C1's literal
+WRONG). Make the ridge rows read as CRAGGY MOUNTAINS with depth haze.
+**Why (rubric):** mission value 4/5 (CC's establishing shot is the game's face; QA-C1 is an
+open contract item); verifiability 4/5 — for the FIRST time a visual fix can be iterated
+against real screenshots (Playwright loop: edit → build → shoot → look), plus structural
+pins (far-row haze material distinct, crag amplitude source pin); blast radius 5/5 (cc.js
+`_buildPeaks` + materials only — collision/fairness untouched, peaks are scenery); size 4/5.
+**How:** (1) crank per-vertex crag displacement so facets break the cone silhouette;
+(2) haze the far row (material color lerped toward the sky/fog tint, flat no-shading look);
+(3) keep near-row rock in-palette (cooler grey, less pink) — conservative on C1 (Jason's
+taste call stays open). Iterate the look via Playwright until the shot reads as a range.
+**Planned pins:** view-smoke: near/far peak materials exist and differ (far = haze tint);
+source pin on the crag amplitude; existing fairness/view suites untouched.
+**Negative control:** zero the crag amplitude → the source pin fails.
+
+**RESULT (v0.62.0):** ROOT CAUSE was better than the spec guessed: the cones had ONE height
+segment, so `crag()` had no movable vertices (apex at x=z=0, base planted) — the v0.47 crag
+pass never did anything. Fixed with height-segmented cones + rewritten crag (radial jitter +
+height wobble + apex kink) + near-row `fog:false` (the fog had washed both rows to one pale
+tint — the near/far layer contrast QA-C1 wants comes from exempting the near row). Iterated
+against real screenshots twice (`59`, `60`) — silhouettes break, layers separate. View-smoke
++3 pins incl. the height-segment SOURCE pin (the exact regression class); negctrl (segments
+stripped) failed exactly that pin. Full gate 409/409. Jason's QA-C1 eyes-on remains final.
+Commit: `v0.62.0 — CC craggy peaks (PLAYTEST A2 root-cause fix)`.
+
+---
+
 **PHASE 1 COMPLETE: all NINE units shipped, v0.52.0 → v0.60.0, gate grown 345 → 407
 verify-build assertions (+ ARM RUN 46, KBB RUN 26, fairness 25, view-smoke +5) — every
 code unit green-gated with a bite-proven negative control before commit. Phase 2 next;
