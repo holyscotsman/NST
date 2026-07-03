@@ -2,7 +2,7 @@
  * parity leg beside kbb-run.cjs and arm-run.cjs). CCSim is renderer-free, so this drives
  * the REAL sim class headlessly — no jsdom, no THREE: reset state, spawn discipline, live
  * per-type collision truths (incl. the sweeper's phase-honest lane), the full gate-question
- * flow (right/wrong/cap/drain-to-game-over), the every-5-gates boost, crash + i-frames, and
+ * flow (right/wrong/cap/drain-to-game-over), the gate-cadence boost, crash + i-frames, and
  * same-seed determinism. Deterministic (seeded). Run: node cc-run.cjs | CC_SEED=n overrides.
  */
 'use strict';
@@ -202,6 +202,7 @@ function runToQuestion(sim, maxSecs, pinShields) {
   stepFor(s3, CFG.BOOST_TIME + 1.5);
   var gained = s3.scoreDistance - sc0;
   ok(gained >= CFG.BOOST_KM * 1500 * 0.95, 'overcharged boost covers ~+50% (' + Math.round(gained / 1000) + ' km vs stock ' + CFG.BOOST_KM + ')');
+  ok(CFG.GATES_PER_BOOST === 2, 'JB6: boost fires every 2 gates = every 20 km (was 50)');
   // passive magnet: a neighbouring-lane cell drifts toward the player
   var s4 = mkSim(SEED + 10);
   s4.applyUpgrades({ magnet: 1 });

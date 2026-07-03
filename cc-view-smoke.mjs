@@ -201,6 +201,21 @@ if (view) {
       && view._endCap.position.z < -(sim.cfg.DRAW_DIST - 10));
   }
 
+  // (v0.77.0, JB5) the speed shake CYCLES per 40 km window: near-max just before a boundary,
+  // near-zero right after it (Jason: intensity must relent, not pin at max)
+  {
+    sim.speed = sim.cfg.MAX_SPEED;
+    sim.scoreDistance = 39.9 * 1000;
+    view.applySpeedCamera(sim.speed, true, 0, 1 / 60);
+    const nearMax = view._lastShakeAmp;
+    sim.scoreDistance = 40.1 * 1000;
+    view.applySpeedCamera(sim.speed, true, 0, 1 / 60);
+    const reset = view._lastShakeAmp;
+    ok("shake cycles at the 40 km boundary (" + nearMax.toFixed(4) + " -> " + reset.toFixed(4) + ")",
+      nearMax > 0.02 && reset < nearMax * 0.05);
+    sim.scoreDistance = 0;
+  }
+
   // (v0.57.0) mastery cosmetic: the boost plume takes the shell-resolved trail tint at
   // construction; stock stays gold. (Mock materials record the constructed color.)
   {

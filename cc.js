@@ -84,7 +84,7 @@
     // the canyon fast-forwards (real scroll jumps to BOOST_SPEED), and scored distance covers BOOST_KM
     // over ~BOOST_TIME seconds (no timer UI — it ends when that distance is reached). Gates don't fire
     // during the skip; the normal cadence resumes after.
-    GATES_PER_BOOST: 5,
+    GATES_PER_BOOST: 2,          // (v0.77.0, JB6) boost every 2 gates = every 20 km (was 5 = 50 km)
     BOOST_KM: 100,             // scored distance the boost covers
     BOOST_TIME: 3,             // ~seconds the boost lasts (derives the boosted score rate: BOOST_KM*1000/BOOST_TIME)
     BOOST_SPEED: 200,          // real world-scroll during boost (≈2.4× MAX_SPEED) — the fast-forward visual
@@ -1410,7 +1410,12 @@
     if (typeof cam.fov === 'number') {
       if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; if (cam.updateProjectionMatrix) cam.updateProjectionMatrix(); }
     }
-    var amp = (this.reducedMotion || !moving) ? 0 : frac * 0.05; // subtle; reduced-motion = 0
+    // (v0.77.0, JB5) the speed shake now CYCLES: it builds across each 40 km window of scored
+    // distance (quadratic — calm early, alive late) then resets at the boundary, so intensity
+    // breathes with the run instead of pinning at max forever (Jason: "too much eventually").
+    var cyc40 = ((this.sim.scoreDistance / 1000) % 40) / 40;
+    var amp = (this.reducedMotion || !moving) ? 0 : frac * 0.05 * (cyc40 * cyc40);
+    this._lastShakeAmp = amp;                                    // pinned by cc-view-smoke
     var t = this._t, sx = Math.sin(t * 37.0) * amp, sy = Math.cos(t * 31.0) * amp * 0.7;
     // (C1) lateral follow: ease toward ~45% of the player's x so lane changes carry the frame;
     // (C1) counter-roll: the horizon tilts slightly against the smoothed lateral velocity.
@@ -1906,13 +1911,19 @@
             if (el.ovrCells) el.ovrCells.textContent = '\u2b21 +' + banked + ' cells banked \u00b7 balance ' + (prof.ccCells | 0);
           }).catch(function () {});
         }
-        el.ovrTitle.textContent = 'Run ended';
+        el.ovrTitle.textContent = '\ud83d\udca5 SHIP DOWN \u2014 you crashed';   // (v0.77.0, JB4) say what happened
         el.ovrStats.innerHTML =
           row('Distance', (sim.runStats.points / 1000).toFixed(2) + ' km') +
           row('Cells collected', banked) +
           row('Unique correct', sim.runStats.uniqueCorrect) +
           row('Unique incorrect', sim.runStats.uniqueIncorrect);
         el.gameover.style.display = 'flex';
+        // (v0.77.0, JB4) surface the Garage immediately — refit is part of the death loop
+        if (el.garagePanel) {
+          el.garagePanel.style.display = 'block';
+          if (el.btnGarage) el.btnGarage.textContent = 'Close garage \u25b4';
+          setTimeout(renderGarage, 60);              // after the wallet banks (async load->save)
+        }
       }
       // (v0.73.0, J9) The Garage — pricey persistent upgrades bought with banked cells.
       var garageProfile = null;

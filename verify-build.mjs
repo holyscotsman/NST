@@ -1686,6 +1686,11 @@ async function runFrames(n = 6) {
       html.includes("if (prof.ccUpgrades) sim.applyUpgrades(prof.ccUpgrades)"));
   }
 
+  // JB4 (v0.77.0): the CC crash screen says so + surfaces the Garage
+  console.log("\nJB4. CC crash screen source pins");
+  ok("JB4: game over says SHIP DOWN and auto-opens the Garage",
+    html.includes("SHIP DOWN") && html.includes("refit is part of the death loop"));
+
   // P2·3 (v0.63.0): PLAYTEST A4–A6 cleanup — source pins (layout geometry is jsdom-invisible;
   // the Playwright evidence shots are the visual proof, these guard the regressions).
   console.log("\nP2. PLAYTEST cleanup pins (A4 CC hud row / A5 ARM gear backdrop / A6 KBB full-bleed cine)");

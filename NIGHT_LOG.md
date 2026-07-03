@@ -698,6 +698,22 @@ Commit: `v0.76.0 — Boss revamp: lock-on read, living dreadnought, deeper bed`.
 
 ---
 
+## 🎮 JASON'S BATCH #3 (after v0.76.0) — the new queue
+
+**(JB1) Jukebox** — a Dev section to audition every track individually (play/stop, all ids).
+**(JB2) KBB layout** — Next battle/Reroll visible WITHOUT scrolling; the left panel gets
+5 always-visible artifact SLOTS (empty placeholders that fill with cards as bought).
+**(JB3) KBB battle cinematics** — richer procedural FX for win/shield/heal/impact moments
+(sprites come later from Jason; this is the FX layer). Biggest item, last.
+**(JB4) CC crash screen** — the game-over must SAY you crashed and surface the Garage
+(upgrades) before the next run (Garage exists since J9; open it by default + crash copy).
+**(JB5) CC speed-shake cycles** — he LIKES intensity ramping with distance but it must
+relent: micro-shake amplitude cycles every 40 km (ramp up, drop back), tightly capped.
+**(JB6) CC boost cadence** — boost every 20 km (gates are 10 km apart → GATES_PER_BOOST 5→2).
+Order: JB4+5+6 (CC bundle) → JB2 → JB1 → JB3. Same DoD per unit.
+
+---
+
 ## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above
 
 **Why stopped:** the remaining candidate pool no longer meets the rubric at acceptable risk:

@@ -101,6 +101,16 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
+## v0.77.0 — CC crash/cadence bundle (Jason batch #3: JB4/5/6 done; JB2/JB1/JB3 queued)
+
+Crash screen says SHIP DOWN + Garage auto-opens; speed shake cycles per 40 km window
+(quadratic ramp, resets at boundary, reduced-motion honored, pinned); boost gate every
+2 gates = 20 km (was 50). Gate: verify 423, cc-run 39, view-smoke +1 cycle pin. Negative
+control clean (exactly 3 pins fell). NEXT: JB2 KBB layout (no-scroll buttons + 5 artifact
+slots), JB1 Jukebox dev section, JB3 KBB battle cinematics (sprites later).
+
+> **Earlier this session (v0.76.0 and prior):**
+
 ## ▶ How to resume in a fresh chat
 Upload **all of these** into a new chat, then paste the line below:
 - `STATE.md` (this file) + `BACKLOG.md` (the prioritised feedback roadmap)
