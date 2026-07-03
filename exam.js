@@ -223,11 +223,16 @@
   // back-browse graded questions), 'sim' (one whole-exam clock like the real NCP-MCI,
   // free navigation, flag-for-review, grade only at final submit).
   var SIM_SECS_PER_Q = 96;   // 120 min / 75 q on the real exam
+  var EXTRA_FACTOR = 1.6;    // (v0.84.0, B2) mirrors core TIMER.EXTRA_FACTOR — a11y extra time
 
   function run(opts) {
     opts = opts || {};
     injectCSS();
     var container = opts.container; if (!container) return;
+    // (v0.84.0, B2) 'Extra time on timed questions' finally reaches the ONE heavily-timed
+    // surface. Blitz points stay comparable: pointsAt decays on the elapsed/window FRACTION,
+    // so a stretched window keeps the identical scoring curve — bests need no exemption.
+    var XT = opts.extraTime ? EXTRA_FACTOR : 1;
     var rngIn = opts.rng || Math.random;
     var rng = (typeof rngIn === "function") ? rngIn : ((rngIn && typeof rngIn.next === "function") ? rngIn.next : Math.random);
     var audio = opts.audio || null;
@@ -312,7 +317,7 @@
     on(wrap.querySelector(".sx-exam-quit"), "click", function () { if (S.mode === "sim" && !S.examDone) submitSim(true); else finish(true); });
 
     S.bg = initBackdrop(canvas, rng, reducedMotion);
-    if (S.mode === "sim") S.simEnd = nowMs() + order.length * SIM_SECS_PER_Q * 1000;
+    if (S.mode === "sim") S.simEnd = nowMs() + order.length * SIM_SECS_PER_Q * 1000 * XT;
     if (S.mode === "study") barsEl.style.visibility = "hidden";
 
     function fmtClock(ms) {
@@ -336,7 +341,7 @@
           if (tmrEl) tmrEl.textContent = Math.ceil(Math.max(0, S.qWindow - elapsed) / 1000) + "s";
           if (elapsed >= S.qWindow) commit(null);
         } else if (S.mode === "sim") {
-          var rem = S.simEnd - nowMs(), tot = S.order.length * SIM_SECS_PER_Q * 1000;
+          var rem = S.simEnd - nowMs(), tot = S.order.length * SIM_SECS_PER_Q * 1000 * XT;
           if (meterFill) meterFill.style.width = (clamp(rem / tot, 0, 1) * 100).toFixed(1) + "%";
           var ans = 0; for (var k = 0; k < S.drafts.length; k++) if (S.drafts[k] != null) ans++;
           if (ptsEl) ptsEl.textContent = ans + " of " + S.order.length + " answered";
@@ -413,7 +418,7 @@
 
       host.textContent = ""; host.appendChild(card);
       if (graded) paintGraded(idx, card);
-      else if (S.mode === "blitz") { S.qStart = nowMs(); S.qWindow = windowFor(q.difficulty); }
+      else if (S.mode === "blitz") { S.qStart = nowMs(); S.qWindow = windowFor(q.difficulty) * XT; }
     }
 
     // A single option was clicked/keyed — behavior depends on mode.

@@ -698,6 +698,23 @@ Commit: `v0.76.0 — Boss revamp: lock-on read, living dreadnought, deeper bed`.
 
 ---
 
+## 🎮 BATCH #4 (approved 2026-07-03) — five broken things + the learning loop
+
+From the six-lens improvement audit (workflow w6sr0zd0a). Queue, one gated unit each:
+**(B1)** Exam sim: Progress "take a sim" launches the WHOLE 226-question bank (~6h) — pass a
+real count; align Standard to the real exam's 75 questions (blueprint WEIGHTS deferred —
+blocked on Jason confirming official percentages). **(B2)** "Extra time" setting honored in
+the exam module (Blitz windows + sim clock). **(B3)** KBB reduced-motion must keep INFO
+(static dmg/heal numbers + DESTROYED banner), only suppress motion. **(B4)** KBB ≤820px:
+question panel directly under combat, shop actions pinned on mobile too. **(B5)** Pages:
+Actions-gated deploy publishing ONLY the app (repo docs/bank currently public).
+**(L1)** Menu "N due · Review ▸" chip → Study mode on the due subset. **(L2)** Exam end
+screen: redrill-my-misses. **(L3)** optionNotes surfaced in ARM/KBB/CC wrong-answer
+feedback. **(L4+L5)** Leitner: promote only when answered DUE + intervals past 24h
+(3d/7d buckets) — shipped together (one re-baseline).
+
+---
+
 ## 🎮 JASON'S BATCH #3 (after v0.76.0) — the new queue
 
 **(JB1) Jukebox** — a Dev section to audition every track individually (play/stop, all ids).

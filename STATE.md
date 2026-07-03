@@ -101,7 +101,15 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.83.0 — Review sweep (6 confirmed findings from the adversarial pass, all fixed)
+## v0.84.0 — Batch #4 begins: exam sim honesty + extra time (B1+B2)
+
+Sim button no longer launches the whole 226-q bank (75 now); Standard tile 65→75 (real exam
+length); extra-time setting stretches Blitz windows + sim clock 1.6× (points fraction-based,
+bests stay fair). verify 437. QUEUE: B3+B4 KBB reduced-motion info + phone layout, B5 Pages
+privacy, L1+L2 due chip + miss redrill, L3 optionNotes in games, L4+L5 Leitner gating +
+longer intervals. Blueprint weights deferred — waiting on Jason for official percentages.
+
+> **Earlier this session (v0.83.0):** review sweep
 
 BROWSER_QA repaired (six silently-lost entries added, QA-A6 superseded by QA-A7); rush
 wrap-pop fixed (per-streak period); WP_DEFS containment tightened + numeric pin; PATH C

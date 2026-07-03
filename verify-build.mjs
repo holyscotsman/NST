@@ -1044,6 +1044,37 @@ async function runFrames(n = 6) {
     ok("exam honours the chosen count from the chooser", shell._exam._state.order.length === Math.min(20, realPool));
     shell.showMenu();
     ok("leaving the exam tears it down (no leak)", shell._exam === null && shell.screen === "menu");
+
+    // B1 (v0.84.0): Standard = the real exam's 75 questions; the readiness sim button must
+    // never launch the whole bank again (it passed no count -> 226 questions, ~6 hours).
+    console.log("\nB1/B2. Exam sim length + extra time");
+    shell.showExamSetup();
+    const stdBtn = [...w.document.querySelectorAll(".sx-exam-len")].find(n => /75 questions/.test(n.textContent || ""));
+    ok("Standard tile offers 75 questions (the real NCP-MCI length)", !!stdBtn);
+    if (stdBtn) {
+      stdBtn.click();
+      ok("Standard launches at exactly 75", shell._exam._state.order.length === 75);
+      shell.showMenu();
+    } else { ok("Standard launch probe (unreached)", false); }
+    ok("readiness sim button passes a real count (source)", html.includes("self.showExam(75)"));
+    // B2: extra time stretches the Blitz window and the sim clock by EXTRA_FACTOR (1.6)
+    {
+      const mk = () => { const d = []; for (let i = 0; i < 4; i++) d.push({ id: "x" + i, domain: "vms", difficulty: 1, stem: "S", options: ["a", "b"], correctIndex: 0, explanation: "e" }); return d; };
+      const cN = w.document.createElement("div"); w.document.body.appendChild(cN);
+      const hN = EX.run({ mode: "sim", container: cN, questions: mk(), count: 4, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
+      const cX = w.document.createElement("div"); w.document.body.appendChild(cX);
+      const hX = EX.run({ mode: "sim", container: cX, questions: mk(), count: 4, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, extraTime: true, onExit: () => {}, onRetry: () => {} });
+      const base = 4 * EX.SIM_SECS_PER_Q * 1000;
+      const nowRef = w.performance.now();
+      const remN = hN._state.simEnd - nowRef, remX = hX._state.simEnd - nowRef;
+      ok("extra time stretches the sim clock by 1.6x (" + Math.round(remX / remN * 100) / 100 + "x)",
+        Math.abs(remN - base) < 5000 && Math.abs(remX - base * 1.6) < 5000);
+      hN.teardown(); hX.teardown();
+      const cB = w.document.createElement("div"); w.document.body.appendChild(cB);
+      const hB = EX.run({ mode: "blitz", container: cB, questions: mk(), count: 4, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, extraTime: true, onExit: () => {}, onRetry: () => {} });
+      ok("extra time stretches the Blitz decay window by 1.6x", Math.abs(hB._state.qWindow - EX.windowFor(1) * 1.6) < 1);
+      hB.teardown();
+    }
   }
 
   // ===================================================================

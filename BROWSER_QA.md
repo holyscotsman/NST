@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-E8 — Sim length + extra time (added v0.84.0).** Progress → readiness "take a sim": it must
+  launch 75 questions, not the whole bank. Exam setup: Standard says 75. Settings → Extra time ON:
+  Blitz decay bars run visibly slower (1.6×) and the sim clock starts at 3:12:00-ish for 75 q... 
+  actually 75 × 96 s × 1.6 = 3 h 12 m; with it OFF, 2 h 0 m. WRONG: any timed surface ignoring the toggle.
+
 - **QA-A7 — Boss rework: no ring, prow ports, hyperspeed rush (added v0.82.0, browser-blind).**
   Dev-skip to the boss. EYES: NO gold ring around the hit area — the active weakpoint reads via the
   rising gold beacon + pulsing gold core; the thin PEACH circle is its HP bar (flag if you want that

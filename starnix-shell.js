@@ -561,7 +561,7 @@
       lens.appendChild(b);
     }
     if (total > 20) lenBtn("Quick", "20 questions \u00b7 a fast confidence check", 20);
-    if (total > 65) lenBtn("Standard", "65 questions \u00b7 mirrors the real NCP-MCI exam", 65);
+    if (total > 75) lenBtn("Standard", "75 questions \u00b7 the real exam's length (120 min at sim pace)", 75);   // (v0.84.0, B1) was 65 — the real NCP-MCI is 75 q
     lenBtn("Full bank", total + " questions \u00b7 everything that's live", total);
     var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
     this._on(back, "click", function () { self.showMenu(); });
@@ -596,6 +596,7 @@
         audio: core.audio,
         mastery: core.mastery,
         reducedMotion: rm,
+        extraTime: !!(core.profile && core.profile.settings && core.profile.settings.extraTime),   // (v0.84.0, B2)
         onComplete: function (sum) { self._recordExam(sum); },
         onExit: function () { self.showMenu(); },
         onRetry: function () { self.showExam(count, opts); }
@@ -825,7 +826,7 @@
         box.appendChild(strip);
       }
       var simBtn = el("button", "sx-btn sx-btn-ghost sx-ready-go", r.sims ? "Run another Exam sim" : "Take an Exam sim");
-      self._on(simBtn, "click", function () { self._examMode = "sim"; self.showExam(); });
+      self._on(simBtn, "click", function () { self._examMode = "sim"; self.showExam(75); });   // (v0.84.0, B1) count-less call ran the ENTIRE bank (~6 h)
       box.appendChild(simBtn);
     })(s.querySelector(".sx-ready"));
 
