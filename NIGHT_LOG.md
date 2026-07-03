@@ -524,6 +524,27 @@ Commit: `v0.65.0 — ARM question timeouts cost shields (QA-A5 ruling)`.
 
 ---
 
+## Phase 2 · iteration 7 — MINI-SPEC (before build)
+
+**What:** Jason's ruling #3 — trail cosmetics are EARNED FOREVER. New `profile.trailsUnlocked`
+(id → ts) latches any domain variant the moment its 50% threshold is seen; `cosmeticUnlocked`/
+`resolve` gain an optional `profile` arg honoring the latch, so later mastery decay never
+re-locks or force-reverts an equipped trail. Latching happens in the Settings picker render
+(the one place stats + profile meet); pure helpers stay pure.
+**Pins:** K7 — latch() records + returns newly-earned ids; `resolve` keeps a pick with the
+latch present even when stats fall BELOW threshold (the ruling's exact scenario); end-to-end:
+unlock via seeded mastery → DE-seed → picker still offers the variant. Existing no-latch
+fallback pins unchanged (a never-earned locked pick still falls back to standard).
+**Negative control:** ignore the latch in `cosmeticUnlocked` → the earned-forever pins fail.
+
+**RESULT (v0.66.0):** shipped as spec'd — `profile.trailsUnlocked` latch (picker-render
+latching, persisted), optional `profile` arg through `unlocked`/`resolve`, never-earned
+fallback intact. K7 +3 (415/415 total); negctrl failed exactly the 2 earned-forever pins.
+Rulings #2 (keep Blitz bests) and #4 (legendaries as-is) need no code — logged as decided.
+Commit: `v0.66.0 — Trail cosmetics earned forever (ruling #3)`.
+
+---
+
 ## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above
 
 **Why stopped:** the remaining candidate pool no longer meets the rubric at acceptable risk:

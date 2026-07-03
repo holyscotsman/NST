@@ -914,9 +914,11 @@
     if (!host || !StarNix.cosmetics) { if (host) host.style.display = "none"; return; }
     var self = this, core = StarNix.core, settings = core.profile.settings;
     var stats = null; try { stats = core.questions.stats(); } catch (e) {}
-    var current = StarNix.cosmetics.resolve(settings, stats);
+    // (v0.65.0, Jason's ruling) latch any threshold-met variant onto the profile: earned forever
+    try { if (StarNix.cosmetics.latch(core.profile, stats).length) core.persistence.save(core.profile); } catch (eL) {}
+    var current = StarNix.cosmetics.resolve(settings, stats, core.profile);
     StarNix.cosmetics.LIST.forEach(function (def) {
-      var un = StarNix.cosmetics.unlocked(def, stats);
+      var un = StarNix.cosmetics.unlocked(def, stats, core.profile);
       var b = el("button", "sx-trail" + (un ? "" : " locked") + (current.id === def.id ? " on" : ""));
       b.type = "button"; b.setAttribute("data-trail", def.id);
       var sw = el("span", "sx-trail-swatch"); sw.style.background = def.color;

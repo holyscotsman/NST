@@ -1605,8 +1605,29 @@ async function runFrames(n = 6) {
       ok("ARM fallback: no cosmetic -> the thruster stays stock aqua", pal.trail === pal.aqua);
     }
     shell.exitGame();
-    // hygiene
+
+    // (v0.65.0, Jason's ruling) EARNED FOREVER — pure latch, resolve honor, end-to-end decay
+    {
+      const p2 = { trailsUnlocked: {} };
+      const statsUp = { domains: [{ domain: chosen.domain, masteredPct: 0.6 }] };
+      const statsDown = { domains: [{ domain: chosen.domain, masteredPct: 0.1 }] };
+      const newly = C.latch(p2, statsUp);
+      ok("latch: records + returns the newly earned variant, idempotent on repeat",
+        newly.length === 1 && newly[0] === chosen.id && !!p2.trailsUnlocked[chosen.id] && C.latch(p2, statsUp).length === 0);
+      ok("earned forever: resolve keeps the pick after mastery DECAYS below threshold; never-earned still falls back",
+        C.resolve({ shipTrail: chosen.id }, statsDown, p2).id === chosen.id
+        && C.unlocked(chosen, statsDown, p2) === true
+        && C.resolve({ shipTrail: chosen.id }, statsDown, null).id === "standard");
+    }
+    // end-to-end: the earlier showSettings latched the REAL profile; de-seed mastery — still offered
     seededIds.forEach(id => { delete core.profile.mastery[id]; });
+    shell.showSettings();
+    ok("picker end-to-end: after mastery de-seed the earned variant stays selectable (profile latch)",
+      !!core.profile.trailsUnlocked[chosen.id]
+      && !w.document.querySelector('.sx-trail[data-trail="' + chosen.id + '"]').classList.contains("locked"));
+
+    // hygiene
+    core.profile.trailsUnlocked = {};
     core.profile.achievements = {};
     shell.showMenu();
   }

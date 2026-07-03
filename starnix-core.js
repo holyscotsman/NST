@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.65.0";
+  var BUILD_VERSION = "0.66.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -461,9 +461,12 @@
     { id: "iris-bloom",  name: "Iris bloom",  color: "#AC9BFD", domain: "architecture" }
   ];
   var COSMETIC_THRESHOLD = 0.5;   // the domain's masteredPct needed to unlock its trail
-  function cosmeticUnlocked(def, stats) {
+  // (v0.65.0, Jason's ruling) unlocks are EARNED FOREVER: profile.trailsUnlocked latches a
+  // variant the moment its threshold is seen, so later mastery decay never re-locks it.
+  function cosmeticUnlocked(def, stats, profile) {
     if (!def) return false;
     if (!def.domain) return true;
+    if (profile && profile.trailsUnlocked && profile.trailsUnlocked[def.id]) return true;   // latched = earned forever
     if (!stats || !stats.domains) return false;
     for (var i = 0; i < stats.domains.length; i++) {
       var d = stats.domains[i];
@@ -471,11 +474,23 @@
     }
     return false;
   }
-  // The selected variant if it exists AND is (still) unlocked; else the standard trail.
-  function resolveCosmetic(settings, stats) {
+  // Latch every currently-threshold-met variant into the profile; returns the newly earned ids.
+  function latchCosmetics(profile, stats) {
+    if (!profile) return [];
+    var un = profile.trailsUnlocked || (profile.trailsUnlocked = {});
+    var newly = [];
+    for (var i = 0; i < COSMETICS.length; i++) {
+      var def = COSMETICS[i];
+      if (!def.domain || un[def.id]) continue;
+      if (cosmeticUnlocked(def, stats, null)) { un[def.id] = clock.now(); newly.push(def.id); }
+    }
+    return newly;
+  }
+  // The selected variant if it exists AND is unlocked (live threshold OR latched); else standard.
+  function resolveCosmetic(settings, stats, profile) {
     var id = settings && settings.shipTrail;
     for (var i = 0; i < COSMETICS.length; i++) {
-      if (COSMETICS[i].id === id) return cosmeticUnlocked(COSMETICS[i], stats) ? COSMETICS[i] : COSMETICS[0];
+      if (COSMETICS[i].id === id) return cosmeticUnlocked(COSMETICS[i], stats, profile) ? COSMETICS[i] : COSMETICS[0];
     }
     return COSMETICS[0];
   }
@@ -681,6 +696,7 @@
       streaks: {},           // (v0.53.0 unit 3) current consecutive-correct per surface (ARM/KBB/CC/EXAM)
       streaksBest: {},       // high-water streaks — achievement predicates read these
       achievements: {},      // unlocked achievement id -> unlock timestamp
+      trailsUnlocked: {},    // (v0.65.0) cosmetic latches: trail id -> earn timestamp (earned forever)
       settings: defaultSettings(),
       updatedAt: clock.now()
     };
@@ -701,6 +717,7 @@
     if (!p.streaks || typeof p.streaks !== "object") p.streaks = {};    // pre-achievement profiles
     if (!p.streaksBest || typeof p.streaksBest !== "object") p.streaksBest = {};
     if (!p.achievements || typeof p.achievements !== "object") p.achievements = {};
+    if (!p.trailsUnlocked || typeof p.trailsUnlocked !== "object") p.trailsUnlocked = {};
     p.settings = Object.assign({}, def.settings, p.settings || {});
     p.schemaVersion = SCHEMA_VERSION;
     return p;
@@ -1079,12 +1096,13 @@
     onUnlock: function (fn) { achOnUnlock = (typeof fn === "function") ? fn : null; }
   };
 
-  /* Cosmetics surface (v0.57.0 unit 7) — pure defs + unlock/resolve helpers. */
+  /* Cosmetics surface (v0.57.0 unit 7; latch added v0.65.0) — defs + unlock/resolve/latch. */
   StarNix.cosmetics = {
     LIST: COSMETICS,
     THRESHOLD: COSMETIC_THRESHOLD,
     unlocked: cosmeticUnlocked,
-    resolve: resolveCosmetic
+    resolve: resolveCosmetic,
+    latch: latchCosmetics
   };
 
   /* Daily-missions surface (v0.56.0 unit 6) — pure generation + profile-bound state.
