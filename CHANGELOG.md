@@ -6,6 +6,10 @@ Sections per entry: **Added · Changed · Fixed · Removed**. Each line: `<what>
 
 ---
 
+## [0.98.1] - 2026-07-03
+
+- **Gate repair (honesty note).** v0.98.0 was pushed with ONE red verify-build pin: the consumable-cap fixture filled inventory from CONSUMABLE_IDS (3 ids after Purge's removal) against a cap of 4, so the full-inventory rejection test went vacuous-red — and my ship pipeline masked the failure by piping the gate through `grep PASSED` (grep's exit code won the && chain). The fixture now fills to the CAP by cycling ids; the shipped code itself was never wrong. Process fix applied: gates now run with their raw exit code checked, never piped before the commit step. 458/458, 14 suites, exit 0.
+
 ## [0.98.0] - 2026-07-03
 
 - **KBB unit 1 (Batch #5: K1, K2, K3, K7, K8, K9).** K1: the how-to card grew (540px, 18px heading, 15px body). K2: the tour's spotlighted zones are now look-only (pointer-events off) — you must click Next; answering mid-tour is impossible. K3: Purge removed entirely (def, roster, use path, view redraw hook). K7: **the blur had a real cause** — the hidden 2D canvas reports clientWidth 0 in 3D mode, so the renderer, backing canvas, and fx overlay all sized to the 320px fallback and stretched to ~620px; everything now measures the combat CONTAINER (sizeCanvas, resizeIfNeeded, init3D) and the fx overlay resizes with it. K8: the enemy panel reads "☠ DESTROYED" (gold) the moment the enemy dies instead of a stale Charging/Incoming. K9: no timers — the one time-based artifact (Quickdraw Cache: fast-answer mult) became Overwatch Cache (+0.5 mult at full hull; id kept so shop RNG streams stay stable; balance targets held without re-baseline). Pins: kbb-run 51 (+6 source truths, +1 behavioral DESTROYED probe). Controls: spot-clickthrough + DESTROYED branch + container-measure reverted → pins fell → restored.

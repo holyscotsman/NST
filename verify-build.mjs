@@ -950,7 +950,7 @@ async function runFrames(n = 6) {
     ok("selling a legendary is rejected (unsellable)", lr.ok === false && lr.reason === "unsellable");
 
     // consumable cap is enforced (shop greys it in P5; rule already holds)
-    run.consumables = KBB.CONSUMABLE_IDS.slice(0, KBB.CONFIG.consumableCap);
+    run.consumables = Array.from({ length: KBB.CONFIG.consumableCap }, (_, i) => KBB.CONSUMABLE_IDS[i % KBB.CONSUMABLE_IDS.length]);   // (v0.98.1) roster is 3 ids since Purge was cut — fill to the CAP
     run.phase = "shop"; KBB._test.buildShop(run);
     run.shop.consumables = [{ id: KBB.CONSUMABLE_IDS[0], price: 0 }];
     const cb = KBB.shopBuyConsumable(run, 0);
