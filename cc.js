@@ -50,6 +50,7 @@
     // Obstacles
     OBST_DEPTH: 0.7,           // half depth (z)
     ROCK_H: 1.25,             // (Jason v0.47.0) the jump obstacle is now a FULL-WIDTH low wall, "a lot bigger": collision top raised 0.6 -> 1.25. Still comfortably jumpable — sin arc clears it for ~63% of JUMP_TIME (base > 1.25/2.4 of apex), vs a ~0.03 s crossing at MAX_SPEED.
+    SWEEP_FREQ: 0.30,         // (v0.56.0) OB_SWEEP lateral pan, radians per metre of approach — a full sweep cycle every ~21 m; beam x = sin(phase + z*freq) * LANE_W (pure fn of z: deterministic, one source of truth for sim + view)
     CEIL_BOTTOM: 1.5,         // (Jason) arch underside / duck clearance — raised from 1.0 so the gap is bigger and reads clearly (duck top 0.7 still passes; stand top 1.9 still hits)
     ARCH_H: 5.3,             // (Jason) arch TOP raised to the chasm rim — ARCH_H = RIM_Y(6.8) - CEIL_BOTTOM(1.5) = 5.3, so the top sits flush with the chasm lip (no gap above; unlike the old 5.5 whose top at 7.0 poked ABOVE the rim) while the underside stays at the duck clearance (1.5). A duck obstacle whose top reaches the rim MUST be this tall — its underside can't rise above head height or it stops being duckable.
 
@@ -134,7 +135,9 @@
   //             The mirror of the arch: same wall-to-wall slab, same rock texture; the arch leaves a
   //             gap at the BOTTOM (duck under), the wall is solid at the bottom (jump over).
   // OB_ARCH: a full-width rock arch spanning ALL lanes — duck under it (lane-independent).
-  var OB_NARROW = 0, OB_LOWROCK = 1, OB_ARCH = 2;
+  // OB_SWEEP: (v0.56.0) a low energy beam that PANS the canyon laterally as it approaches —
+  // jump is the guaranteed out (worst case); slipping past where it isn't is the skill play.
+  var OB_NARROW = 0, OB_LOWROCK = 1, OB_ARCH = 2, OB_SWEEP = 3;
   var SIDE_LEFT = 0, SIDE_RIGHT = 1;   // OB_NARROW.side -> which outer lane it seals (left=lane0, right=lane2)
   var BUFF_MAGNET = 'magnet', BUFF_INVINCIBLE = 'invincible', BUFF_SHIELDPLUS = 'shieldPlus',
       BUFF_COINX2 = 'coinX2', BUFF_SLOWMO = 'slowmo';
@@ -195,7 +198,7 @@
   }
 
   // Record factories (all numeric/boolean fields pre-declared — no shape changes)
-  function newObstacle() { return { active: false, _i: 0, type: 0, lane: 0, side: 0, x: 0, z: 0, tested: false }; }
+  function newObstacle() { return { active: false, _i: 0, type: 0, lane: 0, side: 0, x: 0, z: 0, tested: false, span: 1, sweepPhase: 0 }; }
   function newCoin() { return { active: false, _i: 0, lane: 0, x: 0, y: 0, z: 0, tested: false, collected: false }; }
   function newGate() { return { active: false, _i: 0, lane: 0, x: 0, z: 0, power: false, kind: '', tested: false }; }
 
@@ -403,6 +406,11 @@
       // wall's lane. No false-positives once you've crossed into a clear lane, and no pass-through.
       return Math.abs(p.x - o.x) < cfg.LANE_W * 0.5;
     }
+    if (o.type === OB_SWEEP) {
+      // (v0.56.0) live phase: the beam only hits where it ACTUALLY is right now (lane-dodging
+      // past it is real skill); jumping lifts the base clear of the low beam either way.
+      return Math.abs(p.x - this._sweepX(o)) < cfg.LANE_W * 0.5 && (pLo < cfg.ROCK_H);
+    }
     // OB_LOWROCK — (Jason v0.47.0) full-width low wall: lane-independent (no x test), player base
     // below the wall top => hit; jumping lifts the base clear. Mirrors OB_ARCH's lane-independence.
     return (pLo < cfg.ROCK_H);
@@ -412,11 +420,21 @@
   // action: 'stand' | 'jump' (apex) | 'duck'. Builds a hypothetical player and reuses _hitsObstacle.
   CCSim.prototype._wouldHit = function (o, lane, action) {
     var cfg = this.cfg;
+    // (v0.56.0) OB_SWEEP solvability is WORST-CASE phase: the beam can be over ANY lane at
+    // crossing time, so only the jump (base above the low beam) is a guaranteed clear.
+    // Live gameplay stays phase-honest via _hitsObstacle — this pessimism is only for fairness.
+    if (o.type === OB_SWEEP) return action !== 'jump';
     var x = (lane - 1) * cfg.LANE_W;
     var y = 0, topY = cfg.PLAYER_H;
     if (action === 'jump') { y = cfg.JUMP_HEIGHT; topY = y + cfg.PLAYER_H; }
     else if (action === 'duck') { topY = cfg.PLAYER_DUCK_H; }
     return this._hitsObstacle(o, { x: x, y: y, topY: topY });
+  };
+
+  // (v0.56.0) OB_SWEEP: the beam's lateral centre is a pure function of its remaining approach
+  // distance — deterministic (no wall clock, no dt plumbing), one source of truth for sim + view.
+  CCSim.prototype._sweepX = function (o) {
+    return Math.sin((o.sweepPhase || 0) + o.z * this.cfg.SWEEP_FREQ) * this.cfg.LANE_W;
   };
 
   CCSim.prototype._onCrash = function () {
@@ -642,6 +660,12 @@
    * path; `_rowOpenLane` records a guaranteed-clear lane. */
   CCSim.prototype._spawnRow = function (zAhead) {
     var rng = this.rng, r = rng.next();
+    if (r < 0.10) {                                  // (v0.56.0) sweeper: a low beam panning the canyon — jump it (or slip past where it isn't)
+      this._spawnSweep(zAhead);
+      this._rowOpenLane = 1;                         // jump clears from anywhere (worst case); coins stay centre
+      return;
+    }
+    r = (r - 0.10) / 0.90;                           // renormalize: the original pattern mix keeps its relative proportions
     if (r < 0.26) {                                  // narrowing: seal one outer lane (3 -> 2)
       var side = rng.next() < 0.5 ? SIDE_LEFT : SIDE_RIGHT;
       this._spawnNarrow(side, zAhead);
@@ -699,13 +723,18 @@
     this._placeObstacle(OB_NARROW, side === SIDE_LEFT ? 0 : 2, side, zAhead);
   };
   CCSim.prototype._spawnLowRock = function (lane, zAhead) { this._placeObstacle(OB_LOWROCK, lane, 0, zAhead); }; // lane retained for call-compat; the wall is full-width (lane-independent)
+  CCSim.prototype._spawnSweep = function (zAhead) {   // (v0.56.0) phase from the run rng -> deterministic per seed
+    var o = this._placeObstacle(OB_SWEEP, 1, 0, zAhead);
+    if (o) o.sweepPhase = this.rng.next() * Math.PI * 2;
+    return o;
+  };
   CCSim.prototype._spawnArch = function (zAhead) { this._placeObstacle(OB_ARCH, 1, 0, zAhead); }; // lane irrelevant (full-width)
 
   CCSim.prototype._placeObstacle = function (type, lane, side, zAhead) {
     var o = this.obstacles.acquire();
     if (!o) return null;                             // sized to never happen; harness asserts pooling
     o.type = type; o.lane = lane; o.side = side; o.span = 1;   // span = render width in lanes (2 = wall-extend deep bulge; 0 = collision-only)
-    o.x = (lane - 1) * this.cfg.LANE_W; o.z = zAhead; o.tested = false;
+    o.x = (lane - 1) * this.cfg.LANE_W; o.z = zAhead; o.tested = false; o.sweepPhase = 0;
     return o;
   };
 
@@ -885,6 +914,18 @@
     this._disposables.push(chevUpMat); this._disposables.push(chevDnMat);
     this.iChevUp = this._instanced(this._track(chevGeo), chevUpMat, cfg.POOL_OBSTACLES * 3);
     this.iChevDown = this._instanced(this._track(chevDownGeo), chevDnMat, cfg.POOL_OBSTACLES * 3);
+    // (v0.56.0) OB_SWEEP: a lane-wide low energy beam that pans the canyon — PEACH (danger per
+    // 07 §1), additive so it reads as energy, not rock. Telegraph = peach SIDEWAYS arrows
+    // (horizontal cone ≠ the up/down jump/duck cones — colorblind-safe by shape + color).
+    var sweepMat = new THREE.MeshBasicMaterial({ color: 0xFF6B5B, transparent: true, opacity: 0.85 });
+    var chevSideGeo = new THREE.ConeGeometry(0.34, 0.55, 4);
+    if (chevSideGeo.rotateZ) chevSideGeo.rotateZ(-Math.PI / 2);        // tip points +x -> a horizontal arrow
+    if (chevSideGeo.scale) chevSideGeo.scale(1, 1, 0.4);
+    var chevSideMat = new THREE.MeshBasicMaterial({ color: 0xFF6B5B, transparent: true, opacity: 0.95 });
+    if (THREE.AdditiveBlending !== undefined) { sweepMat.blending = THREE.AdditiveBlending; chevSideMat.blending = THREE.AdditiveBlending; }
+    this._disposables.push(sweepMat); this._disposables.push(chevSideMat);
+    this.iSweep = this._instanced(this._track(new THREE.BoxGeometry(cfg.LANE_W, cfg.ROCK_H, 0.5)), sweepMat, cfg.POOL_OBSTACLES);
+    this.iChevSide = this._instanced(this._track(chevSideGeo), chevSideMat, cfg.POOL_OBSTACLES * 3);
     this.iCoin = this._instanced(this._track(new THREE.CylinderGeometry(0.34, 0.34, 0.1, 6)), M.gold, cfg.POOL_COINS);
     var _obs = [this.iNarrowL, this.iNarrowR, this.iNarrowDeepL, this.iNarrowDeepR, this.iRock, this.iArch];   // (Jason) shadows: obstacles cast + catch so height/depth reads at a glance
     for (var _oi = 0; _oi < _obs.length; _oi++) { _obs[_oi].castShadow = true; _obs[_oi].receiveShadow = true; }
@@ -1337,7 +1378,7 @@
     var hide = this._hide, sm = this.scratchM, sp = this.scratchP, sq = this.scratchQ, ss = this.scratchS;
 
     // obstacles -> instanced meshes by type (narrow split L/R: each bulge is baked at its wall's world x/y)
-    var bL = 0, bR = 0, rN = 0, cN = 0, dL = 0, dR = 0, chU = 0, chD = 0;
+    var bL = 0, bR = 0, rN = 0, cN = 0, dL = 0, dR = 0, chU = 0, chD = 0, swN = 0, chS = 0;
     var chBob = this.reducedMotion ? 0 : Math.sin(this._t * 4.2) * 0.12;   // (Jason v0.47.0) telegraph chevrons bob toward their action
     var items = sim.obstacles.items, n = items.length, i;
     for (i = 0; i < n; i++) {
@@ -1354,6 +1395,17 @@
         } else if (o.type === OB_LOWROCK) {
           setPos(sm, sp, sq, ss, 0, cfg.ROCK_H * 0.5, -o.z); this.iRock.setMatrixAt(rN++, sm);       // (Jason v0.47.0) full-width wall — centered, x irrelevant
           for (var chu = -1; chu <= 1; chu++) { setPos(sm, sp, sq, ss, chu * cfg.LANE_W, cfg.ROCK_H + 0.55 + chBob, -o.z); this.iChevUp.setMatrixAt(chU++, sm); }
+        } else if (o.type === 3 /* OB_SWEEP */) {
+          // (v0.56.0) beam x comes from the sim's single source of truth; telegraph arrows point
+          // along the CURRENT pan direction and slide sideways (reduced-motion: static, no slide).
+          var swx = sim._sweepX(o);
+          setPos(sm, sp, sq, ss, swx, cfg.ROCK_H * 0.5, -o.z); this.iSweep.setMatrixAt(swN++, sm);
+          var swDir = Math.cos(o.sweepPhase + o.z * cfg.SWEEP_FREQ) >= 0 ? 1 : -1;   // d(sweepX)/d(z) sign — where the beam is heading as it nears
+          var chSlide = this.reducedMotion ? 0 : Math.sin(this._t * 4.2) * 0.12;
+          for (var chs = -1; chs <= 1; chs++) {
+            setPosRot(sm, sp, sq, ss, chs * cfg.LANE_W + chSlide * swDir, cfg.ROCK_H + 0.55, -o.z, swDir > 0 ? 0 : Math.PI, THREE);
+            this.iChevSide.setMatrixAt(chS++, sm);
+          }
         }
         else {
           setPos(sm, sp, sq, ss, 0, cfg.CEIL_BOTTOM + cfg.ARCH_H / 2, -o.z); this.iArch.setMatrixAt(cN++, sm);   // wall-to-wall lintel; underside stays at CEIL_BOTTOM (duck clearance)
@@ -1371,6 +1423,9 @@
     fillHidden(this.iChevUp, chU, hide); fillHidden(this.iChevDown, chD, hide);
     this.iChevUp.count = this.iChevUp.instanceMatrix.count; this.iChevDown.count = this.iChevDown.instanceMatrix.count;
     this.iChevUp.instanceMatrix.needsUpdate = this.iChevDown.instanceMatrix.needsUpdate = true;
+    fillHidden(this.iSweep, swN, hide); fillHidden(this.iChevSide, chS, hide);
+    this.iSweep.count = this.iSweep.instanceMatrix.count; this.iChevSide.count = this.iChevSide.instanceMatrix.count;
+    this.iSweep.instanceMatrix.needsUpdate = this.iChevSide.instanceMatrix.needsUpdate = true;
 
     // coins (spin)
     var coN = 0, citems = sim.coins.items, cn = citems.length;
@@ -2132,6 +2187,6 @@
     '</style>';
 
   return { CCSim: CCSim, CCView: CCView, createCCModule: createCCModule, CONFIG: CONFIG,
-    _enums: { OB_NARROW: OB_NARROW, OB_LOWROCK: OB_LOWROCK, OB_ARCH: OB_ARCH, SIDE_LEFT: SIDE_LEFT, SIDE_RIGHT: SIDE_RIGHT, POWER_KINDS: POWER_KINDS },
+    _enums: { OB_NARROW: OB_NARROW, OB_LOWROCK: OB_LOWROCK, OB_ARCH: OB_ARCH, OB_SWEEP: OB_SWEEP, SIDE_LEFT: SIDE_LEFT, SIDE_RIGHT: SIDE_RIGHT, POWER_KINDS: POWER_KINDS },
     makeFallbackRng: makeFallbackRng };
 });

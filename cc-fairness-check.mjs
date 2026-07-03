@@ -118,5 +118,34 @@ const negS = solvable(42);
 ok(`control: sealing the center produces unescapable rows (dead=${negS.dead})`, negS.dead > 0);
 CC.CCSim.prototype._spawnPinch = realPinch;
 
+// ---- (v0.56.0) OB_SWEEP: the panning beam. Solvability is WORST-CASE phase (the beam can be
+// over any lane at crossing time) so jump must be the guaranteed out in every lane; live
+// collision stays phase-honest (only the occupied lane is hot). ----
+console.log("\nSweeper (v0.56.0) — panning low beam, jump is the guaranteed out:");
+{
+  const sim = new CC.CCSim({ rng: makeRng(9) });
+  const sw = { type: 3 /*OB_SWEEP*/, lane: 1, side: 0, x: 0, z: 10, active: true, sweepPhase: 0.7, span: 1, tested: false };
+  let standAll = true, jumpAll = true, duckAny = false;
+  for (let lane = 0; lane < 3; lane++) {
+    if (!sim._wouldHit(sw, lane, 'stand')) standAll = false;
+    if (sim._wouldHit(sw, lane, 'jump')) jumpAll = false;
+    if (!sim._wouldHit(sw, lane, 'duck')) duckAny = true;
+  }
+  ok("worst case: standing can be hit in every lane (the beam pans all three)", standAll);
+  ok("jumping clears the beam in every lane (the guaranteed out)", jumpAll);
+  ok("ducking does NOT clear it (a low beam, not an arch)", !duckAny);
+  const hot = [0, 1, 2].filter(lane => sim._hitsObstacle(sw, { x: (lane - 1) * CFG.LANE_W, y: 0, topY: CFG.PLAYER_H }));
+  ok(`live phase: exactly one lane is hot at a time (lane-dodge is real skill; hot=${hot.join(",")})`, hot.length === 1);
+  let seen = 0;
+  {
+    const sim2 = new CC.CCSim({ rng: makeRng(11) });
+    const realPlace = sim2._placeObstacle.bind(sim2);
+    sim2._placeObstacle = function (type, lane, side, z) { if (type === 3) seen++; return realPlace(type, lane, side, z); };
+    const dt = 1 / 60;
+    for (let f = 0; f < 60 * 120; f++) { sim2.shields = 99; const adv = sim2.speed * dt; sim2.distance += adv; sim2.speed = Math.min(CFG.MAX_SPEED, CFG.BASE_SPEED + sim2.distance * CFG.SPEED_RAMP); sim2._advanceObstacles(adv); sim2._maybeSpawn(); }
+  }
+  ok(`sweepers enter the live spawn stream (${seen} in 120s)`, seen > 0);
+}
+
 console.log("\n" + (fail===0 ? `CC FAIRNESS: ALL GREEN (${pass}/${pass})` : `CC FAIRNESS: ${fail} FAILED`));
 if (fail) { for (const e of errs) console.log("   - "+e); process.exit(1); }

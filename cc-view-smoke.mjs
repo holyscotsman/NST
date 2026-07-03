@@ -165,6 +165,22 @@ if (view) {
   // (v0.47.0) telegraphs + futuristic gate + duck pitch
   ok("chevron telegraph meshes built (up=jump gold, down=duck aqua)", !!view.iChevUp && !!view.iChevDown);
   ok("gate energy films built (aqua + gold)", !!view.iGateFilm && !!view.iGateFilmPow && !!view._gateFilmMat);
+  // (v0.56.0) sweeper hazard: beam + sideways-arrow telegraph meshes exist, and a live sweeper
+  // renders many frames clean (its x pans as z shrinks — the render path recomputes per frame)
+  ok("sweeper beam + side-arrow telegraph meshes built (peach)", !!view.iSweep && !!view.iChevSide);
+  {
+    const sw = sim._spawnSweep(60);
+    let swErr = null;
+    try { for (let f = 0; f < 90; f++) { if (sw) sw.z -= 0.5; view.render(1 / 60); } } catch (e) { swErr = e; }
+    if (sw) sw.z = -50;                    // culled on the next advance; later sections unaffected
+    ok("live sweeper renders 90 panning frames without throwing", !swErr);
+    view.reducedMotion = true;
+    const sw2 = sim._spawnSweep(40);
+    let rmErr = null;
+    try { for (let f = 0; f < 30; f++) view.render(1 / 60); } catch (e) { rmErr = e; }
+    if (sw2) sw2.z = -50; view.reducedMotion = false;
+    ok("reduced motion: sweeper + static telegraph render clean (no slide)", !rmErr);
+  }
   {
     sim.player.ducking = true;
     for (let f = 0; f < 30; f++) view.render(1 / 60);

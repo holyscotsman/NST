@@ -154,3 +154,35 @@ exactly its pin failed (25/26). Restored, re-green.
 a performance-domain artifact (the last empty domain slot).
 
 Commit: `v0.55.0 — KBB artifact batch (+6)`.
+
+---
+
+## v0.56.0 — Unit 5: CC sweeper hazard (OB_SWEEP)
+
+**Shipped:** the first MOVING CC obstacle — a low peach energy beam panning the canyon.
+- Deterministic by construction: beam x = `sin(phase + z·SWEEP_FREQ)·LANE_W`, phase from the
+  run rng at spawn. Pure function of approach distance — no wall clock, no dt plumbing;
+  `_sweepX` is the single source of truth for collision AND render.
+- **Live collision is phase-honest** (one hot lane at the closest-approach test; dodging to
+  where the beam isn't is real skill). **Solvability is worst-case phase** (`_wouldHit`
+  treats all lanes as potentially hot → jump, which lifts the base over the low beam, is the
+  guaranteed out). This split keeps gameplay generous and fairness rigorous.
+- Spawn: own row at 10%; original pattern mix renormalized (relative proportions kept).
+- Telegraph: a NEW third tier — peach SIDEWAYS arrows (horizontal cones; shape+color distinct
+  from gold-up/aqua-down) pointing along the pan direction, sliding laterally; reduced-motion
+  = static arrows (the sweep itself is gameplay and stays identical — equity, not decoration).
+- Hygiene: `sweepPhase` (and `span`) pre-declared in the pool factory; `OB_SWEEP` in `_enums`.
+
+**Assertion delta:** fairness 20 → **25** (worst-case stand/jump/duck, exactly-one-hot-lane
+live pin, spawn presence; all 20 existing asserts untouched and re-green over the new spawn
+mix), view-smoke +3 (meshes, 90 panning frames clean, reduced-motion clean). Full gate ALL
+GREEN 378/378, exit 0.
+
+**Negative control (the strong kind):** made `_wouldHit` claim nothing clears the sweeper →
+ALL FOUR pre-existing solvability seeds failed + the new jump pin (5 fails) — proving the
+extended net catches a genuinely unfair hazard, not just its own bookkeeping. Restored,
+re-green 25/25.
+
+**Punted:** none functional. Beam visuals/pan-rate feel are QA-C9 (eyes).
+
+Commit: `v0.56.0 — CC sweeper hazard`.

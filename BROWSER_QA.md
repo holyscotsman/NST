@@ -147,3 +147,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   effect FEELS legible in combat (e.g. Erasure Coding's every-third-halved isn't confusing without a visual
   cue — if it is, report; a proc flash would be a follow-up). Engine behavior is gate-pinned (kbb-run 26/26);
   this is the fit/readability confirm.
+
+- **QA-C9 — Sweeper hazard (added v0.56.0, browser-blind).** Play CC until the new obstacle appears (~10% of
+  rows): a low PEACH glowing beam that pans left-right across the canyon as it approaches, with peach
+  SIDEWAYS arrows above it pointing where it's heading. CORRECT: reads as energy (additive glow, not rock);
+  the pan is smooth and predictable enough to either jump it or dodge to where it isn't; the horizontal
+  arrows are clearly a different signal from the gold-up (jump) and aqua-down (duck) cones; at high speed
+  the beam is still reactable (jump always works). Reduced motion: arrows static, beam still pans (that's
+  gameplay, not decoration). WRONG: beam invisible/too dim, arrows confusable with the jump chevrons, or
+  deaths that feel unreadable. Knobs: `cc.js SWEEP_FREQ` (0.30 rad/m pan rate), beam opacity 0.85, arrow
+  slide `0.12`. Fairness is machine-proven (25/25); this is the readability/feel confirm.
