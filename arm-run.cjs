@@ -100,22 +100,24 @@ var detSector3 = null;   // captured for the determinism probe against window 2
      'telemetry question_answered fired for both outcomes');
 })();
 
-/* ================= 3) QUESTION TIMEOUT (forceTimeout): grades wrong, no hang ================= */
+/* ================= 3) QUESTION TIMEOUT (forceTimeout): grades wrong + COSTS SHIELDS ================= */
 (function timeout() {
-  group('TIMEOUT: forceTimeout grades WRONG + panel stays live (QA-A5 structural half)');
+  group('TIMEOUT: forceTimeout grades WRONG, damages shields (Jason\'s QA-A5 ruling), no hang');
   var T = root.__armTest;
   T.arrive(0);                                       // core 0 is a puzzle core
   ok(T.state() === 'PUZZLE' && T.solvePuzzle(), 'puzzle core opens PUZZLE; solvePuzzle() hands off to the core scan');
+  var sh0 = T.puzzleInfo().shields;
   ok(T.state() === 'QUESTION' && T.forceTimeout() === true, 'forceTimeout() expires the live question countdown');
   var m = ctx._rec.mastery;
   ok(m[m.length - 1].correct === false, 'timeout graded as a WRONG answer into mastery');
+  ok(T.puzzleInfo().shields === sh0 - 14, 'field timeout costs exactly QUESTION_TIMEOUT_DMG shields (' + sh0 + ' -> ' + T.puzzleInfo().shields + ')');
   var expl = textOf(doc, '.arm-explain');
   var cont = doc.querySelector('.arm-panel > button.arm-act');
   ok(/time/i.test(expl) && !!cont && cont.style.display !== 'none',
-     'panel shows the "Time\'s up" explanation + a live Continue button (no hang on the card)');
+     'non-lethal: panel shows the "Time\'s up" explanation + a live Continue (no hang)');
   T.answer(false);                                   // choose() is a no-op post-grade; proceed() fires
   ok(T.state() === 'SECTOR' && T.cores()[0].state === 'lost',
-     'Continue path resolves cleanly: core lost, back to SECTOR (timeout never damages shields)');
+     'Continue path resolves as before: core lost, back to SECTOR');
 })();
 
 /* ================= 4) DEPOT: return → dock → install → summary → shop → next sector ================= */
@@ -161,6 +163,23 @@ var detSector3 = null;   // captured for the determinism probe against window 2
      'GAME OVER panel renders: .arm-panel.peach, "Ship destroyed" (no hang — QA-A5 structural)');
   ok(clickByText(doc, '.arm-panel button', /relaunch/i), 'panel offers "Relaunch sector"');
   ok(T.state() === 'SECTOR' && T.puzzleInfo().shields > 0, 'relaunch resets the sector with shields restored');
+
+  // (v0.65.0) DEATH BY QUESTION TIMEOUT — QA-A5's ORIGINAL scenario, now real code:
+  // drain to <= QUESTION_TIMEOUT_DMG via breaches, then let the scan timer expire.
+  T.openPuzzleAt(2, 'battery');
+  var g2 = 0;
+  while (T.puzzleInfo().shields > 14 && T.state() === 'PUZZLE' && g2++ < 10) T.step(T.puzzleInfo().limit + 0.1);
+  ok(T.state() === 'PUZZLE' && T.puzzleInfo().shields > 0 && T.puzzleInfo().shields <= 14,
+     'breach chain leaves the ship at ' + T.puzzleInfo().shields + ' shields (lethal-timeout range)');
+  ok(T.solvePuzzle() && T.state() === 'QUESTION', 'solved puzzle hands off to the core scan at low shields');
+  T.forceTimeout();
+  ok(T.state() === 'GAMEOVER' && T.hasQuestion() === false,
+     'lethal timeout: timeUp -> damage -> GAMEOVER, pending question cleared (no stale Continue)');
+  T.step(1.2);
+  ok(/Ship destroyed/.test((doc.querySelector('.arm-panel') || {}).textContent || ''),
+     'the GAME OVER panel lands off a pure question timeout (QA-A5 canon)');
+  ok(clickByText(doc, '.arm-panel button', /relaunch/i) && T.state() === 'SECTOR',
+     'relaunch recovers to SECTOR for the downstream probes');
 })();
 
 /* ================= 6) PAUSE: gnow() freezes; resume re-opens the clock ================= */

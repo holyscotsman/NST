@@ -82,6 +82,7 @@
   var PUZZLE_TYPES = ["simon", "battery", "vcpu", "rewire", "dials", "sort"];
   var PUZZLE_MIN = 10;            // floor, seconds (S3: was 12 — "timers much quicker overall")
   var PUZZLE_FAIL_DMG = 14;       // shield hit on a breach (timeout); ~1.5 combat hits, recoverable
+  var QUESTION_TIMEOUT_DMG = 14;  // (v0.65.0, Jason's QA-A5 ruling) a FIELD core-scan timeout costs shields — the documented timeUp→wrong→damage→gameOver trace is now real. Depot installs stay forgiving (no damage).
   // S3: per-type completion-timer budget (seconds, pre extra-time). Replaces the old
   // per-question x1.5 model (which gave ~37s for EVERY puzzle). Simon is dynamic by sequence
   // length and is armed only AFTER its playback. See doc 02 §timers + the S3 proposal table.
@@ -1383,6 +1384,13 @@
         ex.textContent = head + q.explanation;
         cont.style.display = "block";
         sfx(lastCorrect ? "correct" : "wrong");
+        // (v0.65.0, Jason's QA-A5 ruling) a timed-out FIELD scan (not the forgiving depot)
+        // damages shields; at 0 the GAME OVER panel lands. On a lethal timeout the pending
+        // question is cleared and Continue hidden so a stale proceed can't resurrect the run.
+        if (timedOut && !forgiving) {
+          damage(QUESTION_TIMEOUT_DMG);
+          if (state === "GAMEOVER") { pendingQuestion = null; cont.style.display = "none"; }
+        }
       }
       function proceed() { if (!answered) return; pendingQuestion = null; sfx("click"); done(lastCorrect); }
 

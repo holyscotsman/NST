@@ -490,7 +490,41 @@ Commit: `P2·5 — balance/pacing analysis (no-tune conclusion) → PLAYTEST §E
 
 ---
 
-## 🛑 STOP — end of the night run (after P2·5)
+## ▶️ RUN RESUMED (morning, Jason present) — four design rulings received
+
+Jason answered the parked design calls: **(1) ARM question timeouts now COST SHIELDS** (the
+documented QA-A5 trace becomes real code — implement + pin); **(2) Blitz bests stay** (no
+reset — combo-era scores will simply overtake them); **(3) trail cosmetics are EARNED
+FOREVER** (decay no longer re-locks — latch unlocks on the profile); **(4) legendaries stay
+as-is** (aspirational; revisit after real play). (2)/(4) are logged decisions, zero code.
+
+---
+
+## Phase 2 · iteration 6 — MINI-SPEC (before build)
+
+**What:** Jason's ruling #1 — a timed-out FIELD core scan damages shields
+(`QUESTION_TIMEOUT_DMG = 14`, same magnitude as a puzzle breach; depot installs stay
+forgiving/no-damage), making the long-documented `timeUp → wrong → damage → gameOver`
+trace true at last. At 0 shields the GAME OVER panel lands; a lethal timeout must clear the
+pending question so the stale Continue can't resurrect the run.
+**Pins:** arm-run — non-lethal timeout shield delta exactly −14 then the normal core-lost
+resolve; lethal timeout (drain via breaches to ≤14, then forceTimeout) → GAMEOVER →
+"Ship destroyed" + `hasQuestion() === false`; the unit-1 "timeout never damages" label
+honestly re-pinned to the new canon. QA-A5 rewritten (the original wording is NOW correct).
+**Negative control:** remove the damage branch → the new delta + lethal pins fail.
+
+**RESULT (v0.65.0):** shipped exactly as ruled. `QUESTION_TIMEOUT_DMG = 14`, field scans
+only (depot stays forgiving; plain wrong answers unchanged — Jason chose the middle option).
+Lethal-timeout guard: pending question nulled + Continue hidden so a stale proceed can't
+resurrect a dead run. ARM RUN 46 → **52/52** (exact −14 delta; breach-drain → timer expiry →
+GAMEOVER → panel → recovery). Negctrl (damage disabled) failed exactly the 4 new-canon pins.
+QA-A5 rewritten: the ORIGINAL v0.50.0 wording is now true; the v0.52.0 correction superseded.
+Spec 02_v1_4 re-sync queued as the doc unit. Gate 412/412.
+Commit: `v0.65.0 — ARM question timeouts cost shields (QA-A5 ruling)`.
+
+---
+
+## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above
 
 **Why stopped:** the remaining candidate pool no longer meets the rubric at acceptable risk:
 the verify-build section split is FORBIDDEN by Phase-2's own rules (a refactor of a working
