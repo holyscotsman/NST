@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-C13 — CC unit 1 (added v0.101.0).** Telegraphs read as real arrows (head + stem). The panning
+  hazard is now visibly a scanner DRONE dragging a beam, and the how-to names it. Before a run, the
+  how-to card lists what you have equipped. Coins are worth 1 each; check Garage prices feel right
+  (50/120/75/60/100 vs runs banking ~30-60 cells).
+
 - **QA-K12 — Battle choreography + sound (added v0.100.0).** Battle start: squad flies in left,
   enemy right, with a sting. Enemy attacks: long charge whine → thick beam → crunchy impact (~2.4 s).
   Hero attacks: snappy three-shot volley (~1.1 s). Victory: detonation booms, banner, then the squad

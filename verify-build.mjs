@@ -397,7 +397,9 @@ async function runFrames(n = 6) {
   ok("CC intro dismissed after Skip", !!ccIntro && ccIntro.style.display === "none");
   const ccHowto = w.document.querySelector(".cc-howto");
   ok("CC how-to card shows after descent", !!ccHowto && !!ccHowto.parentNode);
-  ok("CC how-to lists 4 rules", w.document.querySelectorAll(".cc-howto-li").length === 4);
+  ok("CC how-to lists 5 rules (C2 named the scanner drone)", w.document.querySelectorAll(".cc-howto-li").length === 5);
+  ok("C2: the scanner drone is NAMED in the rules", /SCANNER DRONE/.test(w.document.querySelector(".cc-howto-list")?.textContent || ""));
+  ok("C11: the how-to card carries the Garage loadout strip", !!w.document.querySelector(".cc-howto-loadout"));
   { const c = w.document.querySelector(".cc-howto-cont"); if (c) c.click(); }
   ok("CC how-to dismissed after Continue", !w.document.querySelector(".cc-howto"));
   { const e = await runFrames(); ok("CC loop runs without error (fallback path)", e.length === 0); }
@@ -435,7 +437,7 @@ async function runFrames(n = 6) {
       const km7 = ccSim.score();
       ccSim.step(1 / 60);
       ok("J9: a collected cell feeds the wallet, not the km score",
-        ccSim.coinScore === sc7 + 10 && Math.abs(ccSim.score() - km7) < 20);
+        ccSim.coinScore === sc7 + 1 && Math.abs(ccSim.score() - km7) < 20);
     }
     ok("gate threshold is a 10 km multiple", ccSim._nextGateScore % (cfg7.GATE_KM * 1000) === 0);
     // 04 task 8: every 5 gates -> boost (invuln + ~100 km fast-forward, then normal cadence resumes)

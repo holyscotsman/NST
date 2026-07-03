@@ -90,7 +90,7 @@
     BOOST_SPEED: 200,          // real world-scroll during boost (≈2.4× MAX_SPEED) — the fast-forward visual
 
     // Coins
-    COIN_VALUE: 10,
+    COIN_VALUE: 1,            // (v0.101.0, C12, Jason) each coin is worth exactly 1
     COIN_RUN_MIN: 3,           // coins per laid coin-line
     COIN_RUN_MAX: 6,
     COIN_SPACING: 3.0,
@@ -943,6 +943,10 @@
     this._disposables.push(chevUpMat); this._disposables.push(chevDnMat);
     this.iChevUp = this._instanced(this._track(chevGeo), chevUpMat, cfg.POOL_OBSTACLES * 3);
     this.iChevDown = this._instanced(this._track(chevDownGeo), chevDnMat, cfg.POOL_OBSTACLES * 3);
+    // (v0.101.0, C1, Jason) shafts turn the bare cones into REAL arrows (head + stem)
+    var shaftGeo = new THREE.BoxGeometry(0.12, 0.34, 0.12);
+    this.iChevUpShaft = this._instanced(this._track(shaftGeo), chevUpMat, cfg.POOL_OBSTACLES * 3);
+    this.iChevDownShaft = this._instanced(this._track(shaftGeo), chevDnMat, cfg.POOL_OBSTACLES * 3);
     // (v0.56.0) OB_SWEEP: a lane-wide low energy beam that pans the canyon — PEACH (danger per
     // 07 §1), additive so it reads as energy, not rock. Telegraph = peach SIDEWAYS arrows
     // (horizontal cone ≠ the up/down jump/duck cones — colorblind-safe by shape + color).
@@ -955,6 +959,9 @@
     this._disposables.push(sweepMat); this._disposables.push(chevSideMat);
     this.iSweep = this._instanced(this._track(new THREE.BoxGeometry(cfg.LANE_W, cfg.ROCK_H, 0.5)), sweepMat, cfg.POOL_OBSTACLES);
     this.iChevSide = this._instanced(this._track(chevSideGeo), chevSideMat, cfg.POOL_OBSTACLES * 3);
+    // (v0.101.0, C2, Jason: "no idea what that thing is") the beam now has an EMITTER — a
+    // peach scanner drone riding its top edge, so it reads as a machine dragging a light-wall.
+    this.iSweepHead = this._instanced(this._track(new THREE.OctahedronGeometry(0.42, 0)), chevSideMat, cfg.POOL_OBSTACLES);
     this.iCoin = this._instanced(this._track(new THREE.CylinderGeometry(0.34, 0.34, 0.1, 6)), M.gold, cfg.POOL_COINS);
     var _obs = [this.iNarrowL, this.iNarrowR, this.iNarrowDeepL, this.iNarrowDeepR, this.iRock, this.iArch];   // (Jason) shadows: obstacles cast + catch so height/depth reads at a glance
     for (var _oi = 0; _oi < _obs.length; _oi++) { _obs[_oi].castShadow = true; _obs[_oi].receiveShadow = true; }
@@ -1454,12 +1461,16 @@
           }
         } else if (o.type === OB_LOWROCK) {
           setPos(sm, sp, sq, ss, 0, cfg.ROCK_H * 0.5, -o.z); this.iRock.setMatrixAt(rN++, sm);       // (Jason v0.47.0) full-width wall — centered, x irrelevant
-          for (var chu = -1; chu <= 1; chu++) { setPos(sm, sp, sq, ss, chu * cfg.LANE_W, cfg.ROCK_H + 0.55 + chBob, -o.z); this.iChevUp.setMatrixAt(chU++, sm); }
+          for (var chu = -1; chu <= 1; chu++) {
+            setPos(sm, sp, sq, ss, chu * cfg.LANE_W, cfg.ROCK_H + 0.55 + chBob, -o.z); this.iChevUp.setMatrixAt(chU++, sm);
+            setPos(sm, sp, sq, ss, chu * cfg.LANE_W, cfg.ROCK_H + 0.55 + chBob - 0.42, -o.z); this.iChevUpShaft.setMatrixAt(chU - 1, sm);   // (C1) stem below the head
+          }
         } else if (o.type === 3 /* OB_SWEEP */) {
           // (v0.56.0) beam x comes from the sim's single source of truth; telegraph arrows point
           // along the CURRENT pan direction and slide sideways (reduced-motion: static, no slide).
           var swx = sim._sweepX(o);
           setPos(sm, sp, sq, ss, swx, cfg.ROCK_H * 0.5, -o.z); this.iSweep.setMatrixAt(swN++, sm);
+          setPos(sm, sp, sq, ss, swx, cfg.ROCK_H + 0.45, -o.z); this.iSweepHead.setMatrixAt(swN - 1, sm);   // (C2) the emitter drone rides the beam
           var swDir = Math.cos(o.sweepPhase + o.z * cfg.SWEEP_FREQ) >= 0 ? 1 : -1;   // d(sweepX)/d(z) sign — where the beam is heading as it nears
           var chSlide = this.reducedMotion ? 0 : Math.sin(this._t * 4.2) * 0.12;
           for (var chs = -1; chs <= 1; chs++) {
@@ -1469,7 +1480,10 @@
         }
         else {
           setPos(sm, sp, sq, ss, 0, cfg.CEIL_BOTTOM + cfg.ARCH_H / 2, -o.z); this.iArch.setMatrixAt(cN++, sm);   // wall-to-wall lintel; underside stays at CEIL_BOTTOM (duck clearance)
-          for (var chd = -1; chd <= 1; chd++) { setPos(sm, sp, sq, ss, chd * cfg.LANE_W, cfg.CEIL_BOTTOM - 0.5 - chBob, -o.z); this.iChevDown.setMatrixAt(chD++, sm); }
+          for (var chd = -1; chd <= 1; chd++) {
+            setPos(sm, sp, sq, ss, chd * cfg.LANE_W, cfg.CEIL_BOTTOM - 0.5 - chBob, -o.z); this.iChevDown.setMatrixAt(chD++, sm);
+            setPos(sm, sp, sq, ss, chd * cfg.LANE_W, cfg.CEIL_BOTTOM - 0.5 - chBob + 0.42, -o.z); this.iChevDownShaft.setMatrixAt(chD - 1, sm);   // (C1) stem above the head
+          }
         }
       }
     }
@@ -1481,11 +1495,15 @@
     this.iNarrowL.instanceMatrix.needsUpdate = this.iNarrowR.instanceMatrix.needsUpdate = this.iRock.instanceMatrix.needsUpdate = this.iArch.instanceMatrix.needsUpdate = true;
     this.iNarrowDeepL.instanceMatrix.needsUpdate = this.iNarrowDeepR.instanceMatrix.needsUpdate = true;
     fillHidden(this.iChevUp, chU, hide); fillHidden(this.iChevDown, chD, hide);
+    fillHidden(this.iChevUpShaft, chU, hide); fillHidden(this.iChevDownShaft, chD, hide);
     this.iChevUp.count = this.iChevUp.instanceMatrix.count; this.iChevDown.count = this.iChevDown.instanceMatrix.count;
+    this.iChevUpShaft.count = this.iChevUpShaft.instanceMatrix.count; this.iChevDownShaft.count = this.iChevDownShaft.instanceMatrix.count;
+    this.iChevUpShaft.instanceMatrix.needsUpdate = this.iChevDownShaft.instanceMatrix.needsUpdate = true;
     this.iChevUp.instanceMatrix.needsUpdate = this.iChevDown.instanceMatrix.needsUpdate = true;
-    fillHidden(this.iSweep, swN, hide); fillHidden(this.iChevSide, chS, hide);
+    fillHidden(this.iSweep, swN, hide); fillHidden(this.iChevSide, chS, hide); fillHidden(this.iSweepHead, swN, hide);
     this.iSweep.count = this.iSweep.instanceMatrix.count; this.iChevSide.count = this.iChevSide.instanceMatrix.count;
-    this.iSweep.instanceMatrix.needsUpdate = this.iChevSide.instanceMatrix.needsUpdate = true;
+    this.iSweepHead.count = this.iSweepHead.instanceMatrix.count;
+    this.iSweep.instanceMatrix.needsUpdate = this.iChevSide.instanceMatrix.needsUpdate = this.iSweepHead.instanceMatrix.needsUpdate = true;
 
     // coins (spin)
     var coN = 0, citems = sim.coins.items, cn = citems.length;
@@ -2054,8 +2072,21 @@
           ['\u2194', 'Switch lanes with \u25C0 \u25B6 (or swipe). When the canyon narrows, slide to the open side; \u25B2 jump the low rocks, \u25BC duck under the arches.'],
           ['\u271A', 'Shields are your hull. Clipping an obstacle costs a shield \u2014 lose them all and the chase ends.'],
           ['\u25C8', 'Gates span the chasm at intervals \u2014 you fly through every one, and each stops the chase for an exam question. Some gates carry a power-up.'],
-          ['\u221E', 'A right answer restores a shield; a wrong one costs two. The canyon is endless \u2014 score is the distance you reach.']
+          ['\u221E', 'A right answer restores a shield; a wrong one costs two. The canyon is endless \u2014 score is the distance you reach.'],
+          ['\u26A1', 'SCANNER DRONE: the peach machine dragging a light-beam across the floor. JUMP the beam \u2014 never duck it, never race it sideways.']   // (v0.101.0, C2) the thing finally has a name
         ];
+        // (v0.101.0, C11, Jason) your Garage loadout, visible BEFORE the run (async-load safe)
+        var loadout = ce('div', 'cc-howto-loadout'); panel.appendChild(loadout);
+        setTimeout(function () {
+          try {
+            var gp = garageProfile, parts = [];
+            if (gp && CC.garage && CC.garage.state) {
+              var itemsL = CC.garage.state(gp);
+              for (var li2 = 0; li2 < itemsL.length; li2++) { if (itemsL[li2].tier > 0) parts.push(itemsL[li2].name + (itemsL[li2].max > 1 ? ' Mk' + itemsL[li2].tier : '')); }
+            }
+            loadout.textContent = parts.length ? '\u2699 EQUIPPED: ' + parts.join(' \u00b7 ') : '\u2699 No upgrades fitted yet \u2014 bank cells, refit in the Garage after a run.';
+          } catch (eLd) { loadout.textContent = ''; }
+        }, 120);
         var lis = [];
         for (var i = 0; i < rules.length; i++) {
           var li = ce('div', 'cc-howto-li');
@@ -2347,6 +2378,7 @@
     '.cc-howto{position:absolute;inset:0;z-index:14;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(5,5,11,.84);backdrop-filter:blur(4px);pointer-events:auto;}' +
     '.cc-howto-panel{width:min(460px,94%);background:rgba(20,20,29,.97);border:1px solid #34344a;border-radius:16px;padding:22px;box-shadow:0 0 40px rgba(120,85,250,.28);}' +
     '.cc-howto-eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#1FDDE9;margin-bottom:6px;}' +
+    '.cc-howto-loadout{margin:8px 0 2px;padding:6px 9px;border:1px solid rgba(255,200,87,.35);border-radius:8px;font-size:12px;color:#FFC857;background:rgba(255,200,87,.07);}' +
     '.cc-howto-h{font-size:21px;font-weight:800;color:#F2F2F7;margin-bottom:14px;}' +
     '.cc-howto-list{display:flex;flex-direction:column;gap:11px;margin-bottom:18px;}' +
     '.cc-howto-li{display:flex;gap:11px;align-items:flex-start;font-size:13.5px;line-height:1.45;color:#c9c9d6;opacity:0;transform:translateY(7px);transition:opacity .55s ease,transform .55s ease;}' +
@@ -2358,10 +2390,12 @@
   // (v0.73.0, J9) The Garage — pure catalog + purchase math (DOM-free, harness-pinned).
   // Pricey by design (Jason): multi-run saves. Wallet: profile.ccCells; tiers: profile.ccUpgrades.
   var GARAGE_ITEMS = [
-    { id: 'hull',    name: 'Reinforced hull',   desc: '+1 starting shield per tier.',          tiers: [400, 900] },
-    { id: 'boost',   name: 'Overcharged boost', desc: 'Boost covers +50% distance.',           tiers: [600] },
-    { id: 'magnet',  name: 'Cell magnet',       desc: 'Cells drift toward you, always.',       tiers: [500] },
-    { id: 'plating', name: 'Ablative plating',  desc: 'First crash each run costs no shield.', tiers: [800] }
+    // (v0.101.0, C12, Jason) value-1 coins + prices tuned a notch ABOVE the /10 line so a
+    // full build takes several runs — no more buying everything at once.
+    { id: 'hull',    name: 'Reinforced hull',   desc: '+1 starting shield per tier.',          tiers: [50, 120] },
+    { id: 'boost',   name: 'Overcharged boost', desc: 'Boost covers +50% distance.',           tiers: [75] },
+    { id: 'magnet',  name: 'Cell magnet',       desc: 'Cells drift toward you, always.',       tiers: [60] },
+    { id: 'plating', name: 'Ablative plating',  desc: 'First crash each run costs no shield.', tiers: [100] }
   ];
   function garageState(profile) {
     var up = (profile && profile.ccUpgrades) || {};

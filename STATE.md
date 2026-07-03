@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.100.0 — KBB unit 3: fly-in/off + charged-laser set piece + SFX (K5/K6) — KBB COMPLETE
+## v0.101.0 — CC unit 1: real arrows, scanner drone identity, loadout strip, value-1 coins (C1/C2/C11/C12)
+
+REMAINING batch #5: C6 coins-avoid-obstacles + C9 squeeze stretches, C7 boost rework,
+C10 barrel roll + C4 90° turns, C5/C8/C3 mountains+cinematics, G2 save/resume, G3 intro,
+G4 full-scan workflow. CC map: scratchpad/batch5-map.txt.
+
+> **Earlier this session (v0.100.0):** KBB complete
 
 kbb-run 62, kbb-draw 16 (now actually gating — it silently never exited nonzero before).
 REMAINING batch #5: CC C1-C12 (map in scratchpad/batch5-map.txt), G2 save/resume, G3 intro,

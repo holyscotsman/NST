@@ -176,7 +176,7 @@ function runToQuestion(sim, maxSecs, pinShields) {
   var c0 = sim.coins.acquire(); c0.lane = sim.player.lane; c0.x = sim.player.x; c0.y = 0.6; c0.z = 0.4; c0.tested = false; c0.collected = false;
   var cellsBefore = sim.coinScore;
   sim.step(dt);
-  ok(sim.coinScore === cellsBefore + 10, 'flying through a cell collects it (+10 -> ' + sim.coinScore + ')');
+  ok(sim.coinScore === cellsBefore + 1, 'flying through a cell collects it (+1 -> ' + sim.coinScore + ') [C12 value-1 coins]');
   // upgrades: hull + plating
   var s2 = mkSim(SEED + 8);
   s2.applyUpgrades({ hull: 2, plating: 1 });
@@ -211,16 +211,16 @@ function runToQuestion(sim, maxSecs, pinShields) {
   for (var m = 0; m < 30; m++) s4.step(dt);
   ok(cm.collected || Math.abs(cm.x - s4.player.x) < dx0, 'passive cell magnet pulls cells in without a buff');
   // purchase math (pure, profile-level)
-  var prof = { ccCells: 1000, ccUpgrades: {} };
+  var prof = { ccCells: 125, ccUpgrades: {} };   // (v0.101.0, C12) value-1 economy
   var st = CC.garage.state(prof);
-  ok(st.length === 4 && st.map(function (i) { return i.price; }).join(',') === '400,600,500,800',
-     'catalog prices pinned: hull 400 / boost 600 / magnet 500 / plating 800');
+  ok(st.length === 4 && st.map(function (i) { return i.price; }).join(',') === '50,75,60,100',
+     'catalog prices pinned: hull 50 / boost 75 / magnet 60 / plating 100 (C12)');
   var b1 = CC.garage.buy(prof, 'hull');
-  ok(b1.ok && prof.ccCells === 600 && prof.ccUpgrades.hull === 1, 'buying hull T1 debits 400 and records the tier');
-  ok(CC.garage.state(prof)[0].price === 900 && CC.garage.buy(prof, 'hull').ok === false,
-     'hull T2 costs 900 — and 600 cells cannot afford it (no debt, no free tiers)');
+  ok(b1.ok && prof.ccCells === 75 && prof.ccUpgrades.hull === 1, 'buying hull T1 debits 50 and records the tier');
+  ok(CC.garage.state(prof)[0].price === 120 && CC.garage.buy(prof, 'hull').ok === false,
+     'hull T2 costs 120 — and 75 cells cannot afford it (no debt, no free tiers)');
   var b3 = CC.garage.buy(prof, 'magnet');
-  ok(b3.ok && prof.ccCells === 100 && CC.garage.buy(prof, 'magnet').ok === false,
+  ok(b3.ok && prof.ccCells === 15 && CC.garage.buy(prof, 'magnet').ok === false,
      'magnet buys once then reports maxed');
 })();
 

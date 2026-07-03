@@ -169,6 +169,8 @@ if (view) {
   // (v0.56.0) sweeper hazard: beam + sideways-arrow telegraph meshes exist, and a live sweeper
   // renders many frames clean (its x pans as z shrinks — the render path recomputes per frame)
   ok("sweeper beam + side-arrow telegraph meshes built (peach)", !!view.iSweep && !!view.iChevSide);
+  ok("C1/C2 (v0.101.0): arrow shafts + the scanner-drone emitter are instanced",
+    !!view.iChevUpShaft && !!view.iChevDownShaft && !!view.iSweepHead);
   {
     const sw = sim._spawnSweep(60);
     let swErr = null;
