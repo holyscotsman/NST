@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KBB · Kuiper Belt Battle — standalone test</title>
+<!-- Three.js r128 (same as CC) so the real 3D combat path can run in-browser.
+     If the CDN is blocked, KBB fails safe to 2D and the page still works. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{ --iris:#7855FA; --aqua:#1FDDE9; --mantis:#92DD23; --peach:#FF6B5B; --gold:#FFC857; --bg:#0b0a1a; --ink:#e9e6ff; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:radial-gradient(120% 100% at 50% -10%, #15123a 0%, var(--bg) 60%); color:var(--ink); font-family:Montserrat, system-ui, Segoe UI, Roboto, sans-serif; }
+  .bar{ display:flex; align-items:center; gap:14px; padding:10px 16px; border-bottom:1px solid #2a2550; background:#0e0c24; position:sticky; top:0; z-index:50; }
+  .bar h1{ font-size:15px; font-weight:800; margin:0; letter-spacing:.2px; }
+  .bar h1 b{ color:var(--aqua); }
+  .tabs{ display:flex; gap:6px; }
+  .tab{ font:inherit; font-size:13px; font-weight:700; color:var(--ink); background:#171436; border:1px solid #2f2a5c; border-radius:9px; padding:6px 14px; cursor:pointer; }
+  .tab.on{ background:linear-gradient(180deg, var(--iris), #5a3fd0); border-color:var(--iris); }
+  .status{ margin-left:auto; font-size:12.5px; color:#bdb6ef; white-space:nowrap; }
+  .status b{ color:var(--mantis); }
+  .panel{ display:none; padding:14px 16px; }
+  .panel.on{ display:block; }
+  .controls{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px; }
+  .controls button{ font:inherit; font-size:13px; font-weight:700; color:#0b0a1a; background:var(--aqua); border:0; border-radius:9px; padding:7px 13px; cursor:pointer; }
+  .controls button.alt{ background:#201b48; color:var(--ink); border:1px solid #352f66; }
+  .controls label{ font-size:12.5px; color:#cfc9f4; display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none; }
+  .note{ font-size:12px; color:#9b94cf; line-height:1.5; max-width:980px; margin:10px 0 0; }
+  .note code{ background:#1a1640; padding:1px 6px; border-radius:5px; color:var(--gold); }
+  #stage{ position:relative; width:100%; height:min(74vh, 720px); min-height:430px; border:1px solid #2a2550; border-radius:14px; overflow:hidden; background:#07061a; }
+  #vout{ white-space:pre-wrap; font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12.5px; line-height:1.55; background:#0a0820; border:1px solid #2a2550; border-radius:12px; padding:14px 16px; max-height:72vh; overflow:auto; margin:0; }
+  .ok{ color:var(--mantis); } .bad{ color:var(--peach); } .head{ color:var(--aqua); font-weight:700; } .sum{ font-weight:800; }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <h1>KBB · <b>Kuiper Belt Battle</b> — standalone test</h1>
+    <div class="tabs">
+      <button class="tab on" id="tabPlay">Play</button>
+      <button class="tab" id="tabVerify">Verify</button>
+    </div>
+    <div class="status" id="status">loading module…</div>
+  </div>
+
+  <section class="panel on" id="play">
+    <div class="controls">
+      <button id="btnPause" class="alt">Pause</button>
+      <button id="btnResume" class="alt">Resume</button>
+      <label><input type="checkbox" id="cb2d" /> Force 2D</label>
+      <label><input type="checkbox" id="cbReduced" /> Reduced motion</label>
+      <label><input type="checkbox" id="cbThree" checked /> Use 3D (THREE)</label>
+      <button id="btnRemount">Remount</button>
+    </div>
+    <div id="stage"></div>
+    <p class="note">
+      Mounts the real <code>kbb.js</code> module with a synthetic question bank and empty
+      <code>STARNIX_ASSETS</code> (so you see the procedural fallback ships/asteroids until the PNGs land).
+      Walk the phases — <b>pre-run shop → battle → between-battle shop → lost</b> — and confirm the four zones never overlap:
+      <b>GREEN</b> squad (left), <b>RED</b> combat (top-center), <b>BLUE</b> enemy (top-right), <b>YELLOW</b> questions/shop (bottom).
+      Hover or tab to an artifact for its tooltip. Watch the enemy's <b>Incoming Attack</b> badge pulse red before each hit.
+      Toggle <b>Force 2D</b> / <b>Use 3D</b> / <b>Reduced motion</b> then <b>Remount</b> to compare the 3D billboard scene vs the 2D canvas.
+      The mode indicator (top-right) shows which path is live.
+    </p>
+  </section>
+
+  <section class="panel" id="verify">
+    <div class="controls">
+      <button id="btnRun">Run verification</button>
+      <span class="note" style="margin:0;">Engine battery + in-browser view checks, including <b>real getBoundingClientRect non-overlap</b> of the four zones (which the headless harness can't measure).</span>
+    </div>
+    <pre id="vout">Press “Run verification”.</pre>
+  </section>
+
+  <script>
+    // Bootstrap BEFORE kbb.js: capture the registered module + provide empty assets.
+    window.STARNIX_ASSETS = {};
+    window.__kbbModule = null;
+    window.StarNix = { registerGame: function (m) { window.__kbbModule = m; } };
+  </script>
+  <script src="kbb.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    var KBB = window.KBB, MOD = window.__kbbModule;
+    window.__THREE = window.THREE || null;            // stash the real Three.js (if CDN loaded)
+
+    // ---- synthetic single-answer question bank ----
+    var BANK = (function (n) {
+      var a = [];
+      for (var i = 0; i < n; i++) {
+        var d = (i % 3) + 1;
+        a.push({ id: 'Q' + i, difficulty: d, stem: 'Sample question ' + i + ' — which statement is correct? (difficulty ' + d + ')',
+          options: ['Answer option A #' + i, 'Answer option B #' + i, 'Answer option C #' + i, 'Answer option D #' + i],
+          correctIndex: i % 4, explanation: 'Option ' + 'ABCD'[i % 4] + ' is correct because reason ' + i + '.' });
+      }
+      return a;
+    })(90);
+
+    function makeCtx(opts) {
+      opts = opts || {};
+      var store = { bests: {} };
+      var rootRng = KBB.makeRng(opts.seed != null ? opts.seed : ('play:' + Date.now()));
+      return {
+        questions: { next: function (qq) {
+          var band = qq.difficultyBand || [1, 3], ex = qq.excludeIds || [], rng = qq.rng;
+          var pool = BANK.filter(function (x) { return x.difficulty >= band[0] && x.difficulty <= band[1] && ex.indexOf(x.id) < 0; });
+          if (!pool.length) pool = BANK.filter(function (x) { return ex.indexOf(x.id) < 0; });
+          if (!pool.length) return null;
+          return { question: rng && rng.pick ? rng.pick(pool) : pool[0], reason: 'mock' };
+        } },
+        mastery: { record: function () {} },
+        telemetry: { emit: function () {} },
+        persistence: { load: function () { return Promise.resolve(store); }, save: function (p) { store = p; return Promise.resolve(true); } },
+        rng: rootRng,
+        settings: { reducedMotion: !!opts.reducedMotion },
+        audio: { playTrack: function () {}, sfx: function () {} }
+      };
+    }
+    window.__makeCtx = makeCtx; window.__BANK = BANK;
+
+    // ---- tabs ----
+    function show(tab) {
+      document.getElementById('play').classList.toggle('on', tab === 'play');
+      document.getElementById('verify').classList.toggle('on', tab === 'verify');
+      document.getElementById('tabPlay').classList.toggle('on', tab === 'play');
+      document.getElementById('tabVerify').classList.toggle('on', tab === 'verify');
+    }
+    document.getElementById('tabPlay').onclick = function () { show('play'); };
+    document.getElementById('tabVerify').onclick = function () { show('verify'); };
+
+    // ---- Play tab ----
+    var stage = document.getElementById('stage');
+    var statusEl = document.getElementById('status');
+    var cb2d = document.getElementById('cb2d'), cbReduced = document.getElementById('cbReduced'), cbThree = document.getElementById('cbThree');
+    var mounted = false;
+
+    function applyThreeToggle() { window.THREE = (cbThree.checked && window.__THREE) ? window.__THREE : undefined; }
+
+    function mountPlay() {
+      if (!MOD) { statusEl.textContent = 'module failed to register'; return; }
+      try { if (mounted) MOD.unmount(); } catch (e) {}
+      stage.innerHTML = '';
+      window.KBB_FORCE_2D = !!cb2d.checked;
+      applyThreeToggle();
+      MOD.mount(stage, makeCtx({ reducedMotion: cbReduced.checked }));
+      mounted = true;
+    }
+
+    document.getElementById('btnPause').onclick = function () { try { MOD.pause(); } catch (e) {} };
+    document.getElementById('btnResume').onclick = function () { try { MOD.resume(); } catch (e) {} };
+    document.getElementById('btnRemount').onclick = mountPlay;
+    cb2d.onchange = mountPlay; cbReduced.onchange = mountPlay; cbThree.onchange = mountPlay;
+
+    // live status readout
+    setInterval(function () {
+      if (!MOD) return;
+      var threeNote = window.__THREE ? 'THREE r' + (window.__THREE.REVISION || '?') : 'no THREE (2D only)';
+      var st = null; try { st = KBB._test.state(); } catch (e) {}
+      if (!st) { statusEl.innerHTML = 'idle · ' + threeNote; return; }
+      var mode = st.use3D ? '<b>3D (WebGL)</b>' : '<b>2D (canvas)</b>';
+      var phase = st.run ? st.run.phase : '?';
+      var hp = (st.run && st.run.squad) ? st.run.squad.hp : '?';
+      statusEl.innerHTML = 'mode: ' + mode + (st.paused ? ' · <b>PAUSED</b>' : '') + ' · phase: ' + phase + ' · squad HP: ' + hp + ' · ' + threeNote;
+    }, 250);
+
+    // ---- Verify tab ----
+    var vout = document.getElementById('vout');
+    var V = { pass: 0, fail: 0 };
+    function line(cls, txt) { var s = document.createElement('span'); if (cls) s.className = cls; s.textContent = txt + '\n'; vout.appendChild(s); }
+    function vgroup(n) { line('head', '\n— ' + n); }
+    function vok(c, m) { if (c) { V.pass++; line('ok', '  \u2713 ' + m); } else { V.fail++; line('bad', '  \u2717 ' + m); } }
+    function veq(a, b, m) { vok(a === b, m + ' (got ' + JSON.stringify(a) + ')'); }
+
+    function rect(el) { return el.getBoundingClientRect(); }
+    function overlap(a, b) { var E = 1; return a.left < b.right - E && b.left < a.right - E && a.top < b.bottom - E && b.top < a.bottom - E; }
+    function within(i, o) { var E = 2; return i.left >= o.left - E && i.right <= o.right + E && i.top >= o.top - E && i.bottom <= o.bottom + E; }
+    function Q(ctx, sel) { return ctx.querySelector(sel); }
+    function QA(ctx, sel) { return Array.prototype.slice.call(ctx.querySelectorAll(sel)); }
+    function clickText(ctx, sel, t) { var e = QA(ctx, sel); for (var i = 0; i < e.length; i++) { if ((e[i].textContent || '').indexOf(t) >= 0) { e[i].click(); return true; } } return false; }
+
+    function zonesNoOverlap(root, label) {
+      var g = rect(Q(root, '.kbb-leftcol')), c = rect(Q(root, '.kbb-combat')), e = rect(Q(root, '.kbb-enemy')), m = rect(Q(root, '.kbb-main'));
+      vok(!overlap(g, c) && !overlap(g, e) && !overlap(g, m), label + ': GREEN overlaps nothing');
+      vok(!overlap(c, e) && !overlap(c, m) && !overlap(e, m), label + ': RED/BLUE/YELLOW mutually disjoint');
+      var cv = Q(root, '.kbb-combat canvas');
+      if (cv) vok(within(rect(cv), c), label + ': canvas confined to RED cell');
+      vok(!Q(root, '.kbb-leftcol canvas') && !Q(root, '.kbb-main canvas') && !Q(root, '.kbb-enemy canvas'), label + ': no canvas in GREEN/BLUE/YELLOW');
+    }
+
+    function runEngine() {
+      vgroup('engine: catalog + invariants');
+      vok(!!KBB && !!KBB.makeGame, 'KBB loaded, exposes makeGame');
+      vok(KBB.ARTIFACTS.length >= 50, 'artifact catalog >= 50 (' + KBB.ARTIFACTS.length + ')');
+      veq(KBB.Q5_GATED.length, 2, 'two Q5-gated artifacts');
+      veq(KBB.CONFIG.maxAttacks, 5, 'maxAttacks == 5');
+      vgroup('engine: determinism + clear + loss');
+      var ctx = makeCtx({ seed: 7 });
+      var r1 = KBB.createRun(ctx, { seed: 7 }), r2 = KBB.createRun(ctx, { seed: 7 });
+      veq(r1.battle.enemy.hp, r2.battle.enemy.hp, 'same seed -> same enemy hp');
+      var run = KBB.createRun(makeCtx({ seed: 21 }), { seed: 21 }), boss5 = false, threw = false, guard = 0;
+      try { while (run.section === 1 && guard++ < 200) { if (run.phase === 'battle') { var d = KBB.drawQuestion(run); if (run.round === 5) boss5 = boss5 || !!run.battle.enemy.boss; if (KBB.submitAnswer(run, d.question.correctIndex, 1500).loss) break; } else if (run.phase === 'shop') KBB.leaveShop(run); else break; } } catch (x) { threw = true; }
+      vok(!threw, 'no exception clearing section 1'); vok(boss5, 'round 5 is a boss');
+      var run2 = KBB.createRun(makeCtx({ seed: 5 }), { seed: 5 }), t = 0;
+      while (run2.phase === 'battle' && t++ < 12) { var dd = KBB.drawQuestion(run2); if (KBB.submitAnswer(run2, (dd.question.correctIndex + 1) % dd.question.options.length, 1500).loss) break; }
+      veq(run2.phase, 'lost', 'all-wrong run ends in lost');
+      vgroup('engine: 60-run fuzz');
+      var anyThrow = false, lost = 0, bad = 0;
+      for (var s = 0; s < 60; s++) {
+        var rng = KBB.makeRng('vfuzz:' + s), rr;
+        try { rr = KBB.createRun(makeCtx({ seed: 500 + s }), { seed: 500 + s }); } catch (e) { anyThrow = true; break; }
+        var turns = 0;
+        while (turns++ < 4000) {
+          if (rr.phase === 'lost') { lost++; break; } if (rr.section > 12) break;
+          try { if (rr.phase === 'battle') { var dq = KBB.drawQuestion(rr); if (!dq || !dq.question) break; var q = dq.question; KBB.submitAnswer(rr, rng.next() < 0.6 ? q.correctIndex : (q.correctIndex + 1) % q.options.length, 300 + rng.int(4000)); } else if (rr.phase === 'shop') KBB.leaveShop(rr); else break; } catch (e) { anyThrow = true; break; }
+          if (rr.squad.coins < 0 || rr.squad.hp > rr.squad.maxHp || ['battle', 'shop', 'lost'].indexOf(rr.phase) < 0) bad++;
+        }
+        if (anyThrow) break;
+      }
+      vok(!anyThrow, 'no exception across 60 fuzz runs'); veq(bad, 0, 'no invariant violations'); vok(lost > 30, 'most runs terminate in loss (' + lost + '/60)');
+    }
+
+    function runView() {
+      // mount the real module into an off-screen, laptop-width container so real layout rects exist
+      var host = document.createElement('div');
+      host.style.cssText = 'position:fixed;left:-12000px;top:0;width:1100px;height:640px;';
+      document.body.appendChild(host);
+      var cleanup = function () { try { MOD.unmount(); } catch (e) {} try { document.body.removeChild(host); } catch (e) {} };
+      try {
+        window.KBB_FORCE_2D = true;                 // measure layout on the 2D path (deterministic, no GPU)
+        applyThreeToggle();
+        MOD.mount(host, makeCtx({ seed: 3, reducedMotion: false }));
+        var root = Q(host, '.kbb-root'); if (root) root.style.height = '100%';
+        host.offsetHeight;                          // force reflow
+
+        vgroup('view: four-zone non-overlap (real rects)');
+        Q(host, '.kbb-howto .kbb-btn').click();
+        Q(host, '.kbb-combat .kbb-skip').click();    // -> pre-run shop
+        vok(!!Q(host, '.kbb-root'), 'container mounted');
+        zonesNoOverlap(host, 'pre-run shop');
+
+        vgroup('view: tooltip + rename + battle layout');
+        var s = KBB._test.state(), sid = null;
+        for (var i = 0; i < KBB.ARTIFACTS.length; i++) { if (KBB.isSellable(KBB.ARTIFACTS[i])) { sid = KBB.ARTIFACTS[i].id; break; } }
+        KBB.equipArtifact(s.run, sid);
+        clickText(Q(host, '.kbb-main'), 'button', 'Start run');   // -> battle
+        zonesNoOverlap(host, 'battle');
+        var tile = Q(host, '.kbb-arts-card .kbb-tile.tipped');
+        vok(!!tile, 'equipped artifact is a tooltipped HUD tile');
+        if (tile) { tile.dispatchEvent(new Event('focus')); var tip = Q(host, '.kbb-tip'); vok(!!tip && tip.classList.contains('show'), 'tooltip shows on focus'); vok(tip && within(rect(tip), rect(Q(host, '.kbb-root'))), 'tooltip stays within the container'); tile.dispatchEvent(new Event('blur')); }
+        var badge = Q(host, '.kbb-enemy .kbb-intent');
+        vok(!!badge && /Incoming attack|Charging|Shield up|Immune/.test(badge.textContent || ''), 'enemy badge uses Incoming-attack vocabulary');
+        vok((Q(host, '.kbb-root').textContent || '').indexOf('Intent') < 0, 'no player-facing "Intent"');
+        veq(QA(host, '.kbb-main .kbb-opt').length, 4, 'four answer options');
+
+        vgroup('view: lost modal covers the field');
+        var guard = 0, lost = false;
+        while (guard++ < 14) { var st = KBB._test.state(); if (!st) break; if (st.run.phase === 'lost') { lost = true; break; } var qq = st.run.battle && st.run.battle.question; if (!qq) { var c0 = Q(host, '.kbb-main .kbb-cont'); if (c0) { c0.click(); continue; } break; } var wi = (qq.correctIndex + 1) % qq.options.length; var ob = Q(host, '.kbb-main .kbb-opt[data-idx="' + wi + '"]'); if (!ob) break; ob.click(); var cont = Q(host, '.kbb-main .kbb-cont'); if (cont) cont.click(); }
+        vok(lost, 'wrong answers drive to lost');
+        var lostEl = Q(host, '.kbb-lost'); vok(!!lostEl, 'lost is a full-cover modal');
+        if (lostEl) { var hr = rect(host), lr = rect(lostEl); vok(hr.width === 0 ? true : (within(lr, { left: hr.left - 3, right: hr.right + 3, top: hr.top - 3, bottom: hr.bottom + 3 }) && lr.width > hr.width * 0.9), 'lost modal covers the container'); }
+
+        vgroup('view: clean unmount');
+        MOD.unmount();
+        vok(KBB._test.state() === null, 'state nulled on unmount');
+        vok(!Q(host, '.kbb-root'), 'container removed');
+      } catch (e) { vok(false, 'view tests threw: ' + (e && e.message)); }
+      cleanup();
+    }
+
+    document.getElementById('btnRun').onclick = function () {
+      vout.innerHTML = ''; V.pass = 0; V.fail = 0;
+      try { runEngine(); runView(); } catch (e) { vok(false, 'harness threw: ' + (e && e.message)); }
+      var sum = document.createElement('span'); sum.className = 'sum ' + (V.fail === 0 ? 'ok' : 'bad');
+      sum.textContent = '\n' + (V.fail === 0 ? 'ALL GREEN' : (V.fail + ' FAIL')) + ' — ' + V.pass + ' passed, ' + V.fail + ' failed\n';
+      vout.appendChild(sum);
+      // restore Play-tab globals after the verify pass
+      window.KBB_FORCE_2D = !!cb2d.checked; applyThreeToggle();
+    };
+
+    // kick off the Play tab
+    if (MOD) mountPlay(); else statusEl.textContent = 'ERROR: kbb.js did not register a module (StarNix.registerGame not called).';
+  })();
+  </script>
+</body>
+</html>

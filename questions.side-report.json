@@ -1,0 +1,64 @@
+{
+  "parsed": 233,
+  "live": 226,
+  "held": 7,
+  "multiLive": 20,
+  "withOptionNotes": 226,
+  "byDomain": {
+    "security": 20,
+    "architecture": 23,
+    "lifecycle": 18,
+    "networking": 32,
+    "vms": 42,
+    "performance": 14,
+    "storage": 25,
+    "data-protection": 26,
+    "monitoring": 26
+  },
+  "byDifficulty": {
+    "1": 18,
+    "2": 176,
+    "3": 32
+  },
+  "heldSummary": {
+    "key-unverified": 3,
+    "schema": 4
+  },
+  "heldItems": [
+    {
+      "src": "a1q13",
+      "stem": "An administrator has tasked to configured AHV Metro Availability",
+      "reason": "key-unverified: Metro+Witness, medium confidence, portal table gated (review_notes.md)"
+    },
+    {
+      "src": "a1q27",
+      "stem": "An administrator needs to enable application discovery on a Nuta",
+      "reason": "key-unverified: App-Discovery prereqs not verifiable from open sources (review_notes.md)"
+    },
+    {
+      "src": "a1q52",
+      "stem": "A company is evaluating Nutanix DR to protect some business-crit",
+      "reason": "schema: empty explanation"
+    },
+    {
+      "src": "a1q59",
+      "stem": "Within Intelligent Operations, Capacity Configurations have been",
+      "reason": "schema: empty explanation"
+    },
+    {
+      "src": "a1q60",
+      "stem": "An administrator has deployed two Nutanix clusters and is now es",
+      "reason": "schema: empty explanation"
+    },
+    {
+      "src": "a2q55",
+      "stem": "An administrator is protecting an application and its data store",
+      "reason": "schema: empty explanation"
+    },
+    {
+      "src": "a3q7",
+      "stem": "As per InfoSec team requirements, an administrator has uploaded ",
+      "reason": "key-unverified: CAC failure reads as two valid answers, CRL vs OCSP (review_notes.md)"
+    }
+  ]
+}

@@ -1,0 +1,796 @@
+/* =====================================================================
+ * StarNix — shared core  (starnix-core.js)
+ * Plain JS. No build step. Attaches everything to window.StarNix.
+ *
+ * Provides the frozen runtime contract (see 01 §9):
+ *   window.StarNix = {
+ *     core: { questions, mastery, persistence, rng, audio, theme,
+ *             telemetry, ai, profile, ... },
+ *     shell,                       // defined by starnix-shell.js
+ *     registerGame(module),        // module = { id, mount(root,ctx), unmount() }
+ *     registerAudio(impl),         // audio engine seam (real engine = audio.js)
+ *     boot(root, opts),            // defined by starnix-shell.js
+ *     initCore(opts)               // builds the live core; called by boot
+ *   }
+ *
+ * The core ships a NoopAudio default; the Audio chat's audio.js replaces it
+ * via registerAudio(). The core ships a tiny verified NCP-MCI fixture so the
+ * shell/games run before the real bank arrives.
+ * ===================================================================== */
+(function (global) {
+  "use strict";
+
+  var StarNix = global.StarNix || (global.StarNix = {});
+  var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
+  // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
+  // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
+  var BUILD_VERSION = "0.51.0";
+  var BUILD_DATE = "2026-06-27";
+  var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
+  var SCHEMA_VERSION = 1;
+  var STORAGE_KEY = "starnix:profile";
+
+  /* ---- injectable clock (tests override core.clock.now) -------------- */
+  var clock = { now: function () { return Date.now(); } };
+
+  /* =================================================================== *
+   * 1. Seeded RNG  (01 §6)  — mulberry32. No Math.random anywhere here.
+   * =================================================================== */
+  function hashStr(s) {
+    var h = 1779033703 ^ s.length;
+    for (var i = 0; i < s.length; i++) {
+      h = Math.imul(h ^ s.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function makeRng(seed) {
+    var s = (typeof seed === "number") ? (seed >>> 0) : hashStr(String(seed == null ? "" : seed));
+    var next = mulberry32(s);
+    var rng = {
+      seed: s,
+      next: next,
+      int: function (maxExclusive) { return Math.floor(next() * maxExclusive); },
+      range: function (a, b) { return a + next() * (b - a); },
+      pick: function (arr) { return arr[Math.floor(next() * arr.length)]; },
+      shuffle: function (arr) {
+        var a = arr.slice();
+        for (var i = a.length - 1; i > 0; i--) {
+          var j = Math.floor(next() * (i + 1));
+          var t = a[i]; a[i] = a[j]; a[j] = t;
+        }
+        return a;
+      },
+      fork: function (salt) { return makeRng((s ^ hashStr(String(salt))) >>> 0); }
+    };
+    return rng;
+  }
+
+  /* =================================================================== *
+   * 2. Question schema + validator  (01 §2, 06)  — tiny, Zod-shaped.
+   * =================================================================== */
+  var DOMAINS = [
+    "architecture", "storage", "networking", "security",
+    "vms", "data-protection", "lifecycle", "monitoring", "performance"
+  ];
+  var SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+  function normStem(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Validates one question against a domain set. Returns array of error strings.
+  function questionErrors(q, domainSet) {
+    var e = [];
+    if (!q || typeof q !== "object") return ["not an object"];
+    if (typeof q.id !== "string" || !q.id) e.push("id: missing/empty");
+    else if (!SLUG_RE.test(q.id)) e.push("id: not a slug (" + q.id + ")");
+    if (typeof q.cert !== "string" || !q.cert) e.push("cert: missing/empty");
+    if (typeof q.domain !== "string" || (domainSet && !domainSet[q.domain])) e.push("domain: invalid (" + q.domain + ")");
+    if (q.difficulty !== 1 && q.difficulty !== 2 && q.difficulty !== 3) e.push("difficulty: must be 1|2|3");
+    if (typeof q.stem !== "string" || !q.stem.trim()) e.push("stem: missing/empty");
+    if (!Array.isArray(q.options)) e.push("options: not an array");
+    else {
+      if (q.options.length < 3 || q.options.length > 5) e.push("options: length " + q.options.length + " (need 3-5)");
+      for (var i = 0; i < q.options.length; i++) {
+        if (typeof q.options[i] !== "string" || !q.options[i].trim()) e.push("options[" + i + "]: empty");
+      }
+    }
+    // answer key: single correctIndex, OR multi correctIndices (>=2 distinct, in range)
+    if (Array.isArray(q.correctIndices)) {
+      if (q.correctIndices.length < 2) e.push("correctIndices: need >=2 for multi");
+      var seenCI = {};
+      for (var ci = 0; ci < q.correctIndices.length; ci++) {
+        var cv = q.correctIndices[ci];
+        if (typeof cv !== "number" || (cv | 0) !== cv) e.push("correctIndices: non-integer");
+        else if (Array.isArray(q.options) && (cv < 0 || cv >= q.options.length)) e.push("correctIndices: out of range");
+        else if (seenCI[cv]) e.push("correctIndices: duplicate index"); else seenCI[cv] = 1;
+      }
+    } else {
+      if (typeof q.correctIndex !== "number" || (q.correctIndex | 0) !== q.correctIndex) e.push("correctIndex: not an integer");
+      else if (Array.isArray(q.options) && (q.correctIndex < 0 || q.correctIndex >= q.options.length)) e.push("correctIndex: out of range");
+    }
+    if (typeof q.explanation !== "string" || !q.explanation.trim()) e.push("explanation: missing/empty");
+    if (q.briefing != null && typeof q.briefing !== "string") e.push("briefing: must be string");
+    if (q.tags != null && !Array.isArray(q.tags)) e.push("tags: must be array");
+    if (q.source != null && typeof q.source !== "string") e.push("source: must be string");
+    // Quarantine flags must not reach the live bank (06 §6).
+    if (q.review === true) e.push("review:true (must be quarantined out of live bank)");
+    // multi-select is now supported via the correctIndices array (graded by set equality).
+    return e;
+  }
+
+  // Validates a CertPack. Returns { ok, errors:[{id,msg}], stats }.
+  function validateBank(pack) {
+    var errors = [];
+    var stats = { total: 0, byDomain: {}, byDifficulty: { 1: 0, 2: 0, 3: 0 } };
+    if (!pack || typeof pack !== "object") return { ok: false, errors: [{ id: "(pack)", msg: "not an object" }], stats: stats };
+    var domainList = Array.isArray(pack.domains) ? pack.domains : DOMAINS;
+    var domainSet = {};
+    for (var d = 0; d < domainList.length; d++) domainSet[domainList[d]] = true;
+    var qs = Array.isArray(pack.questions) ? pack.questions : null;
+    if (!qs) return { ok: false, errors: [{ id: "(pack)", msg: "questions: not an array" }], stats: stats };
+
+    var seenId = {}, seenStem = {};
+    for (var i = 0; i < qs.length; i++) {
+      var q = qs[i];
+      var errs = questionErrors(q, domainSet);
+      var id = (q && q.id) ? q.id : "(index " + i + ")";
+      for (var j = 0; j < errs.length; j++) errors.push({ id: id, msg: errs[j] });
+      if (q && q.id) {
+        if (seenId[q.id]) errors.push({ id: id, msg: "duplicate id" });
+        seenId[q.id] = true;
+      }
+      if (q && typeof q.stem === "string") {
+        var ns = normStem(q.stem);
+        if (ns && seenStem[ns]) errors.push({ id: id, msg: "duplicate normalized stem (also " + seenStem[ns] + ")" });
+        else if (ns) seenStem[ns] = id;
+      }
+      stats.total++;
+      if (q && q.domain) stats.byDomain[q.domain] = (stats.byDomain[q.domain] || 0) + 1;
+      if (q && (q.difficulty === 1 || q.difficulty === 2 || q.difficulty === 3)) stats.byDifficulty[q.difficulty]++;
+    }
+    return { ok: errors.length === 0, errors: errors, stats: stats };
+  }
+
+  /* =================================================================== *
+   * 3. Leitner / spaced-retrieval policy constants  (01 §3, §4)
+   * =================================================================== */
+  var MAX_BUCKET = 6;
+  var MASTERED_BUCKET = 4;          // summary().masteredCount threshold
+  // Review interval per bucket (ms). bucket 0 is always due.
+  var INTERVALS = [0, 30e3, 2 * 60e3, 10 * 60e3, 60 * 60e3, 6 * 60 * 60e3, 24 * 60 * 60e3];
+  // Selection weights by reason (tunable).
+  var W = { due: 6, "new": 3, reinforce: 1, epsilon: 0.12 };
+
+  /* =================================================================== *
+   * 4. MasteryStore  (01 §4)
+   * =================================================================== */
+  function makeMasteryStore(profile, opts) {
+    opts = opts || {};
+    var onChange = opts.onChange || function () {};
+    if (!profile.mastery) profile.mastery = {};
+    var map = profile.mastery;
+
+    function init(id) {
+      return { id: id, seen: 0, correct: 0, incorrect: 0, streak: 0, bucket: 0, lastSeen: 0 };
+    }
+    return {
+      record: function (id, correct, ctx) {
+        var m = map[id] || (map[id] = init(id));
+        var now = clock.now();
+        m.seen++;
+        m.lastSeen = now;
+        if (correct) {
+          m.correct++; m.streak++;
+          if (m.bucket < MAX_BUCKET) m.bucket++;
+          if (!m.firstCorrectAt) m.firstCorrectAt = now;
+        } else {
+          m.incorrect++; m.streak = 0;
+          if (m.bucket > 0) m.bucket--;            // modified Leitner: gentle decay
+        }
+        // keep lifetime totals in sync for Stats (01 §5)
+        if (profile.totals) {
+          profile.totals.questionsSeen++;
+          if (correct) profile.totals.correct++; else profile.totals.incorrect++;
+        }
+        onChange();
+        return m;
+      },
+      get: function (id) { return map[id]; },
+      all: function () { return map; },
+      summary: function () {
+        var totalSeen = 0, uniqueCorrect = 0, uniqueIncorrect = 0, masteredCount = 0;
+        for (var k in map) {
+          if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+          var m = map[k];
+          totalSeen += m.seen;
+          if (m.correct > 0) uniqueCorrect++;
+          if (m.incorrect > 0) uniqueIncorrect++;
+          if (m.bucket >= MASTERED_BUCKET) masteredCount++;
+        }
+        return {
+          totalSeen: totalSeen, uniqueCorrect: uniqueCorrect,
+          uniqueIncorrect: uniqueIncorrect, masteredCount: masteredCount
+        };
+      }
+    };
+  }
+
+  /* =================================================================== *
+   * 5. QuestionProvider + scheduler  (01 §3)
+   * =================================================================== */
+  function inBand(diff, band) {
+    if (!band) return true;
+    return diff >= band[0] && diff <= band[1];
+  }
+
+  // Return a clone of q with its options reordered (Fisher–Yates via rng) and the correct
+  // index/indices remapped, so repeat runs can't be solved by memorising answer position.
+  // Option TEXT is unchanged (stays as authored / as in the exam); grading against the returned
+  // question stays correct. The original bank object is never mutated. Questions with <2 options
+  // or no usable rng pass through untouched.
+  function shuffleQuestionOptions(q, rng) {
+    if (!q || !q.options || q.options.length < 2 || !rng || typeof rng.next !== "function") return q;
+    var n = q.options.length, i, order = new Array(n);
+    for (i = 0; i < n; i++) order[i] = i;
+    for (i = n - 1; i > 0; i--) { var k = Math.floor(rng.next() * (i + 1)), t = order[i]; order[i] = order[k]; order[k] = t; }
+    var newOptions = new Array(n), newPos = new Array(n);   // newPos[oldIndex] = newIndex
+    for (i = 0; i < n; i++) { newOptions[i] = q.options[order[i]]; newPos[order[i]] = i; }
+    var out = {}, key;
+    for (key in q) if (Object.prototype.hasOwnProperty.call(q, key)) out[key] = q[key];
+    out.options = newOptions;
+    if (Array.isArray(q.correctIndices)) {
+      out.correctIndices = q.correctIndices.map(function (ci) { return newPos[ci]; }).sort(function (a, b) { return a - b; });
+    } else if (typeof q.correctIndex === "number") {
+      out.correctIndex = newPos[q.correctIndex];
+    }
+    return out;
+  }
+
+  // Dynamic per-question timer (D6): seconds a player gets to answer, derived from how much there is
+  // to read (stem + options), single vs multi, and difficulty — "quick but learnable." An authored
+  // numeric q.timer overrides the computed base. opts.extraTime (accessibility) extends the result.
+  var TIMER = { BASE: 6, PER_WORD: 0.30, PER_OPTION: 1.0, DIFF_STEP: 2.5, MULTI_BONUS: 6, MIN: 12, MAX: 45, EXTRA_FACTOR: 1.6 };
+  function wordCount(s) { return s ? String(s).split(/\s+/).filter(Boolean).length : 0; }
+  function questionTimerSeconds(q, opts) {
+    opts = opts || {};
+    var t;
+    if (q && typeof q.timer === "number" && q.timer > 0) {
+      t = q.timer;                                  // authored override
+    } else {
+      var words = wordCount(q && q.stem), opt = (q && q.options) || [], i;
+      for (i = 0; i < opt.length; i++) words += wordCount(opt[i]);
+      var diff = (q && typeof q.difficulty === "number") ? q.difficulty : 1;
+      var multi = !!(q && Array.isArray(q.correctIndices));
+      t = TIMER.BASE + words * TIMER.PER_WORD + opt.length * TIMER.PER_OPTION
+        + (diff - 1) * TIMER.DIFF_STEP + (multi ? TIMER.MULTI_BONUS : 0);
+      if (t < TIMER.MIN) t = TIMER.MIN;
+      if (t > TIMER.MAX) t = TIMER.MAX;             // clamp the computed base (not the extra-time bonus)
+    }
+    if (opts.extraTime) t *= TIMER.EXTRA_FACTOR;    // accessibility: extend, may exceed MAX by design
+    return Math.round(t);
+  }
+
+  function makeQuestionProvider(pack, mastery) {
+    var all = (pack && pack.questions) ? pack.questions.slice() : [];
+    var byIdMap = {};
+    for (var i = 0; i < all.length; i++) byIdMap[all[i].id] = all[i];
+
+    function classify(q, now) {
+      var m = mastery && mastery.get ? mastery.get(q.id) : undefined;
+      if (!m || m.seen === 0) return { reason: "new", weight: W["new"] + W.epsilon };
+      var due = (m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0)) <= now;
+      if (due) return { reason: "review-due", weight: W.due + W.epsilon };
+      return { reason: "reinforce", weight: W.reinforce + W.epsilon };
+    }
+
+    // Build candidate list honoring domain/band/exclusions, relaxing if empty.
+    function candidates(opts) {
+      var domain = opts.domain;
+      var band = opts.difficultyBand;
+      var excl = {};
+      if (opts.excludeIds) for (var i = 0; i < opts.excludeIds.length; i++) excl[opts.excludeIds[i]] = true;
+
+      function build(useDomain, useBand, useExcl) {
+        var out = [];
+        for (var k = 0; k < all.length; k++) {
+          var q = all[k];
+          if (!opts.allowImages && q.image) continue;   // exhibit Qs are exam-only (need a full-screen image)
+          if (useDomain && domain && q.domain !== domain) continue;
+          if (useBand && !inBand(q.difficulty, band)) continue;
+          if (useExcl && excl[q.id]) continue;
+          out.push(q);
+        }
+        return out;
+      }
+      var c = build(true, true, true);
+      if (c.length) return { list: c, relaxed: false };
+      c = build(true, false, true); if (c.length) return { list: c, relaxed: true };   // drop band
+      c = build(false, false, true); if (c.length) return { list: c, relaxed: true };  // drop domain
+      c = build(false, false, false); return { list: c, relaxed: true };               // allow excluded
+    }
+
+    return {
+      next: function (opts) {
+        opts = opts || {};
+        var rng = opts.rng || makeRng(clock.now());
+        var now = clock.now();
+        var res = candidates(opts);
+        var list = res.list;
+        if (!list.length) throw new Error("QuestionProvider.next: empty bank");
+
+        // Weighted selection. Deterministic given rng + mastery + clock.
+        var total = 0, weights = new Array(list.length), reasons = new Array(list.length);
+        for (var i = 0; i < list.length; i++) {
+          var c = classify(list[i], now);
+          weights[i] = c.weight;
+          reasons[i] = c.reason;
+          total += c.weight;
+        }
+        var r = rng.next() * total, acc = 0, idx = 0;
+        for (var j = 0; j < list.length; j++) {
+          acc += weights[j];
+          if (r <= acc) { idx = j; break; }
+          idx = j;
+        }
+        var reason = res.relaxed ? "random" : reasons[idx];
+        var picked = opts.shuffle ? shuffleQuestionOptions(list[idx], rng) : list[idx];
+        return { question: picked, reason: reason };
+      },
+      byId: function (id) { return byIdMap[id]; },
+      pool: function (filter) {
+        if (!filter) return all.slice();
+        var out = [];
+        for (var i = 0; i < all.length; i++) {
+          var q = all[i];
+          if (filter.domain && q.domain !== filter.domain) continue;
+          if (filter.difficulty && q.difficulty !== filter.difficulty) continue;
+          if (filter.cert && q.cert !== filter.cert) continue;
+          out.push(q);
+        }
+        return out;
+      },
+      // Progress rollup for the Stats/Codex screen (01 §3/§4). Centralizes the
+      // Leitner interval/bucket math so the shell just renders numbers.
+      stats: function () {
+        var now = clock.now();
+        function blank(d) { return { domain: d, total: 0, seen: 0, mastered: 0, fresh: 0, due: 0, correct: 0, attempts: 0 }; }
+        var overall = blank(null), per = {};
+        for (var i = 0; i < all.length; i++) {
+          var q = all[i], p = per[q.domain] || (per[q.domain] = blank(q.domain));
+          p.total++; overall.total++;
+          var m = mastery && mastery.get ? mastery.get(q.id) : undefined;
+          if (m && m.seen) {
+            p.seen++; overall.seen++;
+            p.attempts += m.seen; overall.attempts += m.seen;
+            p.correct += m.correct; overall.correct += m.correct;
+            if (m.bucket >= MASTERED_BUCKET) { p.mastered++; overall.mastered++; }
+            var interval = INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0;
+            if ((m.lastSeen + interval) <= now) { p.due++; overall.due++; }
+          } else { p.fresh++; overall.fresh++; }   // never seen
+        }
+        function finish(x) { x.accuracy = x.attempts ? x.correct / x.attempts : 0; x.masteredPct = x.total ? x.mastered / x.total : 0; return x; }
+        var domains = [];
+        for (var k in per) if (Object.prototype.hasOwnProperty.call(per, k)) domains.push(finish(per[k]));
+        // weakest first (lowest mastery, then most due) — surfaces what to study
+        domains.sort(function (a, b) { return (a.masteredPct - b.masteredPct) || (b.due - a.due) || (a.domain < b.domain ? -1 : 1); });
+        return { overall: finish(overall), domains: domains };
+      },
+      count: function () { return all.length; },
+      timerSeconds: function (q, opts) { return questionTimerSeconds(q, opts); }
+    };
+  }
+
+  /* =================================================================== *
+   * 6. PersistenceProvider + LocalStorageProvider  (01 §5)
+   *    Only module allowed to touch localStorage (05 lint rule).
+   * =================================================================== */
+  function memoryStorage() {
+    var m = {};
+    return {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(m, k) ? m[k] : null; },
+      setItem: function (k, v) { m[k] = String(v); },
+      removeItem: function (k) { delete m[k]; }
+    };
+  }
+  function anonId() {
+    try {
+      if (global.crypto && global.crypto.getRandomValues) {
+        var a = new Uint32Array(2); global.crypto.getRandomValues(a);
+        return "anon-" + a[0].toString(36) + a[1].toString(36);
+      }
+    } catch (e) {}
+    return "anon-" + clock.now().toString(36);
+  }
+  function defaultSettings() {
+    return { music: true, sfx: true, masterVol: 1, musicVol: 1, sfxVol: 1, reducedMotion: false, extraTime: false, colorblind: false };
+  }
+  function defaultProfile() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      userId: anonId(),
+      bests: {},
+      totals: { questionsSeen: 0, correct: 0, incorrect: 0, points: 0, runs: 0 },
+      mastery: {},
+      settings: defaultSettings(),
+      updatedAt: clock.now()
+    };
+  }
+  // Migration hook: upgrade an older payload to the current schema.
+  function migrate(old) {
+    var p = old || {};
+    // (no historical versions yet) — fill any missing fields against defaults.
+    var def = defaultProfile();
+    if (typeof p.schemaVersion !== "number") p.schemaVersion = 0;
+    // future: while (p.schemaVersion < SCHEMA_VERSION) { ...; p.schemaVersion++; }
+    p.userId = p.userId || def.userId;
+    p.bests = p.bests || {};
+    p.totals = Object.assign({}, def.totals, p.totals || {});
+    p.mastery = p.mastery || {};
+    p.settings = Object.assign({}, def.settings, p.settings || {});
+    p.schemaVersion = SCHEMA_VERSION;
+    return p;
+  }
+
+  function makeLocalStorageProvider(opts) {
+    opts = opts || {};
+    var storage = opts.storage;
+    if (!storage) {
+      try { storage = global.localStorage; } catch (e) { storage = null; }
+      if (!storage) storage = memoryStorage();   // jsdom / private mode fallback
+    }
+    var key = opts.key || STORAGE_KEY;
+    var debounceMs = opts.debounceMs != null ? opts.debounceMs : 400;
+    var timer = null, pending = null;
+
+    function writeNow(p) {
+      p.updatedAt = clock.now();
+      try { storage.setItem(key, JSON.stringify(p)); } catch (e) { /* quota/serialize */ }
+    }
+    return {
+      load: function () {
+        var p;
+        try {
+          var raw = storage.getItem(key);
+          if (!raw) p = defaultProfile();
+          else {
+            var parsed = JSON.parse(raw);
+            p = (parsed && parsed.schemaVersion === SCHEMA_VERSION) ? parsed : migrate(parsed);
+            if (!p || typeof p !== "object") p = defaultProfile();
+            // minimal shape repair
+            p = migrate(p);
+          }
+        } catch (e) {
+          p = defaultProfile();           // corrupt JSON -> fresh profile, never crash
+        }
+        return Promise.resolve(p);
+      },
+      save: function (p) {
+        pending = p;
+        if (timer) return Promise.resolve();
+        timer = setTimeout(function () { timer = null; if (pending) writeNow(pending); pending = null; }, debounceMs);
+        return Promise.resolve();
+      },
+      flush: function () {                  // run-end explicit save
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (pending) { writeNow(pending); pending = null; }
+      }
+    };
+  }
+
+  /* =================================================================== *
+   * 7. Theme / brand tokens  (01 §8, 07)
+   * =================================================================== */
+  var THEME = {
+    colors: {
+      space: "#07070e", panel: "#14141d", panel2: "#1d1d29", border: "#34344a",
+      charcoal: "#131313", text: "#F2F2F7", mid: "#9a9aad", dim: "#6d6d80",
+      iris: "#7855FA", iris300: "#AC9BFD", iris600: "#6D40E6",
+      aqua: "#1FDDE9", mantis: "#92DD23", peach: "#FF6B5B", gold: "#FFC857", white: "#FFFFFF"
+    },
+    // High-contrast / low-vision palette (#12 P1). Applied when <html data-contrast="high">.
+    // Levers: pure-black ground, pure-white text, much lighter secondary/tertiary greys,
+    // and a far brighter border (the signature change). Accents nudged brighter for use as
+    // coloured text/icons on dark; --iris600 kept so the primary-button hover still differs.
+    contrast: {
+      space: "#000000", panel: "#1b1b28", panel2: "#28283c", border: "#9aa0e0",
+      charcoal: "#0a0a0a", text: "#FFFFFF", mid: "#cfd2ec", dim: "#b0b4d2",
+      iris: "#8b6bff", iris300: "#c4b8ff", iris600: "#6D40E6",
+      aqua: "#3DE7F2", mantis: "#A6EE3C", peach: "#FF8473", gold: "#FFD479", white: "#FFFFFF"
+    },
+    font: "'Montserrat', Arial, sans-serif",
+    // color meaning (07 §1) — always pair with a shape/icon; never color alone.
+    meaning: { friendly: "iris", energy: "aqua", success: "mantis", danger: "peach", reward: "gold" }
+  };
+  function varBlock(sel, c) {
+    return sel + "{--space:" + c.space + ";--panel:" + c.panel + ";--panel2:" + c.panel2 +
+      ";--border:" + c.border + ";--charcoal:" + c.charcoal + ";--text:" + c.text +
+      ";--mid:" + c.mid + ";--dim:" + c.dim + ";--iris:" + c.iris + ";--iris300:" + c.iris300 +
+      ";--iris600:" + c.iris600 + ";--aqua:" + c.aqua + ";--mantis:" + c.mantis +
+      ";--peach:" + c.peach + ";--gold:" + c.gold + ";--white:" + c.white + ";}";
+  }
+  function themeCSS() {
+    // base vars carry --font; the HC override only swaps colours. The [data-contrast] attribute
+    // adds specificity so the override wins when present. A few targeted rules cover cases a bare
+    // var-swap can't (a bounded primary button now that --iris is lighter, and a visible focus ring).
+    var base = varBlock(":root", THEME.colors).replace(";}", ";--font:" + THEME.font + ";}");
+    var hc = varBlock(':root[data-contrast="high"]', THEME.contrast);
+    var hcRules =
+      ':root[data-contrast="high"] .sx-btn-iris{border:1px solid var(--white);}' +
+      ':root[data-contrast="high"] .sx-stat{background:rgba(255,255,255,.09);}' +
+      ':root[data-contrast="high"] :focus-visible{outline:2px solid var(--aqua);outline-offset:2px;}';
+    return base + hc + hcRules;
+  }
+  function injectTheme(doc) {
+    if (!doc || !doc.head) return;
+    if (doc.getElementById("starnix-theme")) return;
+    var fontLink = doc.createElement("link");
+    fontLink.rel = "stylesheet";
+    fontLink.href = "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
+    var st = doc.createElement("style");
+    st.id = "starnix-theme";
+    st.textContent = themeCSS();
+    doc.head.appendChild(fontLink);
+    doc.head.appendChild(st);
+  }
+
+  /* =================================================================== *
+   * 8. Telemetry  (01 §10)
+   * =================================================================== */
+  function defaultSink(e) {
+    try { if (global.console && console.debug) console.debug("[telemetry]", e.t, e); } catch (x) {}
+  }
+  function makeTelemetry(opts) {
+    opts = opts || {};
+    var sink = opts.sink || defaultSink;
+    var buf = [], max = opts.max || 500;
+    return {
+      emit: function (e) {
+        e.ts = clock.now();
+        buf.push(e);
+        if (buf.length > max) buf.shift();
+        sink(e);
+      },
+      events: function () { return buf.slice(); },
+      clear: function () { buf.length = 0; }
+    };
+  }
+
+  /* =================================================================== *
+   * 9. AIAdapter seam (deferred — no-op only)  (01 §11, 00 §8)
+   * =================================================================== */
+  function escapeHTML(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) {
+      return ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" :
+        ch === '"' ? "&quot;" : "&#39;";
+    });
+  }
+  var CANNED_FLAVOR = {
+    enemy: "BCM signal detected.",
+    boss: "Heavy BCM unit inbound.",
+    victory: "Sector secured.",
+    defeat: "Squad scattered — regroup."
+  };
+  var StaticAI = {
+    available: function () { return false; },
+    rephraseBriefing: function (text) { return Promise.resolve(String(text == null ? "" : text)); },
+    explainAnswer: function (q) { return Promise.resolve((q && q.explanation) || ""); },
+    flavor: function (kind) { return Promise.resolve(CANNED_FLAVOR[kind] || ""); }
+  };
+
+  /* =================================================================== *
+   * 10. Audio seam  (01 §7)  — real engine arrives as audio.js
+   * =================================================================== */
+  var NoopAudio = {
+    ensure: function () {}, setMusic: function () {}, setSfx: function () {},
+    sfx: function () {}, playTrack: function () {}
+  };
+
+  /* =================================================================== *
+   * 11. Game registry + audio registration
+   * =================================================================== */
+  var games = StarNix._games || (StarNix._games = {});
+  var KNOWN_GAMES = { ARM: true, KBB: true, CC: true };
+  StarNix.registerGame = function (module) {
+    if (!module || typeof module !== "object") throw new Error("registerGame: module required");
+    if (typeof module.id !== "string") throw new Error("registerGame: module.id (string) required");
+    if (typeof module.mount !== "function") throw new Error("registerGame: " + module.id + ".mount must be a function");
+    if (typeof module.unmount !== "function") throw new Error("registerGame: " + module.id + ".unmount must be a function");
+    if (!KNOWN_GAMES[module.id]) {
+      try { if (global.console && console.warn) console.warn("registerGame: unknown game id '" + module.id + "' (expected ARM|KBB|CC)"); } catch (x) {}
+    }
+    games[module.id] = module;
+    return module;
+  };
+  StarNix.getGame = function (id) { return games[id]; };
+
+  StarNix.registerAudio = function (impl) {
+    var a = impl || NoopAudio;
+    if (StarNix.core) StarNix.core.audio = a;
+    StarNix._audio = a;   // remembered so initCore (if it runs later) picks it up
+    return a;
+  };
+
+  /* =================================================================== *
+   * 12. Built-in NCP-MCI fixture (Phase 0).  Verified facts only.
+   *     Real bank arrives from the owner via 06 ingestion.
+   * =================================================================== */
+  var SAMPLE_PACK = {
+    id: "NCP-MCI",
+    name: "Nutanix Certified Professional — Multicloud Infrastructure",
+    domains: DOMAINS,
+    questions: [
+      { id: "mci-storage-0001", cert: "NCP-MCI", domain: "storage", difficulty: 2,
+        stem: "What is the primary role of the OpLog in a Nutanix cluster?",
+        options: ["Permanently store all data", "Buffer incoming writes before they drain to the Extent Store", "Cache reads for speed", "Hold cluster metadata"],
+        correctIndex: 1,
+        explanation: "The OpLog is the persistent (SSD-backed) write buffer; writes are coalesced there for a fast acknowledgement, then drained to the Extent Store. It is not the durable capacity tier.",
+        briefing: "The OpLog is a fast, persistent landing zone for writes that later flush to the Extent Store.",
+        tags: ["oplog", "write-path"] },
+      { id: "mci-performance-0001", cert: "NCP-MCI", domain: "performance", difficulty: 2,
+        stem: "Which Nutanix capability keeps a VM's working data on the node where the VM runs, avoiding network reads?",
+        options: ["Data Tiering", "Data Locality", "Erasure Coding", "Deduplication"],
+        correctIndex: 1,
+        explanation: "Data Locality keeps a VM's active working set on its local node so reads are served locally instead of crossing the network.",
+        briefing: "Data Locality keeps the working set on the VM's own node for fast local reads.",
+        tags: ["data-locality"] },
+      { id: "mci-data-protection-0001", cert: "NCP-MCI", domain: "data-protection", difficulty: 2,
+        stem: "At Redundancy Factor 3 (RF3), how many copies of metadata does the cluster keep?",
+        options: ["2", "3", "5", "7"],
+        correctIndex: 2,
+        explanation: "RF3 keeps three data copies but five metadata copies; the higher metadata count maintains quorum and lets the cluster survive two simultaneous failures.",
+        briefing: "RF3 = 3 data copies and 5 metadata copies, to survive two failures.",
+        tags: ["redundancy-factor", "rf3"] },
+      { id: "mci-storage-0002", cert: "NCP-MCI", domain: "storage", difficulty: 3,
+        stem: "Erasure Coding on an RF2 container requires a minimum of how many nodes?",
+        options: ["2", "3", "4", "6"],
+        correctIndex: 2,
+        explanation: "Erasure Coding stores data stripes plus parity instead of full copies. On RF2 it needs at least four nodes so a stripe and its parity can survive a node failure.",
+        briefing: "Erasure Coding trades space for stripes + parity; RF2 needs at least four nodes.",
+        tags: ["erasure-coding"] },
+      { id: "mci-storage-0003", cert: "NCP-MCI", domain: "storage", difficulty: 2,
+        stem: "For a storage container, what does the Advertised Capacity setting define?",
+        options: ["A guaranteed minimum (floor)", "A maximum size the container can grow to (ceiling)", "Its replication factor", "Its cache size"],
+        correctIndex: 1,
+        explanation: "Advertised Capacity is the ceiling — the maximum size a container reports/can grow to. Reserved Capacity is the opposite: a guaranteed floor carved from the shared pool.",
+        briefing: "Advertised = ceiling; Reserved = floor.",
+        tags: ["capacity", "advertised", "reserved"] },
+      { id: "mci-vms-0001", cert: "NCP-MCI", domain: "vms", difficulty: 1,
+        stem: "What is the default virtual disk bus type for VMs running on AHV?",
+        options: ["IDE", "SATA", "SCSI", "NVMe"],
+        correctIndex: 2,
+        explanation: "AHV presents VM virtual disks on the SCSI bus by default, which provides good performance and broad guest OS support.",
+        briefing: "AHV defaults VM disks to the SCSI bus.",
+        tags: ["ahv", "disk-bus"] },
+      { id: "mci-data-protection-0002", cert: "NCP-MCI", domain: "data-protection", difficulty: 2,
+        stem: "What is the minimum number of nodes required for a cluster to self-heal from a single node failure at Redundancy Factor 2 (RF2)?",
+        options: ["2", "3", "4", "5"],
+        correctIndex: 1,
+        explanation: "RF2 keeps two data copies, so three nodes are required: after one node fails, the cluster still has enough remaining nodes to restore a second copy and return to a protected state.",
+        briefing: "RF2 needs a minimum of three nodes to tolerate and rebuild from one failure.",
+        tags: ["redundancy-factor", "rf2", "fault-tolerance"] }
+    ]
+  };
+
+  /* =================================================================== *
+   * 13. Core assembly + init
+   * =================================================================== */
+  // Pre-populate a minimal core so consumers that read tokens/factories
+  // before initCore() still work.
+  StarNix.core = StarNix.core || {};
+  StarNix.core.theme = THEME;
+  StarNix.core.audio = StarNix._audio || StarNix.core.audio || NoopAudio;
+  StarNix.core.makeRng = makeRng;
+  StarNix.core.escapeHTML = escapeHTML;
+  StarNix.core.sanitize = escapeHTML;
+  StarNix.core.validateBank = validateBank;
+  StarNix.core.clock = clock;
+  StarNix.core.version = CORE_VERSION;
+  StarNix.BUILD = BUILD_VERSION;           // "0.6.0"
+  StarNix.BUILD_DATE = BUILD_DATE;
+  StarNix.BUILD_LABEL = BUILD_LABEL;       // "v0.6.0 · 2026-06-24" — what the shell badge shows
+
+  // Build the live core from a loaded profile. Idempotent-ish; returns core.
+  StarNix.initCore = function (opts) {
+    opts = opts || {};
+    if (typeof document !== "undefined") injectTheme(document);
+
+    var persistence = opts.persistence || makeLocalStorageProvider({ storage: opts.storage });
+    return persistence.load().then(function (profile) {
+      var telemetry = opts.telemetry || makeTelemetry({ sink: opts.telemetrySink });
+      var mastery = makeMasteryStore(profile, { onChange: function () { persistence.save(profile); } });
+
+      // Real bank (window.STARNIX_QUESTIONS / opts.pack) merged with the verified
+      // built-in fixture as a seed; dedup by id + normalized stem. Invalid -> fixture.
+      var external = opts.pack || (typeof global !== "undefined" && global.STARNIX_QUESTIONS) || null;
+      var pack;
+      if (external && external !== SAMPLE_PACK && external.questions && external.questions.length) {
+        var qs = external.questions.slice(), byId = {}, byStem = {}, ii;
+        for (ii = 0; ii < qs.length; ii++) { byId[qs[ii].id] = 1; var nsx = normStem(qs[ii].stem || ""); if (nsx) byStem[nsx] = 1; }
+        for (ii = 0; ii < SAMPLE_PACK.questions.length; ii++) {
+          var fq = SAMPLE_PACK.questions[ii], nsf = normStem(fq.stem || "");
+          if (!byId[fq.id] && !(nsf && byStem[nsf])) qs.push(fq);
+        }
+        pack = { id: external.id || SAMPLE_PACK.id, name: external.name || SAMPLE_PACK.name, domains: external.domains || DOMAINS, questions: qs };
+      } else { pack = external || SAMPLE_PACK; }
+      var report = validateBank(pack);
+      if (!report.ok) {
+        try { if (global.console && console.error) console.error("StarNix: question bank failed validation", report.errors); } catch (x) {}
+        if (!opts.allowInvalidBank) {
+          // Fail loud but stay alive: fall back to the verified fixture.
+          pack = SAMPLE_PACK;
+          report = validateBank(SAMPLE_PACK);
+        }
+      }
+      var questions = makeQuestionProvider(pack, mastery);
+      var seed = (opts.seed != null) ? opts.seed : clock.now();
+      var rng = makeRng(seed);
+      var ai = opts.ai || StaticAI;
+      var audio = StarNix._audio || StarNix.core.audio || NoopAudio;
+
+      var core = StarNix.core;
+      core.questions = questions;
+      core.mastery = mastery;
+      core.persistence = persistence;
+      core.rng = rng;
+      core.audio = audio;
+      core.theme = THEME;
+      core.telemetry = telemetry;
+      core.ai = ai;
+      core.profile = profile;
+      core.pack = pack;
+      core.bankReport = report;
+      core.makeRng = makeRng;
+      core.escapeHTML = escapeHTML;
+      core.sanitize = escapeHTML;
+      core.validateBank = validateBank;
+      core.clock = clock;
+      core.version = CORE_VERSION;
+      core.seed = seed;
+      return core;
+    });
+  };
+
+  /* Build the per-game CoreContext (01 §9). The shell calls this at mount.
+   * Guaranteed keys (frozen contract): questions, mastery, persistence, rng,
+   * audio, theme, telemetry. Also provided: ai (no-op seam), settings
+   * (read-only, for a11y per 01 §12), sanitize (DOM-safety per 05). */
+  StarNix.makeContext = function (gameId) {
+    var c = StarNix.core;
+    return {
+      questions: c.questions,
+      mastery: c.mastery,
+      persistence: c.persistence,
+      rng: c.rng.fork("game:" + (gameId || "anon")),
+      audio: c.audio,
+      theme: c.theme,
+      telemetry: c.telemetry,
+      ai: c.ai,
+      assets: global.STARNIX_ASSETS || {},   // inlined sprites/art (assets.js); games read e.g. ctx.assets.armBoss
+      settings: c.profile ? c.profile.settings : defaultSettings(),
+      sanitize: c.escapeHTML
+    };
+  };
+
+  /* ---- test/integration hooks (not part of the game-facing contract) - */
+  StarNix._internal = {
+    makeRng: makeRng, makeQuestionProvider: makeQuestionProvider,
+    shuffleQuestionOptions: shuffleQuestionOptions,
+    questionTimerSeconds: questionTimerSeconds,
+    makeMasteryStore: makeMasteryStore, makeLocalStorageProvider: makeLocalStorageProvider,
+    makeTelemetry: makeTelemetry, validateBank: validateBank, defaultProfile: defaultProfile,
+    migrate: migrate, SAMPLE_PACK: SAMPLE_PACK, THEME: THEME, StaticAI: StaticAI,
+    NoopAudio: NoopAudio, escapeHTML: escapeHTML, DOMAINS: DOMAINS, clock: clock,
+    constants: { MAX_BUCKET: MAX_BUCKET, MASTERED_BUCKET: MASTERED_BUCKET, INTERVALS: INTERVALS, W: W }
+  };
+
+})(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));
