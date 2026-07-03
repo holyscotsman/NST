@@ -101,7 +101,15 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.82.0 — ARM boss rework (reticle gone, prow weakpoints, hyperspeed rush)
+## v0.83.0 — Review sweep (6 confirmed findings from the adversarial pass, all fixed)
+
+BROWSER_QA repaired (six silently-lost entries added, QA-A6 superseded by QA-A7); rush
+wrap-pop fixed (per-streak period); WP_DEFS containment tightened + numeric pin; PATH C
+premature tripwire; explicit ctx-injectable bossRush pin (one streak per star); CC feedback
+now states the real −2 shields cost. arm-run 67, cc-death-paths 6, 14 suites green.
+LESSON pinned: never unasserted-replace into docs — every doc edit now asserts its anchor.
+
+> **Earlier this session (v0.82.0):** ARM boss rework (reticle gone, prow ports, hyperspeed)
 
 Gold reticle + ping removed (beacon/core/HP-arc carry the read); WP_DEFS all moved to the
 prow (front = +oy, fallback-wedge-safe ox); drawBossRush: BOSS_FLOW 920 vertical streak

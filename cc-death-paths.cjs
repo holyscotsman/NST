@@ -80,6 +80,7 @@ function report(h, tag) {
   var opts = h.doc.querySelectorAll('.cc-opt');
   opts[1].dispatchEvent(new h.win.MouseEvent('click', { bubbles: true }));
   h.flush(5);
+  var fbHeadA = h.doc.querySelector('.cc-fb-head') ? h.doc.querySelector('.cc-fb-head').textContent : '';
   var sr = null; h.doc.querySelectorAll('button').forEach(function (b) { if (b.textContent === 'See results') sr = b; });
   var prematureOver = h.doc.querySelector('.cc-gameover').style.display !== 'none';  // fired behind the feedback?
   if (sr) sr.dispatchEvent(new h.win.MouseEvent('click', { bubbles: true }));
@@ -95,6 +96,7 @@ function report(h, tag) {
   // then See results leads to the crash screen — click it like a real player would
   var srC = null; h.doc.querySelectorAll('button').forEach(function (b) { if (b.textContent === 'See results') srC = b; });
   var cFeedback = !!srC;
+  var prematureOverC = h.doc.querySelector('.cc-gameover').style.display !== 'none';   // (review) same tripwire as PATH A
   if (srC) srC.dispatchEvent(new h.win.MouseEvent('click', { bubbles: true }));
   await new Promise(function (r) { setTimeout(r, 150); }); h.flush(10);
   var C = report(h, '[C timeout    ]');
@@ -108,7 +110,9 @@ function report(h, tag) {
   ok(B.overlay === 'none', 'collision death leaves no stuck question overlay');
   ok(A.gameover === 'flex' && /SHIP DOWN/.test(A.title) && A.garage === 'block' && !prematureOver,
      'wrong-click death: feedback first, SHIP DOWN after See results, never behind the feedback');
-  ok(cFeedback, 'killing timeout renders the feedback + See results (no soft-lock, explanation readable)');
+  ok(/\u22122 shields/.test(fbHeadA),
+     'feedback states the REAL cost: wrong answer = \u22122 shields (was mislabelled \u22121)');
+  ok(cFeedback && !prematureOverC, 'killing timeout renders the feedback + See results FIRST (no soft-lock, no crash screen behind it)');
   ok(C.gameover === 'flex' && /SHIP DOWN/.test(C.title) && C.garage === 'block' && C.overlay === 'none',
      'killing timeout: See results lands on SHIP DOWN + Garage, overlay closed');
   console.log(fails ? '\nCC DEATH PATHS: ' + fails + ' FAILED of 5' : '\nCC DEATH PATHS: ALL GREEN (5/5)');

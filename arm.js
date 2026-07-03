@@ -1153,12 +1153,14 @@
     // (v0.82.0, Jason) all 5 weakpoints sit on the PROW — the front of the ship, facing the
     // player below (prow points down, so front = positive oy). Arrow formation down the nose;
     // ox stays inside the vector-fallback wedge taper at each oy so both hull renderings work.
+    // Offsets keep the CORE DISC (r=wpR) inside the fallback wedge taper at both W=360 and the
+    // dw=460 cap, not just the centers (review finding: the art was overhanging the prow tip).
     var WP_DEFS = [
-      { ox: -0.40, oy: +0.06 },   // 0 left forward battery
-      { ox: +0.20, oy: +0.20 },   // 1 right prow port
-      { ox:  0.00, oy: +0.31 },   // 2 nose lance
-      { ox: -0.20, oy: +0.20 },   // 3 left prow port
-      { ox: +0.40, oy: +0.06 }    // 4 right forward battery
+      { ox: -0.34, oy: +0.06 },   // 0 left forward battery
+      { ox: +0.18, oy: +0.18 },   // 1 right prow port
+      { ox:  0.00, oy: +0.24 },   // 2 nose lance
+      { ox: -0.18, oy: +0.18 },   // 3 left prow port
+      { ox: +0.34, oy: +0.06 }    // 4 right forward battery
     ];
     function makeWeakpoints() {
       var out = [];
@@ -2358,27 +2360,29 @@
     // stars array (like drawWarp's radial flow): no allocation, no per-star state, nothing
     // mutated. Reduced motion gets a calm path: three static faint shafts, no motion at all.
     var BOSS_FLOW = 920;                                            // px/s vertical rush
-    function drawBossRush() {
-      if (!c2d) return;
-      c2d.save();
+    function drawBossRush(gOpt) {
+      var g = gOpt || c2d;                                          // injectable for the harness probe
+      if (!g) return;
+      g.save();
       if (reducedMotion) {
-        c2d.globalAlpha = 0.08; c2d.fillStyle = COL.iris300;
-        c2d.fillRect(W * 0.22, 0, 2, H); c2d.fillRect(W * 0.5, 0, 2, H); c2d.fillRect(W * 0.78, 0, 2, H);
-        c2d.restore(); return;
+        g.globalAlpha = 0.08; g.fillStyle = COL.iris300;
+        g.fillRect(W * 0.22, 0, 2, H); g.fillRect(W * 0.5, 0, 2, H); g.fillRect(W * 0.78, 0, 2, H);
+        g.restore(); return;
       }
       var bt = now() / 1000;
-      c2d.lineWidth = 2;
+      g.lineWidth = 2;
       for (var i = 0; i < stars.length; i++) {
         var st = stars[i];
         var depth = 0.35 + st.d * 0.75;                             // parallax: deep layers crawl, near layers scream
-        var sy = (st.y + bt * BOSS_FLOW * depth) % (H + 70) - 35;   // upward flight = streaks race DOWN the screen
-        var sx = st.x % W;
         var len = 22 + depth * 58;
-        c2d.globalAlpha = (0.10 + 0.26 * depth) * (0.5 + 0.5 * st.a);
-        c2d.strokeStyle = (i & 1) ? COL.aqua : COL.iris300;
-        c2d.beginPath(); c2d.moveTo(sx, sy - len); c2d.lineTo(sx, sy); c2d.stroke();
+        // wrap period covers the tail (H + pad + len) so a streak fully exits before it teleports
+        var sy = (st.y + bt * BOSS_FLOW * depth) % (H + 70 + len) - 35;   // upward flight = streaks race DOWN the screen
+        var sx = st.x % W;
+        g.globalAlpha = (0.10 + 0.26 * depth) * (0.5 + 0.5 * st.a);
+        g.strokeStyle = (i & 1) ? COL.aqua : COL.iris300;
+        g.beginPath(); g.moveTo(sx, sy - len); g.lineTo(sx, sy); g.stroke();
       }
-      c2d.restore(); c2d.globalAlpha = 1;
+      g.restore(); g.globalAlpha = 1;
     }
 
     function drawSector() {
@@ -2590,6 +2594,8 @@
     function attachTestApi() {
       root.__armTest = {
         step: function (dt) { tick(dt == null ? 1 / 60 : dt); },
+        bossRush: function (g) { drawBossRush(g); },               // (v0.83.0) explicit, ctx-injectable rush probe
+        starCount: function () { return stars.length; },
         state: function () { return state; },
         palette: function () { return { highContrast: highContrast, border: COL.border, aqua: COL.aqua, text: COL.text, mid: COL.mid, trail: TRAIL }; },
         station: function () { return stationBuild; },

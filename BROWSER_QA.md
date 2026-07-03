@@ -198,8 +198,42 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
 - **QA-A6 — Boss revamp + deeper boss bed (added v0.76.0, browser-blind/deaf).** Dev-skip to the boss.
   EARS: the boss track should now sit DEEP — no piercing highs (solo lives an octave down, dark triangle
   arp, sparse tesla). If it's still sharp, name what stings (lead/arp/zaps) — each has its own knob.
-  EYES: the weakpoint you must shoot is UNMISSABLE — rotating gold reticle + rising beacon + activation
-  ping; pending ports are small and dark; the dreadnought sways slowly with flickering engine wash and
-  sweeping running lights; the arena void is near-black (nebula dimmed to 30%). WRONG: any doubt about
-  where to shoot, a static-feeling hull, or ANY screen shake during normal boss flight (shake only on
-  laser hits/blasts). Reduced motion: sway/wash/lights/ping all off, reticle static.
+  EYES: **superseded by QA-A7 (v0.82.0 removed the reticle/ping on request)** — still valid here:
+  the dreadnought sways slowly with flickering engine wash and sweeping running lights; the arena void
+  is near-black; no screen shake during normal boss flight (shake only on laser hits/blasts).
+
+- **QA-C11 — CC crash/cadence bundle (added v0.77.0, browser-blind).** Crash a run: the overlay reads
+  "💥 SHIP DOWN — you crashed" with the Garage OPEN beneath it (wallet correct, purchases work, then a
+  new run). On a long run the cockpit shake builds across each 40 km stretch and calmly resets right
+  after each 40 km boundary — never escalating without relief. Boost gate fires every 2 gates (20 km).
+  Knobs: cyc40 quadratic in cc.js applySpeedCamera; GATES_PER_BOOST in CONFIG.
+
+- **QA-K7 — KBB slots + pinned shop actions (added v0.78.0, browser-blind).** Left panel shows 5 slot
+  cards (empties dashed); buying an artifact fills its slot with the full card (color bar + rarity +
+  description). In the shop, Reroll/Next battle stay visible while the wares scroll. On a phone-width
+  window the shop scrolls naturally instead. WRONG: any scrolling needed to reach the two buttons.
+
+- **QA-S7 — Dev Jukebox (added v0.79.0, browser-deaf).** Settings → Dev · Jukebox. Every button plays
+  its exact track (browsers need one prior click for audio); the active button glows gold and the ♪
+  line names it; Stop returns to the menu bed; leaving Settings returns to menu music. Spot-check a
+  few from each group — especially chill variants you could never reach directly before.
+
+- **QA-K8 — KBB battle cinematics (added v0.80.0, browser-blind).** Attacks: charge glow → beam bolt →
+  sparks + damage number. Blocked hits/braces raise an aqua hex dome; repairs spiral green motes with
+  a +N. Kills: staged explosions crawl the hull → core detonation with shockwave + shake → gold
+  TARGET DESTROYED banner (BOSS DESTROYED on bosses); the hull stays visible until the core blows.
+  Numbers/banners render in the normal 3D view via the new overlay. Reduced motion: none of it plays.
+
+- **QA-C12 — CC crash screen on EVERY death (added v0.81.0).** Die by obstacle chips (no gate): SHIP
+  DOWN + Garage appear immediately. Die by wrong answer at a gate: feedback first, then See results →
+  SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
+  See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
+
+- **QA-A7 — Boss rework: no ring, prow ports, hyperspeed rush (added v0.82.0, browser-blind).**
+  Dev-skip to the boss. EYES: NO gold ring around the hit area — the active weakpoint reads via the
+  rising gold beacon + pulsing gold core; the thin PEACH circle is its HP bar (flag if you want that
+  gone too). All five ports sit on the FRONT half of the hull facing you (forward batteries → prow
+  ports → nose lance). The background is a fast upward-hyperspeed streak field (aqua/iris vertical
+  streaks racing down — background only; hull/HUD steady; streaks must vanish cleanly at the bottom
+  edge, no popping). Reduced motion: three faint static shafts, zero motion. Knobs: BOSS_FLOW (920),
+  WP_DEFS offsets in arm.js.

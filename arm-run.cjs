@@ -221,10 +221,37 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   var wpBlock = (H.ARM_SRC.match(/WP_DEFS = \[[\s\S]*?\];/) || [''])[0];
   ok(wpBlock.length > 0 && (wpBlock.match(/oy: \+0\./g) || []).length === 5 && !/oy: -/.test(wpBlock),
      'weakpoints are front-mounted: 5 ports, all oy positive, none astern');
+  // (v0.83.0, review) the CORE DISC (r=wpR=20) must sit INSIDE the vector-fallback wedge at both
+  // a small screen (W=360) and the sprite cap (dw=460) — pins the containment claim numerically.
+  (function () {
+    var defs = [], re = /ox:\s+([+-]?\d*\.?\d+), oy: \+(\d*\.?\d+)/g, m2;
+    while ((m2 = re.exec(wpBlock))) defs.push({ ox: parseFloat(m2[1]), oy: parseFloat(m2[2]) });
+    function halfW(y, hw) { return y <= 14 ? hw - hw * 0.5 * (y + 34) / 48 : hw * 0.5 * (52 - y) / 38; }
+    var okAll = defs.length === 5;
+    [360, 742].forEach(function (Wpx) {                       // 742 -> dw caps at 460
+      var dw = Math.min(Wpx * 0.62, 460), dh = dw * 533 / 800, hw = Math.min(Wpx * 0.28, 200);
+      defs.forEach(function (dfn) {
+        var x = Math.abs(dfn.ox) * dw * 0.5, y = dfn.oy * dh * 0.5;
+        if (x + 20 > halfW(y, hw) || y + 20 > 52 + 6) okAll = false;   // 6px tip grace
+      });
+    });
+    ok(okAll, 'core discs sit inside the fallback wedge at W=360 AND the dw=460 cap (5 ports x 2 widths)');
+  })();
   // (v0.82.0) boss backdrop: vertical hyperspeed rush, time-driven, reduced-motion calm path
   ok(/BOSS_FLOW = 920/.test(H.ARM_SRC) && /bt \* BOSS_FLOW \* depth/.test(H.ARM_SRC)
      && /bossActive\) drawBossRush\(\)/.test(H.ARM_SRC) && /three static faint shafts/.test(H.ARM_SRC),
      'boss arena rushes upward: BOSS_FLOW streaks behind the world, calm under reduced motion');
+  // (v0.83.0, review) EXPLICIT rush execution — canvas-package-independent: drive drawBossRush
+  // against a counting stub and assert one streak per star actually draws.
+  (function () {
+    var strokes = 0, fills = 0;
+    var stub = { save: function () {}, restore: function () {}, beginPath: function () {},
+      moveTo: function () {}, lineTo: function () {}, stroke: function () { strokes++; },
+      fillRect: function () { fills++; } };
+    T.bossRush(stub);
+    ok(strokes === T.starCount() && strokes > 0,
+       'drawBossRush draws exactly one streak per star on an injected ctx (' + strokes + ')');
+  })();
   ok(/hull sway/.test(H.ARM_SRC) && /running lights sweep the hull/.test(H.ARM_SRC),
      'the dreadnought lives: sway + engine wash + running lights (all sin-clock, no rng, no shake)');
   // (v0.75.0) hyperdrive re-time (Jason: fluid, not slow motion): 1.0s countdown + 2.2s tunnel,

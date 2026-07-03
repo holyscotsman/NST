@@ -1872,8 +1872,10 @@
         el.qFeedback.innerHTML = '';
         var head = document.createElement('div');
         head.className = 'cc-fb-head ' + (res.correct ? 'ok' : 'no');
-        head.textContent = res.timedOut ? '\u23F1 Time\u2019s up \u2014 incorrect  (\u22121 shield)'
-          : (res.correct ? '\u2713 Correct  (+1 shield)' : '\u2717 Incorrect  (\u22121 shield)');
+        var sd = res.shieldDelta == null ? (res.correct ? 1 : -2) : res.shieldDelta;   // (v0.83.0) say the REAL cost (wrong = -2, was mislabelled -1)
+        var sdTxt = (sd > 0 ? '+' : '\u2212') + Math.abs(sd) + ' shield' + (Math.abs(sd) === 1 ? '' : 's');
+        head.textContent = res.timedOut ? '\u23F1 Time\u2019s up \u2014 incorrect  (' + sdTxt + ')'
+          : (res.correct ? '\u2713 Correct  (' + sdTxt + ')' : '\u2717 Incorrect  (' + sdTxt + ')');
         var exp = document.createElement('div'); exp.className = 'cc-fb-exp';
         (function () {                                             // (v0.71.0, J8) 150-word display cap
           var wx = String(res.question.explanation || '').trim().split(/\s+/);
