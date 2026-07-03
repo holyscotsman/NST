@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-G2 — Leitner pacing feel (added v0.89.0).** Play the same question correctly twice within a
+  minute (any two games): mastery must NOT jump two rungs (Progress heatmap moves slower now — that's
+  the anti-cram gate, not a bug). Due counts should stop re-listing your fully-mastered cards every
+  single day once they climb past the 24h rung.
+
 - **QA-G1 — Wrong-pick rationale in games (added v0.88.0).** Answer wrong in ARM, KBB, and CC (single-
   choice): under the explanation a peach-edged line reads "Your pick — <why that option is wrong>",
   matching the option you actually chose (not a shuffled neighbor — this was misaligned in core before).

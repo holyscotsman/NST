@@ -101,7 +101,16 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.88.0 — optionNotes in games + core shuffle alignment fix (L3)
+## v0.89.0 — Leitner promotion gating + 3d/7d buckets (L4+L5 — BATCH #4 COMPLETE)
+
+Promote only when DUE (anti-cram, pinned); ladder now 9 rungs topping at 7 days; no profile
+migration needed. scheduler-test re-baselined on recordDue. Batch #4 shipped v0.84–v0.89:
+sim honesty + extra time, KBB reduced-info + phone stack, Pages app-only, due chip +
+redrill, optionNotes (+ core shuffle alignment bug), Leitner gating + ladder. Deferred:
+blueprint sim weights (need Jason's official percentages), "not yet due" UI cue (XP-pips
+unit). Awaiting Jason: browser QA (checklist current through QA-G1), sprites, dumps.
+
+> **Earlier this session (v0.88.0):** optionNotes + shuffle alignment
 
 All three games now show the authored rationale for the player's actual wrong pick;
 core shuffleQuestionOptions was silently misaligning optionNotes on every shuffled draw

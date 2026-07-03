@@ -32,11 +32,32 @@ console.log("Scheduler / mastery:");
 // 1. fresh question classifies as "new"
 { const f = fresh(); ok("fresh question -> reason 'new'", f.p.next({ game: "KBB", rng: makeRng(1) }).reason === "new"); }
 
-// 2. Leitner bucket advance on correct, gentle decay (not reset) on wrong
+// (v0.89.0, L4) answer a card only when it is DUE — the honest spaced-retrieval path
+function recordDue(f, id, correct) {
+  const m = f.m.get(id);
+  if (m && m.seen) T += (constants.INTERVALS[Math.min(m.bucket, constants.INTERVALS.length - 1)] || 0) + 1000;
+  f.m.record(id, correct, { game: "KBB" });
+}
+
+// 2. Leitner bucket advance on DUE correct, anti-cram gate, gentle decay on wrong
 { const f = fresh();
-  f.m.record("s1", true, { game: "KBB" }); ok("correct -> bucket 1", f.m.get("s1").bucket === 1);
-  f.m.record("s1", true, { game: "KBB" }); ok("correct -> bucket 2 + streak 2", f.m.get("s1").bucket === 2 && f.m.get("s1").streak === 2);
-  f.m.record("s1", false, { game: "KBB" }); ok("wrong -> bucket 1 (decay) + streak reset", f.m.get("s1").bucket === 1 && f.m.get("s1").streak === 0);
+  recordDue(f, "s1", true); ok("correct -> bucket 1", f.m.get("s1").bucket === 1);
+  recordDue(f, "s1", true); ok("DUE correct -> bucket 2 + streak 2", f.m.get("s1").bucket === 2 && f.m.get("s1").streak === 2);
+  f.m.record("s1", true, { game: "KBB" });
+  ok("L4 anti-cram: immediate re-answer does NOT promote (bucket stays 2, streak still counts)",
+    f.m.get("s1").bucket === 2 && f.m.get("s1").streak === 3);
+  f.m.record("s1", false, { game: "KBB" }); ok("wrong -> bucket 1 (decay) + streak reset, gate never blocks demotion", f.m.get("s1").bucket === 1 && f.m.get("s1").streak === 0);
+}
+
+// (v0.89.0, L5) the extended ladder: 9 rungs, monotonic, 3d/7d on top; the cap holds
+{ const f = fresh();
+  ok("L5: ladder is 9 rungs (buckets 0-8), MAX_BUCKET 8",
+    constants.INTERVALS.length === 9 && constants.MAX_BUCKET === 8);
+  ok("L5: intervals strictly increase and top out at 3d / 7d",
+    constants.INTERVALS.every((v, i) => i === 0 || v > constants.INTERVALS[i - 1])
+    && constants.INTERVALS[7] === 3 * 24 * 60 * 60e3 && constants.INTERVALS[8] === 7 * 24 * 60 * 60e3);
+  for (let k = 0; k <= constants.MAX_BUCKET + 2; k++) recordDue(f, "v1", true);
+  ok("L5: due-answered card climbs to bucket 8 and holds at the cap", f.m.get("v1").bucket === constants.MAX_BUCKET);
 }
 
 // 3. review-due timing follows the per-bucket interval
@@ -70,7 +91,7 @@ console.log("Scheduler / mastery:");
 // 7. due is weighted well above uniform
 { const f = fresh();
   for (const id of ["s1", "s2", "s3", "n1", "n2", "v1"]) f.m.record(id, true, { game: "KBB" });
-  for (let k = 0; k < 5; k++) for (const id of ["s2", "s3", "n1", "n2", "v1"]) f.m.record(id, true, { game: "KBB" }); // bucket 6, recent
+  for (let k = 0; k < 5; k++) for (const id of ["s2", "s3", "n1", "n2", "v1"]) recordDue(f, id, true); // bucket 6, recently reviewed
   f.m.record("s1", false, { game: "KBB" });                  // bucket 0
   f.m.get("s1").lastSeen = T - 10 * 60 * 60 * 1000;          // stale -> due
   let dueHits = 0; const N = 400;
@@ -80,7 +101,7 @@ console.log("Scheduler / mastery:");
 
 // 8. summary() aggregates mastered count
 { const f = fresh();
-  for (let k = 0; k < constants.MASTERED_BUCKET; k++) f.m.record("s1", true, { game: "KBB" });
+  for (let k = 0; k < constants.MASTERED_BUCKET; k++) recordDue(f, "s1", true);
   ok("summary().masteredCount counts bucket>=threshold", f.m.summary().masteredCount === 1);
 }
 

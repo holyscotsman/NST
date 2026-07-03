@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.88.0";
+  var BUILD_VERSION = "0.89.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -164,10 +164,12 @@
   /* =================================================================== *
    * 3. Leitner / spaced-retrieval policy constants  (01 §3, §4)
    * =================================================================== */
-  var MAX_BUCKET = 6;
+  var MAX_BUCKET = 8;               // (v0.89.0, L5) ladder extended past 24h — see INTERVALS
   var MASTERED_BUCKET = 4;          // summary().masteredCount threshold
-  // Review interval per bucket (ms). bucket 0 is always due.
-  var INTERVALS = [0, 30e3, 2 * 60e3, 10 * 60e3, 60 * 60e3, 6 * 60 * 60e3, 24 * 60 * 60e3];
+  // Review interval per bucket (ms). bucket 0 is always due. (v0.89.0, L5) 3-day and 7-day
+  // buckets added: mastered cards stop re-duing EVERY day forever, so the due queue stays a
+  // signal instead of ballooning during multi-week exam prep.
+  var INTERVALS = [0, 30e3, 2 * 60e3, 10 * 60e3, 60 * 60e3, 6 * 60 * 60e3, 24 * 60 * 60e3, 3 * 24 * 60 * 60e3, 7 * 24 * 60 * 60e3];
   // Selection weights by reason (tunable).
   var W = { due: 6, "new": 3, reinforce: 1, epsilon: 0.12 };
 
@@ -188,11 +190,15 @@
         var m = map[id] || (map[id] = init(id));
         var now = clock.now();
         var prevBucket = m.bucket;                 // v0.52.0: promotion detection for rank XP
+        // (v0.89.0, L4) classic-Leitner gate: a correct answer PROMOTES only if the card was
+        // actually DUE — cramming the same card across games in one sitting no longer mints
+        // "mastered" (which feeds masteredPct, readiness, trails). Wrong answers always demote.
+        var wasDue = !m.seen || (m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0)) <= now;
         m.seen++;
         m.lastSeen = now;
         if (correct) {
           m.correct++; m.streak++;
-          if (m.bucket < MAX_BUCKET) m.bucket++;
+          if (m.bucket < MAX_BUCKET && wasDue) m.bucket++;
           if (!m.firstCorrectAt) m.firstCorrectAt = now;
         } else {
           m.incorrect++; m.streak = 0;
