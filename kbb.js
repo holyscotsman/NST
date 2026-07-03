@@ -913,6 +913,7 @@
     css.push('.kbb-tip .tn i{width:8px;height:14px;border-radius:3px;flex:none;}');
     css.push('.kbb-tip .tn .tr{font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:' + P.dim + ';margin-left:auto;font-weight:700;}');
     css.push('.kbb-tip .td{font-size:12px;line-height:1.45;color:#cdd0e8;}');
+    css.push('.kbb-fb-more{margin-top:7px;}.kbb-fb-more summary{cursor:pointer;color:#1FDDE9;font-size:12.5px;font-weight:600;}.kbb-fb-more div{margin-top:5px;}');
     css.push('.kbb-toast{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(13,13,24,.92);border:1px solid ' + P.border + ';border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:' + P.text + ';z-index:50;pointer-events:none;}');
     css.push('.kbb-lost{position:absolute;inset:0;z-index:45;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(5,5,11,.86);backdrop-filter:blur(4px);}');
     css.push('.kbb-lost-card{width:min(440px,94%);background:rgba(20,20,29,.97);border:1px solid ' + P.border + ';border-radius:16px;padding:24px;text-align:center;box-shadow:0 0 40px rgba(255,107,91,.22);}');
@@ -1913,7 +1914,18 @@
       else { ok = false; headTxt = '\u2717 Wrong \u2014 no damage' + (res.enemyAttacked ? ' \u2014 enemy hit you for ' + res.incoming : ''); }
       fb.className = 'kbb-fb ' + (ok ? 'ok' : 'no');
       fb.appendChild(el(s.doc, 'div', null, headTxt));
-      if (q.explanation) fb.appendChild(el(s.doc, 'div', 'kbb-fb-exp', q.explanation));
+      if (q.explanation) {                                       // (v0.71.0, J8) 150-word display cap
+        var wx = String(q.explanation).trim().split(/\s+/);
+        if (wx.length <= 150) fb.appendChild(el(s.doc, 'div', 'kbb-fb-exp', q.explanation));
+        else {
+          var exEl = el(s.doc, 'div', 'kbb-fb-exp', wx.slice(0, 150).join(' ') + '\u2026');
+          var det = s.doc.createElement('details'); det.className = 'kbb-fb-more';
+          var sm = s.doc.createElement('summary'); sm.textContent = 'Show the full explanation (' + (wx.length - 150) + ' more words)';
+          var bd = s.doc.createElement('div'); bd.textContent = wx.slice(150).join(' ');
+          det.appendChild(sm); det.appendChild(bd); exEl.appendChild(det);
+          fb.appendChild(exEl);
+        }
+      }
       var contLabel = (res.win || res.loss) ? 'See results \u25b8' : 'Continue \u25b8';
       var cont = s.doc.createElement('button'); cont.className = 'kbb-cont'; cont.textContent = contLabel;
       cont.onclick = function () { afterAnswer(s, res); };

@@ -298,6 +298,14 @@
     /* mastery / telemetry passthrough (guarded; never throws to gameplay)    */
     /* ---------------------------------------------------------------------- */
     function safeRecord(id, correct) { try { MAST.record(id, correct, { game: "ARM" }); } catch (e) {} }
+    // (v0.71.0, J7/J8) display caps — authored text is NEVER edited; long explanations tuck
+    // their tail behind a native <details>, and Vega's comms hard-cap at 150 words (the full
+    // authored detail resurfaces in the answer explanation).
+    function capWords(t, n) {
+      var w = String(t == null ? "" : t).trim().split(/\s+/);
+      if (w.length <= n) return { s: String(t == null ? "" : t), rest: null, extra: 0 };
+      return { s: w.slice(0, n).join(" "), rest: w.slice(n).join(" "), extra: w.length - n };
+    }
     function safeTel(e) { try { if (TEL && TEL.emit) TEL.emit(e); } catch (err) {} }
     function safeBest(score) {
       try { if (PERS && PERS.submitScore) PERS.submitScore("ARM", score, { sector: sector }); } catch (e) {}
@@ -753,7 +761,8 @@
         commsMsg.appendChild(mk("div", "arm-comms-key", parts.lead));
         if (parts.body) commsMsg.appendChild(mk("div", "arm-comms-why", parts.body));
       } else {
-        commsMsg.textContent = parts || "";
+        var capV = capWords(parts || "", 150);     // (J7) Vega never exceeds 150 words
+        commsMsg.textContent = capV.rest ? (capV.s + "\u2026") : capV.s;
       }
     }
     function buildSectorWorld() {
@@ -1385,7 +1394,14 @@
         var head = lastCorrect ? "\u2713 Correct. "
           : (timedOut ? (forgiving ? "\u23F1 Time\u2019s up \u2014 core scattered. " : "\u23F1 Time\u2019s up \u2014 incorrect. ")
                       : (forgiving ? "\u2717 Lost \u2014 core scattered. " : "\u2717 Incorrect. "));
-        ex.textContent = head + q.explanation;
+        var capX = capWords(q.explanation, 150);   // (J8)
+        ex.textContent = head + capX.s + (capX.rest ? "\u2026" : "");
+        if (capX.rest) {
+          var moreX = doc.createElement("details"); moreX.className = "arm-explain-more";
+          var sumX = doc.createElement("summary"); sumX.textContent = "Show the full explanation (" + capX.extra + " more words)";
+          var bodyX = doc.createElement("div"); bodyX.textContent = capX.rest;
+          moreX.appendChild(sumX); moreX.appendChild(bodyX); ex.appendChild(moreX);
+        }
         cont.style.display = "block";
         sfx(lastCorrect ? "correct" : "wrong");
         // (v0.65.0, Jason's QA-A5 ruling) a timed-out FIELD scan (not the forgiving depot)
@@ -2765,6 +2781,7 @@
       ".arm-sw{width:50px;height:28px;border-radius:999px;background:#33334a;position:relative;cursor:pointer;}.arm-sw.on{background:" + C.green + ";}",
       ".arm-sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s;}.arm-sw.on i{left:25px;}",
       ".arm-statline{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;}.arm-n{font-size:26px;font-weight:800;}.arm-l{font-size:12px;color:" + C.mid + ";text-transform:uppercase;letter-spacing:.08em;}",
+      ".arm-explain-more{margin-top:7px;}.arm-explain-more summary{cursor:pointer;color:" + C.aqua + ";font-size:12.5px;font-weight:600;}.arm-explain-more div{margin-top:5px;}",
       ".arm-toast{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);background:rgba(18,18,27,.96);border:1px solid " + C.iris + ";border-radius:11px;padding:10px 17px;font-size:13px;z-index:9;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90%;text-align:center;}",
       "@media (max-width:560px){.arm-panel h1{font-size:25px;}.arm-panel{padding:20px;}.arm-pad{width:62px;height:62px;}.arm-dial{width:72px;height:72px;}.arm-stats{min-width:150px;}.arm-key{width:52px;height:52px;}.arm-action{width:68px;height:68px;}}",
     ].join("\n");

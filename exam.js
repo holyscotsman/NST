@@ -27,6 +27,16 @@
 
   /* ---- pure helpers ------------------------------------------------------- */
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+  // (v0.71.0, J8) DISPLAY cap for authored explanations: never edit bank content — show the
+  // first EXPLAIN_CAP words, tuck the rest behind a native <details> expander.
+  var EXPLAIN_CAP = 150;
+  function capExplainHTML(text) {
+    var w = String(text || "").trim().split(/\s+/);
+    if (w.length <= EXPLAIN_CAP) return '<div class="ex">' + esc(text) + "</div>";
+    return '<div class="ex">' + esc(w.slice(0, EXPLAIN_CAP).join(" ")) + "\u2026"
+      + '<details class="sx-exam-more"><summary>Show the full explanation (' + (w.length - EXPLAIN_CAP)
+      + ' more words)</summary><div>' + esc(w.slice(EXPLAIN_CAP).join(" ")) + "</div></details></div>";
+  }
   function clamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
   function shuffle(arr, rng) { var a = arr.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rng() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
 
@@ -96,6 +106,9 @@
       ".sx-exam-combo.pulse{animation:sxComboPulse .45s ease-out 1;}",
       "@keyframes sxComboPulse{0%{transform:scale(1);}40%{transform:scale(1.25);}100%{transform:scale(1);}}",
       "@media (prefers-reduced-motion: reduce){.sx-exam-combo.pulse{animation:none;}}",
+      ".sx-exam-more{margin-top:8px;}",
+      ".sx-exam-more summary{cursor:pointer;color:" + P.aqua + ";font-size:12.5px;font-weight:600;}",
+      ".sx-exam-more div{margin-top:6px;}",
       ".sx-exam-quit{background:transparent;border:1px solid rgba(255,255,255,.16);color:" + P.dim + ";border-radius:8px;padding:5px 11px;font:600 12px Montserrat,Arial,sans-serif;cursor:pointer;}",
       ".sx-exam-quit:hover{border-color:" + P.peach + ";color:" + P.peach + ";}",
       ".sx-exam-bars{width:100%;max-width:760px;display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}",
@@ -441,7 +454,7 @@
       var cf = card.querySelector(".sx-exam-confirm"); if (cf) cf.style.display = "none";
       var fb = el("div", "sx-exam-fb");
       var h = '<div class="v ' + (r.correct ? "ok" : "bad") + '">' + (r.correct ? "Correct" : "Not quite") + "</div>";
-      if (q.explanation) h += '<div class="ex">' + esc(q.explanation) + "</div>";
+      if (q.explanation) h += capExplainHTML(q.explanation);   // (J8) 150-word display cap
       if (q.optionNotes) {
         for (var ci = 0; ci < chosenArr.length; ci++) {
           var oi = chosenArr[ci];
@@ -618,7 +631,7 @@
           var yourTxt = chosenArr.length ? chosenArr.map(function (i) { return esc(q.options[i]); }).join("; ") : "(no answer" + (S.mode === "blitz" ? " — timed out" : "") + ")";
           s += '<div class="a bad">Your answer: ' + yourTxt + "</div>";
           s += '<div class="a ok">Correct: ' + correctSet.map(function (i) { return esc(q.options[i]); }).join("; ") + "</div>";
-          if (q.explanation) s += '<div class="ex">' + esc(q.explanation) + "</div>";
+          if (q.explanation) s += capExplainHTML(q.explanation);   // (J8) 150-word display cap
           item.innerHTML = s; rv.appendChild(item);
         });
       }

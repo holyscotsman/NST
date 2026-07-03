@@ -614,6 +614,14 @@ playlist (deterministic xorshift picker), fixed beds exempt, node-safe timer (un
 nextTrack) failed exactly its pin. Gate 415/415.
 Commit: `v0.70.0 — J5 in-place music rotation (~2 min, random-next)`.
 
+**J7 + J8 SHIPPED (v0.71.0):** 150-word display caps in all four explanation surfaces via
+native <details> expanders (authored text never edited, always reachable — integrity intact)
++ Vega comms hard-capped at 150 (full detail resurfaces at answer time). Crafted-question
+behavioral pins in verify-build (exactly 150 visible / 50-word tail) + source pins for the
+other three modules. Negctrl (cap disabled) failed exactly its pin. Gate 418/418.
+Commit: `v0.71.0 — J7/J8 150-word display caps (+expanders)`.
+**Remaining from Jason's batch:** J4 CC duck rework, J9 CC shop.
+
 ---
 
 ## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above

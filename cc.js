@@ -1834,7 +1834,16 @@
         head.className = 'cc-fb-head ' + (res.correct ? 'ok' : 'no');
         head.textContent = res.timedOut ? '\u23F1 Time\u2019s up \u2014 incorrect  (\u22121 shield)'
           : (res.correct ? '\u2713 Correct  (+1 shield)' : '\u2717 Incorrect  (\u22121 shield)');
-        var exp = document.createElement('div'); exp.className = 'cc-fb-exp'; exp.textContent = res.question.explanation || '';
+        var exp = document.createElement('div'); exp.className = 'cc-fb-exp';
+        (function () {                                             // (v0.71.0, J8) 150-word display cap
+          var wx = String(res.question.explanation || '').trim().split(/\s+/);
+          if (wx.length <= 150) { exp.textContent = res.question.explanation || ''; return; }
+          exp.textContent = wx.slice(0, 150).join(' ') + '\u2026';
+          var det = document.createElement('details'); det.className = 'cc-fb-more';
+          var sm = document.createElement('summary'); sm.textContent = 'Show the full explanation (' + (wx.length - 150) + ' more words)';
+          var bd = document.createElement('div'); bd.textContent = wx.slice(150).join(' ');
+          det.appendChild(sm); det.appendChild(bd); exp.appendChild(det);
+        })();
         var cont = document.createElement('button'); cont.className = 'cc-cont';
         cont.textContent = (sim.phase === PHASE_OVER) ? 'See results' : 'Continue';
         cont.addEventListener('click', function () {
@@ -2192,6 +2201,7 @@
     '.cc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #23232f;font-size:14px;}' +
     '.cc-row b{color:#FFC857;}' +
     '.cc-ovr-btns{display:flex;gap:10px;margin-top:18px;}' +
+    '.cc-fb-more{margin-top:7px;}.cc-fb-more summary{cursor:pointer;color:#1FDDE9;font-size:12.5px;font-weight:600;}.cc-fb-more div{margin-top:5px;}' +
     '.cc-replay{pointer-events:auto;position:absolute;top:44px;right:0;padding:5px 11px;border-radius:9px;border:1px solid #34344a;background:rgba(20,20,29,.55);color:#9a9aad;font-family:inherit;font-size:11px;cursor:pointer;backdrop-filter:blur(3px);}' +   /* (P2·3, PLAYTEST A4) own row below the readout — no km/speed collision */
     '.cc-replay:hover{border-color:#7855FA;color:#AC9BFD;}' +
     '.cc-hud{transition:opacity .3s;}.cc-hud.dim{opacity:0;}' +

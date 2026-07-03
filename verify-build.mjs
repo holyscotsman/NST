@@ -1156,6 +1156,31 @@ async function runFrames(n = 6) {
       h2.teardown(); cont2.remove();
     }
 
+    // ---- (v0.71.0, J7/J8) 150-word DISPLAY caps — authored text untouched, tail behind <details> ----
+    {
+      const longExp = Array.from({ length: 200 }, (_, i) => "w" + i).join(" ");
+      const runCap = (explanation) => {
+        const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
+        const h = EX.run({ container: cont, mode: "study", questions: [{ id: "cap1", domain: "vms", difficulty: 1, stem: "CAP", options: ["a", "b", "c"], correctIndex: 0, explanation }], rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
+        cont.querySelectorAll(".sx-exam-opt")[h._state.order[0].correctIndex].click();
+        cont.querySelector(".sx-exam-confirm").click();
+        const ex = cont.querySelector(".sx-exam-fb .ex");
+        const out = { det: ex && ex.querySelector("details.sx-exam-more"), head: ex ? (ex.childNodes[0].textContent || "") : "", text: ex ? ex.textContent : "" };
+        h.teardown(); cont.remove();
+        return out;
+      };
+      const capLong = runCap(longExp);
+      ok("J8: a 200-word explanation shows exactly 150 words + an expander with the 50-word tail",
+        !!capLong.det && /50 more words/.test(capLong.det.querySelector("summary").textContent)
+        && capLong.head.replace(/…/g, "").trim().split(/\s+/).length === 150
+        && capLong.det.querySelector("div").textContent.trim().split(/\s+/).length === 50);
+      const capShort = runCap("short and sweet");
+      ok("J8: short explanations render whole — no expander", !capShort.det && /short and sweet/.test(capShort.text));
+      ok("J8: the same cap ships in ARM/KBB/CC feedback + J7 Vega comms (source pins)",
+        html.includes("arm-explain-more") && html.includes("kbb-fb-more") && html.includes("cc-fb-more")
+        && html.includes("Vega never exceeds 150 words"));
+    }
+
     // ---- shell: mode picker renders, Study is default, choice reaches the exam ----
     {
       shell.showExamSetup();
