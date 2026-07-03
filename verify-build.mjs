@@ -1193,6 +1193,99 @@ async function runFrames(n = 6) {
     delete core.profile.mastery[qA.id]; delete core.profile.mastery[qB.id];
   }
 
+  // K4. Commander rank — cross-game XP meta-progression (v0.52.0 unit 2)
+  console.log("\nK4. Commander rank (XP pool / rank math / menu strip / rank-up moment)");
+  {
+    const core = SN.core, X = SN.xp;
+    ok("xp API exposed: AWARDS + 10 pinned RANKS + pure helpers", !!X && Array.isArray(X.RANKS) && X.RANKS.length === 10
+      && typeof X.rankFor === "function" && typeof X.forAnswer === "function" && typeof X.forExam === "function");
+    ok("rank thresholds pinned: 0/150/400/800/1400/2200/3300/4800/6800/9500, strictly ascending",
+      X.RANKS.map(r => r.xp).join(",") === "0,150,400,800,1400,2200,3300,4800,6800,9500"
+      && X.RANKS.every((r, i, a) => i === 0 || r.xp > a[i - 1].xp));
+    ok("rank names: Recruit first, Fleet admiral last, Commander at index 6",
+      X.RANKS[0].name === "Recruit" && X.RANKS[9].name === "Fleet admiral" && X.RANKS[6].name === "Commander");
+    {
+      const r0 = X.rankFor(0), edge = X.rankFor(150), under = X.rankFor(149), top = X.rankFor(999999), bad = X.rankFor(-50);
+      ok("rankFor boundaries: 0=Recruit, 149=Recruit, 150=Cadet, huge=Fleet admiral (progress 1), negative clamps to 0",
+        r0.index === 0 && under.index === 0 && edge.index === 1 && top.index === 9 && top.progress === 1 && bad.index === 0);
+    }
+    ok("answer XP pinned: wrong=2, correct+promotion=25, correct-at-cap=10, mastered-crossing=65",
+      X.forAnswer(false, 1, 0) === 2 && X.forAnswer(true, 0, 1) === 25
+      && X.forAnswer(true, 6, 6) === 10 && X.forAnswer(true, 3, 4) === 65);
+    ok("exam XP pinned: abandoned=0, empty=0, complete=25, pass(>=80)=100",
+      X.forExam({ abandoned: true, total: 30, pct: 90 }) === 0 && X.forExam(null) === 0
+      && X.forExam({ total: 30, pct: 79 }) === 25 && X.forExam({ total: 30, pct: 80 }) === 100);
+
+    // live wiring 1: every mastery.record feeds the pool (promotion detected from the real bucket move)
+    core.profile.xp = 0; core.profile.rankSeen = 0;
+    const qX = core.questions.pool()[2];
+    const mPrev = core.mastery.get(qX.id), prevB = mPrev ? mPrev.bucket : 0;
+    core.mastery.record(qX.id, true, {});
+    const mNew = core.mastery.get(qX.id);
+    ok("mastery.record awards XP into profile.xp (answer + real promotion delta)",
+      core.profile.xp === X.forAnswer(true, prevB, mNew.bucket));
+
+    // live wiring 2: persistence.submitScore (the 01 seam ARM calls on campaign win) — best + run XP
+    const xpAfterAnswer = core.profile.xp;
+    await core.persistence.submitScore("ARM", 420, { sector: 12 });
+    ok("submitScore records bests.ARM and awards the run-score XP",
+      core.profile.bests.ARM === 420 && core.profile.xp === xpAfterAnswer + X.AWARDS.runScore);
+    await core.persistence.submitScore("ARM", 90, { sector: 12 });
+    ok("submitScore keeps the higher best but still awards run XP",
+      core.profile.bests.ARM === 420 && core.profile.xp === xpAfterAnswer + 2 * X.AWARDS.runScore);
+
+    // live wiring 3: exam completion through the shell's existing _recordExam seam
+    const xpBeforeExam = core.profile.xp;
+    shell._recordExam({ mode: "study", pct: 85, correct: 26, total: 30 });
+    ok("_recordExam awards exam XP (+pass bonus) for any completed mode",
+      core.profile.xp === xpBeforeExam + 100);
+    const xpBeforeAbandon = core.profile.xp;
+    shell._recordExam({ mode: "sim", pct: 90, correct: 27, total: 30, abandoned: true });
+    ok("_recordExam never awards on abandon", core.profile.xp === xpBeforeAbandon);
+
+    // menu strip + the one-shot rank-up moment
+    core.profile.xp = 460; core.profile.rankSeen = 0;          // Ensign, never acknowledged
+    core.profile.settings.reducedMotion = false;
+    shell.showMenu();
+    {
+      const strip = w.document.querySelector(".sx-rank");
+      const nm = w.document.querySelector(".sx-rank-name");
+      const fill = strip && strip.querySelector(".sx-rank-bar i");
+      const xpLine = w.document.querySelector(".sx-rank-xp");
+      ok("menu strip renders rank name + progress bar + XP line",
+        !!strip && !!nm && /Ensign/.test(nm.textContent) && !!fill && fill.style.width === "15%"
+        && !!xpLine && /460 XP/.test(xpLine.textContent) && /340/.test(xpLine.textContent));
+      const toast = w.document.querySelector(".sx-toast.sx-toast-gold");
+      ok("rank-up moment: gold toast + pulse class + rankSeen persisted",
+        !!toast && /Promoted: Ensign/.test(toast.textContent)
+        && strip.classList.contains("sx-rank-up") && core.profile.rankSeen === 2);
+      if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+    }
+    shell.showMenu();                                          // second entry: already acknowledged
+    ok("rank-up fires once (no second toast, no pulse)",
+      !w.document.querySelector(".sx-toast.sx-toast-gold")
+      && !w.document.querySelector(".sx-rank.sx-rank-up"));
+
+    // reduced motion: same strip + toast, but static (no pulse class)
+    core.profile.xp = 900; core.profile.rankSeen = 2;          // Pilot, unacknowledged
+    core.profile.settings.reducedMotion = true;
+    shell.showMenu();
+    {
+      const strip = w.document.querySelector(".sx-rank");
+      const toast = w.document.querySelector(".sx-toast.sx-toast-gold");
+      ok("reduced motion: promotion toast still fires but the strip stays static",
+        !!toast && /Promoted: Pilot/.test(toast.textContent) && !!strip && !strip.classList.contains("sx-rank-up"));
+      if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+    }
+    core.profile.settings.reducedMotion = false;
+
+    // hygiene: unwind the seeded state
+    core.profile.xp = 0; core.profile.rankSeen = 0;
+    delete core.profile.bests.ARM;
+    delete core.profile.mastery[qX.id];
+    shell.showMenu();
+  }
+
   SN.core.audio = realAudio;
 
   console.log("\nTotal frame errors across all games: " + frameErrors.length);

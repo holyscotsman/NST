@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.52.0";
+  var BUILD_VERSION = "0.53.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -187,6 +187,7 @@
       record: function (id, correct, ctx) {
         var m = map[id] || (map[id] = init(id));
         var now = clock.now();
+        var prevBucket = m.bucket;                 // v0.52.0: promotion detection for rank XP
         m.seen++;
         m.lastSeen = now;
         if (correct) {
@@ -202,6 +203,8 @@
           profile.totals.questionsSeen++;
           if (correct) profile.totals.correct++; else profile.totals.incorrect++;
         }
+        // Commander-rank XP (v0.52.0 unit 2): every answer, every surface, feeds the one pool.
+        addXP(profile, xpForAnswer(!!correct, prevBucket, m.bucket));
         onChange();
         return m;
       },
@@ -223,6 +226,71 @@
         };
       }
     };
+  }
+
+  /* =================================================================== *
+   * 4b. Commander rank — cross-game XP meta-progression (v0.52.0 unit 2)
+   * One pool (profile.xp) fed ONLY by existing seams: every answer through
+   * makeMasteryStore.record (all three games + the exam route through it),
+   * exam completions (shell _recordExam), and run scores (persistence
+   * .submitScore — the 01 seam ARM already calls, completed in initCore).
+   * All math is pure + deterministic; thresholds are pinned by the gate.
+   * =================================================================== */
+  var XP_AWARDS = {
+    answerCorrect: 10,   // any correctly answered question, any surface
+    answerWrong: 2,      // attempts still teach — small participation award
+    promotion: 15,       // Leitner bucket moved UP (correct answers only)
+    mastered: 40,        // bonus when a question first crosses MASTERED_BUCKET
+    examComplete: 25,    // finishing any exam mode (never on abandon)
+    examPass: 75,        // bonus at the exam module's own 80% pass mark
+    runScore: 150        // a positive score submitted through persistence.submitScore (ARM campaign win)
+  };
+  // ~10 NX-SRC service ranks. Thresholds are FLAT data — the gate pins them; tune only with a version bump.
+  var RANKS = [
+    { name: "Recruit",       xp: 0 },
+    { name: "Cadet",         xp: 150 },
+    { name: "Ensign",        xp: 400 },
+    { name: "Pilot",         xp: 800 },
+    { name: "Lieutenant",    xp: 1400 },
+    { name: "Lt. commander", xp: 2200 },
+    { name: "Commander",     xp: 3300 },
+    { name: "Captain",       xp: 4800 },
+    { name: "Commodore",     xp: 6800 },
+    { name: "Fleet admiral", xp: 9500 }
+  ];
+  function rankFor(xp) {
+    xp = (typeof xp === "number" && xp > 0) ? Math.floor(xp) : 0;
+    var i = RANKS.length - 1;
+    while (i > 0 && xp < RANKS[i].xp) i--;
+    var floor = RANKS[i].xp;
+    var next = (i + 1 < RANKS.length) ? RANKS[i + 1].xp : null;
+    var span = (next == null) ? 0 : next - floor;
+    return {
+      index: i, name: RANKS[i].name, floor: floor, next: next,
+      into: xp - floor, span: span,
+      progress: (next == null) ? 1 : (xp - floor) / span
+    };
+  }
+  function xpForAnswer(correct, prevBucket, newBucket) {
+    var n = correct ? XP_AWARDS.answerCorrect : XP_AWARDS.answerWrong;
+    if (correct && newBucket > prevBucket) {
+      n += XP_AWARDS.promotion;
+      if (newBucket === MASTERED_BUCKET) n += XP_AWARDS.mastered;   // first step INTO mastered
+    }
+    return n;
+  }
+  function xpForExam(sum) {
+    if (!sum || sum.abandoned || !sum.total) return 0;
+    return XP_AWARDS.examComplete + (((sum.pct || 0) >= 80) ? XP_AWARDS.examPass : 0);
+  }
+  function xpForScore(game, score) {
+    return (typeof score === "number" && score > 0) ? XP_AWARDS.runScore : 0;
+  }
+  function addXP(profile, n) {
+    if (!profile) return 0;
+    if (typeof profile.xp !== "number" || !(profile.xp >= 0)) profile.xp = 0;
+    if (n > 0) profile.xp += Math.floor(n);
+    return profile.xp;
   }
 
   /* =================================================================== *
@@ -421,6 +489,8 @@
       bests: {},
       totals: { questionsSeen: 0, correct: 0, incorrect: 0, points: 0, runs: 0 },
       mastery: {},
+      xp: 0,                 // Commander-rank XP pool (v0.52.0 unit 2) — fed by answers/mastery/exams/run scores
+      rankSeen: 0,           // last rank index acknowledged on the menu (drives the one-shot rank-up moment)
       settings: defaultSettings(),
       updatedAt: clock.now()
     };
@@ -436,6 +506,8 @@
     p.bests = p.bests || {};
     p.totals = Object.assign({}, def.totals, p.totals || {});
     p.mastery = p.mastery || {};
+    if (typeof p.xp !== "number" || !(p.xp >= 0)) p.xp = 0;             // pre-rank profiles
+    if (typeof p.rankSeen !== "number" || !(p.rankSeen >= 0)) p.rankSeen = 0;
     p.settings = Object.assign({}, def.settings, p.settings || {});
     p.schemaVersion = SCHEMA_VERSION;
     return p;
@@ -709,6 +781,22 @@
       var telemetry = opts.telemetry || makeTelemetry({ sink: opts.telemetrySink });
       var mastery = makeMasteryStore(profile, { onChange: function () { persistence.save(profile); } });
 
+      // v0.52.0 unit 2: complete the 01 persistence seam ARM already calls (guarded — it was a
+      // silent no-op until now). Records the game's best score + awards run XP into the pool.
+      // Bound to the LIVE profile object here so it can never desync from core.profile.
+      if (!persistence.submitScore) {
+        persistence.submitScore = function (game, score, meta) {
+          try {
+            var g = String(game || "GAME");
+            var b = profile.bests = profile.bests || {};
+            if (typeof score === "number" && (typeof b[g] !== "number" || score > b[g])) b[g] = score;
+            addXP(profile, xpForScore(g, score));
+            persistence.save(profile);
+          } catch (e) {}
+          return Promise.resolve();
+        };
+      }
+
       // Real bank (window.STARNIX_QUESTIONS / opts.pack) merged with the verified
       // built-in fixture as a seed; dedup by id + normalized stem. Invalid -> fixture.
       var external = opts.pack || (typeof global !== "undefined" && global.STARNIX_QUESTIONS) || null;
@@ -779,6 +867,13 @@
       settings: c.profile ? c.profile.settings : defaultSettings(),
       sanitize: c.escapeHTML
     };
+  };
+
+  /* Commander-rank XP surface (v0.52.0 unit 2) — pure/deterministic; the shell renders from it.
+   * Games never call this directly; XP flows through the existing seams only. */
+  StarNix.xp = {
+    AWARDS: XP_AWARDS, RANKS: RANKS, rankFor: rankFor,
+    forAnswer: xpForAnswer, forExam: xpForExam, forScore: xpForScore, add: addXP
   };
 
   /* ---- test/integration hooks (not part of the game-facing contract) - */

@@ -41,3 +41,42 @@ change if yes + spec/QA re-sync. Did NOT change gameplay — learning-integrity/
 NIGHT_RUN says log and move on.
 
 **Punted:** nothing else. Commit: `v0.52.0 — ARM engine harness`.
+
+---
+
+## v0.53.0 — Unit 2: Commander rank (cross-game XP meta-progression)
+
+**Shipped:** one XP pool + 10 ranks + menu display + one-shot rank-up moment, fed ONLY by
+existing seams (per the unit's "read the seams" rule):
+- **Answers** — `makeMasteryStore.record` (the ONE choke point all three games AND the exam
+  already route through): correct +10 / wrong +2 / Leitner promotion +15 / first cross into
+  `MASTERED_BUCKET` +40.
+- **Exam completions** — shell `_recordExam`: +25 any completed mode, +75 pass bonus (≥80,
+  the exam's own mark), 0 on abandon.
+- **Run scores** — `persistence.submitScore`: this 01-contract seam has been called by ARM
+  (guarded) since the boss shipped, but NO provider implemented it — a silent no-op. Completed
+  it in `initCore`, bound to the live profile (bests.<GAME> high-water + flat +150). ARM's
+  campaign-win call now works with zero game-module edits.
+- Ranks pinned (0/150/400/800/1400/2200/3300/4800/6800/9500, Recruit→Fleet admiral); pure
+  math on `StarNix.xp`; `profile.xp`+`rankSeen` in defaultProfile + migrate repair.
+- Shell: `.sx-rank` strip in the menu head (gold name, iris→gold bar, to-next line; textContent
+  per house rule), rebuilt each `showMenu`; rank-up = gold `.sx-toast-gold` toast + 3-pulse
+  brightness on the strip; reduced-motion (flag + CSS guard) = same surface, static;
+  `rankSeen` makes it one-shot. `_toast` gained an optional class param (additive).
+
+**Assertion delta:** verify-build 345 → **360** (+15, section K4). Full gate ALL GREEN, exit 0.
+
+**Negative control:** gutted the `addXP` mutation → exactly the 4 live-wiring pins failed
+(mastery award, submitScore ×2, _recordExam award; 356/360), pure-math and DOM pins
+correctly unaffected. Restored, re-ran, ALL GREEN 360/360.
+
+**Punted (logged, not blocking):**
+- CC/KBB per-run score XP: both write `profile.bests.CC/KBB` directly inside their modules
+  (load→mutate→save) — no core seam passes their scores; tapping them means editing game
+  files. Their gameplay already feeds the pool per-answer. Phase-2 candidate if wanted.
+- 01 doc-sync for `profile.xp`/`rankSeen`/`StarNix.xp`/completed `submitScore` — spec
+  versioning (01_SHARED_CORE_v1_5.md) is its own unit; noted in STATE Open.
+- Rank-up detection is menu-entry (not mid-game): games own their screens while mounted;
+  the shell moment fires on the next menu visit. Deliberate, pinned as designed.
+
+Commit: `v0.53.0 — Commander rank XP meta-progression`.

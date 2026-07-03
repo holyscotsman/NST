@@ -382,9 +382,11 @@
     s.innerHTML = '<div class="sx-menu-photo" aria-hidden="true"></div>' +
       '<div class="sx-menu-bg" aria-hidden="true"></div>' +
       '<div class="sx-menu-head"><div class="sx-crest">' + NX_CREST + '<span>NX-SRC \u00B7 Nutanix Starlight Rescue Crew</span></div>' +
+      '<div class="sx-rank"></div>' +
       '<div class="sx-menu-top"></div>' +
       '<h2 class="sx-h2">Mission select</h2></div>' +
       '<div class="sx-cards"></div>';
+    this._renderRank(s.querySelector(".sx-rank"));
     var photoEl = s.querySelector(".sx-menu-photo");
     var menuBg = global.STARNIX_ASSETS && global.STARNIX_ASSETS.menuBg;
     if (photoEl && menuBg) { photoEl.style.backgroundImage = 'url("' + menuBg + '")'; photoEl.classList.add("on"); }
@@ -420,6 +422,38 @@
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
 
     this.stage.appendChild(s);
+  };
+
+  /* Commander rank strip (v0.52.0 unit 2) — renders name + XP bar + to-next line from
+   * profile.xp, and fires the ONE-SHOT rank-up moment (gold toast; pulse only when motion
+   * is allowed — reduced-motion gets the same strip/toast, static). Rebuilt on every
+   * showMenu, so it self-refreshes after any game/exam session. */
+  Shell.prototype._renderRank = function (host) {
+    if (!host) return;
+    var core = StarNix.core, X = StarNix.xp;
+    var prof = core && core.profile;
+    if (!prof || !X) { host.style.display = "none"; return; }
+    var xp = (typeof prof.xp === "number" && prof.xp >= 0) ? prof.xp : 0;
+    var r = X.rankFor(xp);
+    var name = el("span", "sx-rank-name", "✦ " + r.name);
+    var bar = el("span", "sx-rank-bar");
+    var fill = el("i");
+    fill.style.width = Math.round(r.progress * 100) + "%";
+    bar.appendChild(fill);
+    var toNext = (r.next != null)
+      ? (r.next - xp).toLocaleString() + " XP to " + X.RANKS[r.index + 1].name
+      : "top rank";
+    var line = el("span", "sx-rank-xp", xp.toLocaleString() + " XP · " + toNext);
+    host.appendChild(name); host.appendChild(bar); host.appendChild(line);
+    var seen = (typeof prof.rankSeen === "number" && prof.rankSeen >= 0) ? prof.rankSeen : 0;
+    if (r.index > seen) {
+      prof.rankSeen = r.index;
+      try { if (core.persistence && core.persistence.save) core.persistence.save(prof); } catch (e) {}
+      var rm = !!(prof.settings && prof.settings.reducedMotion);
+      if (!rm) host.classList.add("sx-rank-up");           // pulse; reduced-motion stays static
+      this._toast("✦ Promoted: " + r.name, "sx-toast-gold");
+      try { core.audio.sfx("correct"); } catch (e2) {}
+    }
   };
 
   /* =================================================================== *
@@ -516,6 +550,18 @@
   // Record a completed exam's best speed-score per length (profile.bests.EXAM[count]).
   Shell.prototype._recordExam = function (sum) {
     if (!sum) return;
+    // (v0.52.0 unit 2) Commander-rank XP: any COMPLETED exam awards into the one pool
+    // (forExam returns 0 for abandoned/empty); pass bonus at the exam's own 80% mark.
+    try {
+      var pX = StarNix.core.profile;
+      if (StarNix.xp && pX) {
+        var nX = StarNix.xp.forExam(sum);
+        if (nX > 0) {
+          StarNix.xp.add(pX, nX);
+          if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(pX);
+        }
+      }
+    } catch (eX) {}
     // (v0.51.0) Exam-sim history feeds the readiness read on the Progress screen. Completed sims
     // only (no abandoned partials); capped at the last 20. Blitz bests below are untouched.
     if (sum.mode === "sim" && sum.total && !sum.abandoned) {
@@ -964,9 +1010,9 @@
   };
 
   /* ---- toast --------------------------------------------------------- */
-  Shell.prototype._toast = function (msg) {
+  Shell.prototype._toast = function (msg, cls) {
     if (!this.stage) return;
-    var t = el("div", "sx-toast", msg);
+    var t = el("div", "sx-toast" + (cls ? " " + cls : ""), msg);
     this.stage.appendChild(t);
     var self = this;
     global.setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 2200);
@@ -1128,7 +1174,17 @@
       ".sx-pause-actions .sx-btn{flex:1;min-width:0;}",
       ".sx-pause .sx-stat-grid{gap:8px;margin:4px 0 8px;}",
       ".sx-pause .sx-stat-val{font-size:20px;}",
-      ".sx-toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(10,10,18,.92);border:1px solid var(--peach);color:#ffe1db;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:40;}"
+      ".sx-toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(10,10,18,.92);border:1px solid var(--peach);color:#ffe1db;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:40;}",
+      // Commander rank strip (v0.52.0 unit 2) — gold = reward per 07 §1; bar copies the sx-dom-bar pattern.
+      ".sx-rank{display:flex;align-items:center;gap:10px;justify-content:center;margin:2px 0 4px;font-size:13px;}",
+      ".sx-rank-name{color:var(--gold);font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:12px;}",
+      ".sx-rank-bar{width:150px;height:8px;border-radius:5px;border:1px solid var(--border);overflow:hidden;display:inline-block;background:rgba(5,5,9,.6);}",
+      ".sx-rank-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--iris),var(--gold));}",
+      ".sx-rank-xp{color:var(--mid);font-size:12px;}",
+      ".sx-rank-up{animation:sxRankPulse 1.6s ease-out 3;}",
+      "@keyframes sxRankPulse{0%{filter:brightness(1);}30%{filter:brightness(1.7);}100%{filter:brightness(1);}}",
+      "@media (prefers-reduced-motion: reduce){.sx-rank-up{animation:none;}}",
+      ".sx-toast-gold{border-color:var(--gold);color:#ffedc2;}"
     ].join("");
     document.head.appendChild(st);
   };

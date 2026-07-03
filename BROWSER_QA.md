@@ -121,3 +121,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
     stability bar drain repeatedly and confirm the GAME OVER panel. **Open design call for Jason:** should a
     question timeout also damage (as spec 02 v1.3 §"Death by timeout" claims)? Code says no today; changing it
     is a one-line `damage(n)` in the timeout branch + a spec/QA re-sync.
+
+- **QA-M1 — Commander rank strip + rank-up moment (added v0.53.0, browser-blind).** On the menu: a gold rank
+  line under the crest — "✦ <rank>" + a thin iris→gold progress bar + "N XP · M XP to <next>". CORRECT: legible
+  at both desktop and ~560px widths, doesn't crowd the crest or "Mission select", bar fill matches the XP line.
+  Rank-up: play until a threshold crosses (fastest: Study-mode answers, +10–25 each, Cadet at 150), return to
+  the menu — a GOLD-bordered toast "✦ Promoted: <rank>" + the strip pulses brighter 3×. WRONG: peach/error
+  styling on the toast, a re-fire on every menu visit, or a pulse under reduced motion. Reduced-motion ON:
+  same toast + strip, zero animation. The structural halves (strip DOM, one-shot rankSeen, static-under-rm)
+  are gate-pinned (K4); this item is the look/fit/feel confirm.
