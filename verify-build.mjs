@@ -118,6 +118,8 @@ async function runFrames(n = 6) {
     let guard = 0;
     while (SN.shell.screen === "cinematic" && guard < 60) { await runFrames(20); guard++; }   // drive through every beat
     w.performance.now = realNow;
+    ok("G3 (v0.107.0): the cinematic sound rail fired its beats (charge/fire/explode/jump)",
+      ["sfx:lasercharge", "sfx:laserfire", "sfx:explode", "sfx:laserhit"].every(n => calls.indexOf(n) >= 0));
     ok("ran every beat without a frame error", frameErrors.length === beforeErr);
     ok("auto-advanced to menu at end", SN.shell.screen === "menu");
     ok("menu track played on cinematic end", calls.indexOf("track:menu") !== -1);

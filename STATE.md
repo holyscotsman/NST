@@ -101,7 +101,12 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.106.0 — Save & Resume for all three games (G2)
+## v0.107.0 — Intro cinematic deepened (G3)
+
+3D starfield + camera push + beat SFX rail (pinned). LAST batch #5 item: G4 full
+bug-scan/optimization workflow, then the closing report. Browser QA owed v0.92–v0.107.
+
+> **Earlier this session (v0.106.0):** Save & Resume
 
 Checkpoints: ARM sector / KBB shop-exit / CC gate; shell chooser (Resume / New game);
 ctx.resumeData additive key. REMAINING batch #5: G3 intro cinematic, G4 full-scan workflow.

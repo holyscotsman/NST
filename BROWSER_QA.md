@@ -229,6 +229,10 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-G6 — Intro cinematic (added v0.107.0).** Replay the intro: stars have depth and streak hard
+  when the Disruptor fires; the camera leans into each beat; the blast/jump have real sound. EARS:
+  flag anything piercing. Reduced motion: calm flat version.
+
 - **QA-G5 — Save & Resume (added v0.106.0).** Play ARM into sector 2, exit to menu, re-enter:
   chooser offers Resume (lands at the sector briefing with your coins/upgrades) or New game.
   Same for KBB (mid-depth, artifacts back) and CC (picks up at your km). Dying wipes the save.

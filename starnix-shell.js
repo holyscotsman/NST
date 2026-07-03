@@ -232,7 +232,9 @@
 
     // -------- pre-allocated buffers (no per-frame allocation, 01 §13) --------
     var STAR_N = 110, stars = new Array(STAR_N);
-    for (var i = 0; i < STAR_N; i++) stars[i] = { x: rng.next(), y: rng.next(), s: 0.4 + rng.next() * 1.5, a: 0.18 + rng.next() * 0.6 };
+    // (v0.107.0, G3, Jason: "more 3D") stars carry a DEPTH — projected from center, they
+    // drift toward the camera and streak during high-energy beats. Pre-allocated per 01 §13.
+    for (var i = 0; i < STAR_N; i++) stars[i] = { x: rng.next(), y: rng.next(), s: 0.4 + rng.next() * 1.5, a: 0.18 + rng.next() * 0.6, z: 0.25 + rng.next() * 0.75 };
 
     function hexPts(r) { var a = []; for (var p = 0; p < 6; p++) { var an = (p / 6) * Math.PI * 2 - Math.PI / 2; a.push([Math.cos(an) * r, Math.sin(an) * r]); } return a; }
     function buildStation() {
@@ -348,17 +350,54 @@
     }
 
     var T = 0, last = global.performance.now();
+    // (v0.107.0, G3) beat-synced sound design — each fires exactly once
+    var SFX_BEATS = [
+      { at: B.beam + 1.0, name: "lasercharge", done: false },
+      { at: B.beam + 2.0, name: "laserfire", done: false },
+      { at: B.shatter, name: "explode", done: false },
+      { at: B.belt, name: "laserhit", done: false },
+      { at: B.planet, name: "collect", done: false },
+      { at: B.mission, name: "correct", done: false }
+    ];
+    var camZ = 1;   // (G3) slow camera push-in per beat; snaps home on beat changes
     function frame(ts) {
       var dt = (ts - last) / 1000; last = ts; if (dt > 0.05) dt = 0.05; T += dt;
+      for (var sfb = 0; sfb < SFX_BEATS.length; sfb++) { var fb = SFX_BEATS[sfb]; if (!fb.done && T >= fb.at) { fb.done = true; try { StarNix.core.audio.sfx(fb.name); } catch (eFb) {} } }
       ctx.clearRect(0, 0, W, H);
       var inBelt = (T >= B.belt && T < B.planet);
-      if (!inBelt) { for (var i = 0; i < STAR_N; i++) { var st = stars[i]; ctx.globalAlpha = st.a * (0.6 + 0.4 * Math.sin(T * 2 + i)); ctx.fillStyle = "#cfd2ff"; ctx.fillRect(st.x * W, st.y * H, st.s, st.s); } ctx.globalAlpha = 1; }
+      // (G3) projected starfield: depth drift always, hard streaks during the beam + jump
+      if (!inBelt) {
+        var rush = (!reduced && ((T >= B.beam + 2.0 && T < B.shatter) || (T >= B.shatter && T < B.shatter + 0.5))) ? 3.2 : 0.35;
+        for (var i = 0; i < STAR_N; i++) {
+          var st = stars[i];
+          if (!reduced) { st.z -= dt * 0.05 * rush; if (st.z < 0.12) st.z += 0.85; }
+          var pxs = cx + (st.x - 0.5) * W / st.z * 0.62, pys = cy + (st.y - 0.5) * H / st.z * 0.62;
+          if (pxs < -20 || pxs > W + 20 || pys < -20 || pys > H + 20) continue;
+          ctx.globalAlpha = st.a * (0.6 + 0.4 * Math.sin(T * 2 + i)) * clamp(1.1 - st.z, 0.15, 1);
+          ctx.fillStyle = "#cfd2ff";
+          var ssz = st.s / st.z * 0.55;
+          if (rush > 1 && !reduced) { ctx.fillRect(pxs, pys, ssz + (pxs - cx) * 0.03 * rush, Math.max(1, ssz * 0.5)); }
+          else ctx.fillRect(pxs, pys, ssz, ssz);
+        }
+        ctx.globalAlpha = 1;
+      }
+      // (G3) camera push: eases deeper into each beat, resets on transitions
+      var camTarget = reduced ? 1 : (T < B.beam ? 1.05 : T < B.shatter ? 1.12 : T < B.belt ? 1.06 : T < B.planet ? 1.0 : 1.03);
+      camZ += (camTarget - camZ) * Math.min(1, dt * 0.7);
+      ctx.save();
+      if (!reduced) { ctx.translate(cx, cy); ctx.scale(camZ, camZ); ctx.translate(-cx, -cy); }
 
       if (T < B.beam) { drawStation(1, 0, 0); }
       else if (T < B.shatter) { drawWarBeam(T - B.beam); }
       else if (T < B.belt) { var ks = T - B.shatter; if (!reduced) { var ff = clamp(0.3 - ks * 0.6, 0, 0.3); if (ff > 0) { ctx.fillStyle = "rgba(255,107,91," + ff + ")"; ctx.fillRect(0, 0, W, H); } } drawShards(ks); drawCores(ks); }
       else if (T < B.planet) { drawWarpBelt(T - B.belt); }
       else { drawPlanetSquad(T - B.planet); }
+      ctx.restore();
+      // (G3) vignette: cheap depth frame (two edge fills, no gradient allocation)
+      if (!reduced) {
+        ctx.fillStyle = "rgba(4,4,10,0.35)";
+        ctx.fillRect(0, 0, W, H * 0.06); ctx.fillRect(0, H * 0.94, W, H * 0.06);
+      }
 
       if (T >= B.mission) mission.style.opacity = String(clamp((T - B.mission) / 0.8, 0, 1));
       cap.textContent = caption(T);
