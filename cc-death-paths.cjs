@@ -29,7 +29,7 @@ function freshMount() {
   var ctx = {
     rng: makeRng(13),
     questions: {
-      next: function () { return { question: { id: 'q1', domain: 'storage', difficulty: 1, stem: 'Pick A', options: ['A-right', 'B-wrong', 'C-wrong', 'D-wrong'], correctIndex: 0, explanation: 'because' }, reason: 'probe' }; },
+      next: function () { return { question: { id: 'q1', domain: 'storage', difficulty: 1, stem: 'Pick A', options: ['A-right', 'B-wrong', 'C-wrong', 'D-wrong'], correctIndex: 0, explanation: 'because', optionNotes: ['A is the one', 'B trap: sounds right, is not', 'C trap', 'D trap'] }, reason: 'probe' }; },
       timerSeconds: function () { return 2; }
     },
     mastery: { record: function () {} },
@@ -81,6 +81,7 @@ function report(h, tag) {
   opts[1].dispatchEvent(new h.win.MouseEvent('click', { bubbles: true }));
   h.flush(5);
   var fbHeadA = h.doc.querySelector('.cc-fb-head') ? h.doc.querySelector('.cc-fb-head').textContent : '';
+  var fbNoteA = h.doc.querySelector('.cc-fb-note') ? h.doc.querySelector('.cc-fb-note').textContent : '';
   var sr = null; h.doc.querySelectorAll('button').forEach(function (b) { if (b.textContent === 'See results') sr = b; });
   var prematureOver = h.doc.querySelector('.cc-gameover').style.display !== 'none';  // fired behind the feedback?
   if (sr) sr.dispatchEvent(new h.win.MouseEvent('click', { bubbles: true }));
@@ -112,6 +113,8 @@ function report(h, tag) {
      'wrong-click death: feedback first, SHIP DOWN after See results, never behind the feedback');
   ok(/\u22122 shields/.test(fbHeadA),
      'feedback states the REAL cost: wrong answer = \u22122 shields (was mislabelled \u22121)');
+  ok(/B trap: sounds right, is not/.test(fbNoteA),
+     "L3: the wrong pick's authored optionNote shows in the feedback");
   ok(cFeedback && !prematureOverC, 'killing timeout renders the feedback + See results FIRST (no soft-lock, no crash screen behind it)');
   ok(C.gameover === 'flex' && /SHIP DOWN/.test(C.title) && C.garage === 'block' && C.overlay === 'none',
      'killing timeout: See results lands on SHIP DOWN + Garage, overlay closed');

@@ -301,6 +301,23 @@ function newWindow() {
     ok(false, 'JB3 banner probe unreached');
   }
 
+  // (v0.88.0, L3) a wrong single-choice pick surfaces ITS authored optionNote
+  if (toQuestion()) {
+    var runN = KBB._test.state().run, qN = runN.battle.question;
+    if (!qN.multi) {
+      var wrongN = (qN.correctIndex + 1) % qN.options.length;
+      var obN = doc.querySelector('.kbb-opt[data-idx="' + wrongN + '"]'); if (obN) obN.click();
+      var subN = q('.kbb-submit'); if (subN && !subN.disabled) subN.click();
+      var noteEl = q('.kbb-fb-note');
+      ok(!!noteEl && noteEl.textContent.indexOf('note-') >= 0,
+         "L3: wrong pick shows its optionNote ('" + (noteEl ? noteEl.textContent.slice(0, 40) : 'none') + "')");
+      V.step(3);
+      var cN = q('.kbb-cont:not(.kbb-submit)'); if (cN) { cN.click(); V.step(2); }
+    } else {
+      ok(true, 'L3 note probe skipped (multi question drawn)');
+    }
+  } else { ok(false, 'L3 note probe could not reach a question'); }
+
   // (v0.78.0, JB2) shop chrome: actions pinned OUTSIDE the scroll region (no scrolling for
   // Reroll / Next battle). Reach a feedback screen, flip the run to shop, Continue renders it.
   if (toQuestion()) {

@@ -241,6 +241,9 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   ok(/BOSS_FLOW = 920/.test(H.ARM_SRC) && /bt \* BOSS_FLOW \* depth/.test(H.ARM_SRC)
      && /bossActive\) drawBossRush\(\)/.test(H.ARM_SRC) && /three static faint shafts/.test(H.ARM_SRC),
      'boss arena rushes upward: BOSS_FLOW streaks behind the world, calm under reduced motion');
+  // (v0.88.0, L3) ARM wrong-answer feedback carries the pick's authored rationale
+  ok(/if \(wrongPick >= 0 && q\.optionNotes\[wrongPick\]\)/.test(H.ARM_SRC) && /arm-pick-note/.test(H.ARM_SRC),
+     "L3: ARM renders the wrong pick's optionNote under the explanation");
   // (v0.83.0, review) EXPLICIT rush execution — canvas-package-independent: drive drawBossRush
   // against a counting stub and assert one streak per star actually draws.
   (function () {

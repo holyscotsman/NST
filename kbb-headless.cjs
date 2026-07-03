@@ -49,7 +49,7 @@ function makeQuestions(rng) {
       correctIndices: multi ? [0, 3] : undefined,
       multi: multi,
       explanation: 'Because ' + i + '.',
-      optionNotes: ['yes', 'no', 'no', multi ? 'yes' : 'no']
+      optionNotes: ['note-right', 'note-wrong-a', 'note-wrong-b', multi ? 'note-right2' : 'note-wrong-c']
     });
   }
   var served = 0;

@@ -1407,6 +1407,17 @@
           var bodyX = doc.createElement("div"); bodyX.textContent = capX.rest;
           moreX.appendChild(sumX); moreX.appendChild(bodyX); ex.appendChild(moreX);
         }
+        // (v0.88.0, L3) the authored rationale for the pilot's ACTUAL pick — the
+        // misconception-correcting line, not just the generic explanation.
+        if (!lastCorrect && !timedOut && Array.isArray(q.optionNotes)) {
+          var wrongPick = -1;
+          for (var wp = 0; wp < chosenSet.length; wp++) { if (correctSet.indexOf(chosenSet[wp]) < 0) { wrongPick = chosenSet[wp]; break; } }
+          if (wrongPick >= 0 && q.optionNotes[wrongPick]) {
+            var noteEl = doc.createElement("div"); noteEl.className = "arm-pick-note";
+            noteEl.textContent = "Your pick \u2014 " + q.optionNotes[wrongPick];
+            ex.appendChild(noteEl);
+          }
+        }
         cont.style.display = "block";
         sfx(lastCorrect ? "correct" : "wrong");
         // (v0.65.0, Jason's QA-A5 ruling) a timed-out FIELD scan (not the forgiving depot)
@@ -2862,6 +2873,7 @@
       ".arm-sw{width:50px;height:28px;border-radius:999px;background:#33334a;position:relative;cursor:pointer;}.arm-sw.on{background:" + C.green + ";}",
       ".arm-sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s;}.arm-sw.on i{left:25px;}",
       ".arm-statline{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;}.arm-n{font-size:26px;font-weight:800;}.arm-l{font-size:12px;color:" + C.mid + ";text-transform:uppercase;letter-spacing:.08em;}",
+      ".arm-pick-note{margin-top:7px;padding:6px 9px;border-left:2px solid " + C.peach + ";background:rgba(255,107,91,.08);font-size:12.5px;color:" + C.mid + ";border-radius:0 8px 8px 0;}",
       ".arm-explain-more{margin-top:7px;}.arm-explain-more summary{cursor:pointer;color:" + C.aqua + ";font-size:12.5px;font-weight:600;}.arm-explain-more div{margin-top:5px;}",
       ".arm-toast{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);background:rgba(18,18,27,.96);border:1px solid " + C.iris + ";border-radius:11px;padding:10px 17px;font-size:13px;z-index:9;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90%;text-align:center;}",
       "@media (max-width:560px){.arm-panel h1{font-size:25px;}.arm-panel{padding:20px;}.arm-pad{width:62px;height:62px;}.arm-dial{width:72px;height:72px;}.arm-stats{min-width:150px;}.arm-key{width:52px;height:52px;}.arm-action{width:68px;height:68px;}}",

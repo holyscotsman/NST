@@ -63,5 +63,19 @@ console.log("Answer-order shuffle:");
   ok("next() without shuffle: original order preserved", JSON.stringify(plain.question.options) === JSON.stringify(single.options) && plain.question.correctIndex === 2);
 }
 
+{ // (v0.88.0, L3) optionNotes ride the SAME permutation as options (they shipped misaligned)
+  const noted = { id: "qn", options: ["A", "B", "C", "D"], correctIndex: 2,
+    optionNotes: ["note-A", "note-B", "note-C", "note-D"] };
+  let aligned = true, moved = false;
+  for (let seed = 0; seed < 10; seed++) {
+    const out = shuffleQuestionOptions(noted, makeRng(seed));
+    for (let i = 0; i < out.options.length; i++) {
+      if (out.optionNotes[i] !== "note-" + out.options[i]) aligned = false;
+      if (out.options[i] !== noted.options[i]) moved = true;
+    }
+  }
+  ok("optionNotes stay aligned to their options across 10 shuffles", aligned && moved);
+}
+
 console.log(fails === 0 ? "\nSHUFFLE TEST: ALL GREEN" : "\nSHUFFLE TEST: " + fails + " FAILED");
 process.exit(fails === 0 ? 0 : 1);

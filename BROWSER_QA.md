@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-G1 — Wrong-pick rationale in games (added v0.88.0).** Answer wrong in ARM, KBB, and CC (single-
+  choice): under the explanation a peach-edged line reads "Your pick — <why that option is wrong>",
+  matching the option you actually chose (not a shuffled neighbor — this was misaligned in core before).
+  No line on timeouts or when the item has no notes.
+
 - **QA-E9 — Due chip + redrill (added v0.87.0).** After some play, the menu grows a gold "⏰ N due ·
   Review ▸" chip — tapping it opens Study mode on your lapsed cards (chip hides at zero due). Finish
   any exam with misses: the end screen's primary button is now "Redrill the N missed ▸" and reruns

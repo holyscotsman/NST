@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.87.0";
+  var BUILD_VERSION = "0.88.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -532,6 +532,13 @@
       out.correctIndices = q.correctIndices.map(function (ci) { return newPos[ci]; }).sort(function (a, b) { return a - b; });
     } else if (typeof q.correctIndex === "number") {
       out.correctIndex = newPos[q.correctIndex];
+    }
+    // (v0.88.0, L3) optionNotes ride the same permutation — they were copied UNSHUFFLED,
+    // silently misaligning every per-option rationale on a shuffled draw.
+    if (Array.isArray(q.optionNotes) && q.optionNotes.length === n) {
+      var newNotes = new Array(n);
+      for (i = 0; i < n; i++) newNotes[i] = q.optionNotes[order[i]];
+      out.optionNotes = newNotes;
     }
     return out;
   }

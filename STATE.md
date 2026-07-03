@@ -101,7 +101,14 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.87.0 — Due-review chip + miss redrill (L1+L2)
+## v0.88.0 — optionNotes in games + core shuffle alignment fix (L3)
+
+All three games now show the authored rationale for the player's actual wrong pick;
+core shuffleQuestionOptions was silently misaligning optionNotes on every shuffled draw
+(fixed + pinned). kbb-run 41, arm-run 68, shuffle-test +1, death-paths +1. LAST UNIT:
+L4+L5 — Leitner promote-only-when-due + intervals past 24h (one re-baseline).
+
+> **Earlier this session (v0.87.0):** due chip + miss redrill
 
 mastery.dueList seam; gold menu chip serves the due queue into Study (≤30, most overdue
 first); exam end screen redrills the missed set. verify 444. NEXT: L3 optionNotes in games,

@@ -865,6 +865,7 @@
     css.push('.kbb-fb{margin-top:12px;font-size:13px;font-weight:700;min-height:20px;}');
     css.push('.kbb-fb.ok{color:' + P.mantis + ';}.kbb-fb.no{color:' + P.peach + ';}');
     css.push('.kbb-fb-exp{margin-top:7px;font-size:12.5px;font-weight:500;line-height:1.5;color:#cdd0e8;}');
+    css.push('.kbb-fb-note{margin-top:7px;padding:6px 9px;border-left:2px solid ' + PALETTE.peach + ';background:rgba(255,107,91,.08);font-size:12px;font-weight:500;color:#cdd0e8;border-radius:0 8px 8px 0;}');
     css.push('.kbb-cont{margin-top:11px;padding:9px 18px;border-radius:10px;border:1.5px solid ' + P.aqua + ';background:rgba(31,221,233,.14);color:' + P.aqua + ';font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;}');
     css.push('.kbb-cont:hover{background:rgba(31,221,233,.24);}.kbb-cont:active{transform:scale(.99);}');
     css.push('.kbb-btn{padding:10px 16px;border-radius:10px;border:1.5px solid ' + P.aqua + ';background:rgba(18,36,40,.55);color:' + P.aqua + ';font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;}');
@@ -2089,6 +2090,12 @@
       else { ok = false; headTxt = '\u2717 Wrong \u2014 no damage' + (res.enemyAttacked ? ' \u2014 enemy hit you for ' + res.incoming : ''); }
       fb.className = 'kbb-fb ' + (ok ? 'ok' : 'no');
       fb.appendChild(el(s.doc, 'div', null, headTxt));
+      // (v0.88.0, L3) per-option rationale for the actual wrong pick
+      if (!ok && !res.refunded && Array.isArray(q.optionNotes)) {
+        var wrongPick5 = -1;
+        for (var wp5 = 0; wp5 < chosenSet.length; wp5++) { if (correctSet.indexOf(chosenSet[wp5]) < 0) { wrongPick5 = chosenSet[wp5]; break; } }
+        if (wrongPick5 >= 0 && q.optionNotes[wrongPick5]) fb.appendChild(el(s.doc, 'div', 'kbb-fb-note', 'Your pick \u2014 ' + q.optionNotes[wrongPick5]));
+      }
       if (q.explanation) {                                       // (v0.71.0, J8) 150-word display cap
         var wx = String(q.explanation).trim().split(/\s+/);
         if (wx.length <= 120) fb.appendChild(el(s.doc, 'div', 'kbb-fb-exp', q.explanation));

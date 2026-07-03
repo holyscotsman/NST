@@ -1893,7 +1893,18 @@
           if (sim.phase === PHASE_OVER) showOver();
           else { sim.resumeAfterQuestion(); resume(); }
         });
-        el.qFeedback.appendChild(head); el.qFeedback.appendChild(exp); el.qFeedback.appendChild(cont);
+        // (v0.88.0, L3) per-option rationale for the actual wrong pick
+        var noteEl3 = null, qn3 = res.question, ch3 = res.chosen;
+        if (!res.correct && !res.timedOut && qn3 && Array.isArray(qn3.optionNotes)) {
+          var cs3 = Array.isArray(qn3.correctIndices) ? qn3.correctIndices : [qn3.correctIndex];
+          var picks3 = Array.isArray(ch3) ? ch3 : (ch3 == null ? [] : [ch3]), pick3 = -1;
+          for (var p3 = 0; p3 < picks3.length; p3++) { if (cs3.indexOf(picks3[p3]) < 0) { pick3 = picks3[p3]; break; } }
+          if (pick3 >= 0 && qn3.optionNotes[pick3]) {
+            noteEl3 = document.createElement('div'); noteEl3.className = 'cc-fb-note';
+            noteEl3.textContent = 'Your pick \u2014 ' + qn3.optionNotes[pick3];
+          }
+        }
+        el.qFeedback.appendChild(head); if (noteEl3) el.qFeedback.appendChild(noteEl3); el.qFeedback.appendChild(exp); el.qFeedback.appendChild(cont);
         cont.focus();
         if (view && !settings.reducedMotion) view.spawnSparks(sim.player.x, 1.2, 0, res.correct ? 14 : 0);
       }
@@ -2302,6 +2313,7 @@
     '.cc-feedback{display:none;margin-top:16px;}' +
     '.cc-fb-head{font-weight:700;font-size:15px;margin-bottom:8px;}' +
     '.cc-fb-head.ok{color:#92DD23;}.cc-fb-head.no{color:#FF6B5B;}' +
+    '.cc-fb-note{margin:0 0 10px;padding:6px 9px;border-left:2px solid #FF6B5B;background:rgba(255,107,91,.08);font-size:12.5px;color:#c9c9d6;border-radius:0 8px 8px 0;}' +
     '.cc-fb-exp{font-size:13.5px;line-height:1.5;color:#c9c9d6;margin-bottom:14px;}' +
     '.cc-cont,.cc-btn{padding:11px 20px;border-radius:11px;border:none;background:linear-gradient(90deg,#7855FA,#6D40E6);color:#fff;font-weight:700;font-family:inherit;font-size:14px;cursor:pointer;}' +
     '.cc-btn.ghost{background:transparent;border:1.5px solid #34344a;color:#AC9BFD;}' +
