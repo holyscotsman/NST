@@ -2615,7 +2615,7 @@
       ".arm-wrap *{box-sizing:border-box;}",
       ".arm-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}",
       ".arm-banner{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:5;display:none;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:" + C.aqua + ";text-align:center;text-shadow:0 0 16px rgba(31,221,233,.55);pointer-events:none;background:rgba(10,10,18,.5);padding:6px 14px;border-radius:999px;border:1px solid rgba(31,221,233,.25);max-width:90%;}",
-      ".arm-gear{position:absolute;top:14px;right:14px;z-index:7;border:1px solid #34344a;background:rgba(16,16,24,.7);border-radius:10px;color:" + C.mid + ";font-family:inherit;font-size:13px;font-weight:600;padding:8px 11px;cursor:pointer;display:none;letter-spacing:.04em;}",
+      ".arm-gear{position:absolute;top:14px;right:14px;z-index:7;border:1px solid #34344a;background:rgba(10,10,17,.92);border-radius:10px;color:" + C.mid + ";font-family:inherit;font-size:13px;font-weight:600;padding:8px 11px;cursor:pointer;display:none;letter-spacing:.04em;box-shadow:0 2px 10px rgba(0,0,0,.5);}",   // (P2·3, PLAYTEST A5) near-opaque backdrop + drop shadow: world markers scrolling beneath read as UNDER the HUD, not colliding with it
       ".arm-gear:hover{border-color:" + C.iris + ";color:" + C.text + ";}",
       ".arm-stats{position:absolute;left:12px;bottom:14px;z-index:6;display:none;flex-direction:column;gap:6px;background:rgba(16,16,24,.72);border:1px solid #34344a;border-radius:12px;padding:11px 13px;min-width:172px;box-shadow:0 0 22px rgba(120,85,250,.12);}",
       ".arm-srow{display:flex;justify-content:space-between;align-items:center;gap:14px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:" + C.mid + ";}",

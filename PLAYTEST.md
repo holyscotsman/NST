@@ -31,17 +31,17 @@ taste calls. Fixes deliberately NOT implemented here (they feed Phase 2).
   screen (or drop the dom-head).* **Severity: low, but visibly sloppy.** → **FIXED v0.61.0** (strip head suppressed on Progress).
 - **A4 — CC top-right HUD collision.** `34-cc-live-03.png`: the km/speed readout overlaps the
   "↻ intro" chip; the speed line is partially unreadable. *Fix: margin/right-offset for the
-  readout or move the intro chip.* **Severity: low-medium.**
+  readout or move the intro chip.* **Severity: low-medium.** → **FIXED v0.63.0** (chip on its own row; probe: zero overlap).
 - **A5 — ARM in-game top-right collision.** `12-arm-flight-thrust.png`: the ⚙ Menu button
   overlaps a world marker ring + its label (compass/extract indicator) at the top-right edge.
-  *Fix: inset the gear or clamp marker rings away from the corner.* **Severity: low.**
+  *Fix: inset the gear or clamp marker rings away from the corner.* **Severity: low.** → **FIXED v0.63.0** (near-opaque gear backdrop).
 - **A6 — KBB intro cinematic sits above a large empty content panel.** `16-kbb-cine-decloak.png`:
   more than half the viewport is a blank rounded rectangle while the cinematic plays; the
   layout reads broken even though it's just the not-yet-populated battle panel. *Fix: hide the
-  panel until the battle mounts, or letterbox the cinematic full-width.* **Severity: medium.**
+  panel until the battle mounts, or letterbox the cinematic full-width.* **Severity: medium.** → **FIXED v0.63.0** (grid-span full-bleed; probe 624×336 → 1256×728; also C4).
 - **A7 — CC canyon end-cap reads as a bare grey column.** `34/42-cc-live`: at the vanishing
   point between the peaks a flat grey vertical slab is visible (canyon end geometry / missing
-  fog). *Fix: fog to the horizon or extend the wall texture.* **Severity: low-medium.**
+  fog). *Fix: fog to the horizon or extend the wall texture.* **Severity: low-medium.** → **FIXED v0.63.0** (fog-colored end-cap plane).
 
 ## B. Confirmations (things the QA list was waiting on — machine-eye PASS)
 

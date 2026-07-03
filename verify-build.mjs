@@ -1611,6 +1611,18 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // P2·3 (v0.63.0): PLAYTEST A4–A6 cleanup — source pins (layout geometry is jsdom-invisible;
+  // the Playwright evidence shots are the visual proof, these guard the regressions).
+  console.log("\nP2. PLAYTEST cleanup pins (A4 CC hud row / A5 ARM gear backdrop / A6 KBB full-bleed cine)");
+  {
+    ok("A4: CC replay chip lives on its own row below the readout",
+      html.includes(".cc-replay{pointer-events:auto;position:absolute;top:44px"));
+    ok("A5: ARM gear button carries a near-opaque backdrop (world markers read as UNDER it)",
+      html.includes("background:rgba(10,10,17,.92)"));
+    ok("A6: KBB is-cine spans the full grid (abs-pos grid items resolve inset against their AREA)",
+      html.includes("grid-column:1 / -1;grid-row:1 / -1;}"));
+  }
+
   SN.core.audio = realAudio;
 
   console.log("\nTotal frame errors across all games: " + frameErrors.length);

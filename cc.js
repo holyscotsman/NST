@@ -1128,6 +1128,14 @@
     // per-wall geometries so each INNER face can be made craggy (canyon widest at the rim, rougher below)
     var gL = this._track(new THREE.BoxGeometry(2.4, H, LEN, 1, 5, 110));
     var gR = this._track(new THREE.BoxGeometry(2.4, H, LEN, 1, 5, 110));
+    // (P2·3, PLAYTEST A7) end-cap: a fog-colored plane sealing the corridor just inside the
+    // draw distance, so the run fades into haze instead of exposing the backdrop as a bare
+    // grey column between the wall ends at the vanishing point. fog:false = it IS the fog.
+    var capMat = new THREE.MeshBasicMaterial({ color: 0xB9885E, fog: false });
+    this._disposables.push(capMat);
+    this._endCap = new THREE.Mesh(this._track(new THREE.PlaneGeometry((half + 2.4) * 2 + 4, H * 2.4)), capMat);
+    this._endCap.position.set(0, H * 0.5, -(cfg.DRAW_DIST - 2));
+    this.scene.add(this._endCap);
     this._jagInnerFace(gL, 1.2, H);                              // left wall: inner face is +x (toward centre)
     this._jagInnerFace(gR, -1.2, H);                             // right wall: inner face is -x
     var left = new THREE.Mesh(gL, matL); left.position.set(-half, H / 2 - 1.2, -cfg.DRAW_DIST * 0.45);
@@ -2184,7 +2192,7 @@
     '.cc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #23232f;font-size:14px;}' +
     '.cc-row b{color:#FFC857;}' +
     '.cc-ovr-btns{display:flex;gap:10px;margin-top:18px;}' +
-    '.cc-replay{pointer-events:auto;margin-left:8px;padding:5px 11px;border-radius:9px;border:1px solid #34344a;background:rgba(20,20,29,.55);color:#9a9aad;font-family:inherit;font-size:11px;cursor:pointer;backdrop-filter:blur(3px);}' +
+    '.cc-replay{pointer-events:auto;position:absolute;top:44px;right:0;padding:5px 11px;border-radius:9px;border:1px solid #34344a;background:rgba(20,20,29,.55);color:#9a9aad;font-family:inherit;font-size:11px;cursor:pointer;backdrop-filter:blur(3px);}' +   /* (P2·3, PLAYTEST A4) own row below the readout — no km/speed collision */
     '.cc-replay:hover{border-color:#7855FA;color:#AC9BFD;}' +
     '.cc-hud{transition:opacity .3s;}.cc-hud.dim{opacity:0;}' +
     '.cc-intro{position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;z-index:9;background:linear-gradient(180deg,rgba(5,5,11,.18),rgba(5,5,11,.5));pointer-events:auto;}' +

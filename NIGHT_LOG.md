@@ -369,6 +369,38 @@ Commit: `v0.62.0 — CC craggy peaks (PLAYTEST A2 root-cause fix)`.
 
 ---
 
+## Phase 2 · iteration 3 — MINI-SPEC (before build)
+
+**What:** the PLAYTEST small-defect sweep — A4 (CC km/speed readout collides with the
+↻ intro chip), A5 (ARM ⚙ Menu overlaps world marker rings top-right), A6 (KBB cinematic
+plays above a huge blank battle panel), A7 (CC end-cap grey column at the vanishing point).
+**Why (rubric):** mission value 3/5 (polish, but all four are objective PLAYTEST defects);
+verifiability 4/5 (DOM/CSS pins + Playwright re-shots); blast radius 4/5 (one contained
+touch per module, no logic); size 5/5 (each is lines, not systems). Batched as one coherent
+"PLAYTEST cleanup" slice — smaller than any alternative unit.
+**How:** A4 right-inset the CC readout clear of the chip (CSS). A5 inset the ARM compass
+markers away from the top HUD band (canvas-side padding). A6 hide the empty KBB content
+panel while the cinematic runs (class toggle). A7 close the corridor with a fog-colored
+end-cap (or fog-range tune) — timeboxed to one screenshot iteration; logged if unresolved.
+**Planned pins:** source/DOM pins per fix (CC CSS offset, ARM pad constant, KBB
+cinematic-hides-panel class in view-smoke/kbb-run where reachable); Playwright evidence.
+**Negative control:** revert the KBB panel-hide class toggle → its pin fails.
+
+**RESULT (v0.63.0):** all four shipped; two root causes were subtler than spec'd:
+- A6 wasn't a missing hide — the full-bleed CSS EXISTED but `inset:0` on an abs-positioned
+  GRID ITEM resolves against its grid AREA, not the root (the gotcha). Grid-span fixes it:
+  probe 624×336 → 1256×728. Full-bleed cinematic also delivers taste-call C4 for free.
+- A5 re-scoped: the "collision" is world objects scrolling under a translucent HUD button —
+  fixed by making the gear read as UI (near-opaque backdrop + shadow), not by moving markers.
+- A4 chip → own row (probe: zero overlap). A7 fog-colored end-cap plane (fog:false — it IS
+  the fog) seals the corridor; evidence `61–63-*.png`.
+Gate 409 → **412/412** (+3 A4/A5/A6 source pins, +1 end-cap pin in view-smoke); negctrl
+(A6 span reverted) failed exactly its pin. PLAYTEST A4–A7 annotated FIXED — **every
+objective PLAYTEST defect (A1–A7) is now closed**; C1/C2/C4 taste calls stay with Jason.
+Commit: `v0.63.0 — PLAYTEST cleanup sweep (A4–A7)`.
+
+---
+
 **PHASE 1 COMPLETE: all NINE units shipped, v0.52.0 → v0.60.0, gate grown 345 → 407
 verify-build assertions (+ ARM RUN 46, KBB RUN 26, fairness 25, view-smoke +5) — every
 code unit green-gated with a bite-proven negative control before commit. Phase 2 next;

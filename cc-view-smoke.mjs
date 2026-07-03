@@ -195,6 +195,10 @@ if (view) {
     const src = fs.readFileSync("./cc.js", "utf8");
     ok("peaks: crag amplitude + height-segmented cones pinned at source (the no-op-jitter root cause)",
       /CRAG_AMT = 0\.42/.test(src) && /ConeGeometry\(r, h, 7, 4\)/.test(src) && /ConeGeometry\(rk, hk, 6, 3\)/.test(src));
+    // (P2·3, PLAYTEST A7) corridor end-cap: fog-colored, fog-exempt plane sealing the vanishing point
+    ok("end-cap: fog-colored plane seals the corridor (no bare backdrop column)",
+      !!view._endCap && !!view._endCap.material && view._endCap.material.fog === false
+      && view._endCap.position.z < -(sim.cfg.DRAW_DIST - 10));
   }
 
   // (v0.57.0) mastery cosmetic: the boost plume takes the shell-resolved trail tint at

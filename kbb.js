@@ -823,7 +823,7 @@
     css.push('.kbb-action[data-act=brace].on{border-color:' + P.iris300 + ';background:rgba(120,85,250,.14);}');
     css.push('.kbb-action[data-act=repair].on{border-color:' + P.mantis + ';background:rgba(146,221,35,.10);}');
     css.push('.kbb-combat{grid-area:combat;position:relative;min-width:0;min-height:0;border:1px solid ' + P.border + ';border-radius:12px;overflow:hidden;background:#06060c;}');
-    css.push('.kbb-combat.is-cine{position:absolute;inset:0;z-index:40;border-radius:0;border:none;}');
+    css.push('.kbb-combat.is-cine{position:absolute;inset:0;z-index:40;border-radius:0;border:none;width:auto;height:auto;grid-column:1 / -1;grid-row:1 / -1;}');   // (P2·3, PLAYTEST A6) abs-pos GRID items resolve inset against their grid AREA — span the whole grid so the cinematic truly goes full-bleed instead of floating over a blank battle panel
     css.push('.kbb-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:transparent;}');
     css.push('.kbb-3d{position:absolute;inset:0;width:100%;height:100%;display:block;}');
     css.push('.kbb-cine-cap{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);width:88%;max-width:520px;text-align:center;font-size:14px;font-weight:600;color:#eef;text-shadow:0 0 10px #000;pointer-events:none;z-index:31;}');
