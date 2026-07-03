@@ -179,6 +179,7 @@
     var dq = [], dqi = 0, dIn = 0, dLost = 0, dCoins = 0;
     var sectorLost = [];              // collect-fails this attempt (commit on home)
     var reducedMotion = false, extraTime = false, musicOn = true, sfxOn = true, highContrast = false;
+    var runSeq = 0;   // (v0.91.0) per-mount run counter: "Fly again"/sector replays draw fresh questions
 
     // ---- object pools (no per-frame allocation) ----
     var bullets = [], ebullets = [], particles = [];
@@ -705,7 +706,12 @@
     function bandFor(coreIdx, sec) {
       // ceiling rises by difficulty TIER (Easy leans 1-2, Medium 2-3, Hard 3) and gently within
       // a sector. Floor stays easy so the skewed bank (few hard questions) never starves the draw.
-      var d = Math.min(3, 1 + tierOf(sec === undefined ? sector : sec) + Math.floor(coreIdx / 3));
+      var s2 = sec === undefined ? sector : sec;
+      var d = Math.min(3, 1 + tierOf(s2) + Math.floor(coreIdx / 3));
+      // (v0.91.0) the bank has only 18 difficulty-1 cards, so [1,1] openers replayed the same
+      // few every session; from sector 2 on the opener ceiling is at least 2 (sector 1 stays
+      // the gentle intro).
+      if (s2 > 1) d = Math.max(d, 2);
       return [1, d];
     }
     function setupBriefing() {
@@ -853,7 +859,7 @@
       lvl.engine = lvl.maneuver = lvl.capacitor = lvl.shieldCell = lvl.rapid = 0;
       charges = undefined; shields = undefined; deriveStats(); charges = maxCharges; shields = maxShields; rechargeTimer = rechargeTime;
       held = []; stationBuild = 0; sectorLost = []; usedIds = [];
-      runRng = RNG.fork("arm-run-" + sector);   // deterministic per run
+      runRng = RNG.fork("arm-run-" + sector + ":" + (runSeq++));   // deterministic per run; (v0.91.0) runSeq varies retries/replays
       makeStars();
       startBriefing();
     }
@@ -1278,7 +1284,7 @@
     }
     function nextSector() {
       sector++;
-      runRng = RNG.fork("arm-run-" + sector);   // deterministic per sector; usedIds keeps no-reuse across the run
+      runRng = RNG.fork("arm-run-" + sector + ":" + (runSeq++));   // deterministic per sector; usedIds keeps no-reuse across the run; (v0.91.0) runSeq varies replays
       drawCoreQuestions();                        // fresh cores (excluding usedIds), harder band, sector-aware briefing
       briefCore = -1; briefMode = "TEACH"; briefRepeat = 0;
       ship.x = ENTRY_X; ship.y = ENTRY_Y; ship.vx = ship.vy = 0; ship.angle = -Math.PI / 2;
@@ -1349,6 +1355,9 @@
       panel.className = "arm-panel iris"; clear(panel);
       panel.appendChild(mk("div", "arm-eyebrow e-iris", eyebrowText));
       panel.appendChild(mk("h2", null, q.stem));
+      // (v0.91.0) defense-in-depth: games are provider-filtered away from exhibit questions;
+      // if one ever leaks, fail LOUDLY instead of serving an unanswerable question.
+      if (q.image) panel.appendChild(mk("div", "arm-exhibit-warn", "\u26A0 Exhibit question served in error \u2014 its image only renders in Study/Exam. Please report this."));
       var timerEl = mk("div", "arm-qtimer", ""); timerEl.style.display = "none"; panel.appendChild(timerEl);
       var opts = mk("div", "arm-opts"); panel.appendChild(opts);
       var ex = mk("div", "arm-explain"); ex.style.display = "none"; panel.appendChild(ex);
@@ -2874,6 +2883,7 @@
       ".arm-sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s;}.arm-sw.on i{left:25px;}",
       ".arm-statline{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;}.arm-n{font-size:26px;font-weight:800;}.arm-l{font-size:12px;color:" + C.mid + ";text-transform:uppercase;letter-spacing:.08em;}",
       ".arm-pick-note{margin-top:7px;padding:6px 9px;border-left:2px solid " + C.peach + ";background:rgba(255,107,91,.08);font-size:12.5px;color:" + C.mid + ";border-radius:0 8px 8px 0;}",
+      ".arm-exhibit-warn{margin:6px 0;padding:6px 9px;border-left:2px solid " + C.gold + ";background:rgba(255,200,87,.1);font-size:12.5px;color:" + C.gold + ";}",
       ".arm-explain-more{margin-top:7px;}.arm-explain-more summary{cursor:pointer;color:" + C.aqua + ";font-size:12.5px;font-weight:600;}.arm-explain-more div{margin-top:5px;}",
       ".arm-toast{position:absolute;left:50%;bottom:104px;transform:translateX(-50%);background:rgba(18,18,27,.96);border:1px solid " + C.iris + ";border-radius:11px;padding:10px 17px;font-size:13px;z-index:9;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap;max-width:90%;text-align:center;}",
       "@media (max-width:560px){.arm-panel h1{font-size:25px;}.arm-panel{padding:20px;}.arm-pad{width:62px;height:62px;}.arm-dial{width:72px;height:72px;}.arm-stats{min-width:150px;}.arm-key{width:52px;height:52px;}.arm-action{width:68px;height:68px;}}",

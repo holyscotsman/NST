@@ -152,6 +152,7 @@
       ".sx-exam-domrow .c{flex:0 0 52px;text-align:right;color:" + P.dim + ";font-variant-numeric:tabular-nums;}",
       ".sx-exam-review{text-align:left;max-height:280px;overflow-y:auto;margin:6px 0 18px;border-top:1px solid rgba(255,255,255,.1);}",
       ".sx-exam-rv{padding:12px 2px;border-bottom:1px solid rgba(255,255,255,.08);}",
+      ".sx-exam-rv-exhibit img{max-width:100%;max-height:32vh;border-radius:8px;margin:6px 0;display:block;}",
       ".sx-exam-rv .q{font-size:14px;font-weight:600;margin-bottom:7px;}",
       ".sx-exam-rv .a{font-size:12.5px;margin:3px 0;}",
       ".sx-exam-rv .a.ok{color:" + P.mantis + ";} .sx-exam-rv .a.bad{color:" + P.peach + ";}",
@@ -647,6 +648,11 @@
           var chosenArr = Array.isArray(r.chosen) ? r.chosen : (r.chosen == null ? [] : [r.chosen]);
           var item = el("div", "sx-exam-rv");
           var s = '<div class="q">' + esc(q.stem) + "</div>";
+          // (v0.91.0, review) the missed-question review must show the exhibit the question
+          // refers to — it rendered stem/answers/explanation with the image missing.
+          if (q.image && root.STARNIX_EXHIBITS && root.STARNIX_EXHIBITS[q.image]) {
+            s += '<div class="sx-exam-rv-exhibit"><img alt="Question exhibit" src="' + root.STARNIX_EXHIBITS[q.image] + '"></div>';
+          }
           var yourTxt = chosenArr.length ? chosenArr.map(function (i) { return esc(q.options[i]); }).join("; ") : "(no answer" + (S.mode === "blitz" ? " — timed out" : "") + ")";
           s += '<div class="a bad">Your answer: ' + yourTxt + "</div>";
           s += '<div class="a ok">Correct: ' + correctSet.map(function (i) { return esc(q.options[i]); }).join("; ") + "</div>";

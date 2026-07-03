@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.90.0";
+  var BUILD_VERSION = "0.91.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -1099,13 +1099,18 @@
    * Guaranteed keys (frozen contract): questions, mastery, persistence, rng,
    * audio, theme, telemetry. Also provided: ai (no-op seam), settings
    * (read-only, for a11y per 01 §12), sanitize (DOM-safety per 05). */
+  var mountSeq = 0;   // (v0.91.0) per-mount fork salt — see 01 v1.6 §9a.2
   StarNix.makeContext = function (gameId) {
     var c = StarNix.core;
     return {
       questions: c.questions,
       mastery: c.mastery,
       persistence: c.persistence,
-      rng: c.rng.fork("game:" + (gameId || "anon")),
+      // (v0.91.0, 01 v1.6 §9a.2) fork() derives from the rng's ORIGINAL seed, so the old
+      // static salt ("game:"+id) handed every remount an IDENTICAL stream — same questions,
+      // same order, same shuffled answer positions, every session in one loaded page. The
+      // mount sequence varies each fork while staying fully deterministic from the boot seed.
+      rng: c.rng.fork("game:" + (gameId || "anon") + ":" + (++mountSeq)),
       audio: c.audio,
       theme: c.theme,
       telemetry: c.telemetry,

@@ -1815,7 +1815,7 @@
       function isMulti(q) { return !!(q && Array.isArray(q.correctIndices) && q.correctIndices.length); }
       function showQuestion() {
         var q = sim.pending.question;
-        el.qStem.textContent = q.stem;
+        el.qStem.textContent = q.stem + (q.image ? ' \u26A0 [Exhibit question served in error \u2014 image only renders in Study/Exam]' : '');   // (v0.91.0) loud leak guard
         el.qOpts.textContent = '';
         overlayBtns.length = 0; multiSubmit = null; feedbackShown = false;
         updateQTimer();

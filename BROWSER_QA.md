@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-G4 — Question variety (added v0.91.0).** Without reloading the page: enter KBB, note the first
+  2-3 questions, exit to menu, re-enter — they must DIFFER now (they were identical before). Same for
+  ARM's "Fly again". ARM sectors 2+ should open with a visibly wider mix (not the same handful of easy
+  cards). In any exam, miss a picture question: the end-of-exam review must show the image.
+
 - **QA-G3 — Review-sweep verifications (added v0.90.0).** (a) Exam with misses → "Redrill the N
   missed" must actually OPEN a study session (it was landing on the menu). (b) KBB on a phone: the
   first-run tour must scroll each highlighted zone into view — Next/Skip always reachable. (c) With

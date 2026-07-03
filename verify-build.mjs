@@ -303,6 +303,10 @@ async function runFrames(n = 6) {
     ok("sector 2 draws fresh questions (no-reuse across sectors)", s2qids.length === 5 && s2qids.every(id => !s1qids.includes(id)));
     ok("difficulty ceiling never drops sector-to-sector", armT.bandCeil(0) >= s1ceil0);
     ok("difficulty ceiling rises across tiers (Hard > Medium > Easy)", armT.bandCeilAt(9, 0) > armT.bandCeilAt(5, 0) && armT.bandCeilAt(5, 0) > armT.bandCeilAt(1, 0));
+    // (v0.91.0) opener variety: sector 1 stays the gentle [1,1] intro; sector 2+ openers
+    // reach the d<=2 pool (the 18-card d1 pool was replaying the same few every session)
+    ok("sector-1 opener stays ceiling 1, sector-2+ openers reach ceiling 2",
+      armT.bandCeilAt(1, 0) === 1 && armT.bandCeilAt(2, 0) === 2 && armT.bandCeilAt(3, 0) === 2);
 
     // ---- Puzzle completion timer + breach penalty + the two new puzzle types ----
     const puzzles = armT.cores().filter(c => c.kind === "puzzle");
@@ -982,7 +986,7 @@ async function runFrames(n = 6) {
     let exitCalled = false;
     const pool = [
       { id: "e1", domain: "vms", difficulty: 1, stem: "Q1", options: ["w", "r", "x"], correctIndex: 1, explanation: "x1" },
-      { id: "e2", domain: "storage", difficulty: 1, stem: "Q2", options: ["r", "w", "x"], correctIndex: 0, explanation: "x2" }
+      { id: "e2", domain: "storage", difficulty: 1, stem: "Q2", options: ["r", "w", "x"], correctIndex: 0, explanation: "x2", image: "a1q1" }   // (v0.91.0) real inlined exhibit key
     ];
     let completed = null;
     const h = EX.run({ container: cont, questions: pool, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, bestPoints: 0, onComplete: (sum) => { completed = sum; }, onExit: () => { exitCalled = true; }, onRetry: () => {} });
@@ -1006,6 +1010,8 @@ async function runFrames(n = 6) {
     ok("exam shows the results screen after last question", !!cont.querySelector(".sx-exam-end"));
     ok("exam result is 50% (1 of 2 correct)", /50%/.test(cont.querySelector(".sx-exam-pct").textContent));
     ok("exam review lists exactly the 1 missed question", cont.querySelectorAll(".sx-exam-rv").length === 1);
+    ok("missed-question review renders the exhibit image (was stem/answers only)",
+      !!cont.querySelector(".sx-exam-rv-exhibit img") && /^data:image/.test(cont.querySelector(".sx-exam-rv-exhibit img").getAttribute("src") || ""));
     ok("exam onComplete fires with the summary on completion", !!completed && completed.pct === 50 && completed.total === 2 && completed.correct === 1);
 
     // L2 (v0.87.0): without an onRedrill callback the redrill action must not render
@@ -1145,6 +1151,14 @@ async function runFrames(n = 6) {
         SN.core.mastery.record(capQ.id, true, { game: "CC" });
         ok("due correct at MAX_BUCKET counts toward the promote mission (no unclaimable dailies)",
           SN.core.profile.daily.promotions === p0 + 1);
+      }
+      // (v0.91.0) per-MOUNT rng fork (01 v1.6 §9a.2): two contexts for the SAME game must
+      // draw different streams — the static salt replayed identical questions every remount
+      {
+        const rA = SN.makeContext("KBB").rng, rB = SN.makeContext("KBB").rng;
+        const seqA = [rA.int(1e9), rA.int(1e9), rA.int(1e9)], seqB = [rB.int(1e9), rB.int(1e9), rB.int(1e9)];
+        ok("remounting a game draws a DIFFERENT rng stream (01 v1.6 per-mount fork)",
+          JSON.stringify(seqA) !== JSON.stringify(seqB));
       }
       ok("expander labels use the real 120-word cap (no negative 'more words')",
         !html.includes("(wx.length - 150)") && (html.match(/\(wx\.length - 120\)/g) || []).length >= 2);

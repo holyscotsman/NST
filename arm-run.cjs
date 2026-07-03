@@ -241,6 +241,12 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   ok(/BOSS_FLOW = 920/.test(H.ARM_SRC) && /bt \* BOSS_FLOW \* depth/.test(H.ARM_SRC)
      && /bossActive\) drawBossRush\(\)/.test(H.ARM_SRC) && /three static faint shafts/.test(H.ARM_SRC),
      'boss arena rushes upward: BOSS_FLOW streaks behind the world, calm under reduced motion');
+  // (v0.91.0) variety: per-run forks vary replays; openers past sector 1 reach the d<=2 pool
+  ok((H.ARM_SRC.match(/arm-run-" \+ sector \+ ":" \+ \(runSeq\+\+\)/g) || []).length === 2
+     && /if \(s2 > 1\) d = Math\.max\(d, 2\)/.test(H.ARM_SRC),
+     'VARIETY: both run forks salt runSeq (fresh questions on Fly again/replays) + opener band floor 2 past sector 1');
+  ok(/arm-exhibit-warn/.test(H.ARM_SRC) && /q\.image\) panel\.appendChild/.test(H.ARM_SRC),
+     'GUARD: a leaked exhibit question fails loudly in ARM');
   // (v0.88.0, L3) ARM wrong-answer feedback carries the pick's authored rationale
   ok(/if \(wrongPick >= 0 && q\.optionNotes\[wrongPick\]\)/.test(H.ARM_SRC) && /arm-pick-note/.test(H.ARM_SRC),
      "L3: ARM renders the wrong pick's optionNote under the explanation");

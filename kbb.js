@@ -853,6 +853,7 @@
     css.push('@media (prefers-reduced-motion: reduce){.kbb-intent.alert{animation:none;box-shadow:0 0 12px 2px rgba(255,107,91,.6);}}');
     css.push('.kbb-main{grid-area:quest;min-width:0;min-height:0;overflow:auto;z-index:6;background:rgba(20,20,29,.72);border:1px solid ' + P.border + ';border-radius:12px;padding:13px 15px;}');
     css.push('.kbb-stem{font-size:15px;line-height:1.45;margin:2px 0 12px;font-weight:600;}');
+    css.push('.kbb-exhibit-warn{margin:0 0 10px;padding:6px 9px;border-left:2px solid ' + P.gold + ';background:rgba(255,200,87,.1);font-size:12px;color:' + P.gold + ';}');
     css.push('.kbb-opts{display:flex;flex-direction:column;gap:8px;}');
     css.push('.kbb-opt{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 13px;border-radius:10px;border:1.5px solid ' + P.iris + ';background:rgba(28,28,40,.5);color:' + P.text + ';font-family:inherit;font-size:14px;cursor:pointer;width:100%;transition:background .1s,transform .05s;}');
     css.push('.kbb-opt:hover:not(:disabled){background:rgba(120,85,250,.22);}');
@@ -1941,6 +1942,7 @@
       s.locked = false;
       var multi = isMultiQ(q); s.multiSel = []; s.submitEl = null;
       p.appendChild(el(s.doc, 'div', 'kbb-stem', q.stem));
+      if (q.image) p.appendChild(el(s.doc, 'div', 'kbb-exhibit-warn', '\u26A0 Exhibit question served in error \u2014 its image only renders in Study/Exam.'));   // (v0.91.0) loud leak guard
       var opts = s.doc.createElement('div'); opts.className = 'kbb-opts';
       for (var i = 0; i < q.options.length; i++) {
         (function (idx) {

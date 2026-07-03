@@ -101,7 +101,15 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.90.0 — Batch #4 review sweep (10 findings fixed; redrill was DEAD in prod)
+## v0.91.0 — Variety fix (real repetition bug) + exhibit hardening; spec 01 → v1.6
+
+fork() ignores consumed state + static salts = identical question streams every remount
+(and identical ANSWER ORDER). makeContext now per-mount (01 v1.6 §9a.2), ARM run forks
+salt runSeq, sector-2+ openers reach the d≤2 pool. Exhibits: confirmed games are provider-
+filtered (by design, gate-proven), exam review now shows the image, loud leak guards in
+all three games. verify 451, arm-run 70, kbb-run 44.
+
+> **Earlier this session (v0.90.0):** batch #4 review sweep
 
 Redrill fall-through to onExit fixed (+pin on the stub blindness); Leitner lastSeen no
 longer resets on non-due corrects; KBB multi-answer reveal integrity; phone tour scroll

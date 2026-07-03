@@ -325,6 +325,10 @@ function newWindow() {
     ok(false, 'JB3 banner probe unreached');
   }
 
+  // (v0.91.0) exhibit leak guard: KBB renders the loud warning if an image question leaks
+  ok(/kbb-exhibit-warn/.test(H.KBB_SRC) && /q\.image\) p\.appendChild/.test(H.KBB_SRC),
+     'GUARD: a leaked exhibit question fails loudly in KBB (source)');
+
   // (v0.88.0, L3) a wrong single-choice pick surfaces ITS authored optionNote
   if (toQuestion()) {
     var runN = KBB._test.state().run, qN = runN.battle.question;

@@ -115,6 +115,8 @@ function report(h, tag) {
      'feedback states the REAL cost: wrong answer = \u22122 shields (was mislabelled \u22121)');
   ok(/B trap: sounds right, is not/.test(fbNoteA),
      "L3: the wrong pick's authored optionNote shows in the feedback");
+  ok(/Exhibit question served in error/.test(fs.readFileSync(REPO + '/cc.js', 'utf8')),
+     'GUARD: a leaked exhibit question fails loudly in CC (source)');
   ok(cFeedback && !prematureOverC, 'killing timeout renders the feedback + See results FIRST (no soft-lock, no crash screen behind it)');
   ok(C.gameover === 'flex' && /SHIP DOWN/.test(C.title) && C.garage === 'block' && C.overlay === 'none',
      'killing timeout: See results lands on SHIP DOWN + Garage, overlay closed');
