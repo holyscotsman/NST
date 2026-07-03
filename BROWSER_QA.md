@@ -157,3 +157,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   gameplay, not decoration). WRONG: beam invisible/too dim, arrows confusable with the jump chevrons, or
   deaths that feel unreadable. Knobs: `cc.js SWEEP_FREQ` (0.30 rad/m pan rate), beam opacity 0.85, arrow
   slide `0.12`. Fairness is machine-proven (25/25); this is the readability/feel confirm.
+
+- **QA-M3 — Daily missions strip (added v0.57.0, browser-blind).** Menu: under the rank line, "Daily missions ·
+  <date>" with 3 compact rows (icon, name, one-line goal, n/target in aqua). CORRECT: legible, doesn't push
+  "Mission select" below the fold at laptop sizes; completed missions get a gold border + "Claim +N XP"
+  button; claiming flips the row to a dimmed ✓ state, pays XP (rank bar moves), and shows a gold toast.
+  Same strip appears on the Progress screen. Next calendar day: three NEW missions, unclaimed progress gone.
+  WRONG: rows overflowing/truncated badly on mobile widths, a claim that doesn't stick, or the same missions
+  two days running. Logic is gate-pinned (K6, 14 asserts); this is the fit/legibility confirm.

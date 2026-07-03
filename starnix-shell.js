@@ -393,10 +393,12 @@
       '<div class="sx-menu-bg" aria-hidden="true"></div>' +
       '<div class="sx-menu-head"><div class="sx-crest">' + NX_CREST + '<span>NX-SRC \u00B7 Nutanix Starlight Rescue Crew</span></div>' +
       '<div class="sx-rank"></div>' +
+      '<div class="sx-daily"></div>' +
       '<div class="sx-menu-top"></div>' +
       '<h2 class="sx-h2">Mission select</h2></div>' +
       '<div class="sx-cards"></div>';
     this._renderRank(s.querySelector(".sx-rank"));
+    this._renderDaily(s.querySelector(".sx-daily"));
     var photoEl = s.querySelector(".sx-menu-photo");
     var menuBg = global.STARNIX_ASSETS && global.STARNIX_ASSETS.menuBg;
     if (photoEl && menuBg) { photoEl.style.backgroundImage = 'url("' + menuBg + '")'; photoEl.classList.add("on"); }
@@ -463,6 +465,48 @@
       if (!rm) host.classList.add("sx-rank-up");           // pulse; reduced-motion stays static
       this._toast("✦ Promoted: " + r.name, "sx-toast-gold");
       try { core.audio.sfx("correct"); } catch (e2) {}
+    }
+  };
+
+  /* Daily-missions strip (v0.56.0 unit 6) — shared by the menu card and the Progress screen
+   * row. Three rows: icon + label + progress n/target; a gold Claim button when done and
+   * unclaimed (pays mission XP into the pool), a ✓ chip once claimed. Rebuilt per render. */
+  Shell.prototype._renderDaily = function (host) {
+    if (!host) return;
+    var self = this, core = StarNix.core, D = StarNix.daily;
+    var prof = core && core.profile;
+    if (!prof || !D) { host.style.display = "none"; return; }
+    D.ensure(prof);
+    host.appendChild(el("div", "sx-daily-head", "Daily missions · " + prof.daily.date));
+    for (var i = 0; i < prof.daily.missions.length; i++) {
+      (function (idx) {
+        var st = D.state(prof, idx);
+        if (!st) return;
+        var row = el("div", "sx-daily-row" + (st.claimed ? " claimed" : (st.done ? " done" : "")));
+        row.appendChild(el("span", "sx-daily-ic", st.icon));
+        var body = el("span", "sx-daily-body");
+        body.appendChild(el("span", "sx-daily-name", st.name));
+        body.appendChild(el("span", "sx-daily-desc", st.label));
+        row.appendChild(body);
+        row.appendChild(el("span", "sx-daily-prog", st.progress + " / " + st.target));
+        if (st.claimed) {
+          row.appendChild(el("span", "sx-daily-claimed", "✓ +" + st.xp + " XP"));
+        } else if (st.done) {
+          var btn = el("button", "sx-btn sx-daily-claim", "Claim +" + st.xp + " XP");
+          self._on(btn, "click", function () {
+            var got = D.claim(prof, idx);
+            if (got > 0) {
+              try { if (core.persistence && core.persistence.save) core.persistence.save(prof); } catch (e) {}
+              try { core.audio.sfx("correct"); } catch (e2) {}
+              // re-render FIRST (the rebuild wipes the stage), THEN toast so it survives
+              if (self.screen === "menu") self.showMenu(); else if (self.screen === "stats") self.showStats();
+              self._toast("✦ Mission complete: +" + got + " XP", "sx-toast-gold");
+            }
+          });
+          row.appendChild(btn);
+        }
+        host.appendChild(row);
+      })(i);
     }
   };
 
@@ -585,6 +629,14 @@
     }
     // (v0.53.0 unit 3) achievements see the freshly recorded history (sim-certified etc.).
     try { if (StarNix.achievements) StarNix.achievements.evaluate(StarNix.core.profile); } catch (eA) {}
+    // (v0.56.0 unit 6) daily missions: any completed exam ticks the Examiner counter.
+    try {
+      var pD = StarNix.core.profile;
+      if (StarNix.daily && pD && !sum.abandoned && sum.total) {
+        var dd = StarNix.daily.ensure(pD);
+        if (dd) { dd.exams = (dd.exams || 0) + 1; if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(pD); }
+      }
+    } catch (eD) {}
     if (sum.mode && sum.mode !== "blitz") return;   // bests are the Blitz speed leaderboard; Study/Sim don't compete on speed
     var core = StarNix.core;
     try {
@@ -739,6 +791,7 @@
       + '<div class="sx-ready"></div>'
       + '<div class="sx-stat-grid"></div>'
       + '<div class="sx-dom-head">Domain mastery heatmap</div><div class="sx-heatmap"></div>'
+      + '<div class="sx-dom-head">Daily missions</div><div class="sx-daily sx-daily-stats"></div>'
       + '<div class="sx-dom-head">Achievements <span class="sx-ach-count"></span></div><div class="sx-ach"></div>'
       + '<div class="sx-dom-head">By domain · weakest first</div><div class="sx-domain-list"></div>'
       + '<div class="sx-dom-head">Weakest questions</div><div class="sx-weak"></div>'
@@ -791,6 +844,9 @@
         box.appendChild(tile);
       }
     })(s.querySelector(".sx-heatmap"));
+
+    // ---- daily missions row (v0.56.0 unit 6): same strip the menu shows ----
+    this._renderDaily(s.querySelector(".sx-daily"));
 
     // ---- achievements panel (v0.53.0 unit 3): 12 tiles, locked dim / unlocked gold ----
     (function buildAch(box) {
@@ -1230,7 +1286,21 @@
       ".sx-ach-body{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;}",
       ".sx-ach-name{font-size:12px;font-weight:700;color:var(--text);}",
       ".sx-ach-desc{font-size:11px;color:var(--mid);line-height:1.25;}",
-      ".sx-ach-xp{font-size:11px;font-weight:700;color:var(--gold);flex:none;}"
+      ".sx-ach-xp{font-size:11px;font-weight:700;color:var(--gold);flex:none;}",
+      // Daily missions strip (v0.56.0 unit 6) — compact rows on the menu head + Progress screen.
+      ".sx-daily{display:flex;flex-direction:column;gap:5px;margin:2px auto 6px;max-width:520px;width:100%;text-align:left;}",
+      ".sx-daily-head{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);text-align:center;margin-bottom:1px;}",
+      ".sx-daily-row{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:5px 10px;background:rgba(10,10,18,.55);font-size:12px;}",
+      ".sx-daily-row.done{border-color:var(--gold);}",
+      ".sx-daily-row.claimed{opacity:.55;}",
+      ".sx-daily-ic{width:20px;text-align:center;flex:none;}",
+      ".sx-daily-body{display:flex;flex-direction:column;gap:0;min-width:0;flex:1;}",
+      ".sx-daily-name{font-weight:700;color:var(--text);font-size:12px;}",
+      ".sx-daily-desc{color:var(--mid);font-size:11px;line-height:1.25;}",
+      ".sx-daily-prog{color:var(--aqua);font-weight:700;font-size:12px;flex:none;}",
+      ".sx-daily-claim{padding:4px 10px;font-size:11px;border:1px solid var(--gold);color:var(--gold);background:transparent;border-radius:8px;cursor:pointer;flex:none;}",
+      ".sx-daily-claimed{color:var(--gold);font-weight:700;font-size:11px;flex:none;}",
+      ".sx-daily-stats{margin:4px 0 10px;max-width:none;}"
     ].join("");
     document.head.appendChild(st);
   };

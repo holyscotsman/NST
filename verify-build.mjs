@@ -1397,6 +1397,91 @@ async function runFrames(n = 6) {
     delete core.profile.examHistory;
   }
 
+  // K6. Daily missions (v0.56.0 unit 6)
+  console.log("\nK6. Daily missions (date-seeded / progress wiring / claim / rollover / DOM)");
+  {
+    const core = SN.core, D = SN.daily;
+    // achievements sentinel again — daily records here must not trigger surprise unlock XP
+    SN.achievements.LIST.forEach(d => { core.profile.achievements[d.id] = 1; });
+    ok("daily API exposed: 6 templates + gen/ensure/state/claim/dayKey", !!D && D.TEMPLATES.length === 6
+      && [D.gen, D.ensure, D.state, D.claim, D.dayKey].every(f => typeof f === "function"));
+    {
+      const a = JSON.stringify(D.gen("2026-07-03")), b = JSON.stringify(D.gen("2026-07-03")), c = JSON.stringify(D.gen("2026-07-04"));
+      const day = D.gen("2026-07-03");
+      ok("determinism: same date → identical missions; different date → different set", a === b && a !== c);
+      ok("a day rolls exactly 3 missions with distinct templates",
+        day.length === 3 && new Set(day.map(m => m.tpl)).size === 3 && day.every(m => m.target > 0 && m.xp > 0));
+    }
+    const realNow = core.clock.now;
+    core.clock.now = () => new Date("2026-07-03T12:00:00").getTime();
+    delete core.profile.daily;
+    core.profile.streaks = {};                                    // fresh streak run for the chain mission
+    const xp0 = core.profile.xp;
+    D.ensure(core.profile);
+    // pinned day: 2026-07-03 rolls [promote:5, sharp:10, chain:3] (asserted, so drift is loud)
+    ok("ensure: seeds today's state (date, xpStart, zeroed counters) with the pinned missions",
+      core.profile.daily.date === "2026-07-03" && core.profile.daily.xpStart === xp0
+      && core.profile.daily.missions.map(m => m.tpl + ":" + m.target).join(",") === "promote:5,sharp:10,chain:3");
+    // progress wiring: the mastery choke point feeds correct/byGame/bestStreak/promotions
+    const dq = core.questions.pool().slice(10, 14);
+    core.mastery.record(dq[0].id, true, { game: "CC" });
+    ok("one correct answer ticks correct/byGame/bestStreak/promotions",
+      core.profile.daily.correct === 1 && core.profile.daily.byGame.CC === 1
+      && core.profile.daily.bestStreak >= 1 && core.profile.daily.promotions === 1);
+    shell._recordExam({ mode: "study", pct: 50, correct: 15, total: 30 });
+    ok("a completed exam ticks the Examiner counter", core.profile.daily.exams === 1);
+    // chain mission (index 2, target 3): two more straight corrects complete it
+    core.mastery.record(dq[1].id, true, { game: "CC" });
+    core.mastery.record(dq[2].id, true, { game: "CC" });
+    const chain = D.state(core.profile, 2);
+    ok("chain mission completes at a 3-streak (progress capped at target)",
+      !!chain && chain.done && chain.progress === 3 && !chain.claimed);
+    ok("claim guard: an incomplete mission pays nothing", D.claim(core.profile, 1) === 0);
+    {
+      const before = core.profile.xp;
+      const got = D.claim(core.profile, 2);
+      ok("claiming a done mission pays its XP once (double-claim = 0)",
+        got === chain.xp && core.profile.xp === before + chain.xp && D.claim(core.profile, 2) === 0
+        && D.state(core.profile, 2).claimed);
+    }
+    // rollover: a new calendar day regenerates missions and resets counters
+    core.clock.now = () => new Date("2026-07-04T12:00:00").getTime();
+    core.mastery.record(dq[3].id, true, { game: "ARM" });
+    ok("date rollover regenerates the day (new date, counters restart from this answer)",
+      core.profile.daily.date === "2026-07-04" && core.profile.daily.correct === 1
+      && core.profile.daily.byGame.ARM === 1 && !core.profile.daily.missions[0].claimed);
+    // DOM: menu strip + claim flow + Progress-screen row
+    core.profile.daily.correct = 99; core.profile.daily.byGame = { ARM: 99, KBB: 99, CC: 99, EXAM: 99 };
+    core.profile.daily.bestStreak = 99; core.profile.daily.exams = 99; core.profile.daily.promotions = 99;
+    core.profile.xp = core.profile.daily.xpStart + 999;
+    shell.showMenu();
+    ok("menu: daily strip renders the dated head + 3 mission rows",
+      /2026-07-04/.test((w.document.querySelector(".sx-daily-head") || {}).textContent || "")
+      && w.document.querySelectorAll(".sx-daily-row").length === 3);
+    {
+      const claims = w.document.querySelectorAll(".sx-daily-claim");
+      ok("menu: every completed unclaimed mission offers a Claim button", claims.length === 3);
+      const xpB = core.profile.xp;
+      claims[0].click();
+      ok("claim click: pays XP, flips the row, survives the re-render, toasts gold",
+        core.profile.xp > xpB && w.document.querySelectorAll(".sx-daily-claimed").length === 1
+        && w.document.querySelectorAll(".sx-daily-claim").length === 2
+        && !!w.document.querySelector(".sx-toast-gold"));
+      const t = w.document.querySelector(".sx-toast-gold"); if (t && t.parentNode) t.parentNode.removeChild(t);
+    }
+    shell.showStats();
+    ok("Progress screen: the same daily strip renders as a row section",
+      w.document.querySelectorAll(".sx-daily-stats .sx-daily-row").length === 3);
+    shell.showMenu();
+    // hygiene
+    core.clock.now = realNow;
+    delete core.profile.daily;
+    dq.forEach(q => { delete core.profile.mastery[q.id]; });
+    core.profile.achievements = {}; core.profile.streaks = {}; core.profile.streaksBest = {};
+    core.profile.xp = 0; core.profile.rankSeen = 0;
+    shell.showMenu();
+  }
+
   SN.core.audio = realAudio;
 
   console.log("\nTotal frame errors across all games: " + frameErrors.length);

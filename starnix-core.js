@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.56.0";
+  var BUILD_VERSION = "0.57.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -212,6 +212,14 @@
         var sb = profile.streaksBest || (profile.streaksBest = {});
         sk[g] = correct ? (sk[g] || 0) + 1 : 0;
         if ((sk[g] || 0) > (sb[g] || 0)) sb[g] = sk[g];
+        // Daily missions (v0.56.0 unit 6): per-day counters off the same choke point.
+        var dd = ensureDaily(profile);
+        if (dd && correct) {
+          dd.correct++;
+          dd.byGame[g] = (dd.byGame[g] || 0) + 1;
+          if (m.bucket > prevBucket) dd.promotions++;
+          if (sk[g] > dd.bestStreak) dd.bestStreak = sk[g];
+        }
         evaluateAchievements(profile);
         onChange();
         return m;
@@ -356,6 +364,84 @@
     }
     if (newly.length && achOnUnlock) { try { achOnUnlock(newly.slice()); } catch (e3) {} }
     return newly;
+  }
+
+  /* =================================================================== *
+   * 4d. Daily missions — 3/day, date-seeded (v0.56.0 unit 6)
+   * Generation is a PURE function of the calendar date (makeRng("daily:"+date)
+   * — NOT ctx.rng.fork, which is boot-seeded and can't reproduce across boots;
+   * the determinism pin requires date-only dependence, deviation logged).
+   * Progress feeds from the SAME existing seams as XP/achievements: the
+   * mastery.record choke point, _recordExam, and the XP pool itself.
+   * Claiming pays mission XP into the unit-2 pool. State on profile.daily.
+   * =================================================================== */
+  var DAILY_TEMPLATES = [
+    { id: "sharp",   icon: "🎯", name: "Sharpshooter",  xp: 40, targets: [10, 15, 20],
+      desc: function (t) { return "Answer " + t + " questions correctly today."; },
+      progress: function (d) { return d.correct || 0; } },
+    { id: "spec",    icon: "🛰", name: "Specialist",    xp: 40, targets: [5, 8], games: ["ARM", "KBB", "CC", "EXAM"],
+      desc: function (t, g) { return "Answer " + t + " correctly in " + (g === "EXAM" ? "the practice exam" : g) + " today."; },
+      progress: function (d, m) { return (d.byGame && d.byGame[m.game]) || 0; } },
+    { id: "chain",   icon: "🔗", name: "Chain reaction", xp: 50, targets: [3, 5, 7],
+      desc: function (t) { return "Hit a streak of " + t + " correct answers today."; },
+      progress: function (d) { return d.bestStreak || 0; } },
+    { id: "exam",    icon: "🎓", name: "Examiner",      xp: 60, targets: [1],
+      desc: function () { return "Complete an exam in any mode today."; },
+      progress: function (d) { return d.exams || 0; } },
+    { id: "collect", icon: "✦",  name: "Collector",     xp: 50, targets: [60, 100, 150],
+      desc: function (t) { return "Earn " + t + " XP today."; },
+      progress: function (d, m, profile) { return Math.max(0, ((profile && profile.xp) || 0) - (d.xpStart || 0)); } },
+    { id: "promote", icon: "📈", name: "Drill sergeant", xp: 60, targets: [3, 5],
+      desc: function (t) { return "Promote " + t + " questions up the mastery ladder today."; },
+      progress: function (d) { return d.promotions || 0; } }
+  ];
+  function dayKey(ts) {
+    var d = new Date(ts != null ? ts : clock.now());
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+  }
+  // Pure: date string -> the day's 3 missions (template id, target, per-template params).
+  function genDaily(dateStr) {
+    var rng = makeRng("daily:" + String(dateStr));
+    var pool = DAILY_TEMPLATES.slice(), out = [];
+    for (var i = 0; i < 3 && pool.length; i++) {
+      var tpl = pool.splice(rng.int(pool.length), 1)[0];
+      var target = tpl.targets[rng.int(tpl.targets.length)];
+      var m = { tpl: tpl.id, target: target, xp: tpl.xp, claimed: false };
+      if (tpl.games) m.game = tpl.games[rng.int(tpl.games.length)];
+      out.push(m);
+    }
+    return out;
+  }
+  // Regenerate profile.daily when the calendar day changes (unclaimed progress expires — daily).
+  function ensureDaily(profile, dateStr) {
+    if (!profile) return null;
+    var key = dateStr || dayKey();
+    if (!profile.daily || profile.daily.date !== key) {
+      profile.daily = {
+        date: key, missions: genDaily(key),
+        correct: 0, byGame: {}, bestStreak: 0, exams: 0, promotions: 0,
+        xpStart: (typeof profile.xp === "number" && profile.xp >= 0) ? profile.xp : 0
+      };
+    }
+    return profile.daily;
+  }
+  function dailyMissionState(profile, i) {
+    var d = profile && profile.daily; if (!d || !d.missions[i]) return null;
+    var m = d.missions[i], tpl = null;
+    for (var t = 0; t < DAILY_TEMPLATES.length; t++) if (DAILY_TEMPLATES[t].id === m.tpl) tpl = DAILY_TEMPLATES[t];
+    if (!tpl) return null;
+    var prog = Math.min(m.target, tpl.progress(d, m, profile));
+    return { index: i, tpl: tpl, mission: m, progress: prog, target: m.target,
+      done: prog >= m.target, claimed: !!m.claimed,
+      label: tpl.desc(m.target, m.game), icon: tpl.icon, name: tpl.name, xp: m.xp };
+  }
+  function claimDaily(profile, i) {
+    var st = dailyMissionState(profile, i);
+    if (!st || !st.done || st.claimed) return 0;
+    profile.daily.missions[i].claimed = true;
+    addXP(profile, st.xp);
+    return st.xp;
   }
 
   /* =================================================================== *
@@ -955,6 +1041,17 @@
     LIST: ACH_LIST,
     evaluate: evaluateAchievements,
     onUnlock: function (fn) { achOnUnlock = (typeof fn === "function") ? fn : null; }
+  };
+
+  /* Daily-missions surface (v0.56.0 unit 6) — pure generation + profile-bound state.
+   * TEMPLATES is renderer data; gen(date) is the determinism seam the gate pins. */
+  StarNix.daily = {
+    TEMPLATES: DAILY_TEMPLATES,
+    dayKey: dayKey,
+    gen: genDaily,
+    ensure: ensureDaily,
+    state: dailyMissionState,
+    claim: claimDaily
   };
 
   /* ---- test/integration hooks (not part of the game-facing contract) - */

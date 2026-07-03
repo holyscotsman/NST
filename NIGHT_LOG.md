@@ -186,3 +186,38 @@ re-green 25/25.
 **Punted:** none functional. Beam visuals/pan-rate feel are QA-C9 (eyes).
 
 Commit: `v0.56.0 — CC sweeper hazard`.
+
+---
+
+## v0.57.0 — Unit 6: Daily missions (3/day, date-seeded)
+
+**Shipped:** six templates (Sharpshooter / Specialist / Chain reaction / Examiner / Collector /
+Drill sergeant), three per calendar day drawn without replacement + rng-drawn targets.
+- **Deviation (logged, deliberate):** the unit said "deterministic via `ctx.rng.fork(dateString)`"
+  — but ctx.rng is boot-seeded from `clock.now()` (initCore), so a fork of it produces
+  DIFFERENT missions every boot. The determinism pin ("same date → same missions") requires
+  date-only dependence, so generation uses `makeRng("daily:"+date)` instead. Letter broken,
+  intent kept.
+- Progress rides existing seams only: the mastery.record choke point (correct / per-game /
+  best-streak / promotions counters on `profile.daily`), `_recordExam` (Examiner), and
+  Collector = `profile.xp − daily.xpStart` (needs no counter at all).
+- Rollover: local calendar day via the injectable core `clock` (tests override it); a new day
+  regenerates missions, unclaimed progress expires.
+- Claims: one-shot, pay pinned XP into the unit-2 pool.
+- Shell: menu strip (dated head + 3 rows + gold Claim / ✓ claimed) + the same strip on the
+  Progress screen. **Smoke caught a real bug:** claiming re-rendered the screen, which wiped
+  the stage INCLUDING the just-shown toast — reordered to re-render first, toast after.
+
+**Assertion delta:** verify-build 378 → **392** (+14, K6): gen determinism + distinct
+templates, pinned 2026-07-03 roll (drift is loud), ensure seeding, choke-point wiring incl.
+promotions, Examiner tick, chain completion capped at target, claim-before-done guard,
+one-shot claim, rollover regen, menu DOM, live claim-click (XP + row flip + toast survives
+re-render), Progress rows. Full gate ALL GREEN, exit 0.
+
+**Negative control:** removed the claim latch (the infinite-XP hazard) → exactly the 2 claim
+pins failed (390/392). Restored, re-green 392/392.
+
+**Punted:** a "time until reset" countdown on the strip (needs a live ticker — trivial but
+pure cosmetics); mission variety beyond 6 templates.
+
+Commit: `v0.57.0 — Daily missions`.
