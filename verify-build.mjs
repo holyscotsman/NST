@@ -1046,6 +1046,17 @@ async function runFrames(n = 6) {
     // shell chooser: setup screen -> launches the exam at the chosen length, leaves clean
     shell.showExamSetup();
     ok("exam setup screen renders length options", shell.screen === "exam-setup" && w.document.querySelectorAll(".sx-exam-len").length >= 1);
+    // G1 (v0.92.0): the exhibit drill — one tap onto exactly the image questions
+    {
+      const exTile = w.document.querySelector(".sx-exam-len-exhibit");
+      const nImg = SN.core.questions.pool().filter(q => !!q.image).length;
+      ok("exam setup offers the Exhibits drill (" + nImg + " image questions)", !!exTile && new RegExp(nImg + " screenshot").test(exTile.textContent));
+      exTile.click();
+      ok("Exhibits drill launches Study on ONLY image questions",
+        shell.screen === "exam" && shell._exam._state.order.length === nImg
+        && shell._exam._state.order.every(q => !!q.image));
+      shell.showExamSetup();
+    }
     const realPool = SN.core.questions.pool().length;
     const lenBtns = w.document.querySelectorAll(".sx-exam-len");
     lenBtns[0].click();   // Quick (20) is first when the pool exceeds 20

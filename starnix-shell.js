@@ -570,6 +570,17 @@
     if (total > 20) lenBtn("Quick", "20 questions \u00b7 a fast confidence check", 20);
     if (total > 75) lenBtn("Standard", "75 questions \u00b7 the real exam's length (120 min at sim pace)", 75);   // (v0.84.0, B1) was 65 — the real NCP-MCI is 75 q
     lenBtn("Full bank", total + " questions \u00b7 everything that's live", total);
+    // (v0.92.0, G1) exhibits are deliberately exam-only (games can't render images) — but
+    // that made them invisible to a games-first player. One tap serves exactly those.
+    try {
+      var imgQs = core.questions.pool().filter(function (q) { return !!q.image; });
+      if (imgQs.length) {
+        var ib = el("button", "sx-exam-len sx-exam-len-exhibit");
+        ib.innerHTML = '<span class="t">\ud83d\uddbc Exhibits</span><span class="s">' + imgQs.length + ' screenshot questions \u00b7 they only appear in exam modes \u2014 practice reading the screens</span>';
+        this._on(ib, "click", function () { self.showExam(null, { questions: imgQs, mode: "study" }); });
+        lens.appendChild(ib);
+      }
+    } catch (eI) {}
     var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
     this._on(back, "click", function () { self.showMenu(); });
     s.querySelector(".sx-row").appendChild(back);

@@ -698,6 +698,55 @@ Commit: `v0.76.0 — Boss revamp: lock-on read, living dreadnought, deeper bed`.
 
 ---
 
+## 🎮 BATCH #5 (2026-07-03) — Jason's full-campaign list (ARM/CC/KBB/global)
+
+**ARM**: (A1) remove Consumables. (A2) Fire Rate upgrades add slight bullet spread + ~0.1%
+aim assist toward enemies. (A3) hidden one-time achievement: destroy ALL asteroids in a
+round. (A4) boss briefing: Vega announces a DREADNOUGHT, gives how-to-defeat info, still
+covers the cores. (A5) Vega teach flow: explain FIRST, answer at the END (never lead with
+the answer). (A6) economy rework: 2 regular sectors then a dreadnought; upgrades 4→8 tiers
+per item at 50% effect each (capacitor exempt); prices such that ~1-2 upgrades affordable
+per sector. (A7) Simon Says max lengths: easy 5 / medium 6 / hard 8. (A8) Shield Cell
+upgrade = shield RECHARGE TIME, not +25 shields. (A9) Fire Charge meter: full = ready to
+fire, empty = not ready. (A10) boss fight +challenge: seeking missiles (slower, larger,
+shootable or dodgeable) + TWO laser types (single vertical beam to avoid; full-screen
+blast with ONE safe zone to stand in).
+
+**CC**: (C1) chevrons must read as real up/down arrows. (C2) the sweeper needs a readable
+visual identity (Jason: "no idea what that thing is"). (C3) background/side cinematics
+during flight. (C4) 90° turn every 250 km — must be in the matching lane; center-screen
+"Move Right/Left" warning. (C5) intro-cutscene mountains cross the chasm — fix, push to
+distance, better texture. (C6) coins must never clip obstacles: dodge into free lanes,
+arc over rocks, never through walls. (C7) Boost rework: obvious Boost Mode (haze + text +
+no control), 2× duration, auto-center lane, no obstacles during + 5 s after except side
+walls (never center). (C8) mountains procedurally generated and actually passed. (C9)
+two-lane squeeze stretches (1-2 km, wall closes from left or right, no new wall obstacles,
+jumps ok, NO ducks). (C10) double-tap left/right = barrel roll into that lane. (C11)
+Garage shows owned/equipped items on the next run. (C12) coin value = 1, higher prices,
+balance the economy.
+
+**KBB**: (K1) How-To box/text bigger. (K2) How-To blocks answering — must click Next.
+(K3) remove Purge. (K4) artifact rarity curve: round 1 = 64/30/5/1 C/U/R/L, shifting
+rarer as the run deepens. (K5) battle choreography: heroes fly in from left, enemy from
+right at battle start; heroes fly off right on victory. (K6) enemy attack = giant charged
+laser (2-3 s, SFX + impact particles); hero attack 1-2 s volley; SFX for shots, damage,
+ship-destroyed, round start. (K7) battle canvas is BLURRY — fix. (K8) enemy stats panel
+says DESTROYED after death (not Incoming/Charging). (K9) no timer in KBB, remove
+timer-related artifacts. (K10) longer rounds: higher enemy HP (≥2 questions round 1),
+lower starting HP/shield; shop consumable +1 to HP/Shield/Block/Attack, one purchase per
+shop per round. (K11) lower repair/shield answer values to match the smaller pools.
+
+**Global**: (G1) exhibits still unseen by Jason — surface them (exhibit drill / visibility
+in exam setup) + explain. (G2) SAVE/RESUME per game: Resume or New Game on entry. (G3)
+intro cinematic cooler/more 3D + better SFX. (G4) closing full bug scan + optimization +
+improvement-plan workflow.
+
+Order: ARM units first (A1/A7/A8/A9 → A2/A3 → A4/A5 → A6 → A10), then KBB (K1/K2/K3/K7/
+K8/K9 → K4/K10/K11 → K5/K6), then CC (C1/C2/C12/C11 → C6/C9 → C7 → C10/C4 → C5/C8/C3),
+then G1, G2, G3, G4. One gated unit per version, full DoD each.
+
+---
+
 ## 🎮 BATCH #4 (approved 2026-07-03) — five broken things + the learning loop
 
 From the six-lens improvement audit (workflow w6sr0zd0a). Queue, one gated unit each:

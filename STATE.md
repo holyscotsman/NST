@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.91.0 — Variety fix (real repetition bug) + exhibit hardening; spec 01 → v1.6
+## v0.92.0 — BATCH #5 begins: Exhibits drill (G1)
+
+Exam setup gains the 🖼 Exhibits tile (27 screenshot questions, Study-mode drill).
+Batch #5 queue is in NIGHT_LOG (A1-A10, C1-C12, K1-K11, G2-G4); ARM units next once
+the site-map workflow lands.
+
+> **Earlier this session (v0.91.0):** variety fix + exhibit hardening
 
 fork() ignores consumed state + static salts = identical question streams every remount
 (and identical ANSWER ORDER). makeContext now per-mount (01 v1.6 §9a.2), ARM run forks
