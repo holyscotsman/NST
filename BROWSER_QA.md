@@ -188,3 +188,9 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   pips; plating's free first hit reads via the flash-without-pip-loss. WRONG: cells inside a gate's clear
   zone, a buy that doesn't stick, or the panel overflowing at mobile widths. Engine/economy math is
   gate-pinned (cc-run 38/38); this is the look/feel/price-sanity confirm.
+
+- **QA-E7 — NIT nebula backdrop (added v0.74.0, browser-blind).** Open any exam mode: the title screen's
+  purple/teal nebula now sits behind the drifting starfield, darkened toward the center. CORRECT: cards and
+  option text stay fully readable (the gradient does the work), the nebula reads at the edges, no banding
+  on your display, and the Blitz meter/combo chip still pop. WRONG: text contrast suffering anywhere, or
+  the photo overpowering the exam. Knob: the two gradient stops in `exam.js` (0.62 / 0.82).

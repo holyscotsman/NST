@@ -1187,6 +1187,16 @@ async function runFrames(n = 6) {
         && capLong.det.querySelector("div").textContent.trim().split(/\s+/).length === 50);
       const capShort = runCap("short and sweet");
       ok("J8: short explanations render whole — no expander", !capShort.det && /short and sweet/.test(capShort.text));
+      // (v0.74.0) the NIT wears the title nebula behind its starfield (Jason's ask)
+      {
+        const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
+        const h = EX.run({ container: cont, mode: "study", questions: [{ id: "bg1", domain: "vms", difficulty: 1, stem: "B", options: ["a", "b", "c"], correctIndex: 0, explanation: "e" }], rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
+        const bg = (cont.querySelector(".sx-exam").style.backgroundImage || "");
+        ok("NIT background = darkened title nebula + cover sizing (starfield floats above)",
+          bg.indexOf("linear-gradient") === 0 && bg.includes("url(")
+          && cont.querySelector(".sx-exam").style.backgroundSize === "cover");
+        h.teardown(); cont.remove();
+      }
       ok("J8: the same cap ships in ARM/KBB/CC feedback + J7 Vega comms (source pins)",
         html.includes("arm-explain-more") && html.includes("kbb-fb-more") && html.includes("cc-fb-more")
         && html.includes("Vega never exceeds 150 words"));

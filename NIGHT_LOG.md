@@ -675,6 +675,11 @@ J4 duck power-dive ✔ (v0.72) · J5 2-min rotation ✔ (v0.70) · J6 KBB blanks
 J7 Vega cap ✔ (v0.71) · J8 explanation caps ✔ (v0.71) · J9 the Garage ✔ (v0.73).
 Eyes/ears owed: QA-C5 duck feel, QA-C10 Garage, rotation in-ear, the calmer ARM camera.
 
+**POST-BATCH (v0.74.0):** Jason's follow-up — the NIT now wears the title nebula behind its
+starfield (alpha canvas made it a 10-line change + gradient for readability). Pin +1
+(422/422); negctrl clean; shot `65-nit-nebula-bg.png`. QA-E7 = his readability confirm.
+Commit: `v0.74.0 — NIT nebula backdrop`.
+
 ---
 
 ## 🛑 STOP — end of the night run (after P2·5) — superseded by ▶️ RUN RESUMED above

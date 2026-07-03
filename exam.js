@@ -255,6 +255,17 @@
 
     container.textContent = "";
     var rootEl = el("div", "sx-exam");
+    // (v0.74.0, Jason's ask) the title screen's nebula backs the whole NIT — the alpha-true
+    // starfield canvas floats over it; a darkening gradient keeps the text-heavy cards
+    // readable. Missing asset -> the flat PALETTE.bg fallback (unchanged behavior).
+    try {
+      var nebBg = (typeof window !== "undefined") && window.STARNIX_ASSETS && window.STARNIX_ASSETS.nebulaBg;
+      if (nebBg) {
+        rootEl.style.backgroundImage = 'linear-gradient(rgba(7,7,16,.62), rgba(7,7,16,.82)), url("' + nebBg + '")';
+        rootEl.style.backgroundSize = "cover";
+        rootEl.style.backgroundPosition = "center";
+      }
+    } catch (eBg) {}
     // (v0.50.0) exhibit lightbox: click any exhibit image to enlarge; click the overlay to close.
     // Delegated on rootEl so it survives every innerHTML rebuild and dies with the screen.
     rootEl.addEventListener("click", function (ev) {
