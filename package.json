@@ -1,0 +1,17 @@
+{
+  "name": "wwtbane",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Who Wants to be a Nutanix Engineer? — a game-show quiz for the Nutanix NCP-MCI exam.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "serve": "python3 -m http.server 8080",
+    "smoke": "node tests/smoke.mjs",
+    "e2e": "node tests/e2e.mjs"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "playwright-core": "^1.61.1"
+  }
+}
