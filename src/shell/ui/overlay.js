@@ -1,10 +1,12 @@
-// overlay.js — the DOM quiz overlay (question, options, lifeline panels,
-// feedback). Rendered on top of the GL canvas; the quiz is always DOM so screen
-// readers and keyboard/touch users get a first-class experience (CLAUDE.md §6).
+// overlay.js — the DOM quiz overlay (question card, options, lifeline panels,
+// feedback), Game A design. Rendered over the studio backdrop; the quiz is
+// always real DOM so screen readers and keyboard/touch users get a first-class
+// experience. Choreography per docs/DESIGN_BRIEF.md §5:
+//   entrance stagger → aqua selection → GOLD lock-in suspense (≤2 breaths)
+//   → reveal (mantis stamp / peach shake, correct lights 200ms later).
 
 import { h, clear } from './dom.js';
 import { letter } from '../../core/lifelines.js';
-import { DOMAINS } from '../../core/config.js';
 
 const DOMAIN_LABEL = {
   prism: 'Prism', storage: 'Storage', dataprotection: 'Data protection', ahv: 'AHV',
@@ -13,6 +15,9 @@ const DOMAIN_LABEL = {
   performance: 'Performance', foundation: 'Foundation',
 };
 const TIER_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', extreme: 'Final' };
+const SUSPENSE_MS = 1700; // two 0.9s gold breaths, reveal lands on the second
+
+function reduced() { return document.body.classList.contains('reduced-motion'); }
 
 export class QuizScreen {
   constructor(handlers = {}) {
@@ -21,24 +26,28 @@ export class QuizScreen {
     this.locked = false;
     this.removed = new Set();
     this.el = h('section', { class: 'quiz-screen', 'aria-label': 'Quiz' });
+    this._timers = [];
   }
 
   mount(root, hudEl) {
-    clear(root); // replace whatever screen was showing (title/green room), don't stack on it
+    clear(root); // replace whatever screen was showing (title/green room)
     clear(this.el);
     this.el.append(hudEl);
-    this.card = h('div', { class: 'q-card' });
-    this.el.append(this.card);
+    this.cardWrap = h('div', { class: 'q-card-wrap' });
+    this.el.append(this.cardWrap);
     root.append(this.el);
   }
 
+  _after(ms, fn) { const id = setTimeout(fn, reduced() ? 0 : ms); this._timers.push(id); return id; }
+  _clearTimers() { this._timers.forEach(clearTimeout); this._timers = []; if (this._typeIv) clearInterval(this._typeIv); }
+
   showQuestion(current, snapshot) {
+    this._clearTimers();
     this.selected.clear();
     this.removed.clear();
     this.locked = false;
     const q = current.q;
     this.current = current;
-    clear(this.card);
 
     const multi = q.type === 'multi';
     const banner = current.isFinal
@@ -46,6 +55,8 @@ export class QuizScreen {
           ? "The final question — nobody's meant to get this one."
           : 'The final question for the top prize')
       : null;
+
+    this.lifelinePanel = h('div', { class: 'lifeline-panel', 'aria-live': 'polite' });
 
     this.optionsEl = h('ul', { class: 'options', role: multi ? 'group' : 'radiogroup', 'aria-label': 'Answer options' });
     q.options.forEach((opt, i) => {
@@ -61,25 +72,26 @@ export class QuizScreen {
       this.optionsEl.append(h('li', {}, btn));
     });
 
-    this.lifelinePanel = h('div', { class: 'lifeline-panel', 'aria-live': 'polite' });
-
     this.lockBtn = h('button', {
       class: 'lock-btn', type: 'button', disabled: true,
       onclick: () => this.lock(),
     }, multi ? 'Lock in these answers' : 'Final answer');
 
-    this.card.append(
+    // rebuild the card each question so the entrance choreography re-runs
+    this.card = h('div', { class: 'q-card' },
       banner,
       h('div', { class: 'q-meta' },
-        h('span', { class: `chip tier-${current.tier}` }, `Q${current.number} · ${TIER_LABEL[current.tier]}`),
+        h('span', { class: `chip tier tier-${current.tier}` }, `Q${current.number} · ${TIER_LABEL[current.tier]}`),
         h('span', { class: 'chip domain' }, DOMAIN_LABEL[q.domain] || q.domain),
         multi ? h('span', { class: 'chip multi' }, 'Select all that apply') : null,
       ),
-      h('h2', { class: 'stem' }, q.stem),
       this.lifelinePanel,
+      h('h2', { class: 'stem' }, q.stem),
       this.optionsEl,
-      this.lockBtn,
+      h('div', { class: 'lock-row' }, this.lockBtn),
     );
+    clear(this.cardWrap);
+    this.cardWrap.append(this.card);
   }
 
   pick(i) {
@@ -95,10 +107,12 @@ export class QuizScreen {
   }
 
   _refreshSelection() {
-    [...this.optionsEl.children].forEach((li) => {
-      const btn = li.firstChild;
+    [...this.optionsEl.querySelectorAll('.option')].forEach((btn) => {
       const i = Number(btn.dataset.i);
       const on = this.selected.has(i);
+      if (on && !btn.classList.contains('selected')) {
+        btn.classList.remove('selected'); void btn.offsetWidth; // restart the pulse
+      }
       btn.classList.toggle('selected', on);
       btn.setAttribute('aria-checked', on ? 'true' : 'false');
     });
@@ -117,47 +131,111 @@ export class QuizScreen {
     } else if (type === 'audience') {
       clear(this.lifelinePanel);
       const max = Math.max(...payload.bars.map((b) => b.percent));
-      const chart = h('div', { class: 'audience', 'aria-label': 'Audience poll results' },
-        h('div', { class: 'll-title' }, '👥 Ask the audience'),
-        ...payload.bars.map((b) => h('div', { class: 'aud-row' },
+      const rows = payload.bars.map((b, i) => {
+        const fill = h('span', { class: 'aud-bar' + (b.percent === max ? ' top' : '') });
+        fill.style.transitionDelay = (i * 0.08) + 's';
+        const pct = h('span', { class: 'aud-pct' + (b.percent === max ? ' top' : '') }, '0%');
+        return { b, fill, pct, row: h('div', { class: 'aud-row' },
           h('span', { class: 'aud-letter' }, letter(b.index)),
-          h('div', { class: 'aud-bar-wrap' },
-            h('div', { class: 'aud-bar' + (b.percent === max ? ' top' : ''), style: { width: b.percent + '%' } })),
-          h('span', { class: 'aud-pct' }, b.percent + '%'),
-        )),
-      );
-      this.lifelinePanel.append(chart);
+          h('span', { class: 'aud-bar-wrap' }, fill),
+          pct) };
+      });
+      this.lifelinePanel.append(h('div', { class: 'audience', 'aria-label': 'Audience poll results' },
+        h('div', { class: 'll-title' }, '👥 ask the audience'),
+        ...rows.map((r) => r.row)));
+      // bars grow via transition (staggered); percentages count up alongside
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        for (const r of rows) r.fill.style.width = r.b.percent + '%';
+      }));
+      if (reduced()) {
+        for (const r of rows) r.pct.textContent = r.b.percent + '%';
+      } else {
+        const t0 = performance.now(), dur = 1600;
+        const step = (t) => {
+          const k = Math.min(1, (t - t0) / dur);
+          const e = 1 - Math.pow(1 - k, 3);
+          for (const r of rows) r.pct.textContent = Math.round(r.b.percent * e) + '%';
+          if (k < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
     } else if (type === 'phone') {
       clear(this.lifelinePanel);
+      const caret = h('span', { class: 'phone-caret', 'aria-hidden': 'true' });
+      const typed = h('span', {}, '');
       this.lifelinePanel.append(h('div', { class: 'phone' },
-        h('div', { class: 'll-title' }, '📞 Phone a friend'),
-        h('p', { class: 'phone-text' }, `"${payload.text}"`),
-      ));
+        h('div', { class: 'll-title' }, '📞 phone a friend'),
+        h('p', { class: 'phone-text' }, '“', typed, caret, '”')));
+      const text = payload.text;
+      if (reduced()) {
+        typed.textContent = text;
+        caret.remove();
+      } else {
+        let n = 0;
+        this._typeIv = setInterval(() => {
+          n += 1;
+          typed.textContent = text.slice(0, n);
+          if (n >= text.length) { clearInterval(this._typeIv); caret.remove(); }
+        }, 33);
+      }
     }
   }
 
+  // The suspense beat: gold lock-in, everything else dims, then the answer is
+  // actually submitted after two breaths (instantly under reduced motion).
   lock() {
     if (this.locked || this.selected.size === 0) return;
     this.locked = true;
     this.lockBtn.disabled = true;
+    if (this.handlers.onLockSound) this.handlers.onLockSound();
+
+    [...this.optionsEl.querySelectorAll('.option')].forEach((btn) => {
+      const i = Number(btn.dataset.i);
+      btn.disabled = true;
+      if (this.selected.has(i)) {
+        btn.classList.remove('selected');
+        btn.classList.add('locked-in');
+        if (!reduced()) btn.append(h('span', { class: 'lock-glow', 'aria-hidden': 'true' }));
+      } else if (!this.removed.has(i)) {
+        btn.classList.add('dimmed');
+      }
+    });
+
     const indices = [...this.selected];
-    if (this.handlers.onAnswer) this.handlers.onAnswer(indices);
+    this._after(SUSPENSE_MS, () => {
+      if (this.handlers.onAnswer) this.handlers.onAnswer(indices);
+    });
   }
 
   showFeedback(result) {
     const correctSet = new Set(result.correctAnswer);
-    [...this.optionsEl.children].forEach((li) => {
-      const btn = li.firstChild;
+    const wrong = result.correct === false;
+    if (wrong) this.card.classList.add('desat');
+
+    [...this.optionsEl.querySelectorAll('.option')].forEach((btn) => {
       const i = Number(btn.dataset.i);
       btn.disabled = true;
+      btn.classList.remove('dimmed');
+      const glow = btn.querySelector('.lock-glow');
+      if (glow) glow.remove();
       const isCorrect = correctSet.has(i);
       const wasChosen = result.selected.includes(i);
-      if (isCorrect) { btn.classList.add('is-correct'); btn.querySelector('.opt-mark').textContent = '✓'; }
-      if (wasChosen && !isCorrect) { btn.classList.add('is-wrong'); btn.querySelector('.opt-mark').textContent = '✗'; }
+      if (isCorrect) {
+        btn.classList.remove('locked-in');
+        btn.classList.add('is-correct');
+        if (wrong) btn.classList.add('late'); // lights up 200ms after the miss
+        btn.querySelector('.opt-mark').textContent = '✓';
+      } else if (wasChosen) {
+        btn.classList.remove('locked-in');
+        btn.classList.add('is-wrong');
+        btn.querySelector('.opt-mark').textContent = '✗';
+      } else if (wrong && !this.removed.has(i)) {
+        btn.classList.add('faded');
+      }
     });
-    this.lockBtn.remove();
+    const lockRow = this.card.querySelector('.lock-row');
+    if (lockRow) lockRow.remove();
 
-    const done = result.won || result.correct === false;
     const label = result.won ? 'Collect your winnings' : (result.correct ? 'Next question' : 'See how you did');
     const fb = h('div', { class: `feedback ${result.correct ? 'good' : 'bad'}`, role: 'status' },
       h('div', { class: 'fb-head' }, result.correct ? (result.won ? '🏆 You did it!' : '✓ Correct') : '✗ Not this time'),
@@ -168,7 +246,7 @@ export class QuizScreen {
     );
     this.card.append(fb);
     const btn = fb.querySelector('.continue-btn');
-    if (btn) btn.focus();
+    if (btn) btn.focus({ preventScroll: true });
   }
 
   handleKey(e) {

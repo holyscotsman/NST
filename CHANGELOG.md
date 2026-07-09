@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased — Game A redesign
+
+Implemented the full UI redesign from the design handoff (Game A "broadcast"
+direction; see `docs/DESIGN_BRIEF.md`).
+
+- **Layout:** money ladder is a full-height right rail (Q1 bottom → Q30 top)
+  with a gold highlight that slides between rungs; coins panel + lifeline
+  medallions pinned upper-left; question card floats lower-center; seed chip
+  bottom-left. Mobile: ladder becomes a top horizontal strip, compact HUD row,
+  bottom-anchored card.
+- **Cinematic CSS backdrop** (`src/shell/backdrop.js`): drifting haze, set
+  wordmark, truss, audience silhouettes, sweeping blurred light beams, stage
+  disc with rotating gold spokes and aqua rim, tier mood tint, camera push,
+  single-shot reveal pulses, and a warm green-room variant. Doubles as the
+  no-WebGL fallback; reacts to the same event bus as the GL studio.
+- **Choreography:** staggered question entrance; gold lock-in suspense
+  (two breaths before the reveal); mantis stamp / peach shake reveals with the
+  correct answer lighting 200ms later; coin count-up tweens; safe-haven bank
+  particles + shield stamp; 50:50 power-down; staggered audience poll bars;
+  phone typewriter; drain wipes and charge-pip flips on medallions; win
+  confetti + ★ ring.
+- **Screens** restyled: title hero with gradient wordmark, warm gold green
+  room with Steve's portrait, gold-takeover win / subdued loss results.
+- **Fonts:** vendored Montserrat is the variable font — declared as
+  `font-weight: 400 800` so 600/700/800 render as true weights.
+- All 42 headless, 7 smoke, and 11 e2e checks stay green; reduced-motion,
+  colorblind-safe glyphs, keyboard/touch, and no-timers constraints preserved.
+
 ## Unreleased — first playable build
 
 Added the whole first end-to-end game, hostable as static files on GitHub Pages.

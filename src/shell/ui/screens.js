@@ -1,10 +1,14 @@
 // screens.js — non-quiz screens: title, green room (shop + Steve), run results,
-// help, and settings. Each is a pure render from state + handlers; main.js owns
-// state and re-renders on change.
+// help, and settings. Game A design: gold primaries, glass panels, warm
+// gold-tinted green room, gold-takeover win / subdued loss results.
 
 import { h, money } from './dom.js';
 import { LIFELINE_TYPES, LIFELINE_META, LIFELINE_MAX_SLOTS, SHOP } from '../../core/config.js';
 import { letter } from '../../core/lifelines.js';
+
+const GOLD = '#FFC857', AQUA = '#1FDDE9', IRIS = '#7855FA';
+
+function reduced() { return document.body.classList.contains('reduced-motion'); }
 
 export function TitleScreen(ctx) {
   const seedInput = h('input', {
@@ -27,7 +31,7 @@ export function TitleScreen(ctx) {
     ),
     h('details', { class: 'seed-box' },
       h('summary', {}, 'Play a shared seed'),
-      h('p', { class: 'muted' }, 'A seed plays the exact same 30 questions for anyone — great for challenging a friend. Leave blank for a fresh random seed.'),
+      h('p', {}, 'A seed plays the exact same 30 questions for anyone — great for challenging a friend. Leave blank for a fresh random seed.'),
       h('div', { class: 'seed-controls' },
         seedInput,
         h('button', { class: 'secondary', type: 'button', onclick: () => ctx.onStart('seeded', seedInput.value.trim() || null) }, 'Play seed'),
@@ -41,7 +45,6 @@ export function TitleScreen(ctx) {
 }
 
 export function GreenRoom(ctx) {
-  // ctx: wallet, lifelines, steve {question, calledThisVisit, clue, canAfford}, handlers
   const shopRow = (type) => {
     const l = ctx.lifelines[type];
     const meta = LIFELINE_META[type];
@@ -49,7 +52,7 @@ export function GreenRoom(ctx) {
     const slotAfford = ctx.wallet >= SHOP.lifelineSlot;
     return h('div', { class: 'shop-row' },
       h('span', { class: 'shop-ll' }, `${meta.glyph} ${meta.name}`),
-      h('span', { class: 'shop-slots' }, `${l.charges}/${l.slots} charged`),
+      h('span', { class: `shop-slots${l.charges === 0 ? ' empty' : ''}` }, `${l.charges}/${l.slots} charged`),
       canBuySlot
         ? h('button', { class: 'secondary small', type: 'button', disabled: !slotAfford,
             onclick: () => ctx.onBuySlot(type) }, `Buy 2nd slot · ${money(SHOP.lifelineSlot)}`)
@@ -65,29 +68,38 @@ export function GreenRoom(ctx) {
     h('p', { class: 'muted' }, 'Between runs. Spend your banked coins on lifelines, or let Steve tip you off about a hard question coming up.'),
     h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins`)),
 
-    h('div', { class: 'panel shop' },
-      h('h3', {}, 'Lifelines'),
-      ...LIFELINE_TYPES.map(shopRow),
-      h('div', { class: 'shop-row refill' },
-        h('span', {}, 'Recharge all lifelines to full'),
-        h('button', { class: 'secondary small', type: 'button',
-          disabled: !needsRefill || ctx.wallet < SHOP.refillAll,
-          onclick: () => ctx.onRefill() }, needsRefill ? `Refill · ${money(SHOP.refillAll)}` : 'All charged'),
+    h('div', { class: 'green-grid' },
+      h('div', { class: 'panel shop' },
+        h('h3', {}, 'Lifelines'),
+        ...LIFELINE_TYPES.map(shopRow),
+        h('div', { class: 'shop-row refill' },
+          h('span', {}, 'Recharge all lifelines to full'),
+          h('button', { class: 'refill-btn', type: 'button',
+            disabled: !needsRefill || ctx.wallet < SHOP.refillAll,
+            onclick: () => ctx.onRefill() }, needsRefill ? `Refill · ${money(SHOP.refillAll)}` : 'All charged'),
+        ),
       ),
-    ),
 
-    h('div', { class: 'panel steve' },
-      h('h3', {}, '☎ Steve, the insider'),
-      steve.question
-        ? (steve.calledThisVisit
-            ? h('div', { class: 'steve-clue' },
-                h('p', { class: 'steve-said' }, `"${steve.clue}"`),
-                h('p', { class: 'muted small' }, 'Steve will only teach this once. He always has a fresh tip next visit.'))
-            : h('div', {},
-                h('p', { class: 'muted' }, 'Steve knows one hard question coming up and will teach you the idea behind it — for a price. One call per visit.'),
-                h('button', { class: 'secondary', type: 'button', disabled: ctx.wallet < SHOP.steve,
-                  onclick: () => ctx.onCallSteve() }, `Call Steve · ${money(SHOP.steve)}`)))
-        : h('p', { class: 'muted' }, 'Steve has nothing new for you right now — you have seen his tips for the questions coming up.'),
+      h('div', { class: 'panel steve' },
+        h('div', { class: 'steve-head' },
+          h('div', { class: 'steve-portrait', 'aria-hidden': 'true' },
+            h('span', { class: 'head' }), h('span', { class: 'torso' })),
+          h('div', {},
+            h('h3', {}, '☎ Steve, the insider'),
+            h('div', { class: 'steve-status' }, steve.question ? '● on the line' : '○ unavailable')),
+        ),
+        steve.question
+          ? (steve.calledThisVisit
+              ? h('div', { class: 'steve-clue' },
+                  h('p', { class: 'steve-said' }, `“${steve.clue}”`),
+                  h('p', { class: 'steve-note' }, 'Steve will only teach this once. He always has a fresh tip next visit.'))
+              : h('div', {},
+                  h('p', { class: 'steve-note' }, 'Steve knows one hard question coming up and will teach you the idea behind it — for a price. One call per visit.'),
+                  h('div', { style: { marginTop: '14px' } },
+                    h('button', { class: 'secondary', type: 'button', disabled: ctx.wallet < SHOP.steve,
+                      onclick: () => ctx.onCallSteve() }, `Call Steve · ${money(SHOP.steve)}`))))
+          : h('p', { class: 'steve-note' }, 'Steve has nothing new for you right now — you have seen his tips for the questions coming up.'),
+      ),
     ),
 
     h('div', { class: 'menu' },
@@ -97,11 +109,29 @@ export function GreenRoom(ctx) {
   );
 }
 
+function confettiLayer() {
+  const layer = h('div', { class: 'confetti-layer', 'aria-hidden': 'true' });
+  for (let i = 0; i < 16; i++) {
+    const left = (i * 61) % 97, size = 5 + (i * 7) % 6, dur = 4 + (i % 5) * 0.8, delay = (i * 0.37) % 2.4;
+    const col = [GOLD, GOLD, AQUA, IRIS, GOLD][i % 5];
+    const s = h('span');
+    Object.assign(s.style, {
+      left: left + '%', width: size + 'px', height: (size * 1.6) + 'px',
+      background: col, animationDuration: dur + 's', animationDelay: delay + 's',
+    });
+    layer.append(s);
+  }
+  return layer;
+}
+
 export function ResultScreen(ctx) {
-  // ctx: won, payout, wallet, reached (question number), impossibleFinal, correctText, explanation, handlers
   const win = ctx.won;
   return h('section', { class: `screen result-screen ${win ? 'win' : 'lose'}` },
-    h('div', { class: 'result-emblem' }, win ? '🏆' : (ctx.impossibleFinal ? '🎭' : '💥')),
+    win ? h('div', { class: 'win-vignette', 'aria-hidden': 'true' }) : null,
+    win && !reduced() ? confettiLayer() : null,
+    h('div', { class: 'result-emblem-wrap' },
+      win && !reduced() ? h('span', { class: 'result-ring', 'aria-hidden': 'true' }) : null,
+      h('div', { class: 'result-emblem' }, win ? '🏆' : (ctx.impossibleFinal ? '🎭' : '💥'))),
     h('h2', { class: 'screen-title' }, win ? 'You are a Nutanix Engineer!' : (ctx.impossibleFinal ? 'The impossible final' : 'Run over')),
 
     win
@@ -111,7 +141,7 @@ export function ResultScreen(ctx) {
           : `You got to question ${ctx.reached} of 30. You bank ${money(ctx.payout)} coins.`),
 
     (!win && ctx.correctText) ? h('div', { class: 'reveal' },
-      h('div', { class: 'reveal-label' }, 'The correct answer was'),
+      h('div', { class: 'reveal-label' }, 'the correct answer was'),
       h('div', { class: 'reveal-answer' }, ctx.correctText),
       ctx.explanation ? h('p', { class: 'reveal-exp' }, ctx.explanation) : null,
     ) : null,

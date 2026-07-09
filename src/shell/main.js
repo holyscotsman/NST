@@ -15,6 +15,7 @@ import { letter } from '../core/lifelines.js';
 
 import * as persistence from './persistence.js';
 import { GameAudio } from './audio.js';
+import { CssBackdrop } from './backdrop.js';
 import { Hud } from './ui/hud.js';
 import { QuizScreen } from './ui/overlay.js';
 import { TitleScreen, GreenRoom, ResultScreen, HelpScreen, SettingsScreen } from './ui/screens.js';
@@ -36,6 +37,7 @@ export class Game {
       onAnswer: (idx) => this.answer(idx),
       onContinue: (r) => this.continueAfter(r),
       onSelectSound: () => this.audio.play('select'),
+      onLockSound: () => this.audio.play('lock'),
     });
     this.steveVisit = { called: false, question: null, clue: '' };
     this.reduced = this._resolveReduced();
@@ -53,6 +55,12 @@ export class Game {
     }
 
     this._applyBodyClasses();
+
+    // The layered CSS studio is always built into the fallback element; it is
+    // shown whenever WebGL is unavailable (or skipped) and reacts to the same
+    // event stream as the GL studio (mood tint, camera push, pulses, scenes).
+    this.backdrop = new CssBackdrop(this.roots.fallback);
+    this.bus.on('*', (data, type) => this.backdrop.react(type, data));
 
     // Start the backdrop; if WebGL is unavailable, fall back to a CSS studio.
     // (E2E tests set 'wwtbane.nogl' to skip the GPU-bound backdrop for speed;
@@ -78,6 +86,10 @@ export class Game {
     this.bus.on('lifeline:use', () => this.audio.play('lifeline'));
     this.bus.on('run:win', () => this.audio.play('win'));
     this.bus.on('question:show', (d) => { if (d.isFinal) this._markFinalReached(); });
+
+    // HUD flourishes: banking particles + shield stamp, and the win ★ burst.
+    this.bus.on('coins:bank', () => { if (this.rc) this.hud.bank(this.rc.index); });
+    this.bus.on('run:win', () => this.hud.burst());
 
     window.addEventListener('keydown', this._onKey);
     this._installTestHook();
@@ -114,7 +126,7 @@ export class Game {
 
   showTitle() {
     this.screen = 'title';
-    if (this.studio) this.studio.react('scene:studio');
+    this.bus.emit('scene:studio', {});
     this._swap(TitleScreen({
       wallet: this.save.wallet,
       stats: this.save.stats,
@@ -137,7 +149,7 @@ export class Game {
   showGreenRoom() {
     this.screen = 'greenroom';
     this._ensureCampaign();
-    if (this.studio) this.studio.react('scene:green');
+    this.bus.emit('scene:green', {});
     // Fresh Steve availability each visit.
     if (!this.steveVisit.locked) {
       const q = this.campaign.peekUpcomingHard(new Set(this.save.steveTaught));
@@ -279,10 +291,12 @@ export class Game {
   continueAfter(result) {
     if (result.won) return this.endRun(true, result);
     if (result.correct === false) return this.endRun(false, result);
+    const prev = this.rc.index;
     const cur = this.rc.advance();
     if (!cur) return this.endRun(false, result);
     this.quiz.showQuestion(cur, this.rc.snapshot());
     this.hud.update(this.rc.snapshot());
+    this.hud.trail(prev, 'up'); // gold streak as the highlight climbs
     this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
   }
 

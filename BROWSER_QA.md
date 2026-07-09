@@ -7,6 +7,19 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
+## Pending sign-off — Game A redesign (new)
+
+- [ ] **Game screen** — right-rail ladder (glyphs, safe havens, gold sliding
+  highlight), upper-left coins + medallions, lower-center card match the
+  design handoff (`Game A.dc.html`).
+- [ ] **Choreography** — entrance stagger, gold lock-in suspense, reveals,
+  bank particles, poll bars, phone typewriter, win confetti read as intended.
+- [ ] **CSS backdrop** — haze/beams/disc/audience and the green-room warm
+  variant (force no-WebGL to see it; it is also what mobile/weak GPUs get).
+- [ ] **Title / green room / results** — match the handoff screens.
+- [ ] **Mobile 390px** — top ladder strip, compact HUD, bottom card.
+- [ ] **Reduced motion** — everything cuts instantly; nothing looks broken.
+
 ## Pending sign-off
 
 - [ ] **Studio scene** — disc/rim/spokes, console, host + contestant figures,
