@@ -191,13 +191,15 @@ export const SCENES = {
     ],
   },
 
-  // Phone a friend — tight on the host as the call goes out.
+  // Phone a friend — a slow ~10s push that holds on the contestant through the
+  // whole phone-call cutscene (the friend's panicking speech bubbles play in
+  // the DOM overlay). Matches the 10s cutscene in ui/overlay.js.
   phoneFriend: {
-    set: 'studio',
+    set: 'studio', hold: true,
     takes: [
-      { type: 'dolly', dur: 4,
-        from: { p: [0.4, 1.78, 3.4], t: [2.1, 1.5, 0] },
-        to:   { p: [0.9, 1.65, 2.6], t: [2.1, 1.5, 0] } },
+      { type: 'dolly', dur: 10,
+        from: { p: [0.6, 1.78, 3.6], t: [-2.1, 1.5, 0] },
+        to:   { p: [0.2, 1.66, 2.8], t: [-2.1, 1.48, 0] } },
     ],
   },
 

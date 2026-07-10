@@ -1,14 +1,37 @@
 // lifelines.js — 50:50, Ask the Audience, Phone a Friend. Pure; rng injected so
-// results are reproducible under a seed. Hard integrity rules (CLAUDE.md §3):
-//   - No lifeline ever presents a wrong option as correct.
-//   - 50:50 removes only distractors, never a correct option, always leaves >=1 distractor.
-//   - Ask the Audience plurality NEVER lands on a wrong option.
-//   - Phone a Friend hedges toward a correct option.
+// results are reproducible under a seed.
+//
+// Integrity that still holds (CLAUDE.md §3/§4):
+//   - 50:50 removes only distractors, never a correct option, always leaves >=1.
+//   - The authored key alone decides GRADING — a lifeline never grades.
+//   - A lifeline-assisted correct answer does not promote mastery (runController).
+//
+// OWNER OVERRIDE of the original §3 wording (documented in docs/LIFELINES.md):
+//   - Phone a Friend is a fallible friend: 68% of the time they land on a correct
+//     option, 32% of the time they blurt a wrong one. (Was: always correct.)
+//   - Ask the Audience is a real poll that USUALLY but not always favours the
+//     correct answer — it helps more on easy questions than hard ones. (Was:
+//     the plurality could never be wrong.)
+// Neither ever *grades*; they only advise, and the player still chooses.
 
 import { shuffle } from './rng.js';
 
 export const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 export function letter(i) { return LETTERS[i] || String(i + 1); }
+
+// Phone a Friend accuracy — the friend lands on a correct option this often.
+export const PHONE_ACCURACY = 0.68;
+
+// Ask the Audience shape by difficulty: how much of the vote the correct
+// answer(s) draw on average, and how much a single "trap" distractor can pull.
+// correctMean > trapMean everywhere, so the crowd HELPS (correct is the modal
+// winner) — but on hard/extreme the trap can occasionally win.
+const AUDIENCE_PARAMS = {
+  easy:    { correctMean: 0.62, trapMean: 0.15, noise: 0.06 },
+  medium:  { correctMean: 0.50, trapMean: 0.23, noise: 0.075 },
+  hard:    { correctMean: 0.43, trapMean: 0.31, noise: 0.085 },
+  extreme: { correctMean: 0.39, trapMean: 0.35, noise: 0.09 },
+};
 
 function distractorsOf(q) {
   const correct = new Set(q.answer);
@@ -27,88 +50,72 @@ export function fiftyFifty(q, rng) {
   return { removed: removed.sort((a, b) => a - b) };
 }
 
-// Ask the Audience — returns { bars:[{index,percent}], winner } where the single
-// highest bar is guaranteed to be a correct option. Margin is thin on hard items
-// (weak hint, high tension) and wide on easy ones. Never misleading, only less helpful.
+// Ask the Audience — returns { bars:[{index,percent}], winner, correctIsTop }.
+// A believable poll: the correct option(s) draw the most weight on average, one
+// random distractor becomes a "trap" that occasionally overtakes them (more
+// often the harder the question), and the rest is scattered across the others.
 export function askAudience(q, rng, difficulty = 'medium') {
   const n = q.options.length;
-  const correct = new Set(q.answer);
-  // Winner is always a correct option.
-  const correctList = [...correct];
-  const winner = correctList[Math.floor(rng() * correctList.length)];
+  const correctList = [...new Set(q.answer)];
+  const distract = distractorsOf(q);
+  const P = AUDIENCE_PARAMS[difficulty] || AUDIENCE_PARAMS.medium;
 
-  const base = { easy: 68, medium: 54, hard: 42, extreme: 38 }[difficulty] ?? 50;
-  let W = clamp(Math.round(base + (rng() * 8 - 4)), Math.ceil(100 / n) + 6, 82);
+  let correctShare = clamp(P.correctMean + gaussish(rng) * P.noise, 0.22, 0.80);
+  let trapShare = distract.length ? clamp(P.trapMean + gaussish(rng) * P.noise, 0.04, 0.78) : 0;
+  const trapIdx = distract.length ? distract[Math.floor(rng() * distract.length)] : -1;
 
-  // Distribute the remainder across the other options.
-  const others = [];
-  for (let i = 0; i < n; i++) if (i !== winner) others.push(i);
-  const weights = others.map((i) => {
-    // Other correct options (multi-answer) lean higher; distractors lower.
-    const lean = correct.has(i) ? 0.55 : 0.2;
-    return lean + rng() * 0.6;
-  });
-  let wsum = weights.reduce((a, b) => a + b, 0) || 1;
-  let remaining = 100 - W;
-  const bars = new Array(n).fill(0);
-  bars[winner] = W;
-  const cap = W - 2; // no other bar may reach the winner
-  let leftover = 0;
-  for (let k = 0; k < others.length; k++) {
-    let v = Math.round((weights[k] / wsum) * remaining);
-    if (v > cap) { leftover += v - cap; v = cap; }
-    bars[others[k]] = v;
-  }
-  bars[winner] += leftover;
+  let remaining = 1 - correctShare - trapShare;
+  if (remaining < 0) { trapShare = Math.max(0, trapShare + remaining); remaining = 0; }
 
-  // Fix rounding drift so the bars sum to exactly 100, keeping the winner strictly max.
-  fixSum(bars, winner, cap);
+  const shares = new Array(n).fill(0);
+  distributeAcross(shares, correctList, correctShare, rng, 0.5); // key gets the bulk
+  if (trapIdx >= 0) shares[trapIdx] += trapShare;
+  distributeAcross(shares, distract.filter((i) => i !== trapIdx), remaining, rng, 0.3);
 
+  const percents = toPercents(shares);
+  const winner = argmax(percents);
   return {
     winner,
-    bars: bars.map((percent, index) => ({ index, percent })),
+    correctIsTop: correctList.includes(winner),
+    bars: percents.map((percent, index) => ({ index, percent })),
   };
 }
 
-function fixSum(bars, winner, cap) {
-  let sum = bars.reduce((a, b) => a + b, 0);
-  let drift = 100 - sum;
-  // Apply drift to the winner first (it can absorb upward freely).
-  if (drift !== 0) { bars[winner] += drift; drift = 0; }
-  // Guarantee strict plurality.
-  for (let i = 0; i < bars.length; i++) {
-    if (i !== winner && bars[i] >= bars[winner]) {
-      const over = bars[i] - (bars[winner] - 1);
-      bars[i] -= over;
-      bars[winner] += over;
-    }
-    if (bars[i] < 0) { bars[winner] += bars[i]; bars[i] = 0; }
-  }
+// Phone a Friend — returns { pick, hitsKey }. `pick` is the option the friend
+// names: a correct one PHONE_ACCURACY of the time, otherwise a random
+// distractor. `hitsKey` is for tests/telemetry only — the UI never reveals it
+// (the whole point is that you can't be sure the friend is right).
+export function phoneFriend(q, rng) {
+  const correctList = [...new Set(q.answer)];
+  const distract = distractorsOf(q);
+  const hitsKey = distract.length === 0 || rng() < PHONE_ACCURACY;
+  const pool = hitsKey ? correctList : distract;
+  const pick = pool[Math.floor(rng() * pool.length)];
+  return { pick, hitsKey };
 }
 
-// Phone a Friend — returns { pick, confidence, text }. `pick` is ALWAYS a correct
-// option (derived from the authoritative key). Authored `phoneHint` text is used
-// verbatim when present (it points toward the correct answer); otherwise a
-// template is filled from the key. Hedges harder on harder items.
-export function phoneFriend(q, difficulty = 'medium') {
-  const pick = q.answer[0];
-  const confidence = {
-    easy: 'pretty confident',
-    medium: 'fairly sure',
-    hard: 'not certain, but leaning',
-    extreme: 'really not sure — this is a wild guess',
-  }[difficulty] ?? 'fairly sure';
+/* ---------- helpers ---------- */
 
-  let text;
-  if (typeof q.phoneHint === 'string' && q.phoneHint.trim().length > 0) {
-    text = q.phoneHint.trim();
-  } else {
-    const hedge = difficulty === 'easy' || difficulty === 'medium'
-      ? "I'd go with that."
-      : "but honestly, double-check me on this one.";
-    text = `I think it's ${letter(pick)} — "${q.options[pick]}". I'm ${confidence}, ${hedge}`;
-  }
-  return { pick, confidence, text };
+// ~N(0,1) from the sum of three uniforms (cheap, good enough for flavour).
+function gaussish(rng) { return (rng() + rng() + rng() - 1.5) / 0.5; }
+
+// Spread `total` mass across `idxs` with random weights (>= floor so no zeros).
+function distributeAcross(shares, idxs, total, rng, floor) {
+  if (!idxs.length || total <= 0) return;
+  const w = idxs.map(() => floor + rng());
+  const sum = w.reduce((a, b) => a + b, 0) || 1;
+  idxs.forEach((i, k) => { shares[i] += (total * w[k]) / sum; });
 }
 
+// Fractional shares -> integer percents summing to exactly 100 (largest remainder).
+function toPercents(shares) {
+  const raw = shares.map((s) => Math.max(0, s) * 100);
+  const floors = raw.map((v) => Math.floor(v));
+  let rem = 100 - floors.reduce((a, b) => a + b, 0);
+  const order = raw.map((v, i) => ({ i, frac: v - Math.floor(v) })).sort((a, b) => b.frac - a.frac);
+  for (let k = 0; k < order.length && rem > 0; k++) { floors[order[k].i] += 1; rem -= 1; }
+  return floors;
+}
+
+function argmax(arr) { let bi = 0; for (let i = 1; i < arr.length; i++) if (arr[i] > arr[bi]) bi = i; return bi; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fiftyFifty, askAudience, phoneFriend } from '../src/core/lifelines.js';
+import { fiftyFifty, askAudience, phoneFriend, PHONE_ACCURACY } from '../src/core/lifelines.js';
 import { makeRng } from '../src/core/rng.js';
 import { multiQuestion } from './fixtures.mjs';
 
@@ -33,44 +33,66 @@ test('50:50 on multi-answer removes only distractors', () => {
   }
 });
 
-test('Ask the Audience plurality never lands on a wrong option', () => {
+// ---- Ask the Audience: a helpful-but-fallible poll ----
+
+function audienceStats(diff, N = 3000) {
+  let correctTop = 0; let correctBarSum = 0; const otherBarSum = [0, 0, 0];
+  for (let s = 0; s < N; s++) {
+    const { bars, winner } = askAudience(single, makeRng(`aud${diff}${s}`), diff);
+    assert.equal(bars.reduce((a, b) => a + b.percent, 0), 100, 'bars sum to 100');
+    const max = Math.max(...bars.map((b) => b.percent));
+    assert.equal(bars[winner].percent, max, 'winner is the top bar');
+    if (single.answer.includes(winner)) correctTop += 1;
+    correctBarSum += bars[2].percent;
+    let oi = 0; for (const b of bars) if (b.index !== 2) otherBarSum[oi++] += b.percent;
+  }
+  return { rate: correctTop / N, correctAvg: correctBarSum / N, otherAvg: otherBarSum.map((s) => s / N) };
+}
+
+test('Ask the Audience helps: the correct bar is the tallest on average, every tier', () => {
   for (const diff of ['easy', 'medium', 'hard', 'extreme']) {
-    for (let s = 0; s < 300; s++) {
-      const rng = makeRng(`aud${diff}${s}`);
-      const { bars, winner } = askAudience(single, rng, diff);
-      const sum = bars.reduce((a, b) => a + b.percent, 0);
-      assert.equal(sum, 100, 'bars sum to 100');
-      assert.ok(single.answer.includes(winner), 'winner is a correct option');
-      const max = Math.max(...bars.map((b) => b.percent));
-      const argmax = bars.find((b) => b.percent === max).index;
-      assert.ok(single.answer.includes(argmax), 'plurality is correct'); // NEGATIVE CONTROL
-      for (const b of bars) if (b.index !== winner) assert.ok(b.percent < bars[winner].percent, 'no bar ties/beats winner');
-    }
+    const { correctAvg, otherAvg } = audienceStats(diff, 1500);
+    for (const o of otherAvg) assert.ok(correctAvg > o, `${diff}: correct bar tallest on average`);
   }
 });
 
-test('Ask the Audience is a wider hint on easy than on hard', () => {
-  const avg = (diff) => {
-    let sum = 0; const N = 400;
-    for (let s = 0; s < N; s++) {
-      const { bars, winner } = askAudience(single, makeRng('w' + diff + s), diff);
-      sum += bars[winner].percent;
-    }
-    return sum / N;
-  };
-  assert.ok(avg('easy') > avg('hard'), 'easy audience is more confident than hard'); // NEGATIVE CONTROL
+test('Ask the Audience is usually — but not always — right, and clearer on easy', () => {
+  const easy = audienceStats('easy').rate;
+  const hard = audienceStats('hard').rate;
+  const extreme = audienceStats('extreme').rate;
+  assert.ok(easy > 0.9, `easy should be reliably helpful (got ${easy.toFixed(2)})`);
+  assert.ok(hard > 0.5 && hard < 0.9, `hard helps but misfires (got ${hard.toFixed(2)})`); // NEGATIVE CONTROL
+  assert.ok(extreme > 0.45 && extreme < 0.85, `extreme helps but often misfires (got ${extreme.toFixed(2)})`);
+  assert.ok(easy > hard && hard > extreme, 'clarity falls as difficulty rises');
 });
 
-test('Phone a Friend always points at a correct option', () => {
-  for (const diff of ['easy', 'medium', 'hard', 'extreme']) {
-    const { pick } = phoneFriend(single, diff);
-    assert.ok(single.answer.includes(pick)); // NEGATIVE CONTROL
+// ---- Phone a Friend: a panicky, ~68%-accurate friend ----
+
+test('Phone a Friend lands near the 68/32 split over many calls', () => {
+  let hits = 0; const N = 5000;
+  for (let s = 0; s < N; s++) {
+    const { pick, hitsKey } = phoneFriend(single, makeRng('phone' + s));
+    assert.ok(pick >= 0 && pick < single.options.length, 'names a real option');
+    assert.equal(single.answer.includes(pick), hitsKey, 'hitsKey matches whether the pick is correct');
+    if (hitsKey) hits += 1;
   }
+  const rate = hits / N;
+  assert.ok(Math.abs(rate - PHONE_ACCURACY) < 0.03, `~${PHONE_ACCURACY} correct (got ${rate.toFixed(3)})`);
 });
 
-test('Phone a Friend uses authored hint text when present', () => {
-  const authored = { ...single, phoneHint: 'It is definitely C, trust me.' };
-  const { text, pick } = phoneFriend(authored, 'hard');
-  assert.equal(text, 'It is definitely C, trust me.');
-  assert.ok(authored.answer.includes(pick)); // pick still from the key, not the prose
+test('Phone a Friend does sometimes name a wrong option (it is fallible)', () => {
+  let wrong = 0;
+  for (let s = 0; s < 400; s++) {
+    const { pick } = phoneFriend(single, makeRng('pw' + s));
+    if (!single.answer.includes(pick)) wrong += 1;
+  }
+  assert.ok(wrong > 0, 'the friend is wrong at least sometimes'); // NEGATIVE CONTROL vs the old always-correct rule
+});
+
+test('Phone a Friend on a no-distractor question can only name a correct option', () => {
+  const allCorrect = { id: 'X-E-003', type: 'multi', options: ['A', 'B'], answer: [0, 1] };
+  for (let s = 0; s < 50; s++) {
+    const { pick } = phoneFriend(allCorrect, makeRng('nd' + s));
+    assert.ok(allCorrect.answer.includes(pick)); // NEGATIVE CONTROL: never out of range
+  }
 });

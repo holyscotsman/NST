@@ -395,7 +395,7 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 
 /* lifeline result panels */
 .lifeline-panel:empty { display: none; }
-.audience, .phone { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; animation: pollIn 0.35s var(--swift) both; }
+.audience, .phone, .phone-call { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; animation: pollIn 0.35s var(--swift) both; }
 .ll-title { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--aqua); margin-bottom: 8px; }
 .aud-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; }
 .aud-letter { width: 16px; font-size: 11.5px; font-weight: 800; color: #c9cbe8; }
@@ -407,6 +407,20 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .phone .ll-title { margin-bottom: 6px; }
 .phone-text { margin: 0; font-style: italic; font-size: 13.5px; line-height: 1.55; color: #dcdff5; border-left: 3px solid var(--gold); padding-left: 11px; }
 .phone-caret { display: inline-block; width: 2px; height: 13px; background: var(--gold); margin-left: 2px; vertical-align: -2px; }
+
+/* Phone a Friend cutscene: a panicking friend on the line */
+.phone-stage { display: flex; align-items: center; gap: 12px; }
+.phone-avatar { position: relative; width: 46px; height: 46px; flex: 0 0 46px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, rgba(120,85,250,0.4), #12122a 72%); border: 1px solid rgba(120,85,250,0.5); overflow: hidden; }
+.phone-avatar .pa-head { position: absolute; left: 50%; top: 9px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: #eef0ff; }
+.phone-avatar .pa-body { position: absolute; left: 50%; bottom: -6px; width: 30px; height: 22px; margin-left: -15px; border-radius: 14px 14px 0 0; background: #b9bff0; }
+.phone-avatar.panic { animation: phonePanic 0.28s ease-in-out infinite; }
+@keyframes phonePanic { 0%,100% { transform: translateX(0) rotate(0); } 25% { transform: translateX(-1.5px) rotate(-3deg); } 75% { transform: translateX(1.5px) rotate(3deg); } }
+.phone-bubble { position: relative; flex: 1; margin: 0; background: #f5f2e8; color: #1c1608; font-weight: 600; font-size: 13.5px; line-height: 1.4; border-radius: 12px; padding: 10px 13px; min-height: 40px; }
+.phone-bubble::after { content: ''; position: absolute; left: -8px; top: 15px; border: 6px solid transparent; border-right: 10px solid #f5f2e8; border-left: 0; }
+.phone-bubble.pop { animation: phoneBubblePop 0.28s var(--swift) both; }
+@keyframes phoneBubblePop { 0% { opacity: 0; transform: translateY(6px) scale(0.9); } 70% { opacity: 1; transform: translateY(-2px) scale(1.03); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+.option.phone-pick { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold), 0 0 16px rgba(255,200,87,0.18); }
+.phone-tag { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 13px; }
 
 /* feedback (between grade and next question) */
 .feedback { border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line); background: var(--panel-2); margin-top: 16px; animation: pollIn 0.35s var(--swift) both; }

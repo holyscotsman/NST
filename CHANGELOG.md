@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased — lifeline overhaul: Phone-a-Friend cutscene, fallible audience
+
+- **Phone a Friend is now a ~10s cutscene** — the friend picks up, panics
+  through speech bubbles, and blurts a guess that tags the option they named.
+  They're **68% correct / 32% wrong** (`PHONE_ACCURACY`); the UI never reveals
+  which. Reduced motion skips to the guess. This is the game's ONE sanctioned
+  timed sequence and it never limits the player's own decision.
+- **Ask the Audience is now a believable, fallible poll** — the correct answer
+  draws the most weight on average (so it helps), but a random "trap"
+  distractor can occasionally win, more often on hard. Seeded Monte-Carlo in
+  the tests: correct-plurality ≈ easy 95%+, medium 80%, hard 65%, extreme 55%.
+- **Timer audit + policy** — confirmed there are no player decision timers;
+  documented every timed thing as a presentation beat in `docs/LIFELINES.md`
+  (new), which also captures the two mechanic changes above. `CLAUDE.md §3`
+  updated to match (owner revisions of the original lifeline wording).
+- Lifeline outcomes stay deterministic under a seed; assisted-correct still
+  doesn't promote mastery; the authored key alone grades (nothing here grades).
+
 ## Unreleased — Markdown question-bank ingestion
 
 - **Author the bank in Markdown.** New pure parser (`parseMarkdownBank.js`)

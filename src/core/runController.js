@@ -107,7 +107,7 @@ export class RunController {
     let payload;
     if (type === 'fifty') payload = fiftyFifty(q, rng);
     else if (type === 'audience') payload = askAudience(q, rng, tier);
-    else if (type === 'phone') payload = phoneFriend(q, tier);
+    else if (type === 'phone') payload = phoneFriend(q, rng);
 
     this.lifelines[type].charges -= 1;
     this.usedThisQuestion.add(type);

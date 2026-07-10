@@ -200,27 +200,56 @@ export class QuizScreen {
       }
       this._lifelineDone(4400); // bars + a beat to read them
     } else if (type === 'phone') {
-      clear(this.lifelinePanel);
-      const caret = h('span', { class: 'phone-caret', 'aria-hidden': 'true' });
-      const typed = h('span', {}, '');
-      this.lifelinePanel.append(h('div', { class: 'phone' },
-        h('div', { class: 'll-title' }, '📞 Phone a friend'),
-        h('p', { class: 'phone-text' }, '“', typed, caret, '”')));
-      const text = payload.text;
-      if (reduced()) {
-        typed.textContent = text;
-        caret.remove();
-        this._lifelineDone(1200);
-      } else {
-        let n = 0;
-        this._typeIv = setInterval(() => {
-          n += 1;
-          typed.textContent = text.slice(0, n);
-          if (n >= text.length) { clearInterval(this._typeIv); caret.remove(); }
-        }, 33);
-        this._lifelineDone(text.length * 33 + 2600); // typing + a beat to read
-      }
+      this._phoneCutscene(payload.pick);
     }
+  }
+
+  // Phone a Friend — a ~10s cutscene: the friend picks up, panics, and blurts
+  // their guess, which then tags the option they named (they're right ~68% of
+  // the time — see lifelines.js). This is the game's ONE sanctioned timed
+  // sequence; it never limits the player's own decision. Reduced motion skips
+  // straight to the guess.
+  _phoneCutscene(pick) {
+    clear(this.lifelinePanel);
+    const L = letter(pick);
+    const avatar = h('div', { class: 'phone-avatar', 'aria-hidden': 'true' },
+      h('span', { class: 'pa-head' }), h('span', { class: 'pa-body' }));
+    const bubble = h('p', { class: 'phone-bubble' }, '');
+    const panel = h('div', { class: 'phone-call', 'aria-live': 'polite', 'aria-label': 'Phone a friend' },
+      h('div', { class: 'll-title' }, '📞 Phone a friend'),
+      h('div', { class: 'phone-stage' }, avatar, bubble));
+    this.lifelinePanel.append(panel);
+
+    const script = [
+      "Hello?! Wait — you're on RIGHT NOW?!",
+      "Okay okay, don't panic. I'm not panicking. You're panicking!",
+      'Read them to me again — no, I heard you, I heard you…',
+      'Ohh no. Um. Okay. Gut feeling — trust the gut.',
+      `Go with ${L}. It's ${L}! …I think. GO GO GO!`,
+    ];
+    const markPick = () => {
+      const btn = this.optionsEl.querySelector(`.option[data-i="${pick}"]`);
+      if (btn && !this.removed.has(pick)) {
+        btn.classList.add('phone-pick');
+        if (!btn.querySelector('.phone-tag')) btn.append(h('span', { class: 'phone-tag', 'aria-hidden': 'true' }, '📞'));
+      }
+    };
+
+    if (reduced()) {
+      bubble.textContent = script[script.length - 1];
+      avatar.classList.add('panic');
+      markPick();
+      this._lifelineDone(1400);
+      return;
+    }
+    const step = 2000; // 5 lines ≈ 10 seconds
+    script.forEach((line, k) => this._after(k * step, () => {
+      bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop');
+      bubble.textContent = line;
+      avatar.classList.toggle('panic', k >= 1 && k < 4);
+      if (k === script.length - 1) { avatar.classList.remove('panic'); markPick(); }
+    }));
+    this._lifelineDone(script.length * step);
   }
 
   // The suspense beat: gold lock-in, everything else dims, then the answer is
