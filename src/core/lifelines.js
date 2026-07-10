@@ -70,7 +70,14 @@ export function askAudience(q, rng, difficulty = 'medium') {
   const shares = new Array(n).fill(0);
   distributeAcross(shares, correctList, correctShare, rng, 0.5); // key gets the bulk
   if (trapIdx >= 0) shares[trapIdx] += trapShare;
-  distributeAcross(shares, distract.filter((i) => i !== trapIdx), remaining, rng, 0.3);
+  const others = distract.filter((i) => i !== trapIdx);
+  if (!others.length && remaining > 0) {
+    // No other distractors to hold the leftover — give it to the correct side
+    // (never orphan it, or toPercents would scatter it onto random bars).
+    distributeAcross(shares, correctList, remaining, rng, 0.5);
+  } else {
+    distributeAcross(shares, others, remaining, rng, 0.3);
+  }
 
   const percents = toPercents(shares);
   const winner = argmax(percents);

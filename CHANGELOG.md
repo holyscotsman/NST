@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased — critical code review: fixes, hardening, tests
+
+Full-codebase review (core / shell / UI / tests) — findings and remediation in
+docs/CODE_REVIEW.md. Highlights:
+
+- **Correctness:** seeded lifelines are no longer order-dependent (dropped the
+  redundant rng salt); `selectionWeight` can't go negative and strand an item;
+  `askAudience` no longer orphans vote mass on a single-distractor item; the
+  importer can't clobber a good bank (refuses empty results, writes atomically);
+  stale loss-reveal cleared on return to title; `answer()`/`continueAfter`
+  hardened against bad input and double-advance.
+- **Accessibility:** reduced motion now also zeroes animation/transition
+  *delays* (staggered entrances were still animating); the Ask-the-Audience
+  count-up no longer floods the live region (bars aria-hidden + a static
+  summary); the intro cinematic takes focus and announces each line.
+- **Performance:** removed the per-frame allocations from the RAF path
+  (`setMouth`/Object.entries, the director's pose wrapper, the crowd closure,
+  the flash Color); `dispose()` now frees textures + the bloom composer.
+- **Cleanliness:** deleted dead CSS/fields/branches, named the overlay's magic
+  timings, fixed a doc/return mismatch.
+- **Tests:** +11 (86 headless total) — importer write-gate (can't ship a broken
+  or empty bank), parser aliases/extraction/conflicts/duplicate-ids,
+  mastery-mode reproducibility, and the audience single-distractor edge. All
+  with negative controls.
+
 ## Unreleased — graphics + animation polish
 
 - **Procedural textures** (all canvas-generated in code — no image files): the

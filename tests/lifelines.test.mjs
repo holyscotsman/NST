@@ -89,6 +89,19 @@ test('Phone a Friend does sometimes name a wrong option (it is fallible)', () =>
   assert.ok(wrong > 0, 'the friend is wrong at least sometimes'); // NEGATIVE CONTROL vs the old always-correct rule
 });
 
+test('Ask the Audience with a single distractor still sums to 100 (no orphaned mass)', () => {
+  // A 3-of-4 multi item leaves exactly one distractor — the "trap" takes it,
+  // so the leftover mass has no other distractor to land on. It must not orphan.
+  const oneDistractor = { id: 'X-M-001', type: 'multi', options: ['A', 'B', 'C', 'D'], answer: [0, 1, 2] };
+  for (const diff of ['easy', 'hard']) {
+    for (let s = 0; s < 300; s++) {
+      const { bars, winner } = askAudience(oneDistractor, makeRng(`sd${diff}${s}`), diff);
+      assert.equal(bars.reduce((a, b) => a + b.percent, 0), 100, 'bars sum to 100'); // NEGATIVE CONTROL vs orphan bug
+      assert.equal(bars[winner].percent, Math.max(...bars.map((b) => b.percent)), 'winner is the top bar');
+    }
+  }
+});
+
 test('Phone a Friend on a no-distractor question can only name a correct option', () => {
   const allCorrect = { id: 'X-E-003', type: 'multi', options: ['A', 'B'], answer: [0, 1] };
   for (let s = 0; s < 50; s++) {

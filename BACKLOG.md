@@ -25,3 +25,14 @@ Ideas that aren't scheduled work yet. Promote to `AUTONOMOUS_RUN.md` when specce
 ## Tech
 - Service worker for full offline play + installable PWA.
 - Bundle/minify step (optional; the game runs unbundled today).
+
+## From the code review (docs/CODE_REVIEW.md) — deferred
+- Proper radiogroup ARIA: roving tabindex + arrow-key nav for the answer
+  options (operable today via Tab + number keys).
+- Beat-index the music scheduler so it doesn't re-scan the note table each step
+  (only matters if the track set grows).
+- Hoist the duplicated `reduced()` helper into `dom.js`; extract the shared
+  `.reveal` builder used by the green room + results.
+- Align `load()` vs `importString` save-version handling before bumping the
+  save schema; decide whether `MAX_BOX`/`GRADUATED_BOX` should be one constant.
+- Clear the `_previewMode` (`?scene=`) dev-tool interval on scene change.

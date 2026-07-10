@@ -349,7 +349,7 @@ button:disabled { opacity: 0.45; }
   transition: background 0.25s, border-color 0.25s, opacity 0.3s, filter 0.3s;
   animation: optIn 0.3s var(--swift) both;
 }
-.option:nth-of-type(1), li:nth-child(1) > .option { animation-delay: 0.12s; }
+li:nth-child(1) > .option { animation-delay: 0.12s; }
 li:nth-child(2) > .option { animation-delay: 0.18s; }
 li:nth-child(3) > .option { animation-delay: 0.24s; }
 li:nth-child(4) > .option { animation-delay: 0.30s; }
@@ -395,7 +395,7 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 
 /* lifeline result panels */
 .lifeline-panel:empty { display: none; }
-.audience, .phone, .phone-call { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; animation: pollIn 0.35s var(--swift) both; }
+.audience, .phone-call { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 12px; animation: pollIn 0.35s var(--swift) both; }
 .ll-title { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--aqua); margin-bottom: 8px; }
 .aud-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; }
 .aud-letter { width: 16px; font-size: 11.5px; font-weight: 800; color: #c9cbe8; }
@@ -404,10 +404,6 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .aud-bar.top { background: linear-gradient(90deg, var(--mantis), var(--aqua)); }
 .aud-pct { width: 38px; text-align: right; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: #c9cbe8; }
 .aud-pct.top { color: var(--mantis); }
-.phone .ll-title { margin-bottom: 6px; }
-.phone-text { margin: 0; font-style: italic; font-size: 13.5px; line-height: 1.55; color: #dcdff5; border-left: 3px solid var(--gold); padding-left: 11px; }
-.phone-caret { display: inline-block; width: 2px; height: 13px; background: var(--gold); margin-left: 2px; vertical-align: -2px; }
-
 /* Phone a Friend cutscene: a panicking friend on the line */
 .phone-stage { display: flex; align-items: center; gap: 12px; }
 .phone-avatar { position: relative; width: 46px; height: 46px; flex: 0 0 46px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, rgba(120,85,250,0.4), #12122a 72%); border: 1px solid rgba(120,85,250,0.5); overflow: hidden; }
@@ -690,11 +686,13 @@ body.high-contrast #backdrop-fallback { opacity: 0.5; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+    animation-delay: 0s !important; transition-delay: 0s !important;
     transition-duration: 0.001ms !important; scroll-behavior: auto !important;
   }
 }
 body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::after {
   animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
+  animation-delay: 0s !important; transition-delay: 0s !important;
   transition-duration: 0.001ms !important; scroll-behavior: auto !important;
 }
 

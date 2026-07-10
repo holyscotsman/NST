@@ -99,7 +99,9 @@ export function domainProgress(bank, state) {
 export function selectionWeight(state, q, currentRun) {
   const rec = getRecord(state, q.id);
   const box = rec ? rec.box : seedBox(q.authoredDifficulty);
-  const staleness = rec ? Math.min(6, currentRun - rec.lastRun) : 6;
+  // lastRun and currentRun can be different counters — clamp both ends so a
+  // weight never goes negative (which would make an item unselectable).
+  const staleness = rec ? Math.max(0, Math.min(6, currentRun - rec.lastRun)) : 6;
   // Weakness dominates; staleness is a gentle nudge; +1 keeps everything eligible.
   return (MASTERY.MAX_BOX - box) * 2 + staleness + 1;
 }

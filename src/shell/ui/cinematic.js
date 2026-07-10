@@ -41,13 +41,15 @@ export class Cinematic {
   }
 
   _panel() {
-    this.textEl = h('p', { class: 'cine-text' }, '');
+    // aria-live so a screen reader announces each host line as it's set (the
+    // typewriter writes textContent; the live region reads the final value).
+    this.textEl = h('p', { class: 'cine-text', 'aria-live': 'polite' }, '');
     this.nextHint = h('span', { class: 'cine-next', 'aria-hidden': 'true' }, '▸');
-    const panel = h('div', { class: 'cine-panel', role: 'dialog', 'aria-label': 'Host' },
+    this.panel = h('div', { class: 'cine-panel', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Host', tabindex: '-1' },
       h('div', { class: 'cine-host' }, h('span', { class: 'cine-dot' }), 'the host'),
       this.textEl, this.nextHint);
     const skip = h('button', { class: 'cine-skip', type: 'button', onclick: () => this.end() }, 'Skip intro →');
-    this.layer = h('div', { class: 'cine-layer' }, panel, skip);
+    this.layer = h('div', { class: 'cine-layer' }, this.panel, skip);
     // click anywhere (or Enter) advances
     this.layer.addEventListener('click', (e) => { if (e.target === skip) return; this._advance(); });
     this._keyHandler = (e) => {
@@ -56,6 +58,7 @@ export class Cinematic {
     };
     window.addEventListener('keydown', this._keyHandler);
     document.body.append(this.layer);
+    this.panel.focus({ preventScroll: true }); // move focus into the dialog
   }
 
   play() {

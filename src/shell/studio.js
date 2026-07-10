@@ -30,7 +30,7 @@ export class Studio {
     this.disposed = false;
     this.useBloom = false;
     this.mood = { key: PAL.iris, intensity: 1 };
-    this.pulse = { color: null, t: 0, dur: 0.7 };
+    this.pulse = { color: null, active: false, t: 0, dur: 0.7 };
     this._look = new THREE.Vector3();
     this._spin = 1; // beam spin multiplier (bumped on wins)
     this.onAmbient = opts.onAmbient || (() => {}); // little diegetic sounds (a cough in the crowd)
@@ -155,10 +155,16 @@ export class Studio {
     window.removeEventListener('resize', this._onResize);
     if (this.renderer) {
       this.renderer.setAnimationLoop(null);
+      if (this.composer && this.composer.dispose) this.composer.dispose();
       this.renderer.dispose();
       [this.studio, this.green].forEach((sc) => sc && sc.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
-        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
+          // material.dispose() does not free its textures — do it explicitly.
+          if (m.map) m.map.dispose();
+          if (m.emissiveMap) m.emissiveMap.dispose();
+          m.dispose();
+        });
       }));
       if (this.renderer.domElement && this.renderer.domElement.parentNode) {
         this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
@@ -179,7 +185,9 @@ export class Studio {
 
   _flash(color) {
     if (this.reduced) return; // reduced motion: no strobe/pulse
-    this.pulse.color = new THREE.Color(color);
+    if (!this.pulse.color) this.pulse.color = new THREE.Color();
+    this.pulse.color.setHex(color); // reuse the Color instance
+    this.pulse.active = true;
     this.pulse.t = 0;
   }
 
@@ -227,13 +235,13 @@ export class Studio {
     }
 
     // Flash pulse via the warm light (bounded, < 3Hz, reduced-motion exits above).
-    if (this.pulse.color && this._pulseLight) {
+    if (this.pulse.active && this._pulseLight) {
       this.pulse.t += dt;
       const k = Math.min(1, this.pulse.t / this.pulse.dur);
       const amt = Math.sin(k * Math.PI); // up then down, single pulse
       this._pulseLight.color.copy(this.pulse.color);
       this._pulseLight.intensity = 14 + amt * 90;
-      if (k >= 1) { this.pulse.color = null; this._pulseLight.intensity = 14; }
+      if (k >= 1) { this.pulse.active = false; this._pulseLight.intensity = 14; }
     }
 
     if (this.useBloom && this.composer) {
@@ -261,6 +269,7 @@ export class Studio {
     const list = this.active === this.studio ? this._studioPeople : this._greenPeople;
     if (!list) return;
     const mood = this._mood;
+    const talker = this.active === this.studio ? 'host' : 'greenSM'; // depends only on the set
     for (const a of list) {
       if (!a.g.visible) continue;
       const ph = a.phase;
@@ -286,7 +295,6 @@ export class Studio {
       }
 
       // faces: reactions win, then talking, then each role's resting face
-      const talker = this.active === this.studio ? 'host' : 'greenSM';
       if (mood && (a.role === 'host' || a.role === 'player')) {
         setMouth(P, mood.kind === 'happy' ? 'smile' : 'frown');
         // ease the reaction in over the first 0.35s and out over the last 0.35s
@@ -307,20 +315,22 @@ export class Studio {
 
   // Occasional audience moments: a wave, a cough (with its little sound), or
   // someone getting up and leaving. One at a time, never under reduced motion.
+  // Build (into the shared scratch Object3D) the instance matrix for a seat.
+  _seatMatrix(seat, scale) {
+    const d = this._dummy;
+    d.position.set(seat.x, seat.y, seat.z);
+    d.rotation.set(0, seat.rotY, 0);
+    d.scale.setScalar(scale);
+    d.updateMatrix();
+    return d.matrix;
+  }
+
   _crowdTick(dt, t) {
     const c = this._crowd;
     if (!c) return;
-    const d = this._dummy;
-    const seatMatrix = (seat, scale) => {
-      d.position.set(seat.x, seat.y, seat.z);
-      d.rotation.set(0, seat.rotY, 0);
-      d.scale.setScalar(scale);
-      d.updateMatrix();
-      return d.matrix;
-    };
     // restore a seat someone walked out of
     if (c.restoreIdx >= 0 && t >= c.restoreAt) {
-      c.mesh.setMatrixAt(c.restoreIdx, seatMatrix(c.seats[c.restoreIdx], c.seats[c.restoreIdx].scale));
+      c.mesh.setMatrixAt(c.restoreIdx, this._seatMatrix(c.seats[c.restoreIdx], c.seats[c.restoreIdx].scale));
       c.mesh.instanceMatrix.needsUpdate = true;
       c.restoreIdx = -1;
     }
@@ -330,10 +340,10 @@ export class Studio {
       const seat = c.seats[ev.idx];
       if (ev.kind === 'cough') {
         // a couple of quick shoulder jolts
-        c.mesh.setMatrixAt(ev.idx, seatMatrix(seat, seat.scale * (1 + Math.abs(Math.sin(ev.t * 24)) * 0.05)));
+        c.mesh.setMatrixAt(ev.idx, this._seatMatrix(seat, seat.scale * (1 + Math.abs(Math.sin(ev.t * 24)) * 0.05)));
         c.mesh.instanceMatrix.needsUpdate = true;
         if (ev.t >= 0.5) {
-          c.mesh.setMatrixAt(ev.idx, seatMatrix(seat, seat.scale));
+          c.mesh.setMatrixAt(ev.idx, this._seatMatrix(seat, seat.scale));
           c.mesh.instanceMatrix.needsUpdate = true;
           c.event = null;
         }
@@ -341,7 +351,7 @@ export class Studio {
         c.actor.userData.parts.armR.rotation.z = -2.0 + Math.sin(ev.t * 7) * 0.5;
         if (ev.t >= 2.8) {
           c.actor.visible = false;
-          c.mesh.setMatrixAt(ev.idx, seatMatrix(seat, seat.scale));
+          c.mesh.setMatrixAt(ev.idx, this._seatMatrix(seat, seat.scale));
           c.mesh.instanceMatrix.needsUpdate = true;
           c.event = null;
         }
@@ -710,9 +720,14 @@ function person({ skin = 0xd9b48f, hair = 0x2a2118, shirt = 0x2f3a55, pants = 0x
   return g;
 }
 
-// Swap which mouth shape is showing.
+// Swap which mouth shape is showing. Direct property sets — no Object.entries
+// allocation (this runs per person, every frame, in the life pass).
 function setMouth(parts, kind) {
-  for (const [k, m] of Object.entries(parts.mouths)) m.visible = k === kind;
+  const m = parts.mouths;
+  m.smile.visible = kind === 'smile';
+  m.frown.visible = kind === 'frown';
+  m.flat.visible = kind === 'flat';
+  m.open.visible = kind === 'open';
 }
 
 // A crew member: dark stagewear, over-the-head headset with ear cups + boom

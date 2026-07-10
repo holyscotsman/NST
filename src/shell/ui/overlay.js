@@ -16,6 +16,10 @@ import { readoutPacing } from '../hostLines.js';
 const SUSPENSE_MS = 1700;
 const SUSPENSE_HARD_MS = 3000;
 const SUSPENSE_FINAL_MS = 3800;
+const FIFTY_DONE_MS = 2600;       // 50:50: beat to read the two options removed
+const AUDIENCE_DONE_MS = 4400;    // audience: bars grow + a beat to read them
+const PHONE_STEP_MS = 2000;       // phone cutscene: 5 lines ≈ 10 seconds
+const WRONG_WALK_MS = 2600;       // wrong answer → auto-walk to the green room
 
 function reduced() { return document.body.classList.contains('reduced-motion'); }
 
@@ -51,7 +55,9 @@ export class QuizScreen {
   }
 
   _after(ms, fn) { const id = setTimeout(fn, reduced() ? 0 : ms); this._timers.push(id); return id; }
-  _clearTimers() { this._timers.forEach(clearTimeout); this._timers = []; if (this._typeIv) clearInterval(this._typeIv); }
+  // Bumped on every question change; async loops (the audience count-up) check
+  // it so they stop writing to nodes from a question that's already gone.
+  _clearTimers() { this._timers.forEach(clearTimeout); this._timers = []; this._gen = (this._gen || 0) + 1; }
 
   showQuestion(current, snapshot) {
     this._clearTimers();
@@ -142,9 +148,6 @@ export class QuizScreen {
     [...this.optionsEl.querySelectorAll('.option')].forEach((btn) => {
       const i = Number(btn.dataset.i);
       const on = this.selected.has(i);
-      if (on && !btn.classList.contains('selected')) {
-        btn.classList.remove('selected'); void btn.offsetWidth; // restart the pulse
-      }
       btn.classList.toggle('selected', on);
       btn.setAttribute('aria-checked', on ? 'true' : 'false');
     });
@@ -166,20 +169,24 @@ export class QuizScreen {
         if (btn) { btn.classList.add('removed'); btn.disabled = true; btn.setAttribute('aria-hidden', 'true'); }
       }
       this._refreshSelection();
-      this._lifelineDone(2600);
+      this._lifelineDone(FIFTY_DONE_MS);
     } else if (type === 'audience') {
       clear(this.lifelinePanel);
       const max = Math.max(...payload.bars.map((b) => b.percent));
+      // One static, screen-reader-friendly summary of the final poll — the
+      // animated bars/percentages are aria-hidden so the count-up doesn't flood
+      // the live region.
+      const summary = payload.bars.map((b) => `${letter(b.index)} ${b.percent}%`).join(', ');
       const rows = payload.bars.map((b, i) => {
-        const fill = h('span', { class: 'aud-bar' + (b.percent === max ? ' top' : '') });
+        const fill = h('span', { class: 'aud-bar' + (b.percent === max ? ' top' : ''), 'aria-hidden': 'true' });
         fill.style.transitionDelay = (i * 0.08) + 's';
-        const pct = h('span', { class: 'aud-pct' + (b.percent === max ? ' top' : '') }, '0%');
+        const pct = h('span', { class: 'aud-pct' + (b.percent === max ? ' top' : ''), 'aria-hidden': 'true' }, '0%');
         return { b, fill, pct, row: h('div', { class: 'aud-row' },
           h('span', { class: 'aud-letter' }, letter(b.index)),
           h('span', { class: 'aud-bar-wrap' }, fill),
           pct) };
       });
-      this.lifelinePanel.append(h('div', { class: 'audience', 'aria-label': 'Audience poll results' },
+      this.lifelinePanel.append(h('div', { class: 'audience', 'aria-label': 'Audience poll: ' + summary },
         h('div', { class: 'll-title' }, '👥 Ask the audience'),
         ...rows.map((r) => r.row)));
       // bars grow via transition (staggered); percentages count up alongside
@@ -189,8 +196,9 @@ export class QuizScreen {
       if (reduced()) {
         for (const r of rows) r.pct.textContent = r.b.percent + '%';
       } else {
-        const t0 = performance.now(), dur = 1600;
+        const gen = this._gen, t0 = performance.now(), dur = 1600;
         const step = (t) => {
+          if (this._gen !== gen) return; // question changed — stop writing
           const k = Math.min(1, (t - t0) / dur);
           const e = 1 - Math.pow(1 - k, 3);
           for (const r of rows) r.pct.textContent = Math.round(r.b.percent * e) + '%';
@@ -198,7 +206,7 @@ export class QuizScreen {
         };
         requestAnimationFrame(step);
       }
-      this._lifelineDone(4400); // bars + a beat to read them
+      this._lifelineDone(AUDIENCE_DONE_MS);
     } else if (type === 'phone') {
       this._phoneCutscene(payload.pick);
     }
@@ -242,7 +250,7 @@ export class QuizScreen {
       this._lifelineDone(1400);
       return;
     }
-    const step = 2000; // 5 lines ≈ 10 seconds
+    const step = PHONE_STEP_MS;
     script.forEach((line, k) => this._after(k * step, () => {
       bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop');
       bubble.textContent = line;
@@ -326,7 +334,7 @@ export class QuizScreen {
         h('p', { class: 'fb-note' }, 'The correct answer is lit above. Walking you back to the green room…'),
       );
       this.card.append(fb);
-      this._after(2600, () => { if (this.handlers.onContinue) this.handlers.onContinue(result); });
+      this._after(WRONG_WALK_MS, () => { if (this.handlers.onContinue) this.handlers.onContinue(result); });
       return;
     }
 

@@ -29,6 +29,7 @@ export class Director {
     this.queue = [];             // one-shot scenes waiting after the current one
     this._p = [0, 0, 0];         // scratch: camera position
     this._t = [0, 0, 0];         // scratch: look target
+    this._out = { p: this._p, t: this._t }; // reused per-frame result (no alloc)
     this._start('intro');
   }
 
@@ -121,7 +122,7 @@ export class Director {
     const k = Math.min(1, tk.dur === Infinity ? 0 : c.t / tk.dur);
     // Reduced motion: locked-off cuts — hold each take at its midpoint pose.
     this._pose(tk, this.reduced ? 0.5 : k);
-    return { p: this._p, t: this._t };
+    return this._out; // reused wrapper (references the scratch arrays)
   }
 
   _pose(take, k) {

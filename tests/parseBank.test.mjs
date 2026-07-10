@@ -62,3 +62,48 @@ test('summary flags whether the bank can fill a full run', () => {
   assert.equal(summary.total, 3);
   assert.equal(summary.images, 1);
 });
+
+// ---- alias normalization, field extraction, conflicts ----
+const opts4 = '- [x] Right\n- [ ] Wrong one\n- [ ] Another wrong\n- [ ] Last wrong';
+const withExpl = '\n\n**Explanation:** Because it is the right one here.';
+
+test('informal domain and difficulty aliases normalize', () => {
+  const md = `## Q\n- **Domain:** AOS\n- **Difficulty:** med\n\n**Question:** A stem long enough to validate here?\n${opts4}${withExpl}`;
+  const { questions, rejected } = parseMarkdownBank(md);
+  assert.equal(rejected.length, 0, JSON.stringify(rejected));
+  assert.equal(questions[0].domain, 'storage');       // AOS -> storage
+  assert.equal(questions[0].authoredDifficulty, 'medium'); // med -> medium
+});
+
+test('lifeline / tags / impossible fields land on the object with the right types', () => {
+  const md = `## Q\n- **Domain:** dataprotection\n- **Difficulty:** extreme\n- **Impossible:** true\n\n**Question:** A suitably long final stem for validation here?\n${opts4}${withExpl}\n**Phone a friend:** I think it's the first one.\n**Steve:** Recall how RF works, then decide.\n**Tags:** rf, replication`;
+  const { questions, rejected } = parseMarkdownBank(md);
+  assert.equal(rejected.length, 0, JSON.stringify(rejected));
+  const q = questions[0];
+  assert.equal(q.impossible, true);
+  assert.equal(q.phoneHint, "I think it's the first one.");
+  assert.equal(q.steveClue, 'Recall how RF works, then decide.');
+  assert.deepEqual(q.tags, ['rf', 'replication']);
+});
+
+test('multi-line stem and explanation fold with single spaces', () => {
+  const md = `## Q\n- **Domain:** ahv\n- **Difficulty:** easy\n\n**Question:** This stem\nspans two lines.\n${opts4}\n\n**Explanation:** This reason\nalso spans lines.`;
+  const { questions } = parseMarkdownBank(md);
+  assert.equal(questions[0].stem, 'This stem spans two lines.');
+  assert.equal(questions[0].explanation, 'This reason also spans lines.');
+});
+
+test('negative control: **Type:** single with two [x] marks is rejected', () => {
+  const md = `## Q\n- **Domain:** ahv\n- **Difficulty:** easy\n- **Type:** single\n\n**Question:** A stem that is plenty long for the check here?\n- [x] One\n- [x] Two\n- [ ] Three\n- [ ] Four${withExpl}`;
+  const { rejected } = parseMarkdownBank(md);
+  assert.equal(rejected.length, 1); // single-answer must have exactly one key
+});
+
+test('negative control: duplicate explicit IDs are rejected across the bank', () => {
+  const one = `## Q1\n- **Domain:** ahv\n- **Difficulty:** easy\n- **ID:** DUP-E-001\n\n**Question:** First stem long enough to validate here?\n${opts4}${withExpl}`;
+  const two = `## Q2\n- **Domain:** ahv\n- **Difficulty:** easy\n- **ID:** DUP-E-001\n\n**Question:** Second stem long enough to validate here?\n${opts4}${withExpl}`;
+  const { questions, rejected } = parseMarkdownBank(one + '\n\n' + two);
+  assert.equal(questions.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.ok(rejected[0].errors.join(' ').toLowerCase().includes('duplicate'));
+});

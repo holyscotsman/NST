@@ -47,7 +47,6 @@ export class RunController {
     this.assisted = false;             // any lifeline used on the current question
     this.usedThisQuestion = new Set(); // which lifeline types used on current question
     this.lifelineOutput = {};          // cached lifeline results for current question
-    this.rngSalt = 0;
   }
 
   start() {
@@ -101,8 +100,10 @@ export class RunController {
     if (!this.canUseLifeline(type)) return null;
     const q = this.set[this.index];
     const tier = positionTier(this.index);
-    // Deterministic per (seed, question, type) so seeded runs reproduce lifelines.
-    const rng = makeLocalRng(`${this.seed}#${this.runIndex}#${this.index}#${type}#${this.rngSalt++}`);
+    // Deterministic per (seed, run, question, type). This key is already unique
+    // — each (question, type) can be consumed only once per run — so the result
+    // is reproducible AND independent of how many lifelines were used earlier.
+    const rng = makeLocalRng(`${this.seed}#${this.runIndex}#${this.index}#${type}`);
 
     let payload;
     if (type === 'fifty') payload = fiftyFifty(q, rng);
@@ -121,6 +122,7 @@ export class RunController {
   // Returns a result object describing what happened.
   answer(selectedIndices) {
     if (!this.alive || this.won) return null;
+    if (!Array.isArray(selectedIndices)) return null; // UI-contract guard
     const cur = this.current();
     const q = cur.q;
     const correct = sameSet(selectedIndices, q.answer);

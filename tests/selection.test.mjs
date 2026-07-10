@@ -77,6 +77,16 @@ test('mastery mode reproduces with an injected rng and shifts tiers as you learn
   assert.equal(new Set(set.map((q) => q.id)).size, 30);
 });
 
+test('mastery mode reproduces exactly with the same injected rng + mastery', () => {
+  const bank = makeBank();
+  const m = emptyMastery();
+  for (const q of bank.slice(0, 20)) record(m, q.id, { correct: true, authoredDifficulty: q.authoredDifficulty });
+  const mkRng = () => { let c = 0; return () => { c++; return ((c * 2654435761) % 1000) / 1000; }; };
+  const a = buildSet({ bank, mode: 'mastery', mastery: m, rng: mkRng(), reachedFinalBefore: true });
+  const b = buildSet({ bank, mode: 'mastery', mastery: m, rng: mkRng(), reachedFinalBefore: true });
+  assert.deepEqual(a.map((q) => q.id), b.map((q) => q.id), 'same rng + mastery -> same run');
+});
+
 test('SetManager keeps a disjoint current/next and Steve reads the upcoming run', () => {
   // Big enough to build two fully-disjoint back-to-back runs (needs >= 60).
   const bank = makeBank({ easy: 25, medium: 25, hard: 25, extreme: 8, impossible: 2 });

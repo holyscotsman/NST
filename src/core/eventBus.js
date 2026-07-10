@@ -14,7 +14,7 @@ export function createBus() {
       const set = listeners.get(type);
       if (set) for (const fn of [...set]) { try { fn(data, type); } catch (e) { console.error('bus listener error', type, e); } }
       const star = listeners.get('*');
-      if (star) for (const fn of [...star]) { try { fn(data, type); } catch (e) { console.error(e); } }
+      if (star) for (const fn of [...star]) { try { fn(data, type); } catch (e) { console.error('bus listener error', type, e); } }
     },
     clear() { listeners.clear(); },
   };

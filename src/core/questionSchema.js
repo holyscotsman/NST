@@ -77,7 +77,7 @@ export function validateQuestion(q, seenIds) {
   return { ok: errors.length === 0, errors };
 }
 
-// Validate a whole bank. Returns { ok, valid: [...], rejected: [{q, errors}], summary }.
+// Validate a whole bank. Returns { ok, valid: [...], rejected: [{id, errors}], summary }.
 export function validateBank(bank) {
   const seen = new Set();
   const valid = [];

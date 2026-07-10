@@ -213,8 +213,11 @@ export function SettingsScreen(ctx) {
   exportBtn.onclick = async () => {
     const code = ctx.onExport();
     ioBox.value = code;
-    try { await navigator.clipboard.writeText(code); exportBtn.textContent = 'Copied ✓'; }
-    catch { ioBox.focus(); ioBox.select(); } // clipboard blocked: it's in the box, selected
+    try {
+      await navigator.clipboard.writeText(code);
+      exportBtn.textContent = 'Copied ✓';
+      setTimeout(() => { exportBtn.textContent = 'Export save code'; }, 2000); // don't leave it stale
+    } catch { ioBox.focus(); ioBox.select(); } // clipboard blocked: it's in the box, selected
   };
   const importBtn = h('button', { class: 'secondary small', type: 'button',
     onclick: () => ctx.onImport(ioBox.value) }, 'Import save code');

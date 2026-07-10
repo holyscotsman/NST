@@ -230,6 +230,7 @@ export class Game {
   showTitle() {
     this.screen = 'title';
     this._clearQuip();
+    this._greenReveal = null; // a loss reveal never survives leaving to the title
     this.bus.emit('scene:studio', {});
     this._swap(TitleScreen({
       wallet: this.save.wallet,
@@ -559,6 +560,14 @@ export class Game {
   }
 
   continueAfter(result) {
+    if (this._advancing) return; // re-entrancy guard (double Enter / click)
+    this._advancing = true;
+    try {
+      this._continueAfter(result);
+    } finally { this._advancing = false; }
+  }
+
+  _continueAfter(result) {
     if (result.won) return this.endRun(true, result);
     if (result.correct === false) return this.endRun(false, result);
     const prev = this.rc.index;

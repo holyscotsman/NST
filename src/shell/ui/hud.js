@@ -18,7 +18,6 @@ export class Hud {
     this.handlers = handlers;
     this.el = h('div', { class: 'hud-root' });
     this._displayed = { banked: 0, playing: 0 };
-    this._raf = null;
     this._lastCharges = {};
     this._buildCluster();
     this._buildLadder();

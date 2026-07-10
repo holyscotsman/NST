@@ -12,7 +12,7 @@
 // typo can never quietly ship a broken key. It never judges correctness — the
 // author's [x] mark is authoritative (CLAUDE.md §4).
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { parseMarkdownBank } from '../src/content/parseMarkdownBank.js';
 
 const args = process.argv.slice(2);
@@ -40,6 +40,12 @@ console.log('By domain:    ', JSON.stringify(summary.byDomain));
 console.log(`Images:        ${summary.images}`);
 console.log(`Full-run ready (10 easy / 10 medium / 9 hard / 1 extreme): ${summary.meetsRunRequirement ? 'YES' : 'NO'}`);
 
+// An empty result is NEVER writable — even --force must not blow away a good
+// bank with `export const QUESTIONS = []` (that would break the game at boot).
+if (questions.length === 0) {
+  console.error('\n✗ Not writing — no valid questions were parsed. Fix the bank and re-run.');
+  process.exit(1);
+}
 if (rejected.length && !force) {
   console.error('\n✗ Not writing — fix the rejected questions above (or pass --force to write only the valid ones).');
   process.exit(1);
@@ -57,5 +63,9 @@ const header = `// questions.js — the playable NCP-MCI question bank.
 // grade (CLAUDE.md §4) — the stored authored key is authoritative.
 
 `;
-writeFileSync(output, header + `export const QUESTIONS = ${JSON.stringify(questions, null, 2)};\n`);
+// Write atomically (temp + rename) so a crash mid-write can't truncate the
+// existing good bank.
+const tmp = output + '.tmp';
+writeFileSync(tmp, header + `export const QUESTIONS = ${JSON.stringify(questions, null, 2)};\n`);
+renameSync(tmp, output);
 console.log(`\n✓ Wrote ${questions.length} question(s) to ${output}`);
