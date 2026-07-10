@@ -101,7 +101,14 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.115.0 — D7: exam Testing station shipped — BATCH #6 COMPLETE
+## v0.116.0 — R1: post-batch adversarial sweep, ten confirmed bugs fixed
+
+29-agent refute+reproduce review of the whole redesign diff. Headliners: ARM radar blips
+threw (strict-mode `i2`) every real-browser frame since v0.111; the Embark checkpoint
+aliased the live map (save corruption); elite battles resumed as normals. +10 pins, 3
+controls. QA-R1 added to the browser pass.
+
+> **Earlier this session (v0.115.0):** ## D7: exam Testing station shipped — BATCH #6 COMPLETE
 
 Study/Sim = flat testing center (palette rail, radio rows, tabular clock, no starfield);
 Blitz keeps the arcade skin, pinned. All seven design-handoff units live (D1 sprites, D2

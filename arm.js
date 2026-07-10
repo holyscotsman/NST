@@ -579,7 +579,7 @@
       resize();
       on(win, "resize", resize);
       on(win, "keydown", function (eK) {   // (v0.112.0, D4) console keys 1/2/3 in the briefing
-        if (state !== "BRIEF") return;
+        if (state !== "BRIEF" || paused) return;   // (v0.116.0, R1) console keys freeze under the pause overlay
         var kn = eK.key === "1" ? 0 : eK.key === "2" ? 1 : eK.key === "3" ? 2 : -1;
         if (kn < 0) return;
         var btns = commsOpts ? commsOpts.querySelectorAll("button") : [];
@@ -2664,6 +2664,8 @@
       else { c2d.globalAlpha = pulse; c2d.fillStyle = COL.peach; c2d.shadowColor = COL.peach; c2d.shadowBlur = 8; c2d.beginPath(); c2d.moveTo(0, -6); c2d.lineTo(6, 5); c2d.lineTo(-6, 5); c2d.closePath(); c2d.fill(); }
       c2d.restore(); c2d.globalAlpha = 1; c2d.shadowBlur = 0;
     }
+    var TAPE_TXT = ["N", "30", "60", "E", "120", "150", "S", "210", "240", "W", "300", "330"];
+    var hudCapStr = "", hudCapDeg = -1, hudCapDist = -2;   // (v0.116.0, R1) caption cache — no per-frame concat
     function drawCockpitHud() {
       if (!c2d || state === "HOME" || state === "INTRO" || state === "BRIEF" || state === "WARP") return;
       var tW = Math.min(460, W - 220), tX = W / 2 - tW / 2, tY = 12, tH = 38;
@@ -2683,7 +2685,7 @@
         degAt = ((degAt % 360) + 360) % 360;
         if (degAt % 30 === 0) {
           c2d.fillStyle = "rgba(255,255,255,.4)"; c2d.font = "700 10px Montserrat,Arial,sans-serif"; c2d.textAlign = "center";
-          c2d.fillText(degAt === 0 ? "N" : degAt === 90 ? "E" : degAt === 180 ? "S" : degAt === 270 ? "W" : String(degAt), xk, tY + tH - 4);
+          c2d.fillText(TAPE_TXT[degAt / 30], xk, tY + tH - 4);   // (v0.116.0, R1) fixed label table — no per-frame strings
         }
       }
       var mkY = tY + 14, shown = 0, i2, nearDist = -1;
@@ -2707,11 +2709,16 @@
       c2d.save(); c2d.strokeStyle = "#fff"; c2d.shadowColor = COL.aqua; c2d.shadowBlur = 8; c2d.lineWidth = 2;
       c2d.beginPath(); c2d.moveTo(W / 2, tY + 3); c2d.lineTo(W / 2, tY + tH - 3); c2d.stroke(); c2d.restore(); c2d.shadowBlur = 0;
       c2d.fillStyle = "rgba(109,109,128,.9)"; c2d.font = "600 10px Montserrat,Arial,sans-serif"; c2d.textAlign = "center";
-      c2d.fillText(("heading " + Math.round(headingDeg) + (nearDist >= 0 ? " \u00b7 nearest core " + Math.round(nearDist / 4) + "m" : "")).toUpperCase(), W / 2, tY + tH + 12);
+      var hcDeg = Math.round(headingDeg), hcDist = nearDist >= 0 ? Math.round(nearDist / 4) : -1;
+      if (hcDeg !== hudCapDeg || hcDist !== hudCapDist) {
+        hudCapDeg = hcDeg; hudCapDist = hcDist;
+        hudCapStr = ("heading " + hcDeg + (hcDist >= 0 ? " \u00b7 nearest core " + hcDist + "m" : "")).toUpperCase();
+      }
+      c2d.fillText(hudCapStr, W / 2, tY + tH + 12);
       drawRadarOnly(tNow, pulse);
     }
     function drawRadarOnly(tNow, pulse) {
-      var rX = W - 92, rY = H - 236, rR = 62, R_WORLD = 900;
+      var rX = W - 92, rY = H - 236, rR = 62, R_WORLD = 900, i2;   // (v0.116.0, R1) i2 was undeclared — strict mode threw every radar frame
       c2d.save();
       c2d.fillStyle = "rgba(8,8,14,.78)"; c2d.strokeStyle = "#26263a";
       c2d.beginPath(); c2d.arc(rX, rY, rR + 4, 0, TAU); c2d.fill(); c2d.stroke();
@@ -3139,7 +3146,7 @@
       ".arm-gauge{width:64px;height:34px;} .arm-knob{position:relative;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #3c3c52, #191924);border:2px solid #4a4a66;display:block;}",
       ".arm-knob::after{content:'';position:absolute;left:50%;top:2px;width:2px;height:8px;background:" + C.aqua + ";transform-origin:50% 11px;transform:translateX(-50%) rotate(var(--rot,0deg));}",
       ".arm-knob.gold::after{background:" + C.gold + ";}",
-      ".arm-reduce .arm-brf-station,.arm-reduce .arm-brf-hex,.arm-reduce .arm-wave b,.arm-reduce .arm-leds i.y.bl{animation:none;}",
+      ".arm-reduce .arm-brf-station,.arm-reduce .arm-brf-station .bem,.arm-reduce .arm-brf-hex,.arm-reduce .arm-wave b,.arm-reduce .arm-leds i.y.bl{animation:none;}",
       ".arm-comms-top{display:flex;gap:13px;align-items:center;margin-bottom:11px;}",
       ".arm-comms-port{width:74px;height:74px;border-radius:12px;flex-shrink:0;overflow:hidden;position:relative;border:1px solid rgba(31,221,233,.55);box-shadow:0 0 14px rgba(31,221,233,.28),inset 0 0 12px rgba(31,221,233,.12);}",
       ".arm-comms-port svg{width:100%;height:100%;display:block;}",

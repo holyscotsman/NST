@@ -1162,7 +1162,8 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         if (rz.flags) run.flags = rz.flags;                                          // (G4) Lazarus stays burned
         if (rz.depthClearedSection) { run.depthClearedSection = rz.depthClearedSection; run.depthClearedRound = rz.depthClearedRound || 0; }
         if (rz.consumables) run.consumables = rz.consumables.slice(0, CONFIG.consumableCap);
-        if (rz.map) run.map = rz.map;                                                // (v0.114.0, D6) the section map survives resume
+        if (rz.map) run.map = JSON.parse(JSON.stringify(rz.map));                    // (v0.114.0, D6 / v0.116.0, R1) cloned — never alias the profile object
+        if (rz.elite) run.pendingElite = true;                                       // (v0.116.0, R1) a checkpointed elite battle resumes AS an elite
         run.battle = null; startBattle(run);   // open ON the checkpointed round's battle
       }
       var container = el(doc, 'div', 'kbb-root' + (reduced ? ' kbb-reduced' : ''));
@@ -2443,7 +2444,8 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
             flags: s.run.flags || {},
             depthClearedSection: s.run.depthClearedSection || 0, depthClearedRound: s.run.depthClearedRound || 0,
             consumables: s.run.consumables.slice(),
-            map: s.run.map || null,
+            map: s.run.map ? JSON.parse(JSON.stringify(s.run.map)) : null,   // (v0.116.0, R1) deep copy — the live map kept mutating inside the saved checkpoint
+            elite: !!(s.run.battle && s.run.battle.enemy && s.run.battle.enemy.elite && !s.run.battle.over),   // (v0.116.0, R1) resume must re-arm the elite
             label: 'Depth ' + s.run.section + '-' + s.run.round + ' \u00b7 ' + rq.artifacts.length + ' artifacts \u00b7 ' + rq.coins + 'c' };
           if (P2.update) P2.update(function (p) { p.saves = p.saves || {}; p.saves.KBB = snap; });
           else if (P2.load && P2.save) P2.load().then(function (p) { p.saves = p.saves || {}; p.saves.KBB = snap; return P2.save(p); }).catch(function () {});

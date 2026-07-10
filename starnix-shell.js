@@ -433,6 +433,7 @@
     // classes (.sx-card/.sx-rank/.sx-daily/.sx-due-chip) are kept — same wiring, new skin.
     var s = el("div", "sx-screen sx-menu sx-bridge");
     var prof0 = StarNix.core.profile || {};
+    if (prof0.settings && prof0.settings.reducedMotion) s.className += " sx-reduced";   // (v0.116.0, R1) the in-app toggle, not just the OS query
     var stationN = (prof0.saves && prof0.saves.ARM && prof0.saves.ARM.stationBuild) | 0;
     var bestCC = (prof0.bests && prof0.bests.CC) | 0;
     var bestKBBv = (prof0.bests && prof0.bests.KBB) | 0;
@@ -1486,6 +1487,7 @@
       ".sx-dock-continue:hover{filter:brightness(1.08);}",
       "@media (max-width:1000px){.sx-station-group{display:none;}.sx-bridge-left{max-width:none;}}",
       "@media (prefers-reduced-motion: reduce){.sx-station-group,.sx-shard-rwing,.sx-station-ember,.sx-station-hex{animation:none;}}",
+      ".sx-reduced .sx-station-group,.sx-reduced .sx-shard-rwing,.sx-reduced .sx-station-ember,.sx-reduced .sx-station-hex{animation:none;}",
       ".sx-due-chip{border-color:var(--gold);color:var(--gold);}",
       ".sx-due-chip:hover{background:rgba(255,200,87,.12);}",
       ".sx-cards{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:480px;margin:0 auto;}",

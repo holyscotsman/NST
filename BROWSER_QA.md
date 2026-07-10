@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-R1 — sweep fixes (added v0.116.0).** ARM sector: the radar now shows aqua core squares
+  and peach threat triangles (they NEVER drew v0.111–v0.115 — a strict-mode throw; open DevTools:
+  zero console errors in flight). Pause during a briefing: 1/2/3 do nothing until resumed.
+  Reduced motion: the briefing ember and ALL bridge-menu drift/flicker stop from the in-app
+  toggle, not just the OS setting. KBB: visit a shop/cache stop, quit WITHOUT embarking, resume —
+  the stop must be available again (unburned); resume onto an elite battle → ELITE tag + big HP.
+  Exam: Tab to a palette cell, press Enter — it must not jump you via Next.
+
 - **QA-D7 — Testing station (added v0.115.0).** Start an Exam sim: flat testing-center page —
   no nebula, no starfield, the clock top-right is the only thing moving (tabular digits). The
   palette rail mirrors you live: answer → cell fills, flag → gold dot, click any cell → jumps.

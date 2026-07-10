@@ -245,8 +245,14 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   // progress, console keys stay 1:1 with briefOpts (the A5 answer-last pin still guards content)
   ok(/arm-brfscene/.test(H.ARM_SRC) && /show\(brfScene, s === "BRIEF"\)/.test(H.ARM_SRC)
      && /arm-mhex/.test(H.ARM_SRC) && /CORE MANIFEST/.test(H.ARM_SRC)
-     && /state !== "BRIEF"\) return;/.test(H.ARM_SRC),
-     'D4: center-console scene wired (BRIEF-only, manifest hexes, 1/2/3 console keys)');
+     && /state !== "BRIEF" \|\| paused\) return;/.test(H.ARM_SRC),
+     'D4: center-console scene wired (BRIEF-only + pause-guarded, manifest hexes, 1/2/3 console keys — R1)');
+  ok(/R_WORLD = 900, i2;/.test(H.ARM_SRC),
+     'R1: drawRadarOnly declares i2 (undeclared strict-mode assignment threw every radar frame)');
+  ok(H.ARM_SRC.includes('.arm-reduce .arm-brf-station,.arm-reduce .arm-brf-station .bem,'),
+     'R1: reduced motion kills the briefing ember pulse too (.bem had its own animation)');
+  ok(/var TAPE_TXT = \["N", "30"/.test(H.ARM_SRC) && /hudCapStr = "", hudCapDeg = -1/.test(H.ARM_SRC),
+     'R1: cockpit HUD draws from cached label table + heading caption (no per-frame string churn)');
   // (v0.111.0, D3) Cockpit-lite HUD sources: tape+radar draw fn, rail rows, HC-gated vignette
   ok(/function drawCockpitHud\(\)/.test(H.ARM_SRC) && /drawCompass\(\);\s*\n\s*drawCockpitHud\(\);/.test(H.ARM_SRC)
      && /arm-rrow/.test(H.ARM_SRC) && /if \(!highContrast\) wrap\.appendChild\(mk\("div", "arm-vignette"\)\)/.test(H.ARM_SRC),

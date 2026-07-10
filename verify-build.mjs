@@ -1135,6 +1135,7 @@ async function runFrames(n = 6) {
       artifacts: [{ id: "compounding-core", state: { f: 7 } }], flags: { lazarusUsed: true },
       depthClearedSection: 1, depthClearedRound: 2, consumables: [],
       map: { section: 2, nodes: [{ id: "r1b", rank: 1, type: "battle" }], stops: [{ id: "w1s", afterRank: 1, type: "shop", used: true }], taken: { 1: "battle" } },
+      elite: true,
       label: "x" } };
     shell.enterGame("KBB");
     [...w.document.querySelectorAll("button")].find(n => /Resume/.test(n.textContent)).click();
@@ -1146,6 +1147,10 @@ async function runFrames(n = 6) {
       && kR.depthClearedSection === 1);
     ok("D6: resume restores the saved section map (used stop stays used)",
       !!(kR.map && kR.map.section === 2 && kR.map.stops && kR.map.stops[0] && kR.map.stops[0].used === true));
+    ok("R1: a checkpointed ELITE battle resumes as an elite (flag re-armed through pendingElite)",
+      !!(kR.battle && kR.battle.enemy && kR.battle.enemy.elite === true));
+    ok("R1: the resumed map is a CLONE, not the profile object (mutations can't corrupt the save)",
+      kR.map !== SN.core.profile.saves.KBB.map);
     // and the WRITE path, driven for real (JB2 recipe): answer -> flip to shop at the
     // feedback -> Continue renders the shop -> Next battle fires onLeaveShop -> checkpoint
     {
@@ -1172,6 +1177,13 @@ async function runFrames(n = 6) {
       ok("D6: the checkpoint carries the run's LIVE section map verbatim",
         !!(SN.core.profile.saves && SN.core.profile.saves.KBB && SN.core.profile.saves.KBB.map && liveMapW
            && JSON.stringify(SN.core.profile.saves.KBB.map) === JSON.stringify(liveMapW)));
+      {  // (v0.116.0, R1) the snapshot map is a deep copy — post-checkpoint stop clicks must not reach the profile
+        const stopsBefore = SN.core.profile.saves.KBB.map.stops.length;
+        liveMapW.stops.push({ id: "wZZ", afterRank: 1, type: "unknown", used: false, coins: 5 });
+        ok("R1: mutating the live map after Embark leaves the checkpointed map untouched (no aliasing)",
+          SN.core.profile.saves.KBB.map.stops.length === stopsBefore && SN.core.profile.saves.KBB.map !== liveMapW);
+        liveMapW.stops.pop();
+      }
     }
     shell.exitGame(); await wait(120);
     ok("CC checkpoints each survived gate + clears on SHIP DOWN (source)",
@@ -1479,13 +1491,24 @@ async function runFrames(n = 6) {
         ok("D7: the palette rail renders one cell per question, current marked",
           contS.querySelectorAll(".sx-exam-rail .rl-cell").length === 3
           && !!contS.querySelector('.sx-exam-rail .rl-cell.cur[data-q="0"]'));
+        // (v0.116.0, R1) clicking the current cell must NOT wipe the pending (unconfirmed) pick
+        contS.querySelectorAll(".sx-exam-opt")[1].click();
+        contS.querySelector('.sx-exam-rail .rl-cell.cur[data-q="0"]').click();
+        ok("R1: study — clicking the current palette cell keeps the pending selection",
+          contS.querySelectorAll(".sx-exam-opt")[1].classList.contains("sel"));
+        // (v0.116.0, R1) the rail fills the moment Confirm grades — no navigation needed
+        contS.querySelector(".sx-exam-confirm").click();
+        ok("R1: study — the palette cell fills on Confirm, before any navigation",
+          !!contS.querySelector('.sx-exam-rail .rl-cell.ans[data-q="0"]'));
         hS.teardown(); contS.remove();
 
         const contB = w.document.createElement("div"); w.document.body.appendChild(contB);
         const hB = EX.run({ container: contB, mode: "blitz", questions: qs3, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
         const rootB = contB.querySelector(".sx-exam");
         const bgB = (rootB.style.backgroundImage || "");
-        ok("D7: Blitz keeps the arcade skin — nebula bg, no .station, no rail",
+        ok("R1: the bridge menu honors the in-app Reduced-motion toggle (class hook + kill rules, source)",
+        html.includes('s.className += " sx-reduced"') && html.includes(".sx-reduced .sx-station-group,.sx-reduced .sx-shard-rwing,.sx-reduced .sx-station-ember,.sx-reduced .sx-station-hex{animation:none;}"));
+      ok("D7: Blitz keeps the arcade skin — nebula bg, no .station, no rail",
           !/\bstation\b/.test(rootB.className) && bgB.indexOf("linear-gradient") === 0 && bgB.includes("url(")
           && rootB.style.backgroundSize === "cover" && !contB.querySelector(".sx-exam-rail"));
         hB.teardown(); contB.remove();
@@ -1506,6 +1529,13 @@ async function runFrames(n = 6) {
         ok("D7: the top bar carries candidate + a Time-remaining clock box + Review screen in the nav",
           !!contM.querySelector(".sx-exam-cand") && !!contM.querySelector(".sx-exam-clockbox .ck")
           && !!contM.querySelector(".sx-exam-rvw") && !!contM.querySelector(".sx-exam-micro"));
+        {  // (v0.116.0, R1) Enter on a focused rail cell must not fire the nav primary
+          const progBefore = contM.querySelector(".sx-exam-prog").textContent;
+          const cellR1 = contM.querySelector('.sx-exam-rail .rl-cell[data-q="1"]');
+          cellR1.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+          ok("R1: sim — Enter on a focused palette cell is not hijacked by the document Next handler",
+            contM.querySelector(".sx-exam-prog").textContent === progBefore);
+        }
         hM.teardown(); contM.remove();
       }
       ok("J8: the same cap ships in ARM/KBB/CC feedback + J7 Vega comms (source pins)",

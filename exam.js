@@ -392,7 +392,7 @@
         var qi3 = parseInt(t3.getAttribute("data-q"), 10);
         if (isNaN(qi3) || S.examDone) return;
         if (S.mode === "sim") renderQuestion(qi3);
-        else if (S.results[qi3] || qi3 === S.view) renderQuestion(qi3);   // study: browse graded only
+        else if (S.results[qi3] && qi3 !== S.view) renderQuestion(qi3);   // study: browse graded only — never re-render the ungraded frontier (v0.116.0, R1: it wiped the pending pick)
       });
     }
     function renderRail() {
@@ -605,6 +605,7 @@
       var pts = (S.mode === "blitz" && correct) ? Math.round(pointsAt(elapsed, S.qWindow, MAX_POINTS) * comboMult(S.combo)) : 0;
       S.results[idx] = { q: q, chosen: chosen, correct: correct, points: pts, timeMs: elapsed };
       S.score += pts;
+      renderRail();   // (v0.116.0, R1) the palette fills the moment the answer grades
       if (S.mode === "blitz") { S.combo = correct ? S.combo + 1 : 0; renderCombo(correct); }
       if (mastery && mastery.record) { try { mastery.record(q.id, correct, { game: "EXAM" }); } catch (e) {} }
       if (audio && audio.sfx) { try { audio.sfx(correct ? "correct" : "wrong"); } catch (e) {} }
@@ -671,6 +672,7 @@
     /* ---- keyboard ---------------------------------------------------------- */
     if (root.document) on(root.document, "keydown", function (ev) {
       if (!S.running || S.examDone) return;
+      if (railEl && ev.target && ev.target.nodeType === 1 && railEl.contains(ev.target)) return;   // (v0.116.0, R1) focused palette cells own their keys
       var key = ev.key || "";
       var card = host.querySelector(".sx-exam-card");
       var kIdx = "abcde".indexOf(key.toLowerCase());
