@@ -14,10 +14,12 @@
 ## Queue
 
 ### Ready
-- Save export/import (copy/paste or file) so progress moves between devices —
-  settings-screen affordance; touches persistence only, no design invention.
+- _Empty — everything remaining is blocked on the human (below) or lives as an
+  unspecced idea in `BACKLOG.md`. Promote a backlog item here once specced._
 
 ### Done (recent)
+- Save export/import: Settings exports the save as a portable code and imports
+  one (confirm-gated, migrate-normalized, garbage-rejected).
 - Question image hook: schema field (`image {src, alt, caption?}` — local-only,
   alt required) + overlay renderer with load-failure fallback. **No image
   content authored** (that stays human).

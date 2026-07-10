@@ -22,4 +22,3 @@ Ideas that aren't scheduled work yet. Promote to `AUTONOMOUS_RUN.md` when specce
 ## Tech
 - Service worker for full offline play + installable PWA.
 - Bundle/minify step (optional; the game runs unbundled today).
-- Save export/import so progress moves between devices.

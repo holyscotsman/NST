@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — save transfer between devices
+
+- **Export / import in Settings** — "Export save code" copies the full save
+  (plain JSON, nothing secret in it) to the clipboard and shows it in a box;
+  pasting a code and hitting "Import save code" replaces this device's
+  progress after a confirm. Import runs the same `migrate()` as load, so
+  sparse or older saves normalize cleanly, and unreadable codes are rejected
+  with a message instead of a broken state. Headless-tested round-trip with
+  negative controls (garbage/wrong-shape/wrong-version codes → null; prestige
+  through export/import still never wipes mastery).
+
 ## Unreleased — queue pass: image hook, challenge links, reveal tick
 
 - **Question image hook** — the schema accepts an optional

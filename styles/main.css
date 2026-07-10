@@ -509,6 +509,9 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .setting input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--aqua); }
 .setting b { display: block; }
 .motion-select { background: #0a0a16; border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px; font-family: inherit; }
+.save-transfer { display: flex; flex-direction: column; gap: 7px; padding: 14px 0 4px; border-top: 1px solid var(--line); }
+.save-io { width: 100%; background: #0a0a16; border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 9px 11px; font-family: var(--mono); font-size: 11px; resize: vertical; }
+.save-transfer-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .danger { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 
 .boot-error { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; text-align: center; padding: 30px; color: var(--peach); background: var(--bg); }

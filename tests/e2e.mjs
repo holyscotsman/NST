@@ -118,6 +118,15 @@ async function main() {
     const linkSeed = await page.textContent('.seed-chip');
     check('a challenge link starts the seeded run (normalized)', /NTNX-LINKME/.test(linkSeed || ''), linkSeed);
 
+    // ---- Scenario 3c: settings can export the save as a code ----
+    await page.goto(base, { waitUntil: 'load', timeout: 20000 });
+    await page.waitForSelector('.brand-main', { timeout: 8000 });
+    await page.click('text=Settings');
+    await page.waitForSelector('.save-transfer', { timeout: 5000 });
+    await page.click('text=Export save code');
+    const code = await page.inputValue('.save-io');
+    check('settings exports a readable save code', /"version":\s*1/.test(code || ''), (code || '').slice(0, 40));
+
     // ---- Scenario 4: first-run intro cinematic (fresh save) ----
     const ctx2 = await browser.newContext({ viewport: { width: 1100, height: 800 } });
     await ctx2.addInitScript(() => {

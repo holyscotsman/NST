@@ -75,6 +75,25 @@ export function prestige(state) {
   return { ...state, wallet: 0, lifelines: defaultLifelines() };
 }
 
+// Export the save as a portable string (plain JSON — transparent on purpose;
+// there is nothing secret in a save). Import runs the same migrate() used at
+// load, so a save from any version normalizes cleanly. Returns null when the
+// string is not a readable save.
+export function exportString(state) {
+  return JSON.stringify(state);
+}
+
+export function importString(raw) {
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    if (parsed.version !== 1) return null;
+    return migrate(parsed);
+  } catch {
+    return null;
+  }
+}
+
 function migrate(parsed) {
   const base = defaultSave();
   const merged = { ...base, ...parsed };

@@ -206,6 +206,18 @@ export function SettingsScreen(ctx) {
   const motionSel = h('select', { class: 'motion-select', onchange: (e) => ctx.onChange('motion', e.target.value) },
     ...[['auto', 'Match my system'], ['full', 'Full motion'], ['reduced', 'Reduced motion']].map(([v, t]) =>
       h('option', { value: v, selected: ctx.settings.motion === v }, t)));
+  // Move progress between devices: export copies a save code, import pastes one.
+  const ioBox = h('textarea', { class: 'save-io', rows: '3', placeholder: 'Paste a save code here to import…', 'aria-label': 'Save code' });
+  const exportBtn = h('button', { class: 'secondary small', type: 'button' }, 'Export save code');
+  exportBtn.onclick = async () => {
+    const code = ctx.onExport();
+    ioBox.value = code;
+    try { await navigator.clipboard.writeText(code); exportBtn.textContent = 'Copied ✓'; }
+    catch { ioBox.focus(); ioBox.select(); } // clipboard blocked: it's in the box, selected
+  };
+  const importBtn = h('button', { class: 'secondary small', type: 'button',
+    onclick: () => ctx.onImport(ioBox.value) }, 'Import save code');
+
   return h('section', { class: 'screen settings-screen' },
     h('h2', { class: 'screen-title' }, 'Settings'),
     h('label', { class: 'setting' }, motionSel, h('span', {}, h('b', {}, 'Motion'), h('span', { class: 'muted small' }, 'Reduced motion cuts between camera angles instead of gliding, and stops flashes.'))),
@@ -213,6 +225,11 @@ export function SettingsScreen(ctx) {
     toggle('sound', 'Sound effects', 'Short cues for picking, locking, and lifelines.'),
     toggle('music', 'Music', 'Original synth score: lounge in the green room, tier loops that slow and darken as the money climbs.'),
     toggle('extraTime', 'No timers', 'There is never a countdown; this keeps it that way if timers are ever added.'),
+    h('div', { class: 'save-transfer' },
+      h('b', {}, 'Move progress between devices'),
+      h('span', { class: 'muted small' }, 'Export here, then import on the other device. Importing replaces this device’s progress.'),
+      ioBox,
+      h('div', { class: 'save-transfer-row' }, exportBtn, importBtn)),
     h('div', { class: 'danger' },
       h('button', { class: 'ghost small', type: 'button', onclick: () => ctx.onReset() }, 'Reset all progress'),
       h('span', { class: 'muted small' }, 'Wipes mastery, coins, and stats on this device.')),

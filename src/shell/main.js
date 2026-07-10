@@ -243,6 +243,18 @@ export class Game {
       settings: this.save.settings,
       onChange: (k, v) => { this.save.settings[k] = v; this._applySettings(); this.persist(); this.showSettings(); },
       onReset: () => { if (confirm('Reset ALL progress on this device? This cannot be undone.')) { this.save = persistence.resetAll(); this.campaign = null; this.showTitle(); } },
+      onExport: () => persistence.exportString(this.save),
+      onImport: (raw) => {
+        const imported = persistence.importString(raw);
+        if (!imported) { alert('That save code could not be read — paste the whole code, exactly as exported.'); return; }
+        if (!confirm('Import this save? It replaces ALL progress on this device.')) return;
+        this.save = imported;
+        this.campaign = null; // rebuild question sets from the imported mastery
+        persistence.save(this.save);
+        this._applySettings();
+        this.showTitle();
+        this._announce('Save imported.');
+      },
       onClose: () => this.showTitle(),
     }));
   }

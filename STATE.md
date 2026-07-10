@@ -41,7 +41,7 @@ audio-resume hardening, pause menu, mastery dashboard removed).
   green room (reveal + pep talk → shop, "Start next round"); win → prestige.
 
 ### Gates
-- Tests: 59 headless (negative controls) + 7 smoke + 17 e2e; CI runs headless
+- Tests: 63 headless (negative controls) + 7 smoke + 18 e2e; CI runs headless
   on every push/PR. All green as of the last drop.
 - Visual sign-off queue: `BROWSER_QA.md` (code-complete, visual-pending).
 
