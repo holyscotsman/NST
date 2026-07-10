@@ -1467,15 +1467,46 @@ async function runFrames(n = 6) {
         && capLong.det.querySelector("div").textContent.trim().split(/\s+/).length === 80);
       const capShort = runCap("short and sweet");
       ok("J8: short explanations render whole — no expander", !capShort.det && /short and sweet/.test(capShort.text));
-      // (v0.74.0) the NIT wears the title nebula behind its starfield (Jason's ask)
+      // (v0.74.0 -> v0.115.0, D7) Study/Sim are the flat TESTING STATION now (no nebula, no
+      // starfield, palette rail); Blitz alone keeps the arcade nebula. Honest re-pin.
       {
-        const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-        const h = EX.run({ container: cont, mode: "study", questions: [{ id: "bg1", domain: "vms", difficulty: 1, stem: "B", options: ["a", "b", "c"], correctIndex: 0, explanation: "e" }], rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-        const bg = (cont.querySelector(".sx-exam").style.backgroundImage || "");
-        ok("NIT background = darkened title nebula + cover sizing (starfield floats above)",
-          bg.indexOf("linear-gradient") === 0 && bg.includes("url(")
-          && cont.querySelector(".sx-exam").style.backgroundSize === "cover");
-        h.teardown(); cont.remove();
+        const contS = w.document.createElement("div"); w.document.body.appendChild(contS);
+        const qs3 = [1, 2, 3].map(n => ({ id: "st" + n, domain: "vms", difficulty: 1, stem: "S" + n, options: ["a", "b", "c"], correctIndex: 0, explanation: "e" }));
+        const hS = EX.run({ container: contS, mode: "study", questions: qs3, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
+        const rootS = contS.querySelector(".sx-exam");
+        ok("D7: Study wears the flat testing station (.station, no nebula, no starfield canvas visible)",
+          /\bstation\b/.test(rootS.className) && !(rootS.style.backgroundImage || "").includes("url("));
+        ok("D7: the palette rail renders one cell per question, current marked",
+          contS.querySelectorAll(".sx-exam-rail .rl-cell").length === 3
+          && !!contS.querySelector('.sx-exam-rail .rl-cell.cur[data-q="0"]'));
+        hS.teardown(); contS.remove();
+
+        const contB = w.document.createElement("div"); w.document.body.appendChild(contB);
+        const hB = EX.run({ container: contB, mode: "blitz", questions: qs3, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
+        const rootB = contB.querySelector(".sx-exam");
+        const bgB = (rootB.style.backgroundImage || "");
+        ok("D7: Blitz keeps the arcade skin — nebula bg, no .station, no rail",
+          !/\bstation\b/.test(rootB.className) && bgB.indexOf("linear-gradient") === 0 && bgB.includes("url(")
+          && rootB.style.backgroundSize === "cover" && !contB.querySelector(".sx-exam-rail"));
+        hB.teardown(); contB.remove();
+
+        // Sim: rail mirrors drafts + flags live; cells jump; the station clock is tabular
+        const contM = w.document.createElement("div"); w.document.body.appendChild(contM);
+        const hM = EX.run({ container: contM, mode: "sim", questions: qs3, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
+        contM.querySelectorAll(".sx-exam-opt")[1].click();
+        ok("D7: a sim draft marks its palette cell .ans immediately (answers save as you go)",
+          !!contM.querySelector('.sx-exam-rail .rl-cell.ans[data-q="0"]'));
+        contM.querySelector(".sx-exam-flag").click();
+        ok("D7: flagging marks the palette cell with the gold dot state",
+          !!contM.querySelector('.sx-exam-rail .rl-cell.flg[data-q="0"]'));
+        contM.querySelector('.sx-exam-rail .rl-cell[data-q="2"]').click();
+        ok("D7: clicking a palette cell jumps straight to that question",
+          /Question 3 of 3/.test(contM.querySelector(".sx-exam-prog").textContent || "")
+          && !!contM.querySelector('.sx-exam-rail .rl-cell.cur[data-q="2"]'));
+        ok("D7: the top bar carries candidate + a Time-remaining clock box + Review screen in the nav",
+          !!contM.querySelector(".sx-exam-cand") && !!contM.querySelector(".sx-exam-clockbox .ck")
+          && !!contM.querySelector(".sx-exam-rvw") && !!contM.querySelector(".sx-exam-micro"));
+        hM.teardown(); contM.remove();
       }
       ok("J8: the same cap ships in ARM/KBB/CC feedback + J7 Vega comms (source pins)",
         html.includes("arm-explain-more") && html.includes("kbb-fb-more") && html.includes("cc-fb-more")

@@ -179,7 +179,61 @@
       ".sx-exam-rvrow .n{color:" + P.dim + ";min-width:34px;} .sx-exam-rvrow .st{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
       ".sx-exam-rvrow .tag{font-size:11px;font-weight:800;} .sx-exam-rvrow .tag.blank{color:" + P.peach + ";} .sx-exam-rvrow .tag.done{color:" + P.mantis + ";} .sx-exam-rvrow .tag.flag{color:" + P.gold + ";margin-left:6px;}",
       ".sx-exam-kbd{font-size:11px;color:" + P.dim + ";text-align:center;margin-top:10px;letter-spacing:.04em;}",
-      "@media (prefers-reduced-motion: reduce){.sx-exam-meter > i{transition:none;}}"
+      "@media (prefers-reduced-motion: reduce){.sx-exam-meter > i{transition:none;}}",
+      // ---- (v0.115.0, D7) the Testing station: Study + Sim only; Blitz keeps its arcade skin.
+      // Flat #101018, surfaces #14141d, borders #2c2c3a; the clock is the only motion.
+      ".sx-exam.station{background:#101018;}",
+      ".sx-exam.station .sx-exam-bg{display:none;}",
+      ".sx-exam.station .sx-exam-wrap{padding:0;align-items:stretch;display:grid;grid-template-columns:224px minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);grid-template-areas:'top top' 'bars bars' 'rail host';overflow:hidden;}",
+      ".sx-exam.station .sx-exam-top{grid-area:top;max-width:none;height:58px;margin:0;padding:0 18px;background:#14141d;border-bottom:1px solid #2c2c3a;box-sizing:border-box;}",
+      ".sx-exam.station .sx-exam-prog{font-size:14px;font-weight:800;color:#e8e9f2;}",
+      ".sx-exam.station .sx-exam-prog::after{content:' \u00b7 NCP-MCI practice';font-weight:600;font-size:11.5px;color:#6b6f84;}",
+      ".sx-exam.station .sx-exam-score{color:#9a9aad;font-weight:700;font-size:12px;}",
+      ".sx-exam.station .sx-exam-cand{margin-left:auto;font-size:11.5px;color:#6b6f84;padding-right:14px;border-right:1px solid #2c2c3a;}",
+      ".sx-exam.station .sx-exam-score{margin-left:0;}",
+      ".sx-exam.station .sx-exam-clockbox{display:flex;flex-direction:column;align-items:flex-end;line-height:1.25;}",
+      ".sx-exam.station .sx-exam-clockbox i{font-style:normal;font-size:11px;color:#6b6f84;}",
+      ".sx-exam.station .sx-exam-clockbox .ck{font-size:16px;font-weight:700;color:#e8e9f2;font-variant-numeric:tabular-nums;}",
+      ".sx-exam.station .sx-exam-quit{background:none;border:1px solid #2c2c3a;color:#9a9aad;border-radius:9px;padding:8px 14px;}",
+      ".sx-exam.station .sx-exam-quit:hover{border-color:" + P.peach + ";color:" + P.peach + ";}",
+      ".sx-exam.station .sx-exam-bars{grid-area:bars;visibility:hidden;height:0;overflow:hidden;margin:0;}",
+      ".sx-exam-rail{grid-area:rail;background:#12121a;border-right:1px solid #2c2c3a;padding:16px 14px;overflow-y:auto;}",
+      ".sx-exam-rail .rl-h{font-size:10.5px;letter-spacing:.1em;font-weight:800;color:#6b6f84;margin-bottom:10px;}",
+      ".sx-exam-rail .rl-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}",
+      ".sx-exam-rail .rl-cell{position:relative;height:24px;min-width:24px;border:1px solid #3a3a4c;border-radius:6px;background:none;color:#6b6f84;font:700 10.5px Montserrat,Arial,sans-serif;cursor:pointer;font-variant-numeric:tabular-nums;padding:0;}",
+      ".sx-exam-rail .rl-cell.ans{background:#2a2a3a;color:#d9dbe8;border-color:#2a2a3a;}",
+      ".sx-exam-rail .rl-cell.cur{border:2px solid " + P.aqua + ";color:#e8e9f2;}",
+      ".sx-exam-rail .rl-cell.flg::after{content:'';position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%;background:" + P.gold + ";}",
+      ".sx-exam-rail .rl-leg{margin-top:12px;padding-top:10px;border-top:1px solid #2c2c3a;display:flex;flex-direction:column;gap:6px;font-size:10.5px;color:#6b6f84;}",
+      ".sx-exam-rail .rl-leg span{display:flex;align-items:center;gap:7px;}",
+      ".sx-exam-rail .rl-leg i{width:12px;height:12px;border-radius:4px;display:inline-block;}",
+      ".sx-exam-rail .rl-leg .l-ans{background:#2a2a3a;}.sx-exam-rail .rl-leg .l-cur{border:2px solid " + P.aqua + ";}.sx-exam-rail .rl-leg .l-flg{background:" + P.gold + ";border-radius:50%;width:8px;height:8px;margin:0 2px;}",
+      ".sx-exam.station .sx-exam-host{grid-area:host;overflow-y:auto;padding:34px 48px;}",
+      ".sx-exam.station .sx-exam-card{background:none;border:none;box-shadow:none;padding:0;max-width:760px;text-align:left;margin:0;}",
+      ".sx-exam.station .sx-exam-eyebrow{display:inline-block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:#9a9aad;border:1px solid #2c2c3a;border-radius:999px;padding:4px 10px;margin-bottom:12px;}",
+      ".sx-exam.station .sx-exam-stem{font-size:17px;line-height:1.6;font-weight:600;max-width:720px;color:#e8e9f2;text-shadow:none;}",
+      ".sx-exam.station .sx-exam-opt{background:none;border:1px solid #2c2c3a;border-radius:10px;padding:13px 15px;transition:background .1s;align-items:center;}",
+      ".sx-exam.station .sx-exam-opt:hover:not(:disabled){background:#16161f;border-color:#3a3a4c;}",
+      ".sx-exam.station .sx-exam-opt .k{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid #4a4e64;background:none;color:transparent;font-size:0;display:inline-block;position:relative;}",
+      ".sx-exam.station .sx-exam-opt.multi .k{border-radius:4px;}",
+      ".sx-exam.station .sx-exam-opt.sel{background:#181822;border-color:#3a3a4c;}",
+      ".sx-exam.station .sx-exam-opt.sel .k{border-color:" + P.aqua + ";}",
+      ".sx-exam.station .sx-exam-opt.sel .k::after{content:'';position:absolute;inset:3px;border-radius:inherit;background:" + P.aqua + ";}",
+      ".sx-exam.station .sx-exam-opt.ok{border-color:" + P.mantis + ";background:rgba(146,221,35,.06);}",
+      ".sx-exam.station .sx-exam-opt.ok .k{border-color:" + P.mantis + ";}",
+      ".sx-exam.station .sx-exam-opt.ok .k::after{content:'';position:absolute;inset:3px;border-radius:inherit;background:" + P.mantis + ";}",
+      ".sx-exam.station .sx-exam-opt.bad{border-color:" + P.peach + ";background:rgba(255,107,91,.06);}",
+      ".sx-exam.station .sx-exam-opt.bad .k{border-color:" + P.peach + ";}",
+      ".sx-exam.station .sx-exam-nav{position:sticky;bottom:0;background:#101018;border-top:1px solid #2c2c3a;padding:12px 0;margin-top:18px;display:flex;align-items:center;gap:10px;}",
+      ".sx-exam.station .sx-exam-micro{font-size:11.5px;color:#6b6f84;margin:0 auto;}",
+      ".sx-exam.station .sx-exam-btn.ghost{background:none;border:1px solid #2c2c3a;color:#9a9aad;}",
+      ".sx-exam.station .sx-exam-btn.primary{background:" + P.aqua + ";border-color:" + P.aqua + ";color:#04222a;box-shadow:none;}",
+      ".sx-exam.station .sx-exam-flag{background:none;border:1px solid #2c2c3a;color:#9a9aad;border-radius:9px;}",
+      ".sx-exam.station .sx-exam-flag.on{border-color:" + P.gold + ";color:" + P.gold + ";background:rgba(255,200,87,.1);}",
+      ".sx-exam.station .sx-exam-confirm{background:" + P.aqua + ";border:none;color:#04222a;box-shadow:none;}",
+      ".sx-exam.station .sx-exam-explain,.sx-exam.station .sx-exam-fb{background:none;border:none;border-left:3px solid " + P.aqua + ";border-radius:0;padding:10px 0 10px 14px;box-shadow:none;}",
+      ".sx-exam.station .sx-exam-exhibit img{border:1px solid #2c2c3a !important;border-radius:8px !important;}",
+      "@media (max-width:820px){.sx-exam.station .sx-exam-wrap{display:flex;flex-direction:column;overflow-y:auto;}.sx-exam-rail{border-right:none;border-bottom:1px solid #2c2c3a;}.sx-exam.station .sx-exam-host{padding:18px 16px;overflow:visible;}}",
     ].join("\n");
     var style = el("style"); style.id = "sx-exam-css"; style.textContent = css; document.head.appendChild(style);
   }
@@ -242,6 +296,7 @@
     var onExit = typeof opts.onExit === "function" ? opts.onExit : function () {};
     var reducedMotion = !!opts.reducedMotion;
     var mode = (opts.mode === "study" || opts.mode === "sim") ? opts.mode : "blitz";
+    var station = (mode !== "blitz");   // (v0.115.0, D7) Testing-station skin: flat, quiet, clock-only motion
     var nowMs = function () { return (root.performance && root.performance.now) ? root.performance.now() : Date.now(); };
     var RAF = root.requestAnimationFrame ? root.requestAnimationFrame.bind(root) : function (cb) { return setTimeout(function () { cb(nowMs()); }, 16); };
     var CAF = root.cancelAnimationFrame ? root.cancelAnimationFrame.bind(root) : clearTimeout;
@@ -261,13 +316,13 @@
     function on(t, type, fn) { t.addEventListener(type, fn); S.listeners.push({ t: t, type: type, fn: fn }); }
 
     container.textContent = "";
-    var rootEl = el("div", "sx-exam");
+    var rootEl = el("div", "sx-exam" + (station ? " station" : ""));
     // (v0.74.0, Jason's ask) the title screen's nebula backs the whole NIT — the alpha-true
     // starfield canvas floats over it; a darkening gradient keeps the text-heavy cards
     // readable. Missing asset -> the flat PALETTE.bg fallback (unchanged behavior).
     try {
       var nebBg = (typeof window !== "undefined") && window.STARNIX_ASSETS && window.STARNIX_ASSETS.nebulaBg;
-      if (nebBg) {
+      if (nebBg && !station) {   // (v0.115.0, D7) Study/Sim are a flat testing station — no nebula
         rootEl.style.backgroundImage = 'linear-gradient(rgba(7,7,16,.62), rgba(7,7,16,.82)), url("' + nebBg + '")';
         rootEl.style.backgroundSize = "cover";
         rootEl.style.backgroundPosition = "center";
@@ -318,13 +373,52 @@
     var barsEl = wrap.querySelector(".sx-exam-bars");
     on(wrap.querySelector(".sx-exam-quit"), "click", function () { if (S.mode === "sim" && !S.examDone) submitSim(true); else finish(true); });
 
-    S.bg = initBackdrop(canvas, rng, reducedMotion);
+    S.bg = station ? null : initBackdrop(canvas, rng, reducedMotion);   // (D7) no starfield in the station
+    var railEl = null;
+    if (station) {
+      var topEl0 = wrap.querySelector(".sx-exam-top");
+      var quit0 = topEl0.querySelector(".sx-exam-quit");
+      var cand0 = el("span", "sx-exam-cand"); cand0.textContent = "Candidate: Ensign, NX-SRC";
+      var cbox0 = el("span", "sx-exam-clockbox");
+      cbox0.innerHTML = '<i>' + (mode === "sim" ? "Time remaining" : "Untimed") + '</i><b class="ck">' + (mode === "sim" ? "--:--" : "Study") + '</b>';
+      topEl0.insertBefore(cand0, quit0); topEl0.insertBefore(cbox0, quit0);
+      S.clockEl = cbox0.querySelector(".ck");
+      railEl = el("div", "sx-exam-rail");
+      wrap.insertBefore(railEl, host);
+      on(railEl, "click", function (ev) {
+        var t3 = ev.target;
+        while (t3 && t3 !== railEl && !/rl-cell/.test(t3.className || "")) t3 = t3.parentNode;
+        if (!t3 || t3 === railEl) return;
+        var qi3 = parseInt(t3.getAttribute("data-q"), 10);
+        if (isNaN(qi3) || S.examDone) return;
+        if (S.mode === "sim") renderQuestion(qi3);
+        else if (S.results[qi3] || qi3 === S.view) renderQuestion(qi3);   // study: browse graded only
+      });
+    }
+    function renderRail() {
+      if (!railEl) return;
+      var n4 = order.length, ans4 = 0;
+      for (var i4 = 0; i4 < n4; i4++) if (S.mode === "sim" ? S.drafts[i4] != null : !!S.results[i4]) ans4++;
+      var h4 = '<div class="rl-h">QUESTIONS \u00b7 ' + ans4 + ' OF ' + n4 + ' ANSWERED</div><div class="rl-grid">';
+      for (var c4 = 0; c4 < n4; c4++) {
+        var answered4 = S.mode === "sim" ? S.drafts[c4] != null : !!S.results[c4];
+        h4 += '<button type="button" class="rl-cell' + (answered4 ? ' ans' : '') + (c4 === S.view ? ' cur' : '') + ((S.mode === "sim" && S.flags[c4]) ? ' flg' : '') + '" data-q="' + c4 + '">' + (c4 + 1) + '</button>';
+      }
+      h4 += '</div><div class="rl-leg"><span><i class="l-ans"></i>Answered</span><span><i class="l-cur"></i>Current</span>' + (S.mode === "sim" ? '<span><i class="l-flg"></i>Flagged</span>' : '') + '</div>';
+      railEl.innerHTML = h4;
+    }
     if (S.mode === "sim") S.simEnd = nowMs() + order.length * SIM_SECS_PER_Q * 1000 * XT;
     if (S.mode === "study") barsEl.style.visibility = "hidden";
 
     function fmtClock(ms) {
       var s = Math.max(0, Math.ceil(ms / 1000)), m = Math.floor(s / 60);
       return m + ":" + ("0" + (s % 60)).slice(-2);
+    }
+    function fmtClockLong(ms) {   // (D7) station clock: H:MM:SS past the hour, tabular
+      var s = Math.max(0, Math.ceil(ms / 1000));
+      if (s < 3600) return fmtClock(ms);
+      var h = Math.floor(s / 3600), m2 = Math.floor((s % 3600) / 60);
+      return h + ":" + ("0" + m2).slice(-2) + ":" + ("0" + (s % 60)).slice(-2);
     }
 
     function frame() {
@@ -348,6 +442,7 @@
           var ans = 0; for (var k = 0; k < S.drafts.length; k++) if (S.drafts[k] != null) ans++;
           if (ptsEl) ptsEl.textContent = ans + " of " + S.order.length + " answered";
           if (tmrEl) tmrEl.textContent = fmtClock(rem);
+          if (S.clockEl) S.clockEl.textContent = fmtClockLong(rem);   // (D7) the station's only motion
           if (rem <= 0) submitSim(false);
         }
       }
@@ -383,7 +478,7 @@
       var draft = S.drafts[idx];
 
       q.options.forEach(function (text, oi) {
-        var b = el("button", "sx-exam-opt"); b.type = "button";
+        var b = el("button", "sx-exam-opt" + (multi ? " multi" : "")); b.type = "button";   // (D7) square checkbox glyph for multi
         b.innerHTML = '<span class="k">' + letters.charAt(oi) + '</span><span class="t">' + esc(text) + "</span>";
         if (S.mode === "sim" && draft != null) {
           var dArr = Array.isArray(draft) ? draft : [draft];
@@ -411,14 +506,18 @@
         var fg = el("button", "sx-exam-flag" + (S.flags[idx] ? " on" : ""), (S.flags[idx] ? "&#9873; Flagged" : "&#9873; Flag for review")); fg.type = "button";
         var nx = el("button", "sx-exam-btn primary", idx === order.length - 1 ? "Review &rarr;" : "Next &rarr;"); nx.type = "button";
         on(pv, "click", function () { if (idx > 0) renderQuestion(idx - 1); });
-        on(fg, "click", function () { S.flags[idx] = !S.flags[idx]; fg.classList.toggle("on", S.flags[idx]); fg.innerHTML = S.flags[idx] ? "&#9873; Flagged" : "&#9873; Flag for review"; });
+        on(fg, "click", function () { S.flags[idx] = !S.flags[idx]; fg.classList.toggle("on", S.flags[idx]); fg.innerHTML = S.flags[idx] ? "&#9873; Flagged" : "&#9873; Flag for review"; renderRail(); });
         on(nx, "click", function () { if (idx === order.length - 1) renderReview(); else renderQuestion(idx + 1); });
-        nav.appendChild(pv); nav.appendChild(fg); nav.appendChild(nx);
+        var micro = el("span", "sx-exam-micro"); micro.textContent = "Answers save as you go \u2014 the palette jumps anywhere.";
+        var rvw = el("button", "sx-exam-btn ghost sx-exam-rvw", "Review screen"); rvw.type = "button";
+        on(rvw, "click", function () { renderReview(); });
+        nav.appendChild(pv); nav.appendChild(fg); nav.appendChild(micro); nav.appendChild(rvw); nav.appendChild(nx);
         card.appendChild(nav);
       }
       if (S.mode !== "blitz") card.appendChild(el("div", "sx-exam-kbd", "A&ndash;E select &middot; Enter " + (S.mode === "sim" ? "next" : "confirm") + " &middot; &larr;/&rarr; navigate" + (S.mode === "sim" ? " &middot; F flag" : "")));
 
       host.textContent = ""; host.appendChild(card);
+      renderRail();   // (D7) palette mirrors answered/current/flagged every render
       if (graded) paintGraded(idx, card);
       else if (S.mode === "blitz") { S.qStart = nowMs(); S.qWindow = windowFor(q.difficulty) * XT; }
     }
@@ -447,6 +546,7 @@
         if (S.mode === "sim") S.drafts[S.view] = oi;
         var cf2 = host2.querySelector(".sx-exam-confirm"); if (cf2) cf2.classList.add("on");
       }
+      renderRail();   // (D7) drafts save as you go — the palette shows it live
     }
 
     function toggleMulti(oi, btn, card) {           // blitz multi (original behavior + live hint)

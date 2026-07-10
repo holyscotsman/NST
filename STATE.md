@@ -101,7 +101,15 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.114.0 — D6: KBB run map shipped
+## v0.115.0 — D7: exam Testing station shipped — BATCH #6 COMPLETE
+
+Study/Sim = flat testing center (palette rail, radio rows, tabular clock, no starfield);
+Blitz keeps the arcade skin, pinned. All seven design-handoff units live (D1 sprites, D2
+Bridge menu, D3 cockpit HUD, D4 console briefing, D5 card-hand battle, D6 run map, D7
+station). CC untouched per the handoff. Revert tag: pre-redesign-v0.108.0. Browser QA owed:
+QA-D2..D7. Open design calls: D6 unknown-stop events; D4 typing effect deferred.
+
+> **Earlier this session (v0.114.0):** D6: KBB run map shipped
 
 Deterministic section graph between battles (spine untouched — ranks are rounds, Embark is
 leaveShop, balance gate blind to it); elite swaps + shop/cache stops additive; checkpoint

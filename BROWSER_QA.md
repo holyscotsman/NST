@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-D7 — Testing station (added v0.115.0).** Start an Exam sim: flat testing-center page —
+  no nebula, no starfield, the clock top-right is the only thing moving (tabular digits). The
+  palette rail mirrors you live: answer → cell fills, flag → gold dot, click any cell → jumps.
+  Radio circles fill aqua on select; multi questions show squares. Bottom bar: Previous / Flag /
+  microcopy / Review screen / Next. Study: same skin, untimed, rail browses graded questions
+  only. Blitz: still the arcade (nebula, starfield, decay meter). WRONG: any glow/gradient
+  surviving in Study/Sim, or the rail lying about an answered cell.
+
 - **QA-D6 — Run map (added v0.114.0).** Win a KBB battle: the section map appears — traveled
   path solid aqua, YOU ARE HERE under the current node, next battle pre-selected and glowing,
   gold ◎ shop and iris ? cache stops hanging off the corridor, the boss sprite looming right
