@@ -101,7 +101,12 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.109.0 — BATCH #6 (design handoff): the ten KBB sprites inlined (D1)
+## v0.110.0 — D2: the Bridge menu shipped (Menu Proposals #1a)
+
+Mission strips + shattered station + dock. NEXT: D3 ARM Cockpit-lite HUD, D4 Center-console
+briefing, D5/D6 KBB card-hand + run map, D7 NIT Testing station.
+
+> **Earlier this session (v0.109.0):** BATCH #6 (design handoff): the ten KBB sprites inlined (D1)
 
 Handoff picks: Menu Bridge-command, ARM Cockpit-lite + Center-console (chosen by design);
 KBB 1a+1b, NIT 1a Testing station (Jason picked today). CC excluded. Revert tag:

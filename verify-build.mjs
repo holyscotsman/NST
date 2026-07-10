@@ -134,7 +134,9 @@ async function runFrames(n = 6) {
   ok("no card disabled (all four live)", w.document.querySelectorAll(".sx-card-disabled").length === 0);
   {
     const bg = w.document.querySelector(".sx-menu-bg");
-    ok("menu has the tiled wireframe-X background", !!bg && /data:image\/svg/.test(bg.style.backgroundImage || ""));
+    ok("menu is the Bridge (D2): mission strips + shattered station + dock (wireframe tile retired)",
+    !!w.document.querySelector(".sx-strip") && w.document.querySelectorAll(".sx-shard").length === 4
+    && !!w.document.querySelector(".sx-bridge-dock") && !!w.document.querySelector(".sx-strip-divider"));
     const photo = w.document.querySelector(".sx-menu-photo");
     ok("menu has a moving photo background wired to menuBg", !!photo && photo.classList.contains("on") && /menuBg|data:image\/(jpeg|png)/.test(photo.style.backgroundImage || ""));
     ok("menu shows the NX-SRC crew crest", !!w.document.querySelector(".sx-crest .sx-crest-x"));
@@ -1824,12 +1826,10 @@ async function runFrames(n = 6) {
     shell.showMenu();
     // (v0.60.0 P2·1, PLAYTEST A1/A3) the menu hosts a COMPACT strip: undated head, no goal
     // lines (they live in row tooltips + on Progress); and the menu itself must scroll.
-    ok("menu: compact daily strip — undated head + 3 rows, goal text tucked into tooltips",
-      /Daily missions/.test((w.document.querySelector(".sx-daily-head") || {}).textContent || "")
-      && !/2026-07-04/.test((w.document.querySelector(".sx-daily-head") || {}).textContent || "")
-      && w.document.querySelectorAll(".sx-daily-row").length === 3
-      && w.document.querySelectorAll(".sx-menu .sx-daily-desc").length === 0
-      && (w.document.querySelector(".sx-daily-row").getAttribute("title") || "").length > 0);
+    ok("menu: dock daily chips — 3 rows inline, dock label replaces the head (D2)",
+    w.document.querySelectorAll(".sx-bridge-dock .sx-daily-row").length === 3
+    && !w.document.querySelector(".sx-bridge-dock .sx-daily-head")
+    && /DAILY MISSIONS/.test(w.document.querySelector(".sx-dock-lbl")?.textContent || ""));
     ok("menu: scrolls past the fold (PLAYTEST A1 — the NIT tile must stay reachable)",
       /\.sx-menu\{[^}]*overflow-y:auto/.test((w.document.getElementById("starnix-shell-css") || {}).textContent || ""));
     {

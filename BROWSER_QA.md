@@ -229,6 +229,10 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-D2 — Bridge menu (added v0.110.0).** Compare against Menu Proposals 1a: strips scan in one
+  second, station reads BROKEN with the ember behind the gap, dock chips inline, Continue CTA after
+  your first game. Reduced motion: no bob/flicker/pulse. Under 1000px wide the station hides.
+
 - **QA-D1 — KBB sprites (added v0.109.0).** The squad is now your three shipped hero designs, the
   enemy is the BCM dart, asteroids are the drawn rocks — 2D and 3D battle views both. Check glow
   tints still read (peach/iris/mantis) and nothing looks stretched.

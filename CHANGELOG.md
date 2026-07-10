@@ -6,6 +6,10 @@ Sections per entry: **Added · Changed · Fixed · Removed**. Each line: `<what>
 
 ---
 
+## [0.110.0] - 2026-07-04
+
+- **The Bridge (Batch #6, D2 — Menu Proposals #1a, chosen direction).** The menu is now the bridge of a ship: left column of MISSION STRIPS (46px art — armHero sprite / CSS planet / kbbEnemy sprite / gold ◈ — title + tag, live micro-stat per game: ARM Station n/60, CC Best score, KBB Depth s-r, NIT Best sim %, and a LAUNCH pill; hover slides + accent glow), a gold "THE REAL THING" divider staging the exam apart (gold strip, solid Sit-exam pill), the SHATTERED MCI STATION on the right (four clip-path shards of the armStation art drifted apart with an iris ember pulsing through the gap, escaping core hexes, aqua corner brackets, and a live progress caption fed by the ARM checkpoint), a top bar (crest · rank chip + XP bar · due chip · Stats · Settings · Replay intro), and a bottom glass dock (inline daily-mission chips + a solid-aqua "Continue — <last game>" CTA that names your ARM sector when a save exists). All existing wiring kept — strips are the same .sx-card launch buttons, rank/daily/due machinery reused; reduced motion stills every drift/flicker/pulse; station art hides gracefully if the asset is absent. Honest re-pins: wireframe-X background retired → Bridge structure pin; compact-daily pin → dock-chips pin. Playwright shots 89-91 vs the mock (88). Gate exit 0.
+
 ## [0.109.0] - 2026-07-04
 
 - **The ten KBB sprites land (Batch #6, D1 — design handoff intake).** kbbHero1-3, kbbEnemy, kbbBoss, kbbAsteroid1-5 (232 KB raw, every file under the 150 KB budget) inlined into assets.js under the exact keys kbb.js has carried since the 07 §10.2 sprite roster — hero squad, enemy dart, boss, and belt rocks now render the shipped art in both the 2D and 3D battle paths, replacing the procedural neon fighters. Revert point for the whole redesign batch: git tag `pre-redesign-v0.108.0`. Pins: verify-build +1 (all ten keys present as data URIs). Playwright shot 86 confirms the staged battle uses the real art. Gate exit 0.
