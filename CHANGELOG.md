@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — green-room mastery dashboard
+
+- **"Your mastery, domain by domain"** panel in the green room: per-domain
+  progress bars computed from the shared Leitner state (`domainProgress` in
+  `src/core/mastery.js`, headless-tested with negative controls). Weakest
+  domains flagged first with a ▲ marker; unseen questions count as zero —
+  mastery is proven, not assumed. Colorblind-safe (numbers on every bar).
+- README refreshed to the current game (host tutorial, music, camera director,
+  loss flow, mastery board); shared UI labels extracted to `ui/labels.js`.
+
 ## Unreleased — take tuning + scene preview tool
 
 - **Scene preview tool:** `?scene=<name>&take=<n>` jumps the camera director

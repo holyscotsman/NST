@@ -16,9 +16,10 @@
 ### Ready
 - Question images: extend the schema with an optional image ref and a loader; do
   **not** author image content.
-- Analytics of a player's weak domains in the green room (surface mastery by
-  domain). Pure UI over existing mastery state.
 - Host dialogue hooks in the studio once host content exists.
+
+### Done (recent)
+- Green-room mastery dashboard (per-domain weak-spot analytics).
 
 ### Blocked (need the human — see FLAGS.md)
 - Final human review / sign-off of the question bank and Steve/phone clues.

@@ -7,14 +7,8 @@
 
 import { h, clear } from './dom.js';
 import { letter } from '../../core/lifelines.js';
+import { DOMAIN_LABEL, TIER_LABEL } from './labels.js';
 
-const DOMAIN_LABEL = {
-  prism: 'Prism', storage: 'Storage', dataprotection: 'Data protection', ahv: 'AHV',
-  networking: 'Networking', lifecycle: 'Lifecycle & upgrades', monitoring: 'Monitoring',
-  migration: 'Migration', unifiedstorage: 'Files / Objects / Volumes', security: 'Security',
-  performance: 'Performance', foundation: 'Foundation',
-};
-const TIER_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', extreme: 'Final' };
 const SUSPENSE_MS = 1700; // two 0.9s gold breaths, reveal lands on the second
 
 function reduced() { return document.body.classList.contains('reduced-motion'); }

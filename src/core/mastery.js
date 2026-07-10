@@ -65,6 +65,35 @@ function seedBox(authoredDifficulty) {
   }
 }
 
+// Per-domain mastery progress for the green-room dashboard. Pure.
+// Unseen questions count as zero progress — mastery is proven, not assumed.
+// Returns [{ domain, seen, total, graduated, score }] sorted weakest-first
+// (by score, then by how much of the domain is still unseen).
+export function domainProgress(bank, state) {
+  const acc = new Map(); // domain -> { total, seen, graduated, boxSum }
+  for (const q of bank) {
+    if (q.authoredDifficulty === 'extreme') continue; // finals pool isn't studied material
+    let d = acc.get(q.domain);
+    if (!d) { d = { domain: q.domain, total: 0, seen: 0, graduated: 0, boxSum: 0 }; acc.set(q.domain, d); }
+    d.total += 1;
+    const rec = getRecord(state, q.id);
+    if (rec) {
+      d.seen += 1;
+      d.boxSum += rec.box;
+      if (rec.box >= MASTERY.GRADUATED_BOX) d.graduated += 1;
+    }
+  }
+  const rows = [...acc.values()].map((d) => ({
+    domain: d.domain,
+    seen: d.seen,
+    total: d.total,
+    graduated: d.graduated,
+    score: d.total ? d.boxSum / (d.total * MASTERY.MAX_BOX) : 0,
+  }));
+  rows.sort((a, b) => (a.score - b.score) || (a.seen / a.total) - (b.seen / b.total) || a.domain.localeCompare(b.domain));
+  return rows;
+}
+
 // Selection weight: prefer weaker (lower box) and less-recently-seen items.
 // Higher weight = more likely to be chosen for a run.
 export function selectionWeight(state, q, currentRun) {

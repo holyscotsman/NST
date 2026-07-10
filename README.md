@@ -20,8 +20,9 @@ things you're shaky on and eases off the ones you've mastered.
 
 ## How to play
 
-1. **Start a run.** You'll face 30 questions: 10 easy, 10 medium, 9 hard, and one
-   nearly-impossible final.
+1. **Start a new game.** Your first time, the host gives you a tour of the
+   soundstage and walks you through the rules — then it's 30 questions: 10 easy,
+   10 medium, 9 hard, and one nearly-impossible final.
 2. **One wrong answer ends the run** — but your coins **bank** at each tier
    boundary (questions 10, 20, and 29). Clear a tier and that money is safe even
    if you fall later.
@@ -32,9 +33,12 @@ things you're shaky on and eases off the ones you've mastered.
    - **Phone a friend** gives a hedged tip toward the right answer.
    - Using a lifeline still counts as correct — but it won't mark that topic as
      *mastered*. You only master what you answer on your own.
-4. **The green room** (between runs) is where you spend banked coins: buy a second
-   slot for a lifeline, recharge them, or pay **Steve** for an inside tip on a
-   hard question you're about to face.
+4. **Miss one and you're walked back to the green room**, where the correct
+   answer and its explanation are waiting — read it, then spend banked coins:
+   buy a second slot for a lifeline, recharge them, or pay **Steve** for an
+   inside tip on a hard question you're about to face. A mastery board shows
+   your weakest exam domains, then it's "Start next round". The goal is to keep
+   going.
 5. **Seeds** let you replay the exact same 30 questions — or challenge a friend to
    the identical run.
 
@@ -47,6 +51,12 @@ mode, and there are **no timers** — study at your own pace.
 - **It learns you.** Every question has a personal "mastery" level (a spaced-
   repetition system). Miss something and it comes back sooner and harder; nail it
   a few times and it drifts away — occasionally resurfacing so you don't forget.
+  The green room's mastery board shows your progress domain by domain.
+- **It sounds and moves like a show.** An original synth score shifts with the
+  stakes — quick and bright on easy questions, slower and lower as the money
+  climbs, a heartbeat under the final — and a camera director cuts between
+  broadcast-style shots: the host leaning in, the audience, the piggy bank,
+  the sweat on question 21.
 - **Your progress is saved** on your device and is **never wiped** — not even when
   you win. Winning just resets your coins and lets you climb again from the top.
 - **Honest answers.** The game **never asks an AI whether your answer is right.**
@@ -56,9 +66,12 @@ mode, and there are **no timers** — study at your own pace.
 ## Under the hood
 
 - **Pure static site** — plain HTML/CSS/JavaScript modules, no build step needed.
-- **3D studio backdrop** rendered with **Three.js** (vendored locally, no CDN) —
-  and if WebGL isn't available, the game falls back to a CSS studio and plays
-  exactly the same.
+- **3D studio backdrop** rendered with **Three.js** (vendored locally, no CDN),
+  filmed by a data-driven camera director (`src/shell/takes.js` — see
+  `docs/CINEMATIC_TAKES.md`, previewable via `?scene=<name>`); if WebGL isn't
+  available, the game falls back to a CSS studio and plays exactly the same.
+- **All audio is synthesized at runtime** — original compositions in WebAudio,
+  no audio files, nothing licensed.
 - **The quiz is always DOM**, layered over the 3D canvas, which is what keeps it
   accessible.
 - **No external requests at all** — Three.js and the font are bundled in the repo,
@@ -71,7 +84,7 @@ mode, and there are **no timers** — study at your own pace.
 npm run serve         # then open http://localhost:8080/
 
 # tests
-npm test              # 41 headless unit tests (with negative controls)
+npm test              # headless unit tests (with negative controls)
 npm run smoke         # browser smoke test (boots the game, answers a question)
 npm run e2e           # full play-through: win, prestige, lose, green room, seed
 ```
@@ -86,7 +99,8 @@ src/core/             # pure game logic (no browser deps) — fully unit-tested
   config, rng, questionSchema, mastery, lifelines, coins, selection,
   runController, eventBus, aiAdapter
 src/shell/            # browser layer
-  main.js, studio.js (WebGL), audio.js, persistence.js, ui/*
+  main.js, studio.js (WebGL), director.js + takes.js (camera), music.js,
+  backdrop.js (CSS studio), audio.js, persistence.js, ui/*
 src/content/          # the question bank (questions.js) + quarantine.js
 vendor/               # Three.js r160 + addons, self-hosted Montserrat
 tests/                # unit tests, smoke test, full e2e

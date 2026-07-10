@@ -7,7 +7,19 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
-## Pending sign-off — Game A redesign (new)
+## Pending sign-off — music, cinematics & dashboard (newest)
+
+- [ ] **Cinematic takes** — review every scene via `?scene=<name>` (see
+  `docs/CINEMATIC_TAKES.md`); confirm the ✏️ drafted scenes and take 7's 5s.
+- [ ] **Music** — lounge (menu/green room), tier loops slowing/darkening,
+  final drone, lifeline vamp hand-back, stingers (right / 3s wrong /
+  4s final-wrong / win).
+- [ ] **Intro cinematic + tutorial** — first-run tour, highlights, the
+  answer giveaway, skip button.
+- [ ] **Loss flow** — wrong answer → green room reveal → pep talk → shop.
+- [ ] **Mastery dashboard** — bars/percentages/weak markers read correctly.
+
+## Pending sign-off — Game A redesign
 
 - [ ] **Game screen** — right-rail ladder (glyphs, safe havens, gold sliding
   highlight), upper-left coins + medallions, lower-center card match the

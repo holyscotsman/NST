@@ -628,3 +628,18 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
 }
 .preview-label { font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); }
 .preview-info { font-family: var(--mono); font-size: 11.5px; color: var(--aqua); min-width: 150px; }
+
+/* ============================== mastery dashboard (green room) ============================== */
+.panel.mastery { animation-delay: 0.24s; }
+.mastery-row { display: grid; grid-template-columns: 150px 1fr 44px 96px; align-items: center; gap: 10px; padding: 6px 0; }
+.mastery-name { font-size: 12.5px; font-weight: 700; color: #eadfc4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mastery-name.weak { color: var(--peach); }
+.mastery-bar-wrap { display: block; height: 10px; background: rgba(255, 255, 255, 0.08); border-radius: 5px; overflow: hidden; }
+.mastery-bar { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--gold), var(--mantis)); transition: width 0.6s var(--swift); }
+.mastery-bar.weak { background: linear-gradient(90deg, var(--peach), var(--gold)); }
+.mastery-num { font-size: 12px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; color: #eadfc4; }
+.mastery-detail { font-size: 10.5px; color: #9d9078; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 760px) {
+  .mastery-row { grid-template-columns: 108px 1fr 40px; }
+  .mastery-detail { display: none; }
+}

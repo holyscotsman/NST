@@ -8,7 +8,7 @@ import { validateBank } from '../core/questionSchema.js';
 import { SetManager } from '../core/selection.js';
 import { RunController } from '../core/runController.js';
 import { generateSeedString } from '../core/rng.js';
-import { effectiveTier } from '../core/mastery.js';
+import { domainProgress } from '../core/mastery.js';
 import { payout } from '../core/coins.js';
 import { SHOP, LIFELINE_MAX_SLOTS } from '../core/config.js';
 import { letter } from '../core/lifelines.js';
@@ -232,6 +232,7 @@ export class Game {
     this._swap(GreenRoom({
       wallet: this.save.wallet,
       lifelines: this.save.lifelines,
+      progress: domainProgress(this.bank, this.save.mastery),
       reveal: this._greenReveal, // set after a loss: the answer + explanation first
       onAckReveal: () => { this._greenReveal = null; this._renderGreenRoom(); },
       steve: {

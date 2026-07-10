@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyMastery, record, effectiveTier, getRecord, isGraduated } from '../src/core/mastery.js';
+import { emptyMastery, record, effectiveTier, getRecord, isGraduated, domainProgress } from '../src/core/mastery.js';
 import { MASTERY } from '../src/core/config.js';
 
 const hard = { id: 'AHV-H-001', authoredDifficulty: 'hard' };
@@ -51,4 +51,40 @@ test('extreme questions stay pinned to the extreme tier regardless of mastery', 
   const m = emptyMastery();
   for (let i = 0; i < 10; i++) record(m, extreme.id, { correct: true, authoredDifficulty: 'extreme' });
   assert.equal(effectiveTier(m, extreme), 'extreme'); // NEGATIVE CONTROL
+});
+
+test('domainProgress ranks proven-weak domains first and counts graduations', () => {
+  const bank = [
+    { id: 'STOR-E-001', domain: 'storage', authoredDifficulty: 'easy' },
+    { id: 'STOR-E-002', domain: 'storage', authoredDifficulty: 'easy' },
+    { id: 'NET-M-001', domain: 'networking', authoredDifficulty: 'medium' },
+    { id: 'NET-M-002', domain: 'networking', authoredDifficulty: 'medium' },
+    { id: 'PRISM-X-001', domain: 'prism', authoredDifficulty: 'extreme' }, // excluded (finals pool)
+  ];
+  const m = emptyMastery();
+  // Master all of storage; keep failing networking.
+  for (let i = 0; i < 6; i++) record(m, 'STOR-E-001', { correct: true, authoredDifficulty: 'easy' });
+  for (let i = 0; i < 6; i++) record(m, 'STOR-E-002', { correct: true, authoredDifficulty: 'easy' });
+  record(m, 'NET-M-001', { correct: false, authoredDifficulty: 'medium' });
+
+  const rows = domainProgress(bank, m);
+  assert.equal(rows.length, 2, 'extreme-only domains are excluded');
+  assert.equal(rows[0].domain, 'networking', 'the weak domain ranks first');
+  assert.equal(rows[1].domain, 'storage');
+  assert.equal(rows[1].graduated, 2);
+  assert.equal(rows[1].score, 1, 'fully mastered domain scores 100%');
+  assert.ok(rows[0].score < 0.5, 'failing domain scores low');
+  // NEGATIVE CONTROL: the mastered domain must NOT rank as weakest.
+  assert.notEqual(rows[0].domain, 'storage');
+});
+
+test('domainProgress gives unseen questions zero credit', () => {
+  const bank = [
+    { id: 'AHV-H-001', domain: 'ahv', authoredDifficulty: 'hard' },
+    { id: 'AHV-H-002', domain: 'ahv', authoredDifficulty: 'hard' },
+  ];
+  const m = emptyMastery();
+  const rows = domainProgress(bank, m);
+  assert.equal(rows[0].seen, 0);
+  assert.equal(rows[0].score, 0, 'no proof, no progress'); // NEGATIVE CONTROL
 });
