@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased — owner feedback batch: banks, music, cinematics, green room
+
+- **Safe havens moved to Q5 / Q10 / Q17 / Q25** (bank at Q29 removed) — coins
+  now bank earlier and the whole hard round is played at risk. Help text, HUD
+  shields, and the coins tests (with negative controls) updated to match.
+- **Money ladder text enlarged** (desktop and mobile strip).
+- **Hard-round suspense:** the gold lock-in beat holds longer on the hard tier
+  (3s) and the final (3.8s), with a subtle snare-roll crescendo underneath
+  (`music.drumRoll`); early tiers keep the quick two-breath beat.
+- **Music:** the easy loop is more dramatic while staying upbeat (driving
+  bass, chord pad, downbeat thump, I–V–vi–IV turn), and medium now plays the
+  SAME hook melody a key lower in E minor — familiar tune, serious room.
+  A "🔊 Click anywhere for sound" hint explains the browser autoplay gate on
+  the title screen, and the audio unlock now registers before the WebGL boot.
+- **Thinking-scene takes doubled in length** (10/10/6/6/8/10/10/6/6/10s) — the
+  quick cuts behind the quiz card were distracting.
+- **Green room:** lighting lifted a touch (still a warm lounge); the ambient
+  camera is now a single near-static drift (no cinematic, by owner request);
+  the menu sits center-lower on screen.
+- **Stage-manager beat:** "Start next round" now opens the green-room door
+  (hinged, warm hallway light behind it), the head-set stage manager stands in
+  it, and an animated speech bubble pops — "We're ready for you back in the
+  Hot Seat!" — before the run starts. Reduced motion: door cuts open, shorter
+  hold, screen-reader announcement.
+- Capitalization pass over UI strings (sentence case per the brand rule).
+
 ## Unreleased — green-room mastery dashboard
 
 - **"Your mastery, domain by domain"** panel in the green room: per-domain

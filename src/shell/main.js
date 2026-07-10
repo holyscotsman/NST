@@ -41,7 +41,13 @@ export class Game {
       onAnswer: (idx) => this.answer(idx),
       onContinue: (r) => this.continueAfter(r),
       onSelectSound: () => this.audio.play('select'),
-      onLockSound: () => { this.audio.play('lock'); this.music.pop(); this.music.duck(2.2, 0.25); },
+      onLockSound: () => { this.audio.play('lock'); this.music.pop(); },
+      // The suspense beat: duck the tier loop for its whole length, and roll
+      // the snare under the hard round and the final.
+      onSuspense: ({ ms, tier, isFinal }) => {
+        this.music.duck((ms + 1400) / 1000, 0.25);
+        if (tier === 'hard' || isFinal) this.music.drumRoll(ms / 1000);
+      },
       onLifelineDone: () => this.music.pop(),
     });
     this.steveVisit = { called: false, question: null, clue: '' };
@@ -65,6 +71,19 @@ export class Game {
     }
 
     this._applyBodyClasses();
+
+    // Browsers require a user gesture before audio can start — register the
+    // unlock FIRST so a click during the (async) WebGL boot still counts, and
+    // show a small hint so the silent title screen explains itself.
+    const hint = h('div', { class: 'sound-hint' }, '🔊 Click anywhere for sound');
+    if (this.save.settings.music !== false || this.save.settings.sound) document.body.append(hint);
+    const kick = () => {
+      hint.remove();
+      this.audio.resume(); this.music.resume();
+      if (this.screen === 'title' || this.screen === 'greenroom') this.music.play('lounge');
+    };
+    window.addEventListener('pointerdown', kick, { once: true });
+    window.addEventListener('keydown', kick, { once: true });
 
     // The layered CSS studio is always built into the fallback element; it is
     // shown whenever WebGL is unavailable (or skipped) and reacts to the same
@@ -104,14 +123,6 @@ export class Game {
     });
     this.bus.on('scene:green', () => this.music.play('lounge'));
     this.bus.on('scene:studio', () => { if (this.screen !== 'quiz') this.music.play('lounge'); });
-
-    // Browsers require a user gesture before audio can start.
-    const kick = () => {
-      this.audio.resume(); this.music.resume();
-      if (this.screen === 'title' || this.screen === 'greenroom') this.music.play('lounge');
-    };
-    window.addEventListener('pointerdown', kick, { once: true });
-    window.addEventListener('keydown', kick, { once: true });
 
     // HUD flourishes: banking particles + shield stamp, and the win ★ burst.
     this.bus.on('coins:bank', () => { if (this.rc) this.hud.bank(this.rc.index); });
@@ -243,9 +254,31 @@ export class Game {
       onBuySlot: (type) => this._buySlot(type),
       onRefill: () => this._refill(),
       onCallSteve: () => this._callSteve(),
-      onEnterStudio: () => this.startRun('mastery', null),
+      onEnterStudio: () => this._managerBeat(),
       onBack: () => this.showTitle(),
     }));
+  }
+
+  // "Start next round": the stage manager opens the green-room door, stands by
+  // it, and a speech bubble pops — then the show cuts back to the studio.
+  _managerBeat() {
+    if (this._managerBusy) return;
+    this._managerBusy = true;
+    clear(this.roots.screen); // let the doorway play out uncovered
+    this.bus.emit('green:manager', {});
+    this.audio.play('select');
+    const line = "We're ready for you back in the Hot Seat!";
+    this._announce(`Stage manager: ${line}`);
+    const bubble = h('div', { class: 'speech-bubble', role: 'status' },
+      h('span', { class: 'speech-who' }, 'Stage manager'), line);
+    const doorMs = this.reduced ? 0 : 1200;   // bubble pops once the door is open
+    const readMs = this.reduced ? 1600 : 2600; // a beat to read it
+    setTimeout(() => this.roots.screen.append(bubble), doorMs);
+    setTimeout(() => {
+      bubble.remove();
+      this._managerBusy = false;
+      this.startRun('mastery', null);
+    }, doorMs + readMs);
   }
 
   _buySlot(type) {

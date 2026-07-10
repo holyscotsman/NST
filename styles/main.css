@@ -281,13 +281,13 @@ button:disabled { opacity: 0.45; }
 
 .rung {
   position: relative; display: flex; align-items: center; gap: 6px;
-  height: 26px; margin-bottom: 2px; padding: 0 7px; border-radius: 9px;
+  height: 28px; margin-bottom: 2px; padding: 0 7px; border-radius: 9px;
   transition: transform 0.3s var(--swift);
 }
-.rung-num { width: 26px; text-align: right; font-size: 9.5px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
-.rung-glyph { width: 15px; text-align: center; font-size: 9px; line-height: 1; }
-.rung.tier-extreme .rung-glyph { font-size: 11px; }
-.rung-val { flex: 1; text-align: right; font-size: 11.5px; font-weight: 700; color: #c9cbe8; font-variant-numeric: tabular-nums; }
+.rung-num { width: 30px; text-align: right; font-size: 11px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.rung-glyph { width: 15px; text-align: center; font-size: 10px; line-height: 1; }
+.rung.tier-extreme .rung-glyph { font-size: 12px; }
+.rung-val { flex: 1; text-align: right; font-size: 13px; font-weight: 700; color: #c9cbe8; font-variant-numeric: tabular-nums; }
 .rung-safe { width: 12px; text-align: center; font-size: 8px; opacity: 0; }
 .rung.tier-easy .rung-glyph { color: var(--aqua); }
 .rung.tier-medium .rung-glyph { color: var(--iris); }
@@ -305,7 +305,7 @@ button:disabled { opacity: 0.45; }
 .rung.bank-pulse { animation: safePulse 0.8s ease-out both; }
 
 .rung-highlight {
-  position: absolute; left: 0; right: 0; height: 26px; z-index: 2; pointer-events: none;
+  position: absolute; left: 0; right: 0; height: 28px; z-index: 2; pointer-events: none;
   border: 1px solid var(--gold); border-radius: 9px; background: rgba(255, 200, 87, 0.13);
   transition: top 0.4s var(--swift);
 }
@@ -438,7 +438,8 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .title-foot { display: flex; gap: 18px; margin-top: 22px; justify-content: center; animation: riseIn 0.5s var(--swift) 0.34s both; }
 
 /* ============================== green room ============================== */
-.green-room { max-width: 980px; }
+/* Sits center-lower on screen (owner request) — the lounge breathes up top. */
+.green-room { max-width: 980px; margin-top: clamp(24px, 12vh, 150px); }
 .green-room .screen-title { font-size: 32px; font-weight: 800; text-align: center; }
 .green-room > .muted { text-align: center; max-width: 62ch; margin: 0 auto; color: #b8ab8e; }
 .green-room .wallet-row { margin-top: 4px; }
@@ -537,6 +538,31 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 /* wrong-answer banner (auto-continues to the green room) */
 .feedback.bad .fb-note { color: var(--muted); font-size: 12.5px; }
 
+/* ============================== stage-manager speech bubble ============================== */
+@keyframes bubblePop { 0% { opacity: 0; transform: translate(-50%, 10px) scale(0.7); } 70% { opacity: 1; transform: translate(-50%, -4px) scale(1.05); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+.speech-bubble {
+  position: fixed; left: 52%; top: 24%; transform: translate(-50%, 0); z-index: 8;
+  max-width: min(400px, 78vw);
+  background: #f5f2e8; color: #1c1608; font-weight: 700; font-size: 16.5px; line-height: 1.45;
+  border-radius: 18px; padding: 15px 20px;
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.5);
+  animation: bubblePop 0.35s var(--swift) both;
+}
+.speech-bubble::after {
+  content: ''; position: absolute; left: 54%; bottom: -15px;
+  border: 10px solid transparent; border-top: 16px solid #f5f2e8; border-bottom: 0;
+}
+.speech-who { display: block; font-size: 9.5px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #8a6f2a; margin-bottom: 5px; }
+
+/* first-gesture audio unlock hint (title screen) */
+.sound-hint {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 30;
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  background: rgba(10, 10, 22, 0.8); border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 16px; backdrop-filter: blur(8px); pointer-events: none;
+  animation: fadeIn 0.6s ease 0.8s both;
+}
+
 /* ============================== bored contestant (green room) ============================== */
 @keyframes boredSway { 0%, 100% { transform: rotate(0deg) translateY(0); } 30% { transform: rotate(-1.6deg) translateY(1px); } 60% { transform: rotate(1.1deg) translateY(0); } 80% { transform: rotate(-0.6deg) translateY(1px); } }
 @keyframes boredTap { 0%, 84%, 100% { transform: translateY(0); } 88% { transform: translateY(-3px); } 92% { transform: translateY(0); } 96% { transform: translateY(-2px); } }
@@ -563,10 +589,10 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
   }
   .ladder-head { display: none; }
   .ladder-track { position: static; display: flex; gap: 4px; }
-  .rung { flex: 0 0 54px; width: 54px; height: 42px; flex-direction: column; justify-content: center; gap: 0; padding: 3px 4px; margin-bottom: 0; }
-  .rung-num { width: auto; font-size: 8.5px; text-align: center; }
+  .rung { flex: 0 0 60px; width: 60px; height: 44px; flex-direction: column; justify-content: center; gap: 0; padding: 3px 4px; margin-bottom: 0; }
+  .rung-num { width: auto; font-size: 9.5px; text-align: center; }
   .rung-glyph { width: auto; font-size: 8px; }
-  .rung-val { flex: 0 0 auto; width: auto; text-align: center; font-size: 9.5px; }
+  .rung-val { flex: 0 0 auto; width: auto; text-align: center; font-size: 11px; }
   .rung-safe { display: none; }
   .rung.current { border: 1px solid var(--gold); background: rgba(255, 200, 87, 0.13); transform: none; }
   .rung-highlight, .rung-trail, .ladder-burst { display: none; }

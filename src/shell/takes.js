@@ -20,7 +20,8 @@
 // audience arc on the -z side (radius 11–16, heights 0.2–3.6); wordmark panel
 // at z=-12; PIGGY BANK pedestal at [4.2, ~1.0, 2.2]; STAGE MANAGER in the
 // wings at [-6.5, 0, 3]. Green room: sofa ~[0.4, 0, -4.8]; phone on the table
-// at [0.1, 0.63, -3.1]; SKETCHY GUY by the doors at [-2.45, 0, -6.6].
+// at [0.1, 0.63, -3.1]; SKETCHY GUY by the doors at [-3.5, 0, -6.55]; the
+// hinged door swings at [-2.0, 1.7, -6.9] (manager beat).
 
 export const SCENES = {
   /* ================= user-specced scenes (verbatim timings) ================= */
@@ -47,39 +48,41 @@ export const SCENES = {
   },
 
   // Player is thinking — the ambient in-question loop. 10 takes, then repeats.
+  // Durations are DOUBLE the original brief (owner note: the quick cuts were
+  // distracting behind the quiz card — each take now lingers twice as long).
   thinking: {
     set: 'studio', loop: true,
     takes: [
-      // 1. focus on the contestant — 5s
-      { type: 'dolly', dur: 5,
+      // 1. focus on the contestant — 10s
+      { type: 'dolly', dur: 10,
         from: { p: [1.8, 1.75, 4.4], t: [-2.1, 1.45, 0] },
         to:   { p: [1.3, 1.65, 3.6], t: [-2.1, 1.4, 0] } },
-      // 2. both contestant and host — 5s
-      { type: 'dolly', dur: 5,
+      // 2. both contestant and host — 10s
+      { type: 'dolly', dur: 10,
         from: { p: [0, 2.6, 9.6], t: [0, 1.4, 0] },
         to:   { p: [0, 2.4, 8.5], t: [0, 1.35, 0] } },
-      // 3. pan left→right across the audience — 3s
-      { type: 'pan', dur: 3, p: [0, 2.6, 2.5], from: [-9, 2.3, -9.5], to: [9, 2.3, -9.5] },
-      // 4. above host + contestant, slowly tilting down onto them — 3s
-      { type: 'pan', dur: 3, p: [0, 10.5, 4.5], from: [0, 6, -6.5], to: [0, 0.9, 0] },
-      // 5. the piggy bank, dramatic slow zoom — 4s
-      { type: 'dolly', dur: 4,
+      // 3. pan left→right across the audience — 6s
+      { type: 'pan', dur: 6, p: [0, 2.6, 2.5], from: [-9, 2.3, -9.5], to: [9, 2.3, -9.5] },
+      // 4. above host + contestant, slowly tilting down onto them — 6s
+      { type: 'pan', dur: 6, p: [0, 10.5, 4.5], from: [0, 6, -6.5], to: [0, 0.9, 0] },
+      // 5. the piggy bank, dramatic slow zoom — 8s
+      { type: 'dolly', dur: 8,
         from: { p: [7.8, 2.6, 6.2], t: [4.2, 1.4, 2.2] },
         to:   { p: [6.0, 1.8, 4.1], t: [4.2, 1.4, 2.2] } },
-      // 6. the other side of the audience, watching the contestant — 5s
-      { type: 'pan', dur: 5, p: [-1.5, 2.7, 2.2], from: [9, 2.3, -9.5], to: [-6, 2.5, -11] },
-      // 7. wideshot — host/contestant centered, the whole room visible — 5s*
-      { type: 'static', dur: 5, p: [0, 5.4, 15.5], t: [0, 1.7, -1] },
-      // 8. slow zoom on the intensity of the contestant — 3s
-      { type: 'dolly', dur: 3,
+      // 6. the other side of the audience, watching the contestant — 10s
+      { type: 'pan', dur: 10, p: [-1.5, 2.7, 2.2], from: [9, 2.3, -9.5], to: [-6, 2.5, -11] },
+      // 7. wideshot — host/contestant centered, the whole room visible — 10s*
+      { type: 'static', dur: 10, p: [0, 5.4, 15.5], t: [0, 1.7, -1] },
+      // 8. slow zoom on the intensity of the contestant — 6s
+      { type: 'dolly', dur: 6,
         from: { p: [0.6, 1.75, 3.0], t: [-2.1, 1.5, 0] },
         to:   { p: [0.0, 1.66, 2.35], t: [-2.1, 1.5, 0] } },
-      // 9. slow zoom on the intensity of the host — 3s
-      { type: 'dolly', dur: 3,
+      // 9. slow zoom on the intensity of the host — 6s
+      { type: 'dolly', dur: 6,
         from: { p: [-0.6, 1.75, 3.0], t: [2.1, 1.5, 0] },
         to:   { p: [0.0, 1.66, 2.35], t: [2.1, 1.5, 0] } },
-      // 10. slow orbital pan around the soundstage — 5s
-      { type: 'orbit', dur: 5, center: [0, 1.2, 0], radius: 11, height: 3.6, from: -70, to: -20, look: [0, 1.3, 0] },
+      // 10. slow orbital pan around the soundstage — 10s
+      { type: 'orbit', dur: 10, center: [0, 1.2, 0], radius: 11, height: 3.6, from: -70, to: -20, look: [0, 1.3, 0] },
     ],
   },
 
@@ -142,18 +145,28 @@ export const SCENES = {
     ],
   },
 
-  // The green room — ambient waiting-room loop: the lounge, a lazy pan across
-  // the sofa (and the bored contestant), the phone on the coffee table.
+  // The green room — a single calm locked-off shot of the lounge. No cinematic
+  // here by owner request: the room is a backdrop for the shop menu, and an
+  // imperceptibly slow drift keeps it feeling alive without pulling focus.
   greenRoom: {
     set: 'green', loop: true,
     takes: [
-      { type: 'dolly', dur: 6,
-        from: { p: [4.6, 2.7, 4.8], t: [-0.5, 1.2, -4] },
-        to:   { p: [3.7, 2.35, 3.7], t: [-0.4, 1.15, -4] } },
-      { type: 'pan', dur: 5, p: [2.5, 1.9, 1.5], from: [-4.5, 1.2, -5.2], to: [3.5, 1.1, -4.2] },
-      { type: 'dolly', dur: 4,
-        from: { p: [1.7, 1.5, -1.1], t: [0.1, 0.65, -3.1] },
-        to:   { p: [0.9, 1.1, -2.1], t: [0.1, 0.62, -3.1] } },
+      { type: 'dolly', dur: 40,
+        from: { p: [4.6, 2.6, 4.8], t: [-0.5, 1.2, -4] },
+        to:   { p: [4.3, 2.5, 4.5], t: [-0.5, 1.2, -4] } },
+    ],
+  },
+
+  // The stage manager opens the green-room door: "We're ready for you back in
+  // the Hot Seat!" Plays on "Start next round"; holds on the doorway until the
+  // run starts and the show cuts back to the studio.
+  managerDoor: {
+    set: 'green', hold: true,
+    takes: [
+      // approaches from the credenza side so the sofa stays out of frame
+      { type: 'dolly', dur: 3.2,
+        from: { p: [-4.9, 1.9, -2.7], t: [-2.2, 1.4, -6.9] },
+        to:   { p: [-4.1, 1.65, -3.7], t: [-2.2, 1.35, -6.9] } },
     ],
   },
 
@@ -193,8 +206,8 @@ export const SCENES = {
         from: { p: [1.7, 1.4, -0.9], t: [0.1, 0.63, -3.1] },
         to:   { p: [0.8, 0.98, -2.2], t: [0.1, 0.63, -3.1] } },
       { type: 'dolly', dur: 4,
-        from: { p: [-0.8, 1.75, -3.2], t: [-2.45, 1.35, -6.6] },
-        to:   { p: [-1.6, 1.6, -4.6], t: [-2.45, 1.3, -6.6] } },
+        from: { p: [-0.8, 1.75, -3.2], t: [-3.5, 1.35, -6.6] },
+        to:   { p: [-1.6, 1.6, -4.6], t: [-3.5, 1.3, -6.6] } },
     ],
   },
 

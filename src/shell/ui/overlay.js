@@ -9,7 +9,12 @@ import { h, clear } from './dom.js';
 import { letter } from '../../core/lifelines.js';
 import { DOMAIN_LABEL, TIER_LABEL } from './labels.js';
 
-const SUSPENSE_MS = 1700; // two 0.9s gold breaths, reveal lands on the second
+// The gold lock-in suspense before the reveal. Two 0.9s breaths on the early
+// tiers; the hard round and the final hold noticeably longer (with a drum
+// roll) to build the anticipation the top of the ladder deserves.
+const SUSPENSE_MS = 1700;
+const SUSPENSE_HARD_MS = 3000;
+const SUSPENSE_FINAL_MS = 3800;
 
 function reduced() { return document.body.classList.contains('reduced-motion'); }
 
@@ -142,7 +147,7 @@ export class QuizScreen {
           pct) };
       });
       this.lifelinePanel.append(h('div', { class: 'audience', 'aria-label': 'Audience poll results' },
-        h('div', { class: 'll-title' }, '👥 ask the audience'),
+        h('div', { class: 'll-title' }, '👥 Ask the audience'),
         ...rows.map((r) => r.row)));
       // bars grow via transition (staggered); percentages count up alongside
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -166,7 +171,7 @@ export class QuizScreen {
       const caret = h('span', { class: 'phone-caret', 'aria-hidden': 'true' });
       const typed = h('span', {}, '');
       this.lifelinePanel.append(h('div', { class: 'phone' },
-        h('div', { class: 'll-title' }, '📞 phone a friend'),
+        h('div', { class: 'll-title' }, '📞 Phone a friend'),
         h('p', { class: 'phone-text' }, '“', typed, caret, '”')));
       const text = payload.text;
       if (reduced()) {
@@ -206,7 +211,10 @@ export class QuizScreen {
     });
 
     const indices = [...this.selected];
-    this._after(SUSPENSE_MS, () => {
+    const isFinal = !!this.current.isFinal;
+    const ms = reduced() ? 0 : (isFinal ? SUSPENSE_FINAL_MS : this.current.tier === 'hard' ? SUSPENSE_HARD_MS : SUSPENSE_MS);
+    if (ms && this.handlers.onSuspense) this.handlers.onSuspense({ ms, tier: this.current.tier, isFinal });
+    this._after(ms, () => {
       if (this.handlers.onAnswer) this.handlers.onAnswer(indices);
     });
   }

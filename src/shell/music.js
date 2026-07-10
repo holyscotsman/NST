@@ -27,6 +27,22 @@ function N(name) { // 'C4' -> frequency
    Voice event: [beat, note(s), lengthInBeats, velocity 0..1]
    Voice: { wave, gain, cutoff?, decay? ('pluck' short envelope) }            */
 
+// The show's question hook — ONE melodic contour shared by the tier loops:
+// bright and high in the easy round, then the SAME melody a key lower and in
+// minor for medium, so the rounds feel related but the stakes clearly rise.
+const HOOK = [0, 1, 2, 1, 0, 2, 1, 3]; // chord-tone indices, half-beat steps
+function hookArp(chords, len) {
+  const seq = [];
+  chords.forEach((notes, c) => HOOK.forEach((idx, i) => seq.push([c * 4 + i * 0.5, notes[idx], len])));
+  return seq;
+}
+// Driving eighth-note bass alternating root and the octave above.
+function pumpBass(lo, hi, len) {
+  const seq = [];
+  for (let i = 0; i < 16; i++) seq.push([i, (i % 2 ? hi : lo)[i >> 1], len, i % 4 === 0 ? 1 : 0.7]);
+  return seq;
+}
+
 const TRACKS = {
   // Menu + green room. Laid-back major-7 vamp — the waiting-room record.
   lounge: {
@@ -46,44 +62,46 @@ const TRACKS = {
     ],
   },
 
-  // Easy tier — up-tempo, bright, forward motion.
+  // Easy tier — up-tempo and bright, with a dramatic backbone: a pounding
+  // downbeat, a saw-pad chord bed, and the show hook riding a I–V–vi–IV turn.
   easy: {
-    bpm: 126, beats: 16, gain: 0.72,
+    bpm: 128, beats: 16, gain: 0.72,
     voices: [
-      { wave: 'triangle', gain: 0.5, kind: 'bass', notes: (() => {
-        const seq = []; const roots = ['G2', 'G2', 'E2', 'E2', 'C2', 'C2', 'D2', 'D2'];
-        for (let i = 0; i < 16; i++) seq.push([i, i % 2 ? (roots[i >> 1][0] + '3').replace('33', '3') : roots[i >> 1], 0.45, i % 4 === 0 ? 1 : 0.7]);
-        return seq;
-      })() },
-      { wave: 'square', gain: 0.10, kind: 'arp', pluck: 0.35, notes: [
-        [0, 'G4', .4], [0.5, 'B4', .4], [1, 'D5', .4], [1.5, 'B4', .4], [2, 'G4', .4], [2.5, 'D5', .4], [3, 'B4', .4], [3.5, 'G5', .4],
-        [4, 'E4', .4], [4.5, 'G4', .4], [5, 'B4', .4], [5.5, 'G4', .4], [6, 'E4', .4], [6.5, 'B4', .4], [7, 'G4', .4], [7.5, 'E5', .4],
-        [8, 'C4', .4], [8.5, 'E4', .4], [9, 'G4', .4], [9.5, 'E4', .4], [10, 'C4', .4], [10.5, 'G4', .4], [11, 'E4', .4], [11.5, 'C5', .4],
-        [12, 'D4', .4], [12.5, 'F#4', .4], [13, 'A4', .4], [13.5, 'F#4', .4], [14, 'D4', .4], [14.5, 'A4', .4], [15, 'F#4', .4], [15.5, 'D5', .4],
+      { wave: 'triangle', gain: 0.5, kind: 'bass', notes: pumpBass(
+        ['G2', 'G2', 'D2', 'D2', 'E2', 'E2', 'C2', 'C2'],
+        ['G3', 'G3', 'D3', 'D3', 'E3', 'E3', 'C3', 'C3'], 0.45) },
+      { wave: 'sawtooth', gain: 0.055, kind: 'pad', cutoff: 1000, notes: [
+        [0, ['G3', 'B3', 'D4'], 3.6], [4, ['D3', 'F#3', 'A3'], 3.6],
+        [8, ['E3', 'G3', 'B3'], 3.6], [12, ['C3', 'E3', 'G3'], 3.6],
       ] },
+      { wave: 'square', gain: 0.10, kind: 'arp', pluck: 0.35, notes: hookArp([
+        ['G4', 'B4', 'D5', 'G5'], ['D4', 'F#4', 'A4', 'D5'],
+        ['E4', 'G4', 'B4', 'E5'], ['C4', 'E4', 'G4', 'C5'],
+      ], 0.4) },
+      { kind: 'thump', gain: 0.22, notes: [[0, 0, .3], [4, 0, .3], [8, 0, .3], [12, 0, .3]] },
       { kind: 'hat', gain: 0.06, notes: (() => { const s = []; for (let i = 0; i < 16; i++) s.push([i + 0.5, 0, 0.05]); return s; })() },
     ],
   },
 
-  // Medium tier — a notch slower, minor key, pulsier.
+  // Medium tier — the SAME hook melody, dropped a key into E minor and an
+  // octave lower, slower and darker: familiar tune, serious room.
   medium: {
-    bpm: 110, beats: 16, gain: 0.72,
+    bpm: 108, beats: 16, gain: 0.72,
     voices: [
       { wave: 'triangle', gain: 0.5, kind: 'bass', notes: (() => {
-        const seq = []; const roots = ['E2', 'E2', 'C2', 'C2', 'A1', 'A1', 'B1', 'B1'];
+        const seq = []; const roots = ['E2', 'E2', 'B1', 'B1', 'C2', 'C2', 'A1', 'A1'];
         for (let i = 0; i < 16; i++) seq.push([i, roots[i >> 1], 0.42, i % 4 === 0 ? 1 : 0.65]);
         return seq;
       })() },
-      { wave: 'sawtooth', gain: 0.05, kind: 'pad', cutoff: 900, notes: [
-        [0, ['E3', 'G3', 'B3'], 3.6], [4, ['C3', 'E3', 'G3'], 3.6],
-        [8, ['A2', 'C3', 'E3'], 3.6], [12, ['B2', 'D#3', 'F#3'], 3.6],
+      { wave: 'sawtooth', gain: 0.05, kind: 'pad', cutoff: 750, notes: [
+        [0, ['E3', 'G3', 'B3'], 3.6], [4, ['B2', 'D#3', 'F#3'], 3.6],
+        [8, ['C3', 'E3', 'G3'], 3.6], [12, ['A2', 'C3', 'E3'], 3.6],
       ] },
-      { wave: 'square', gain: 0.08, kind: 'arp', pluck: 0.3, notes: [
-        [0, 'E4', .35], [1, 'B4', .35], [1.5, 'G4', .35], [2.5, 'E4', .35], [3, 'B3', .35],
-        [4, 'E4', .35], [5, 'C5', .35], [5.5, 'G4', .35], [6.5, 'E4', .35], [7, 'C4', .35],
-        [8, 'E4', .35], [9, 'A4', .35], [9.5, 'E4', .35], [10.5, 'C4', .35], [11, 'A3', .35],
-        [12, 'F#4', .35], [13, 'B4', .35], [13.5, 'F#4', .35], [14.5, 'D#4', .35], [15, 'B3', .35],
-      ] },
+      { wave: 'square', gain: 0.08, kind: 'arp', pluck: 0.3, notes: hookArp([
+        ['E3', 'G3', 'B3', 'E4'], ['B2', 'D#3', 'F#3', 'B3'],
+        ['C3', 'E3', 'G3', 'C4'], ['A2', 'C3', 'E3', 'A3'],
+      ], 0.35) },
+      { kind: 'thump', gain: 0.16, notes: [[0, 0, .3], [4, 0, .3], [8, 0, .3], [12, 0, .3]] },
       { kind: 'hat', gain: 0.05, notes: [[1, 0, .05], [3, 0, .05], [5, 0, .05], [7, 0, .05], [9, 0, .05], [11, 0, .05], [13, 0, .05], [15, 0, .05]] },
     ],
   },
@@ -224,6 +242,34 @@ export class Music {
       setTimeout(() => { try { dead.disconnect(); } catch { /* gone */ } }, 900);
     }
     this._loop = null;
+  }
+
+  // A subtle snare-roll crescendo under the hard-round suspense beat. Ends
+  // with a quick choke so the reveal stinger lands on silence.
+  drumRoll(seconds = 3) {
+    if (!this.enabled || !this._ensure()) return;
+    this.resume();
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise; src.loop = true;
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass'; band.Q.value = 0.9;
+    band.frequency.setValueAtTime(1500, t);
+    band.frequency.linearRampToValueAtTime(2100, t + seconds); // brightens as it builds
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.012, t + 0.2);
+    g.gain.exponentialRampToValueAtTime(0.05, t + seconds);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + seconds + 0.12);
+    // tremolo so it reads as sticks on a snare, not static
+    const lfo = ctx.createOscillator(); lfo.type = 'triangle'; lfo.frequency.value = 16;
+    const depth = ctx.createGain();
+    depth.gain.setValueAtTime(0.008, t);
+    depth.gain.linearRampToValueAtTime(0.03, t + seconds);
+    lfo.connect(depth); depth.connect(g.gain);
+    src.connect(band); band.connect(g); g.connect(this.master);
+    src.start(t); src.stop(t + seconds + 0.2);
+    lfo.start(t); lfo.stop(t + seconds + 0.2);
   }
 
   duck(seconds = 1.2, depth = 0.3) {

@@ -9,7 +9,7 @@ import { LADDER, BANK_BOUNDARIES, LIFELINE_TYPES, LIFELINE_META } from '../../co
 import { positionTier } from '../../core/runController.js';
 
 const TIER_GLYPH = { easy: '●', medium: '◆', hard: '▲', extreme: '★' };
-const LL_LABEL = { fifty: '50:50', audience: 'audience', phone: 'phone' };
+const LL_LABEL = { fifty: '50:50', audience: 'Audience', phone: 'Phone' };
 
 function reduced() { return document.body.classList.contains('reduced-motion'); }
 
@@ -34,9 +34,9 @@ export class Hud {
     this.playingVal = h('span', { class: 'coin-amt playing' }, '0');
     this.hintEl = h('div', { class: 'coin-hint' }, '');
     this.coinsEl = h('div', { class: 'coins' },
-      h('div', { class: 'coins-head' }, 'coins earned'),
-      h('div', { class: 'coin-line' }, h('span', { class: 'coin-label' }, 'banked'), this.bankedVal),
-      h('div', { class: 'coin-line' }, h('span', { class: 'coin-label' }, 'playing for'), this.playingVal),
+      h('div', { class: 'coins-head' }, 'Coins earned'),
+      h('div', { class: 'coin-line' }, h('span', { class: 'coin-label' }, 'Banked'), this.bankedVal),
+      h('div', { class: 'coin-line' }, h('span', { class: 'coin-label' }, 'Playing for'), this.playingVal),
       this.hintEl,
     );
 
@@ -74,7 +74,7 @@ export class Hud {
     // Q30 at the top, Q1 at the bottom — the player climbs upward.
     for (let i = LADDER.length - 1; i >= 0; i--) {
       const tier = positionTier(i);
-      const safe = BANK_BOUNDARIES.includes(i) && i !== 29;
+      const safe = BANK_BOUNDARIES.includes(i);
       const li = h('li', { class: `rung tier-${tier}${safe ? ' safe' : ''}` },
         h('span', { class: 'rung-num' }, `Q${i + 1}`),
         h('span', { class: 'rung-glyph', 'aria-hidden': 'true' }, TIER_GLYPH[tier]),
@@ -85,7 +85,7 @@ export class Hud {
       this.track.append(li);
     }
     this.ladderEl = h('ol', { class: 'ladder', 'aria-label': 'Money ladder, question 1 to 30' },
-      h('div', { class: 'ladder-head', 'aria-hidden': 'true' }, 'money ladder'),
+      h('div', { class: 'ladder-head', 'aria-hidden': 'true' }, 'Money ladder'),
       this.track);
   }
 
@@ -118,7 +118,7 @@ export class Hud {
     this._tween('banked', snapshot.banked || 0, 500);
     this._tween('playing', snapshot.running || 0, 600);
     const nb = snapshot.nextBoundary;
-    this.hintEl.textContent = nb ? `next safe haven: Q${nb.qIndex + 1} → ${money(nb.amount)}` : 'past the last safe haven';
+    this.hintEl.textContent = nb ? `Next safe haven: Q${nb.qIndex + 1} → ${money(nb.amount)}` : 'Past the last safe haven';
 
     // lifelines
     for (const type of LIFELINE_TYPES) {

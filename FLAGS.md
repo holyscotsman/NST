@@ -31,13 +31,30 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
   throughout. `CLAUDE.md §6/§8` flag it for confirmation: keep it, or define
   WWTBANE's own identity?
 
-## 3. Studio visual sign-off
+## 4. Studio visual sign-off
 - The WebGL studio is **code-complete, visual-pending**. It passes structural
   and interaction tests but needs a human's eyes. Tracked in `BROWSER_QA.md`.
 
-## 4. Exam version scope
+## 5. Exam version scope
 - Content targets **AOS 6.x / Prism / AHV** (broad NCP-MCI). If you want to pin a
   specific exam blueprint version, say which and the bank can be curated to it.
+
+## 6. Character models — owner decision pending
+- The owner asked whether to build real 3D models for the contestant, host,
+  and audience (the green-room stick figure "looks weird"). Recommendation
+  given in chat: upgrade the code-built figures (proportioned low-poly bodies,
+  seated poses that match the furniture) rather than shipping external model
+  files — keeps the no-external-assets rule and stays performant. Waiting on
+  the owner's pick before building.
+
+## 7. Easy-tier difficulty calibration
+- The owner asked whether the easy round is easy enough, and whether the
+  questions were owner-supplied. They were **not** — the owner never provided
+  questions; the whole bank is AI-drafted pending human review (flag #1).
+  The authored `easy` labels are cold-start seeds only; if the owner wants a
+  gentler on-ramp, a human pass should re-grade the easy pool (or supply
+  replacement questions) — difficulty values are human-authored content per
+  `CLAUDE.md §7`.
 
 ## Resolved
 - _none yet._

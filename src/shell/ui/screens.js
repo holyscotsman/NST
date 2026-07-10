@@ -17,7 +17,7 @@ export function TitleScreen(ctx) {
   });
   return h('section', { class: 'screen title-screen' },
     h('div', { class: 'brand' },
-      h('p', { class: 'brand-pre' }, 'who wants to be a'),
+      h('p', { class: 'brand-pre' }, 'Who wants to be a'),
       h('h1', { class: 'brand-main' }, 'Nutanix Engineer?'),
       h('p', { class: 'brand-sub' }, 'A game-show quiz to learn and drill the Nutanix NCP-MCI exam. Answer 30 in a row to win.'),
     ),
@@ -55,7 +55,7 @@ export function GreenRoom(ctx) {
         ? 'You reached the final — and almost nobody wins it the first time. That was by design. Here is the answer it was hiding:'
         : `Question ${r.reached} got you. It happens to every contestant — here is the one that did it:`),
       h('div', { class: 'reveal' },
-        h('div', { class: 'reveal-label' }, 'the correct answer was'),
+        h('div', { class: 'reveal-label' }, 'The correct answer was'),
         h('div', { class: 'reveal-answer' }, r.correctText || '—'),
         r.explanation ? h('p', { class: 'reveal-exp' }, r.explanation) : null,
       ),
@@ -109,7 +109,7 @@ export function GreenRoom(ctx) {
             h('span', { class: 'head' }), h('span', { class: 'torso' })),
           h('div', {},
             h('h3', {}, '☎ Steve, the insider'),
-            h('div', { class: 'steve-status' }, steve.question ? '● on the line' : '○ unavailable')),
+            h('div', { class: 'steve-status' }, steve.question ? '● On the line' : '○ Unavailable')),
         ),
         steve.question
           ? (steve.calledThisVisit
@@ -193,7 +193,7 @@ export function ResultScreen(ctx) {
           : `You got to question ${ctx.reached} of 30. You bank ${money(ctx.payout)} coins.`),
 
     (!win && ctx.correctText) ? h('div', { class: 'reveal' },
-      h('div', { class: 'reveal-label' }, 'the correct answer was'),
+      h('div', { class: 'reveal-label' }, 'The correct answer was'),
       h('div', { class: 'reveal-answer' }, ctx.correctText),
       ctx.explanation ? h('p', { class: 'reveal-exp' }, ctx.explanation) : null,
     ) : null,
@@ -215,7 +215,7 @@ export function HelpScreen(onClose) {
     h('h2', { class: 'screen-title' }, 'How to play'),
     h('ul', { class: 'help-list' },
       rule('Answer 30 in a row.', 'Ten easy, ten medium, nine hard, then one brutal final for the top prize.'),
-      rule('One wrong answer ends the run.', 'But coins bank at every tier boundary (Q10, Q20, Q29) — pass one and that money is yours to keep even if you fall later.'),
+      rule('One wrong answer ends the run.', 'But coins bank at the safe havens (Q5, Q10, Q17 and Q25) — pass one and that money is yours to keep even if you fall later.'),
       rule('Three lifelines,', 'one use each: 50:50 removes two wrong answers, Ask the Audience polls the room (it never points you wrong, only sometimes weakly), and Phone a Friend gives a hedged tip toward the right answer. A lifeline-assisted correct answer still counts — but it will not mark that topic as mastered.'),
       rule('You learn as you play.', 'Every question tracks your personal mastery. Ones you miss come back sooner and harder; ones you nail drift away. Your learning is saved and never wiped — even by winning.'),
       rule('The green room', 'is where you spend banked coins between runs: buy a second slot for a lifeline, recharge them, or pay Steve for an inside tip on a hard question you are about to face.'),

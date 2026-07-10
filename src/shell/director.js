@@ -190,6 +190,7 @@ export class Director {
         else this.play('phoneFriend');
         return true;
       case 'steve:call': this.play('sketchyCall'); return true;
+      case 'green:manager': this.play('managerDoor'); return true;
       case 'scene:green': this.setBase('greenRoom'); this.play('greenRoom'); return true;
       case 'scene:studio': this.setBase('intro'); this.play('intro'); return true;
       default: return false;

@@ -30,20 +30,25 @@ Claude, awaiting take-by-take direction.
 | 1 | Host in his chair, leaning to camera as it slowly zooms in | 4s |
 
 ### ✅ Player is thinking — `thinking` (loops · the in-question background)
+
+Durations are **double** the original brief (owner note: the quick cuts were
+distracting behind the quiz card — each take now lingers twice as long).
+
 | # | Take | Duration |
 |---|---|---|
-| 1 | Focus on the contestant | 5s |
-| 2 | Both contestant and host | 5s |
-| 3 | Pan left → right across the audience | 3s |
-| 4 | Above host + contestant, slowly tilting down onto them | 3s |
-| 5 | Piggy bank, dramatic slow zoom | 4s |
-| 6 | The other side of the audience, watching the contestant | 5s |
-| 7 | Wideshot — host/contestant centered, whole room visible | **5s*** |
-| 8 | Slow zoom on the intensity of the contestant | 3s |
-| 9 | Slow zoom on the intensity of the host | 3s |
-| 10 | Slow orbital pan around the soundstage | 5s |
+| 1 | Focus on the contestant | 10s |
+| 2 | Both contestant and host | 10s |
+| 3 | Pan left → right across the audience | 6s |
+| 4 | Above host + contestant, slowly tilting down onto them | 6s |
+| 5 | Piggy bank, dramatic slow zoom | 8s |
+| 6 | The other side of the audience, watching the contestant | 10s |
+| 7 | Wideshot — host/contestant centered, whole room visible | **10s*** |
+| 8 | Slow zoom on the intensity of the contestant | 6s |
+| 9 | Slow zoom on the intensity of the host | 6s |
+| 10 | Slow orbital pan around the soundstage | 10s |
 
-\* take 7 had no duration in the brief — set to 5s, confirm or adjust.
+\* take 7 had no duration in the brief — set to 10s (doubled from the 5s
+draft), confirm or adjust.
 
 ### ✏️ "Is that your final answer?" — `finalAnswer` (on lock-in; holds till the reveal)
 | # | Take | Duration |
@@ -74,12 +79,24 @@ Claude, awaiting take-by-take direction.
 | 2 | Wide push on the celebrating stage | 4s |
 | 3 | Long celebration orbit (repeats until you leave) | 8s loop |
 
-### ✏️ The green room — `greenRoom` (loops · between-runs background)
+### ✅ The green room — `greenRoom` (loops · between-runs background)
+
+No cinematic here by owner request — the room is a calm backdrop for the shop
+menu, with an imperceptibly slow drift so it doesn't feel frozen.
+
 | # | Take | Duration |
 |---|---|---|
-| 1 | Wide lounge, slow push | 6s |
-| 2 | Lazy pan across the sofa (and the bored contestant) | 5s |
-| 3 | Close on the phone waiting on the coffee table | 4s |
+| 1 | Wide lounge, near-static drift | 40s |
+
+### ✅ Stage manager at the door — `managerDoor` (on "Start next round" · holds)
+
+The stage manager opens the green-room door and stands by it while a DOM
+speech bubble pops: *"We're ready for you back in the Hot Seat!"* — then the
+run starts and the show cuts to the studio.
+
+| # | Take | Duration |
+|---|---|---|
+| 1 | Push toward the doorway as the door swings open | 3.2s + hold |
 
 ### ✏️ 50:50 — `fifty` (→ returns)
 | # | Take | Duration |
@@ -125,6 +142,7 @@ Claude, awaiting take-by-take direction.
 | 50:50 / audience / phone | `fifty` / `audiencePoll` / `phoneFriend` → background |
 | Steve called (green room) | `sketchyCall` → `greenRoom` |
 | Enter green room | `greenRoom` loop |
+| "Start next round" (`green:manager`) | `managerDoor` (holds until the run starts) |
 
 ## Notes
 

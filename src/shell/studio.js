@@ -118,6 +118,17 @@ export class Studio {
       case 'run:dead':
         this._setMood(0x223, 0.5);
         break;
+      case 'green:manager':
+        // the stage manager opens the green-room door and stands by it
+        if (this._greenSM) this._greenSM.visible = true;
+        this._doorT = 0;
+        break;
+      case 'scene:green':
+        // fresh visit: the door is shut, the manager is back in the hallway
+        if (this._greenDoor) this._greenDoor.rotation.y = 0;
+        if (this._greenSM) this._greenSM.visible = false;
+        this._doorT = null;
+        break;
       default: break;
     }
   }
@@ -173,6 +184,15 @@ export class Studio {
         b.rotation.x = Math.sin(b.userData.base + t * 0.3 * this._spin) * 0.2;
       }
       if (this._spin > 1) this._spin = Math.max(1, this._spin - dt * 0.6);
+    }
+
+    // Green-room door swing (green:manager) — eased open over ~1.1s; reduced
+    // motion snaps it open in a single cut.
+    if (this._doorT != null && this._greenDoor) {
+      this._doorT = this.reduced ? 1 : Math.min(1, this._doorT + dt / 1.1);
+      const e = 1 - Math.pow(1 - this._doorT, 3);
+      this._greenDoor.rotation.y = e * 1.5; // swings inward, into the lounge
+      if (this._doorT >= 1) this._doorT = null;
     }
 
     // Flash pulse via the warm light (bounded, < 3Hz, reduced-motion exits above).
@@ -301,12 +321,12 @@ export class Studio {
 
   _buildGreen() {
     const s = new THREE.Scene();
-    // warm, dim lounge — matches the design's green room (dark, lamp pools)
-    s.background = new THREE.Color(0x0c0906);
-    s.add(new THREE.AmbientLight(0xffe0b0, 0.16));
-    const ceil = new THREE.PointLight(0xffe6c2, 9, 24); ceil.position.set(0, 4.2, -1); s.add(ceil);
-    const lampL = new THREE.PointLight(PAL.gold, 12, 10); lampL.position.set(-4.2, 2.4, -3.5); s.add(lampL);
-    const lampR = new THREE.PointLight(0xffd88a, 8, 9); lampR.position.set(5.2, 2.5, -6.2); s.add(lampR);
+    // warm lounge — dim lamp pools, lifted a touch so the room reads clearly
+    s.background = new THREE.Color(0x0f0b07);
+    s.add(new THREE.AmbientLight(0xffe0b0, 0.24));
+    const ceil = new THREE.PointLight(0xffe6c2, 13, 24); ceil.position.set(0, 4.2, -1); s.add(ceil);
+    const lampL = new THREE.PointLight(PAL.gold, 15, 11); lampL.position.set(-4.2, 2.4, -3.5); s.add(lampL);
+    const lampR = new THREE.PointLight(0xffd88a, 10, 10); lampR.position.set(5.2, 2.5, -6.2); s.add(lampR);
 
     const wallMat = mat(0x4d4438, 0, 0.9), floorMat = mat(0x241c12, 0, 0.95), ceilMat = mat(0x2e271c, 0, 0.95);
     s.add(pos(box(12, 0.1, 10, floorMat), 0, 0, -2));
@@ -314,7 +334,7 @@ export class Studio {
     s.add(pos(box(12, 4.7, 0.15, wallMat), 0, 2.35, -7));
     s.add(pos(box(0.15, 4.7, 10, wallMat), -6, 2.35, -2));
     s.add(pos(box(0.15, 4.7, 10, wallMat), 6, 2.35, -2));
-    s.add(pos(box(2.4, 0.06, 1.2, mat(0x000000, 0xffe6c2, 0.55)), 0, 4.5, -1));
+    s.add(pos(box(2.4, 0.06, 1.2, mat(0x000000, 0xffe6c2, 0.35)), 0, 4.5, -1));
 
     const leather = mat(0x6e4526, 0, 0.65), wood = mat(0x8a6f45, 0, 0.7), woodDk = mat(0x594430, 0, 0.75);
     const sofa = () => { const g = new THREE.Group();
@@ -342,7 +362,28 @@ export class Studio {
     const art = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 0.95), new THREE.MeshBasicMaterial({ map: artTexture() })); art.position.set(0.4, 2.6, -6.86); s.add(art);
     const doorMat = mat(0x6e6151, 0, 0.85);
     s.add(pos(box(0.9, 3.4, 0.1, doorMat), -2.9, 1.7, -6.9));
-    s.add(pos(box(0.9, 3.4, 0.1, doorMat), -2.0, 1.7, -6.9));
+    // The right door swings on a hinge so the stage manager can open it for the
+    // "we're ready for you" beat (green:manager). Hinged at its right edge.
+    const hinge = new THREE.Group(); hinge.position.set(-1.55, 1.7, -6.9);
+    const swing = box(0.9, 3.4, 0.1, doorMat); swing.position.set(-0.45, 0, 0);
+    hinge.add(swing); s.add(hinge);
+    this._greenDoor = hinge;
+    // Warm hallway light in the doorway — hidden inside the closed door slab,
+    // revealed as it swings open. Basic material so it glows unlit.
+    const hall = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 3.3),
+      new THREE.MeshBasicMaterial({ color: 0xffe6c2 }));
+    hall.position.set(-2.0, 1.7, -6.91); s.add(hall);
+
+    // The stage manager, hidden until they open that door on "Start next round".
+    const gsm = standingFigure(0x23232f, PAL.aqua, 0.12);
+    const gband = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.028, 8, 20), mat(0x0a0a14, PAL.aqua, 0.5));
+    gband.position.set(0, 1.58, 0); gband.rotation.y = Math.PI / 2; gsm.add(gband);
+    const gmic = box(0.03, 0.03, 0.16, mat(0x0a0a14, PAL.aqua, 0.6));
+    gmic.position.set(0.12, 1.5, 0.12); gmic.rotation.y = 0.5; gsm.add(gmic);
+    gsm.position.set(-2.15, 0, -6.4); gsm.rotation.y = -0.2; // in the doorway
+    gsm.visible = false;
+    s.add(gsm);
+    this._greenSM = gsm;
 
     const you = figure(PAL.mantis, 1); you.position.set(0.4, 0.55, -4.8); you.rotation.y = 0.2;
     you.traverse((o) => { if (o.material) { o.material = o.material.clone(); o.material.emissiveIntensity = 0.1; o.material.color.set(0x4a4a5a); } });
@@ -357,7 +398,8 @@ export class Studio {
     const sgHead = sph(0.17, mat(0x14100a, PAL.gold, 0.1, 0.8)); sgHead.position.y = 1.35; sg.add(sgHead);
     const brim = cyl(0.3, 0.3, 0.035, coatM); brim.position.y = 1.45; sg.add(brim);
     const crown = cyl(0.15, 0.17, 0.16, coatM); crown.position.y = 1.54; sg.add(crown);
-    sg.position.set(-2.45, 0, -6.55); sg.rotation.y = 0.55; sg.rotation.z = -0.05; // leaning, up to something
+    // (parked left of the far door, clear of the swinging one)
+    sg.position.set(-3.5, 0, -6.55); sg.rotation.y = 0.55; sg.rotation.z = -0.05; // leaning, up to something
     s.add(sg);
     return s;
   }

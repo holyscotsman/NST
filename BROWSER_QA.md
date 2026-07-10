@@ -7,7 +7,24 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
-## Pending sign-off — music, cinematics & dashboard (newest)
+## Pending sign-off — owner feedback batch (newest)
+
+- [ ] **Stage-manager door beat** — in the green room press "Start next
+  round": the door swings open with warm hallway light, the manager stands in
+  it, the speech bubble pops, then the run starts. (Preview the framing with
+  `?scene=managerDoor`.)
+- [ ] **Green room brightness** — a tad brighter, still a warm dim lounge;
+  the ambient camera barely moves now.
+- [ ] **Thinking takes at double length** — confirm the slower cutting reads
+  calmer behind the quiz card (owner may still want triple).
+- [ ] **Money ladder text size** — bigger rungs on desktop + mobile strip.
+- [ ] **Hard-round suspense** — longer gold hold + subtle drum roll on hard
+  and final questions; early tiers still quick.
+- [ ] **Easy/medium music** — easy is more dramatic but upbeat; medium is the
+  same melody, lower and minor. Menu plays the lounge after the first click
+  (the 🔊 hint explains the browser autoplay gate).
+
+## Pending sign-off — music, cinematics & dashboard
 
 - [ ] **Cinematic takes** — review every scene via `?scene=<name>` (see
   `docs/CINEMATIC_TAKES.md`); confirm the ✏️ drafted scenes and take 7's 5s.

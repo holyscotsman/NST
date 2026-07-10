@@ -31,8 +31,8 @@ export const DOMAINS = [
 ];
 
 // The money ladder. Cumulative coins after answering question N correctly.
-// Safe havens (banked, guaranteed) sit at every tier boundary: Q10, Q20, Q29, Q30.
-// Index 0 => after Q1, index 29 => after Q30 (a win).
+// Safe havens (banked, guaranteed) sit at Q5, Q10, Q17 and Q25 (owner-set —
+// independent of tier boundaries). Index 0 => after Q1, index 29 => Q30 (win).
 export const LADDER = buildLadder();
 
 function buildLadder() {
@@ -49,9 +49,9 @@ function buildLadder() {
   return rungs;
 }
 
-// Question indices (0-based) after which the running total banks and cannot be lost.
-// After Q10 (idx 9), Q20 (idx 19), Q29 (idx 28), Q30 (idx 29).
-export const BANK_BOUNDARIES = [9, 19, 28, 29];
+// Question indices (0-based) after which the running total banks and cannot be
+// lost: Q5 (idx 4), Q10 (idx 9), Q17 (idx 16), Q25 (idx 24).
+export const BANK_BOUNDARIES = [4, 9, 16, 24];
 
 export const LIFELINE_TYPES = ['fifty', 'audience', 'phone'];
 

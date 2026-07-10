@@ -5,9 +5,12 @@
 ## Where things stand
 
 The game is live at **https://holyscotsman.github.io/WWTBANE/** and has been
-through five major drops (see `CHANGELOG.md`): the first playable build, the
+through six major drops (see `CHANGELOG.md`): the first playable build, the
 Game A UI redesign, music + intro tutorial + loss-flow rework, the camera
-director (cinematic scenes/takes), and take tuning with the scene preview tool.
+director (cinematic scenes/takes), take tuning with the scene preview tool,
+and the owner feedback batch (safe havens Q5/Q10/Q17/Q25, hard-round suspense
++ drum roll, easy/medium music rework sharing one hook melody, doubled
+thinking takes, calmer/brighter green room, stage-manager door beat).
 
 ### Architecture map
 - **Core (pure, headless-tested)** — `src/core/`: config, rng, questionSchema,
@@ -34,11 +37,14 @@ director (cinematic scenes/takes), and take tuning with the scene preview tool.
   green room (reveal + pep talk → shop, "Start next round"); win → prestige.
 
 ### Gates
-- Tests: 42 headless (negative controls) + 7 smoke + 13 e2e; CI runs headless
+- Tests: 44 headless (negative controls) + 7 smoke + 13 e2e; CI runs headless
   on every push/PR. All green as of the last drop.
 - Visual sign-off queue: `BROWSER_QA.md` (code-complete, visual-pending).
 
 ## Next candidates
+- Owner decision: real 3D character models for host/contestant/audience vs.
+  upgraded stick figures (asked in chat; see `FLAGS.md`).
 - Owner feedback pass on the ✏️ drafted cinematic takes (use the preview tool).
-- Human review of the question bank + host dialogue (`FLAGS.md`).
-- Backlog ideas in `BACKLOG.md` (domain-mastery dashboard, PWA, etc.).
+- Human review of the question bank + host dialogue (`FLAGS.md`) — includes
+  the owner's "are the easy questions easy enough?" concern.
+- Backlog ideas in `BACKLOG.md` (PWA, etc.).
