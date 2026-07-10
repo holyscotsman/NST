@@ -7,7 +7,24 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
-## Pending sign-off — owner feedback batch 2 (newest)
+## Pending sign-off — the living studio (newest)
+
+- [ ] **Faces & idle life** — blinking, breathing, head sway; host's mouth
+  moves while he talks; smiles on correct, frowns + dropped heads on wrong;
+  contestant's arms up on a correct answer. (`?scene=hostWelcome`,
+  `?scene=thinking&take=8`.)
+- [ ] **Seated audience** — chair rows + risers read as people sitting
+  (`?scene=thinking&take=3`); wideshot shows the whole broadcast floor with
+  the fourth-wall pedestal cameras + operator (`?scene=thinking&take=7`).
+- [ ] **Crowd moments** — wait on the thinking loop: occasional wave, cough
+  (listen for it), or someone getting up and leaving; never more than one at
+  a time; nothing under reduced motion.
+- [ ] **Headset** — over-the-crown band + ear cups + boom mic
+  (`?scene=producerReady`).
+- [ ] **Audio status line** — pause menu / settings explain the engine state;
+  toggling music back on mid-question resumes the tier loop instantly.
+
+## Pending sign-off — owner feedback batch 2
 
 - [ ] **Capsule people** — host (suit, silver hair, bow tie), contestant,
   crew, sofa contestant; hot seats read as chairs (backrest + footrest).

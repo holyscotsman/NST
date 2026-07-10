@@ -224,6 +224,7 @@ export function SettingsScreen(ctx) {
     toggle('highContrast', 'High contrast', 'Boost text and outline contrast.'),
     toggle('sound', 'Sound effects', 'Short cues for picking, locking, and lifelines.'),
     toggle('music', 'Music', 'Original synth score: lounge in the green room, tier loops that slow and darken as the money climbs.'),
+    ctx.audioStatus ? h('p', { class: 'muted small audio-status' }, ctx.audioStatus) : null,
     toggle('extraTime', 'No timers', 'There is never a countdown; this keeps it that way if timers are ever added.'),
     h('div', { class: 'save-transfer' },
       h('b', {}, 'Move progress between devices'),

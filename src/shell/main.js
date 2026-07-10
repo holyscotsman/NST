@@ -112,7 +112,10 @@ export class Game {
     try {
       if (skipGl) throw new Error('gl skipped for test');
       const { Studio } = await import('./studio.js');
-      this.studio = new Studio(this.roots.studio, { reducedMotion: this.reduced });
+      this.studio = new Studio(this.roots.studio, {
+        reducedMotion: this.reduced,
+        onAmbient: (k) => this.audio.play(k), // diegetic crowd sounds (a cough)
+      });
       await this.studio.init();
       this.roots.fallback.classList.add('hidden');
       this.bus.on('*', (data, type) => { if (this.studio) this.studio.react(type, data); });
@@ -241,6 +244,7 @@ export class Game {
   showSettings() {
     this._swap(SettingsScreen({
       settings: this.save.settings,
+      audioStatus: this._audioStatus(),
       onChange: (k, v) => { this.save.settings[k] = v; this._applySettings(); this.persist(); this.showSettings(); },
       onReset: () => { if (confirm('Reset ALL progress on this device? This cannot be undone.')) { this.save = persistence.resetAll(); this.campaign = null; this.showTitle(); } },
       onExport: () => persistence.exportString(this.save),
@@ -482,6 +486,7 @@ export class Game {
       h('h2', { class: 'screen-title' }, 'Paused'),
       toggle('music', 'Music', 'The lounge and tier loops.'),
       toggle('sound', 'Sound effects', 'Picking, locking, lifelines.'),
+      h('p', { class: 'muted small audio-status' }, this._audioStatus()),
       h('div', { class: 'pause-seed' },
         seed
           ? [h('span', { class: 'muted small' }, 'Seed — anyone who plays it gets this exact run'),
@@ -631,10 +636,27 @@ export class Game {
     if (this.studio) this.studio.reduced = this.reduced;
     this.audio.setEnabled(this.save.settings.sound);
     this.music.setEnabled(this.save.settings.music !== false);
-    if (this.save.settings.music !== false && (this.screen === 'title' || this.screen === 'greenroom')) {
-      this.music.play('lounge');
+    if (this.save.settings.music !== false) {
+      if (this.screen === 'title' || this.screen === 'greenroom') {
+        this.music.play('lounge');
+      } else if (this.screen === 'quiz' && this.rc) {
+        // Re-enabling music mid-run resumes the right tier loop immediately
+        // (it used to stay silent until the next question).
+        const cur = this.rc.current();
+        this.music.play(cur.isFinal ? 'final' : cur.tier);
+      }
     }
     this._applyBodyClasses();
+  }
+
+  // A human-readable line about the audio engine, for the pause menu and
+  // settings — makes "the audio is missing" diagnosable at a glance.
+  _audioStatus() {
+    const ctx = this.music.ctx || this.audio.ctx;
+    if (!ctx) return 'Audio has not started yet — it begins on your first click or key press (browser rule).';
+    if (ctx.state === 'suspended') return 'Audio is paused by the browser — click anywhere to resume it.';
+    if (ctx.state === 'running') return 'Audio engine: running. If you hear nothing, check the toggles above, the tab’s mute flag, and the device volume/mute switch.';
+    return `Audio engine: ${ctx.state}.`;
   }
 
   _applyBodyClasses() {

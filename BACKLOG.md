@@ -15,6 +15,9 @@ Ideas that aren't scheduled work yet. Promote to `AUTONOMOUS_RUN.md` when specce
 - Explanations with links to the exact Nutanix doc section.
 
 ## Presentation
+- Procedural canvas textures (recommended next): studio floor carpet/brushed
+  disc, green-room wall paneling + sofa fabric weave — all generated in code
+  like the existing wordmark/art, no image files.
 - Host visual-novel dialogue between questions.
 - Richer Steve scene (portrait, typewriter text).
 - Win/lose sting variations; subtle ambient bed (still original, still < brand rules).

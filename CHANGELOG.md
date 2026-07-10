@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased — the living studio: faces, crowd, cameras + audio fixes
+
+- **Animated faces and idle life** — everyone (host, contestant, stage
+  managers, camera operator, green-room contestant) now breathes, sways,
+  blinks, and glances around on independent phases. Mouths are swappable
+  shapes: the host visibly *talks* while a question is read out or he
+  welcomes you back; correct answers get smiles (the contestant throws their
+  arms up), wrong answers get frowns and dropped heads; the door manager
+  beckons. All trig on stored refs — no per-frame allocation; fully skipped
+  under reduced motion.
+- **The audience actually sits** — seated bodies (torso/lap/head) on visible
+  chair rows, on riser platforms with an aqua fascia strip per tier.
+- **Random crowd moments** — occasionally someone waves at the camera, coughs
+  (with a soft diegetic cough sound), or gets up and walks out, leaving their
+  seat empty for a while. One at a time, presentation-only randomness, never
+  under reduced motion.
+- **Fourth wall dressed** — three broadcast pedestal cameras (lens, red tally
+  light, operator monitor) aimed at the stage, plus a camera operator.
+- **Stage-manager headset fixed** — now a half-band arcing ear-to-ear over
+  the crown with ear cups and a boom mic, parented to the head so it moves
+  with it (it was a full ring on the wrong axis).
+- **More polygons everywhere** — spheres/cylinders/capsules/tori bumped to
+  smoother segment counts; faces gained noses and ears.
+- **Audio fixes**: re-enabling music mid-run now resumes the tier loop
+  immediately (it used to stay silent until the next question), and the pause
+  menu + settings show a live audio-engine status line ("blocked until a
+  click", "running — check tab/device mute") so silence is diagnosable.
+
 ## Unreleased — save transfer between devices
 
 - **Export / import in Settings** — "Export save code" copies the full save

@@ -28,6 +28,30 @@ export class GameAudio {
   resume() { if (this._ensure() && this.ctx.state === 'suspended') this.ctx.resume(); }
   setEnabled(v) { this.enabled = v; }
 
+  _noise() {
+    if (this._noiseBuf) return this._noiseBuf;
+    const len = Math.floor(this.ctx.sampleRate * 0.12);
+    this._noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const d = this._noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    return this._noiseBuf;
+  }
+
+  // A muffled double cough from somewhere in the crowd (diegetic flavor).
+  _cough(t) {
+    for (const [at, dur, gain] of [[0, 0.09, 0.05], [0.16, 0.07, 0.035]]) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = this._noise();
+      const f = this.ctx.createBiquadFilter();
+      f.type = 'bandpass'; f.frequency.value = 750; f.Q.value = 1.4;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(gain, t + at);
+      g.gain.exponentialRampToValueAtTime(0.0005, t + at + dur);
+      src.connect(f); f.connect(g); g.connect(this.master);
+      src.start(t + at); src.stop(t + at + dur + 0.02);
+    }
+  }
+
   _tone(freq, start, dur, { type = 'sine', gain = 0.5, glideTo = null } = {}) {
     const ctx = this.ctx;
     const o = ctx.createOscillator();
@@ -71,6 +95,7 @@ export class GameAudio {
       case 'tension': // low pulse (kept short, non-looping)
         this._tone(NOTES.A3, t, 0.6, { type: 'sine', gain: 0.16 });
         break;
+      case 'cough': this._cough(t); break;
       default: break;
     }
   }
