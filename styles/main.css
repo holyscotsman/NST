@@ -375,6 +375,11 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .option.removed { animation: powerDown 0.4s ease both; transform: scale(0.98); filter: grayscale(1); }
 /* the read-out: answers stay hidden until their reveal beat (overlay.js) */
 .option.unrevealed { visibility: hidden; animation: none; }
+
+/* optional authored question image (diagram/screenshot) */
+.q-image { margin: 12px 0 0; text-align: center; }
+.q-image img { max-width: 100%; max-height: 200px; border-radius: 10px; border: 1px solid var(--line); background: #0a0a16; }
+.q-image figcaption { margin-top: 5px; font-size: 11.5px; color: var(--muted); }
 .option.removed .opt-text { text-decoration: line-through; }
 .option.faded { filter: saturate(0.7); opacity: 0.7; }
 

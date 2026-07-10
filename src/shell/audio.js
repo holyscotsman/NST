@@ -48,6 +48,7 @@ export class GameAudio {
     const t = this.ctx.currentTime;
     switch (name) {
       case 'select': this._tone(NOTES.E5, t, 0.08, { type: 'triangle', gain: 0.28 }); break;
+      case 'reveal': this._tone(NOTES.C5, t, 0.05, { type: 'sine', gain: 0.12 }); break; // soft tick as each answer reads out
       case 'lock':   this._tone(NOTES.C4, t, 0.14, { type: 'sawtooth', gain: 0.3, glideTo: NOTES.G4 }); break;
       case 'lifeline':
         this._tone(NOTES.G4, t, 0.1, { type: 'triangle', gain: 0.3 });

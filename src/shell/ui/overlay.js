@@ -19,6 +19,18 @@ const SUSPENSE_FINAL_MS = 3800;
 
 function reduced() { return document.body.classList.contains('reduced-motion'); }
 
+// Optional authored diagram/screenshot for a question ({ src, alt, caption? },
+// validated by questionSchema). A missing file must never block play — the
+// whole figure removes itself if the image fails to load.
+function questionImage(image) {
+  const img = h('img', { src: image.src, alt: image.alt, loading: 'lazy' });
+  const fig = h('figure', { class: 'q-image' },
+    img,
+    image.caption ? h('figcaption', {}, image.caption) : null);
+  img.addEventListener('error', () => fig.remove());
+  return fig;
+}
+
 export class QuizScreen {
   constructor(handlers = {}) {
     this.handlers = handlers; // onAnswer(indices), onLifeline(type), onContinue(result), onQuit()
@@ -87,6 +99,7 @@ export class QuizScreen {
       ),
       this.lifelinePanel,
       h('h2', { class: 'stem' }, q.stem),
+      q.image ? questionImage(q.image) : null,
       this.optionsEl,
       h('div', { class: 'lock-row' }, this.lockBtn),
     );

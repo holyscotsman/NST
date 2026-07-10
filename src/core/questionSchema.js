@@ -54,6 +54,20 @@ export function validateQuestion(q, seenIds) {
     }
   }
 
+  // Optional question image (a diagram/screenshot ref — content is authored by
+  // humans; this only validates the hook). Must be a local path (the game ships
+  // static and plays offline — no external loads) and MUST carry alt text.
+  if (typeof q.image !== 'undefined') {
+    if (!q.image || typeof q.image !== 'object' || Array.isArray(q.image)) {
+      push('image must be an object { src, alt }');
+    } else {
+      if (typeof q.image.src !== 'string' || q.image.src.trim().length === 0) push('image.src must be a non-empty string');
+      else if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(q.image.src.trim())) push('image.src must be a local path, not an external URL');
+      if (typeof q.image.alt !== 'string' || q.image.alt.trim().length < 3) push('image.alt (description) is required');
+      if (typeof q.image.caption !== 'undefined' && typeof q.image.caption !== 'string') push('image.caption must be a string');
+    }
+  }
+
   // Lifeline content (optional but type-checked when present).
   if (typeof q.phoneHint !== 'undefined' && typeof q.phoneHint !== 'string') push('phoneHint must be a string');
   if (typeof q.steveClue !== 'undefined' && typeof q.steveClue !== 'string') push('steveClue must be a string');

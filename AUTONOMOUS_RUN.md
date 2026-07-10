@@ -14,12 +14,20 @@
 ## Queue
 
 ### Ready
-- Question images: extend the schema with an optional image ref and a loader; do
-  **not** author image content.
-- Host dialogue hooks in the studio once host content exists.
+- Save export/import (copy/paste or file) so progress moves between devices —
+  settings-screen affordance; touches persistence only, no design invention.
 
 ### Done (recent)
-- Green-room mastery dashboard (per-domain weak-spot analytics).
+- Question image hook: schema field (`image {src, alt, caption?}` — local-only,
+  alt required) + overlay renderer with load-failure fallback. **No image
+  content authored** (that stays human).
+- Shareable challenge links: `?seed=NTNX-XXXXXX` boots straight into the
+  seeded run; pause menu copies the link; one `normalizeSeed` path for typed
+  and linked seeds.
+- Host dialogue hooks: welcome beat + per-question quips via speech bubbles
+  (`hostLines.js`; copy pending human review, FLAGS #2).
+- Green-room mastery dashboard — built, then **removed at the owner's request**
+  (batch 2). Core `domainProgress` + tests remain if it's ever wanted again.
 
 ### Blocked (need the human — see FLAGS.md)
 - Final human review / sign-off of the question bank and Steve/phone clues.

@@ -112,6 +112,12 @@ async function main() {
     await page.waitForFunction(() => !document.querySelector('.pause-panel'), { timeout: 5000 });
     check('pause menu closes back to the question', true);
 
+    // ---- Scenario 3b: a ?seed= challenge link drops straight into that run ----
+    await page.goto(base + '?seed=ntnx-linkme', { waitUntil: 'load', timeout: 20000 });
+    await page.waitForSelector('.q-card .stem', { timeout: 12000 });
+    const linkSeed = await page.textContent('.seed-chip');
+    check('a challenge link starts the seeded run (normalized)', /NTNX-LINKME/.test(linkSeed || ''), linkSeed);
+
     // ---- Scenario 4: first-run intro cinematic (fresh save) ----
     const ctx2 = await browser.newContext({ viewport: { width: 1100, height: 800 } });
     await ctx2.addInitScript(() => {

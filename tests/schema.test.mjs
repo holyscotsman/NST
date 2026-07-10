@@ -51,3 +51,22 @@ test('negative control: duplicate ids across a bank are rejected', () => {
   assert.equal(res.ok, false);
   assert.ok(res.rejected.length >= 1);
 });
+
+// --- optional question image hook (content stays human-authored) ---
+test('a question with a valid local image validates', () => {
+  const q = { ...good, image: { src: 'assets/diagrams/rf2.png', alt: 'Two-node replication diagram', caption: 'RF2 data placement' } };
+  assert.equal(validateQuestion(q).ok, true);
+});
+test('negative control: image without alt text is rejected', () => {
+  const q = { ...good, image: { src: 'assets/diagrams/rf2.png' } };
+  assert.equal(validateQuestion(q).ok, false);
+});
+test('negative control: external image URLs are rejected (static/offline rule)', () => {
+  for (const src of ['https://example.com/x.png', '//cdn.example.com/x.png', 'data:image/png;base64,AAAA']) {
+    const q = { ...good, image: { src, alt: 'A diagram' } };
+    assert.equal(validateQuestion(q).ok, false, src);
+  }
+});
+test('negative control: image as a bare string is rejected', () => {
+  assert.equal(validateQuestion({ ...good, image: 'x.png' }).ok, false);
+});

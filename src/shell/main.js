@@ -7,7 +7,7 @@ import { createBus } from '../core/eventBus.js';
 import { validateBank } from '../core/questionSchema.js';
 import { SetManager } from '../core/selection.js';
 import { RunController } from '../core/runController.js';
-import { generateSeedString } from '../core/rng.js';
+import { generateSeedString, normalizeSeed } from '../core/rng.js';
 import { payout } from '../core/coins.js';
 import { SHOP, LIFELINE_MAX_SLOTS } from '../core/config.js';
 import { letter } from '../core/lifelines.js';
@@ -44,6 +44,7 @@ export class Game {
       onAnswer: (idx) => this.answer(idx),
       onContinue: (r) => this.continueAfter(r),
       onSelectSound: () => this.audio.play('select'),
+      onReveal: () => this.audio.play('reveal'),
       onLockSound: () => { this.audio.play('lock'); this.music.pop(); },
       // The suspense beat: duck the tier loop for its whole length, and roll
       // the snare under the hard round and the final.
@@ -142,7 +143,13 @@ export class Game {
 
     window.addEventListener('keydown', this._onKey);
     this._installTestHook();
-    this.showTitle();
+
+    // Challenge links: ?seed=NTNX-XXXXXX drops straight into that seeded run
+    // (same 30 questions for anyone — CLAUDE.md §3). First-time visitors still
+    // get the tutorial first.
+    const linkSeed = normalizeSeed(params.get('seed') || '');
+    if (linkSeed) this.startRun('seeded', linkSeed);
+    else this.showTitle();
   }
 
   // Test-only seam, active ONLY when localStorage 'wwtbane.e2e' === '1'. Lets the
@@ -341,7 +348,9 @@ export class Game {
   startRun(mode, seedInput) {
     let set, seed;
     if (mode === 'seeded') {
-      seed = (seedInput && seedInput.length ? seedInput : generateSeedString()).toUpperCase();
+      // One normalization for typed seeds and ?seed= links, so the same code
+      // always reproduces the same run.
+      seed = normalizeSeed(seedInput || '') || generateSeedString();
       // Seeded runs must be fully reproducible — INCLUDING the impossible first
       // final. Pass the flag through so buildSet picks Q30 with the SEEDED rng;
       // two first-time players on the same seed then get the same final.
@@ -446,18 +455,25 @@ export class Game {
       return h('label', { class: 'setting' }, input,
         h('span', {}, h('b', {}, label), h('span', { class: 'muted small' }, desc)));
     };
-    const copyBtn = seed ? h('button', { class: 'secondary small', type: 'button' }, 'Copy seed') : null;
-    if (copyBtn) copyBtn.onclick = async () => {
-      try { await navigator.clipboard.writeText(seed); copyBtn.textContent = 'Copied ✓'; }
-      catch { copyBtn.textContent = seed; } // clipboard blocked: show it to hand-copy
+    const copier = (label, value) => {
+      const btn = h('button', { class: 'secondary small', type: 'button' }, label);
+      btn.onclick = async () => {
+        try { await navigator.clipboard.writeText(value); btn.textContent = 'Copied ✓'; }
+        catch { btn.textContent = value; } // clipboard blocked: show it to hand-copy
+      };
+      return btn;
     };
+    const challengeUrl = seed
+      ? `${location.origin}${location.pathname}?seed=${encodeURIComponent(seed)}`
+      : null;
     const panel = h('section', { class: 'pause-panel panel', role: 'dialog', 'aria-label': 'Pause menu' },
       h('h2', { class: 'screen-title' }, 'Paused'),
       toggle('music', 'Music', 'The lounge and tier loops.'),
       toggle('sound', 'Sound effects', 'Picking, locking, lifelines.'),
       h('div', { class: 'pause-seed' },
         seed
-          ? [h('span', { class: 'muted small' }, 'Seed — share it to replay this exact run'), h('code', {}, seed), copyBtn]
+          ? [h('span', { class: 'muted small' }, 'Seed — anyone who plays it gets this exact run'),
+             h('code', {}, seed), copier('Copy seed', seed), copier('Copy challenge link', challengeUrl)]
           : h('span', { class: 'muted small' }, 'Mastery run — questions adapt to you, so there is no seed to share. Use "Enter seed" on the title screen for a replayable run.')),
       h('div', { class: 'menu' },
         h('button', { class: 'primary', type: 'button', onclick: () => this._closePause() }, 'Resume'),

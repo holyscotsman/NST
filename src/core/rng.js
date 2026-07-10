@@ -64,3 +64,12 @@ export function generateSeedString(randFn) {
   for (let i = 0; i < 6; i++) s += alphabet[Math.floor(rand() * alphabet.length)];
   return 'NTNX-' + s;
 }
+
+// Normalize a seed arriving from outside (the ?seed= link, the title input):
+// uppercase, strip anything but A-Z / 0-9 / dash, cap the length. Returns null
+// when nothing valid remains, so callers can fall back cleanly.
+export function normalizeSeed(input) {
+  if (typeof input !== 'string') return null;
+  const s = input.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 24);
+  return s.length ? s : null;
+}

@@ -3,9 +3,9 @@
 Ideas that aren't scheduled work yet. Promote to `AUTONOMOUS_RUN.md` when specced.
 
 ## Gameplay
-- Per-question images/diagrams (schema hook + loader; content is human).
-- Daily seed / shareable challenge links (`?seed=NTNX-XXXXXX`).
-- Streak and domain-mastery dashboard in the green room.
+- Per-question images/diagrams — **hook shipped** (schema + renderer); the
+  image content itself is human-authored and still wanted.
+- Daily seed (a shared seed-of-the-day; the `?seed=` link plumbing shipped).
 - Difficulty "confidence" meter drawn from mastery box distribution.
 - More lifelines or green-room perks (e.g., "swap the question").
 

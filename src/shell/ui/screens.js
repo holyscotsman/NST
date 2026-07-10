@@ -30,7 +30,7 @@ export function TitleScreen(ctx) {
     ),
     h('details', { class: 'seed-box' },
       h('summary', {}, 'Enter seed'),
-      h('p', {}, 'A seed plays the exact same 30 questions for anyone — great for challenging a friend. Leave blank for a fresh random seed.'),
+      h('p', {}, 'A seed plays the exact same 30 questions for anyone — great for challenging a friend. Leave blank for a fresh random seed. You can also share a link like ?seed=NTNX-XXXXXX (the pause menu copies it for you).'),
       h('div', { class: 'seed-controls' },
         seedInput,
         h('button', { class: 'secondary', type: 'button', onclick: () => ctx.onStart('seeded', seedInput.value.trim() || null) }, 'Play seed'),

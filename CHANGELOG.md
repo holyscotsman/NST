@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — queue pass: image hook, challenge links, reveal tick
+
+- **Question image hook** — the schema accepts an optional
+  `image { src, alt, caption? }` (local paths only — the game ships static and
+  plays offline; alt text required), and the quiz card renders it between the
+  stem and the answers, removing itself if the file fails to load. **No image
+  content was authored** — that remains a human task (CLAUDE.md §7).
+- **Challenge links** — `?seed=NTNX-XXXXXX` boots straight into that seeded
+  run; the pause menu now copies a ready-to-share link next to the seed. One
+  `normalizeSeed` path (uppercase, A-Z/0-9/dash, capped) covers typed and
+  linked seeds so the same code always reproduces the same run.
+- A soft **tick per answer** as the read-out reveals them (original synth cue).
+- Tests: 59 headless (image + seed normalization negative controls) + 7 smoke
+  + 17 e2e (challenge-link scenario).
+
 ## Unreleased — owner feedback batch 2: welcome host, read-out, people, pause menu
 
 - **Host welcome cinematic on every run** — the camera settles on the host and
