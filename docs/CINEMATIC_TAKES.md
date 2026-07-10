@@ -9,6 +9,11 @@ background or **advance** to a named next scene.
 Edit `src/shell/takes.js` to retime or re-frame anything — it's pure data with
 the stage geography documented at the top.
 
+**Preview any scene in the browser:** open the game with `?scene=<name>` (and
+optionally `&take=<n>`), e.g. `/?scene=thinking&take=5` for the piggy-bank
+zoom. A small HUD lets you switch scenes, step takes, and restart; one-shot
+scenes repeat while under review. WebGL required.
+
 Legend: ✅ = specced by the owner (implemented verbatim) · ✏️ = drafted by
 Claude, awaiting take-by-take direction.
 

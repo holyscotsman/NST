@@ -301,20 +301,22 @@ export class Studio {
 
   _buildGreen() {
     const s = new THREE.Scene();
-    s.background = new THREE.Color(0x2a2c30);
-    s.add(new THREE.AmbientLight(0xffffff, 0.55));
-    const ceil = new THREE.PointLight(0xfff4e0, 40, 30); ceil.position.set(0, 4.2, -1); s.add(ceil);
-    const lampL = new THREE.PointLight(PAL.gold, 25, 12); lampL.position.set(-4.2, 2.4, -3.5); s.add(lampL);
+    // warm, dim lounge — matches the design's green room (dark, lamp pools)
+    s.background = new THREE.Color(0x0c0906);
+    s.add(new THREE.AmbientLight(0xffe0b0, 0.16));
+    const ceil = new THREE.PointLight(0xffe6c2, 9, 24); ceil.position.set(0, 4.2, -1); s.add(ceil);
+    const lampL = new THREE.PointLight(PAL.gold, 12, 10); lampL.position.set(-4.2, 2.4, -3.5); s.add(lampL);
+    const lampR = new THREE.PointLight(0xffd88a, 8, 9); lampR.position.set(5.2, 2.5, -6.2); s.add(lampR);
 
-    const wallMat = mat(0xcfd3da, 0, 0.9), floorMat = mat(0x35363b, 0, 0.95), ceilMat = mat(0xf2f0ea, 0, 0.95);
+    const wallMat = mat(0x4d4438, 0, 0.9), floorMat = mat(0x241c12, 0, 0.95), ceilMat = mat(0x2e271c, 0, 0.95);
     s.add(pos(box(12, 0.1, 10, floorMat), 0, 0, -2));
     s.add(pos(box(12, 0.1, 10, ceilMat), 0, 4.6, -2));
     s.add(pos(box(12, 4.7, 0.15, wallMat), 0, 2.35, -7));
     s.add(pos(box(0.15, 4.7, 10, wallMat), -6, 2.35, -2));
     s.add(pos(box(0.15, 4.7, 10, wallMat), 6, 2.35, -2));
-    s.add(pos(box(2.4, 0.06, 1.2, mat(0x000000, 0xfff4e0, 1.5)), 0, 4.5, -1));
+    s.add(pos(box(2.4, 0.06, 1.2, mat(0x000000, 0xffe6c2, 0.55)), 0, 4.5, -1));
 
-    const leather = mat(0xa0643a, 0, 0.6), wood = mat(0xc9a468, 0, 0.7), woodDk = mat(0x8a6a44, 0, 0.7);
+    const leather = mat(0x6e4526, 0, 0.65), wood = mat(0x8a6f45, 0, 0.7), woodDk = mat(0x594430, 0, 0.75);
     const sofa = () => { const g = new THREE.Group();
       g.add(pos(box(2.4, 0.5, 1.0, leather), 0, 0.55, 0));
       g.add(pos(box(2.4, 0.7, 0.25, leather), 0, 0.9, -0.5));
@@ -332,13 +334,13 @@ export class Studio {
 
     s.add(pos(box(2.6, 1.0, 0.6, wood), -4.2, 0.5, -6.4));
     s.add(pos(cyl(0.16, 0.2, 0.5, woodDk), -4.2, 1.25, -6.3));
-    s.add(pos(cyl(0.3, 0.22, 0.4, mat(0x000000, 0xffe0a8, 0.9)), -4.2, 1.65, -6.3));
+    s.add(pos(cyl(0.3, 0.22, 0.4, mat(0x000000, 0xffe0a8, 0.5)), -4.2, 1.65, -6.3));
     s.add(pos(cyl(0.04, 0.04, 2.6, woodDk), 5.2, 1.3, -6.2));
-    s.add(pos(cyl(0.3, 0.22, 0.4, mat(0x000000, 0xffe0a8, 0.9)), 5.2, 2.5, -6.2));
+    s.add(pos(cyl(0.3, 0.22, 0.4, mat(0x000000, 0xffe0a8, 0.5)), 5.2, 2.5, -6.2));
 
     s.add(pos(box(1.5, 1.1, 0.06, woodDk), 0.4, 2.6, -6.9));
     const art = new THREE.Mesh(new THREE.PlaneGeometry(1.35, 0.95), new THREE.MeshBasicMaterial({ map: artTexture() })); art.position.set(0.4, 2.6, -6.86); s.add(art);
-    const doorMat = mat(0xe9e6df, 0, 0.8);
+    const doorMat = mat(0x6e6151, 0, 0.85);
     s.add(pos(box(0.9, 3.4, 0.1, doorMat), -2.9, 1.7, -6.9));
     s.add(pos(box(0.9, 3.4, 0.1, doorMat), -2.0, 1.7, -6.9));
 
@@ -372,7 +374,7 @@ function pos(m, x, y, z) { m.position.set(x, y, z); return m; }
 
 function figure(accent, dir) {
   const g = new THREE.Group();
-  const skin = mat(0xeef0ff, accent, 0.62, 0.5); // brighter accent so figures read on the dim stage
+  const skin = mat(0xeef0ff, accent, 0.5, 0.5); // bright enough to read, no close-up blowout
   const head = sph(0.2, skin); head.position.set(0, 1.62, 0); g.add(head);
   const torso = cyl(0.09, 0.11, 0.62, skin); torso.position.set(0, 1.2, 0); g.add(torso);
   const thighL = cyl(0.07, 0.07, 0.5, skin); thighL.position.set(-0.12, 0.92, 0.22 * dir); thighL.rotation.x = Math.PI / 2 * dir; g.add(thighL);
@@ -401,8 +403,8 @@ function standingFigure(clothes, accent, glow) {
 function piggyBank(x, z) {
   const g = new THREE.Group();
   const pedestal = cyl(0.5, 0.62, 1.0, mat(0x101020, 0x1FDDE9, 0.25, 0.4, 0.6)); pedestal.position.y = 0.5; g.add(pedestal);
-  const top = cyl(0.56, 0.5, 0.08, mat(0x000000, 0xFFC857, 0.8)); top.position.y = 1.02; g.add(top);
-  const goldM = mat(0xffc857, 0xFFC857, 0.42, 0.35, 0.35);
+  const top = cyl(0.56, 0.5, 0.08, mat(0x000000, 0xFFC857, 0.35)); top.position.y = 1.02; g.add(top);
+  const goldM = mat(0xffc857, 0xFFC857, 0.28, 0.35, 0.35);
   const body = sph(0.42, goldM); body.scale.set(1.18, 0.92, 1); body.position.y = 1.48; g.add(body);
   const snout = cyl(0.13, 0.16, 0.14, goldM); snout.rotation.z = Math.PI / 2; snout.position.set(-0.52, 1.44, 0); g.add(snout);
   const earL = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 8), goldM); earL.position.set(-0.2, 1.86, 0.17); g.add(earL);

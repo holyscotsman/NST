@@ -64,20 +64,20 @@ export const SCENES = {
       { type: 'pan', dur: 3, p: [0, 10.5, 4.5], from: [0, 6, -6.5], to: [0, 0.9, 0] },
       // 5. the piggy bank, dramatic slow zoom — 4s
       { type: 'dolly', dur: 4,
-        from: { p: [6.9, 2.3, 5.5], t: [4.2, 1.05, 2.2] },
-        to:   { p: [5.2, 1.5, 3.3], t: [4.2, 1.0, 2.2] } },
+        from: { p: [7.8, 2.6, 6.2], t: [4.2, 1.4, 2.2] },
+        to:   { p: [6.0, 1.8, 4.1], t: [4.2, 1.4, 2.2] } },
       // 6. the other side of the audience, watching the contestant — 5s
       { type: 'pan', dur: 5, p: [-1.5, 2.7, 2.2], from: [9, 2.3, -9.5], to: [-6, 2.5, -11] },
       // 7. wideshot — host/contestant centered, the whole room visible — 5s*
       { type: 'static', dur: 5, p: [0, 5.4, 15.5], t: [0, 1.7, -1] },
       // 8. slow zoom on the intensity of the contestant — 3s
       { type: 'dolly', dur: 3,
-        from: { p: [0.5, 1.7, 2.6], t: [-2.1, 1.5, 0] },
-        to:   { p: [-0.2, 1.62, 1.9], t: [-2.1, 1.5, 0] } },
+        from: { p: [0.6, 1.75, 3.0], t: [-2.1, 1.5, 0] },
+        to:   { p: [0.0, 1.66, 2.35], t: [-2.1, 1.5, 0] } },
       // 9. slow zoom on the intensity of the host — 3s
       { type: 'dolly', dur: 3,
-        from: { p: [-0.5, 1.7, 2.6], t: [2.1, 1.5, 0] },
-        to:   { p: [0.2, 1.62, 1.9], t: [2.1, 1.5, 0] } },
+        from: { p: [-0.6, 1.75, 3.0], t: [2.1, 1.5, 0] },
+        to:   { p: [0.0, 1.66, 2.35], t: [2.1, 1.5, 0] } },
       // 10. slow orbital pan around the soundstage — 5s
       { type: 'orbit', dur: 5, center: [0, 1.2, 0], radius: 11, height: 3.6, from: -70, to: -20, look: [0, 1.3, 0] },
     ],
@@ -91,8 +91,8 @@ export const SCENES = {
     set: 'studio', hold: true,
     takes: [
       { type: 'dolly', dur: 4,
-        from: { p: [0.2, 1.72, 3.1], t: [2.1, 1.5, 0] },
-        to:   { p: [0.75, 1.62, 2.2], t: [2.1, 1.48, 0] } },
+        from: { p: [0.0, 1.8, 3.7], t: [2.1, 1.5, 0] },
+        to:   { p: [0.65, 1.68, 2.8], t: [2.1, 1.48, 0] } },
     ],
   },
 

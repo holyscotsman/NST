@@ -4,38 +4,41 @@
 
 ## Where things stand
 
-The first playable end-to-end build is in place: a complete, static, GitHub
-Pages–hostable game.
+The game is live at **https://holyscotsman.github.io/WWTBANE/** and has been
+through five major drops (see `CHANGELOG.md`): the first playable build, the
+Game A UI redesign, music + intro tutorial + loss-flow rework, the camera
+director (cinematic scenes/takes), and take tuning with the scene preview tool.
 
-- **Live site:** https://holyscotsman.github.io/WWTBANE/
+### Architecture map
+- **Core (pure, headless-tested)** — `src/core/`: config, rng, questionSchema,
+  mastery (Leitner), lifelines, coins, selection (double-buffer SetManager),
+  runController, eventBus, aiAdapter (no-op seam).
+- **Shell (browser)** — `src/shell/`:
+  - `studio.js` — WebGL sets (studio + warm green room) with props (piggy bank,
+    stage manager, sketchy guy); lighting/mood/pulses; delegates the camera to…
+  - `director.js` + `takes.js` — the camera director: scene playlists of timed
+    takes, event-triggered cutscenes, preview via `?scene=<name>&take=<n>`.
+    Take tables + trigger map: `docs/CINEMATIC_TAKES.md`.
+  - `backdrop.js` — layered CSS studio (no-WebGL fallback), mood/camera/pulse.
+  - `music.js` — procedural WebAudio score: lounge, tier loops (faster→slower/
+    lower), final drone, lifeline vamp (push/pop), stingers (right / 3s wrong /
+    4s final-wrong / win). `audio.js` — small UI cues.
+  - `ui/` — hud (right-rail ladder, coins, medallions), overlay (card, lock-in
+    suspense, reveals, poll, typewriter), screens (title / green room with
+    loss-reveal phase / results / help / settings), cinematic (first-run host
+    tour + tutorial), dom helper.
+  - `persistence.js` — save/prestige; flags: reachedFinalBefore, seenIntro.
+- **Content** — `src/content/questions.js` (157 verified, pending human
+  sign-off) + quarantine.js.
+- **Flows:** title → (first run: producer/tour/tutorial) → run; wrong answer →
+  green room (reveal + pep talk → shop, "Start next round"); win → prestige.
 
-### Done
-- **Core (pure, headless-testable)** — `src/core/`
-  - `config.js` — run shape, tiers, money ladder, bank boundaries, shop prices, mastery constants.
-  - `rng.js` — seeded PRNG (xmur3 + mulberry32), shuffle, weighted pick, seed strings.
-  - `questionSchema.js` — structural validator (never judges correctness).
-  - `mastery.js` — Leitner boxes, cold-start seeding, promote/demote, graduate-out ceiling, assisted-no-promote.
-  - `lifelines.js` — 50:50, Ask the Audience, Phone a Friend, with the §3 integrity guarantees.
-  - `coins.js` — money ladder, tier-boundary banking, payout.
-  - `selection.js` — seeded + mastery selection, tier fill with graceful backfill, double-buffer `SetManager`.
-  - `runController.js` — the run state machine (grade → feedback → advance), mastery updates, event emission.
-  - `eventBus.js` — the §10 bridge. `aiAdapter.js` — the forbidden-at-runtime no-op seam.
-- **Shell (browser)** — `src/shell/`
-  - `studio.js` — persistent WebGL studio + green room, camera cuts, event reactions, reduced-motion, disposal.
-  - `ui/` — `dom.js`, `hud.js` (ladder/coins/lifelines), `overlay.js` (quiz), `screens.js` (title/green room/result/help/settings).
-  - `audio.js` — original WebAudio stings. `persistence.js` — localStorage save + prestige.
-  - `main.js` — wiring + navigation state machine.
-- **Content** — `src/content/questions.js` (157 verified) + `quarantine.js` (2 held). AI-drafted, independently AI-verified, **pending human sign-off**.
-- **Tests** — `tests/*.test.mjs` (41 headless pins with negative controls), `smoke.mjs`, `e2e.mjs` (full-flow browser).
-- **Vendored** — Three.js r160 + addons, self-hosted Montserrat (no CDN, no external requests).
+### Gates
+- Tests: 42 headless (negative controls) + 7 smoke + 13 e2e; CI runs headless
+  on every push/PR. All green as of the last drop.
+- Visual sign-off queue: `BROWSER_QA.md` (code-complete, visual-pending).
 
-### Mini-specs captured in code
-- **Money ladder:** easy 100/ea → banks 1,000 (Q10); medium 500/ea → 6,000 (Q20); hard 2,000/ea → 24,000 (Q29); final → 50,000 (Q30). Death pays the last banked amount.
-- **Mastery→tier:** box 0–1 hard, 2–3 medium, 4 easy, 5 graduated. Extreme is pinned. Cold-start = authored difficulty.
-- **Impossible first final:** handled in `main.startRun` by swapping Q30 for an `impossible` question while `flags.reachedFinalBefore` is false; the flag is set the moment the final is shown.
-
-## Next candidates (not blocking a playable ship)
-- Human review pass over the question bank (see `FLAGS.md`).
-- Host dialogue / richer Steve visual-novel presentation (content = human).
-- Optional images per question (schema has room; loader TBD).
-- Visual sign-off on the studio (`BROWSER_QA.md`).
+## Next candidates
+- Owner feedback pass on the ✏️ drafted cinematic takes (use the preview tool).
+- Human review of the question bank + host dialogue (`FLAGS.md`).
+- Backlog ideas in `BACKLOG.md` (domain-mastery dashboard, PWA, etc.).

@@ -56,6 +56,22 @@ export class Director {
     this.queue.push(name);
   }
 
+  // Jump straight to a scene's Nth take (the ?scene= preview tool uses this).
+  playAt(name, takeIdx = 0) {
+    if (!SCENES[name]) return;
+    this.queue = [];
+    if (SCENES[name].loop) this.baseName = name;
+    this._start(name);
+    this.current.takeIdx = Math.max(0, Math.min(takeIdx, this.current.scene.takes.length - 1));
+  }
+
+  // What's on screen right now (for the preview HUD).
+  info() {
+    const c = this.current;
+    if (!c) return null;
+    return { name: c.name, take: c.takeIdx + 1, takes: c.scene.takes.length, t: c.t, dur: c.scene.takes[c.takeIdx].dur };
+  }
+
   // Freeze the camera on an explicit pose (the intro tutorial's tour uses
   // this); the next play()/setBase() takes over again.
   holdPose(p, t) {
@@ -87,6 +103,8 @@ export class Director {
         cur.takeIdx = 0; cur.t = 0;
       } else if (scene.hold) {
         cur.t = take.dur; // freeze on the last frame
+      } else if (this.previewLoop) {
+        this._start(cur.name); // preview tool: repeat the scene under review
       } else if (this.queue.length) {
         this._start(this.queue.shift());
       } else if (scene.next && SCENES[scene.next]) {

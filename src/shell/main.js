@@ -50,6 +50,11 @@ export class Game {
   }
 
   async boot() {
+    // Scene preview tool: ?scene=thinking&take=5 jumps the camera director
+    // straight to a scene/take for review (docs/CINEMATIC_TAKES.md).
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('scene')) return this._previewMode(params);
+
     // Validate the shipped bank; play with whatever is structurally valid.
     const res = validateBank(QUESTIONS);
     this.bank = res.valid;
@@ -131,6 +136,50 @@ export class Game {
       number: () => (this.rc ? this.rc.current().number : null),
       won: () => (this.rc ? this.rc.won : false),
     };
+  }
+
+  // ?scene=<name>[&take=<1-based>] — a review tool for the cinematic takes.
+  // WebGL-only (it previews the studio's camera direction), no save, no music.
+  async _previewMode(params) {
+    this._applyBodyClasses();
+    this.backdrop = new CssBackdrop(this.roots.fallback);
+    let skipGl = false;
+    try { skipGl = localStorage.getItem('wwtbane.nogl') === '1'; } catch { /* ignore */ }
+    try {
+      if (skipGl) throw new Error('gl skipped');
+      const { Studio } = await import('./studio.js');
+      this.studio = new Studio(this.roots.studio, { reducedMotion: this.reduced });
+      await this.studio.init();
+      this.roots.fallback.classList.add('hidden');
+    } catch {
+      this._fatal('The scene preview needs WebGL (it reviews the 3D studio camera takes).');
+      return;
+    }
+    const { SCENES } = await import('./takes.js');
+    const director = this.studio.director;
+    director.previewLoop = true; // one-shot scenes repeat while under review
+
+    const start = (name, takeIdx) => director.playAt(name, takeIdx);
+    const first = SCENES[params.get('scene')] ? params.get('scene') : 'intro';
+    start(first, (parseInt(params.get('take'), 10) || 1) - 1);
+
+    const select = h('select', { class: 'motion-select', 'aria-label': 'Scene',
+      onchange: (e) => start(e.target.value, 0) },
+      ...Object.keys(SCENES).map((n) => h('option', { value: n, selected: n === first }, n)));
+    const infoEl = h('span', { class: 'preview-info' }, '');
+    const bar = h('div', { class: 'preview-hud' },
+      h('span', { class: 'preview-label' }, 'scene preview'),
+      select,
+      h('button', { class: 'secondary small', type: 'button', onclick: () => { const i = director.info(); start(i.name, i.take); } }, 'next take ▸'),
+      h('button', { class: 'secondary small', type: 'button', onclick: () => { const i = director.info(); start(i.name, 0); } }, 'restart'),
+      infoEl,
+    );
+    clear(this.roots.screen);
+    this.roots.screen.append(bar);
+    setInterval(() => {
+      const i = director.info();
+      if (i) infoEl.textContent = `take ${i.take}/${i.takes} · ${i.t.toFixed(1)}s / ${i.dur}s`;
+    }, 200);
   }
 
   /* ---------------- navigation ---------------- */

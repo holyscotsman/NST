@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — take tuning + scene preview tool
+
+- **Scene preview tool:** `?scene=<name>&take=<n>` jumps the camera director
+  to any scene/take for review, with a HUD to switch scenes, step takes, and
+  restart. One-shot scenes repeat while under review.
+- **Take fixes found with it:** the piggy-bank zoom no longer ends inside the
+  piggy; the final-answer and intensity push-ins stop before figures bloom
+  out; the piggy's pedestal glow is subdued.
+- **GL green room re-lit** as the warm, dim lounge it was meant to be (dark
+  walls, lamp pools, subdued wood/leather) — it was rendering blown-out white,
+  which also hid the sketchy guy's silhouette.
+- Stage-manager headset rebuilt as an over-ear band + boom mic (it read as a
+  glowing hat).
+
 ## Unreleased — camera director: cinematic scenes & takes
 
 - **Camera director** (`src/shell/director.js` + `src/shell/takes.js`): the
