@@ -5,12 +5,14 @@
 ## Where things stand
 
 The game is live at **https://holyscotsman.github.io/WWTBANE/** and has been
-through six major drops (see `CHANGELOG.md`): the first playable build, the
+through seven major drops (see `CHANGELOG.md`): the first playable build, the
 Game A UI redesign, music + intro tutorial + loss-flow rework, the camera
 director (cinematic scenes/takes), take tuning with the scene preview tool,
-and the owner feedback batch (safe havens Q5/Q10/Q17/Q25, hard-round suspense
-+ drum roll, easy/medium music rework sharing one hook melody, doubled
-thinking takes, calmer/brighter green room, stage-manager door beat).
+the first owner feedback batch (safe havens Q5/Q10/Q17/Q25, hard-round
+suspense + drum roll, music rework, stage-manager door beat), and the second
+(host welcome beat with rotating/snarky lines, question read-out pacing,
+speech bubbles, much slower takes, capsule-built people + readable hot seats,
+audio-resume hardening, pause menu, mastery dashboard removed).
 
 ### Architecture map
 - **Core (pure, headless-tested)** — `src/core/`: config, rng, questionSchema,
@@ -25,7 +27,9 @@ thinking takes, calmer/brighter green room, stage-manager door beat).
   - `backdrop.js` — layered CSS studio (no-WebGL fallback), mood/camera/pulse.
   - `music.js` — procedural WebAudio score: lounge, tier loops (faster→slower/
     lower), final drone, lifeline vamp (push/pop), stingers (right / 3s wrong /
-    4s final-wrong / win). `audio.js` — small UI cues.
+    4s final-wrong / win), drum roll. `audio.js` — small UI cues.
+  - `hostLines.js` — the host's welcome/quip copy + pure pickers (no-repeat
+    rotation, snark gating) and the question read-out pacing helper.
   - `ui/` — hud (right-rail ladder, coins, medallions), overlay (card, lock-in
     suspense, reveals, poll, typewriter), screens (title / green room with
     loss-reveal phase / results / help / settings), cinematic (first-run host
@@ -37,14 +41,15 @@ thinking takes, calmer/brighter green room, stage-manager door beat).
   green room (reveal + pep talk → shop, "Start next round"); win → prestige.
 
 ### Gates
-- Tests: 44 headless (negative controls) + 7 smoke + 13 e2e; CI runs headless
+- Tests: 50 headless (negative controls) + 7 smoke + 16 e2e; CI runs headless
   on every push/PR. All green as of the last drop.
 - Visual sign-off queue: `BROWSER_QA.md` (code-complete, visual-pending).
 
 ## Next candidates
-- Owner decision: real 3D character models for host/contestant/audience vs.
-  upgraded stick figures (asked in chat; see `FLAGS.md`).
 - Owner feedback pass on the ✏️ drafted cinematic takes (use the preview tool).
 - Human review of the question bank + host dialogue (`FLAGS.md`) — includes
-  the owner's "are the easy questions easy enough?" concern.
+  the owner's "are the easy questions easy enough?" concern and the new
+  welcome/quip lines.
+- If the owner still wants imported 3D character assets after seeing the
+  capsule people, that's a rules change (`FLAGS.md` #6).
 - Backlog ideas in `BACKLOG.md` (PWA, etc.).

@@ -101,6 +101,17 @@ async function main() {
     const seedShown = await page.textContent('.seed-chip');
     check('seeded run displays the seed for sharing', /TESTME/.test(seedShown || ''), seedShown);
 
+    // Pause menu: Escape opens it (music/sound toggles + the seed), Escape closes.
+    await page.keyboard.press('Escape');
+    await page.waitForSelector('.pause-panel', { timeout: 5000 });
+    const pauseSeed = await page.textContent('.pause-seed');
+    check('pause menu opens with the shareable seed', /TESTME/.test(pauseSeed || ''), pauseSeed);
+    const toggles = await page.$$eval('.pause-panel .setting input', (els) => els.length);
+    check('pause menu offers music + sound toggles', toggles === 2, `${toggles} toggles`);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.pause-panel'), { timeout: 5000 });
+    check('pause menu closes back to the question', true);
+
     // ---- Scenario 4: first-run intro cinematic (fresh save) ----
     const ctx2 = await browser.newContext({ viewport: { width: 1100, height: 800 } });
     await ctx2.addInitScript(() => {

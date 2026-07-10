@@ -27,11 +27,23 @@ export const SCENES = {
   /* ================= user-specced scenes (verbatim timings) ================= */
 
   // Intro cinematic — slow orbital rotation around the soundstage, hot seat
-  // center. 10s, seamless loop (full 360°).
+  // center. Seamless full-360 loop, slowed way down (owner note: the original
+  // 10s lap read as too fast).
   intro: {
     set: 'studio', loop: true,
     takes: [
-      { type: 'orbit', dur: 10, center: [0, 1.2, 0], radius: 13, height: 4.2, from: 90, to: 450, look: [0, 1.3, 0] },
+      { type: 'orbit', dur: 36, center: [0, 1.2, 0], radius: 13, height: 4.2, from: 90, to: 450, look: [0, 1.3, 0] },
+    ],
+  },
+
+  // The host welcomes the player back to the Hot Seat — plays at the top of
+  // every run (after the first-run tutorial exists) under his speech bubble.
+  hostWelcome: {
+    set: 'studio', hold: true,
+    takes: [
+      { type: 'dolly', dur: 4,
+        from: { p: [-0.9, 1.8, 4.6], t: [2.1, 1.5, 0] },
+        to:   { p: [-0.45, 1.72, 4.0], t: [2.1, 1.48, 0] } },
     ],
   },
 
@@ -48,41 +60,42 @@ export const SCENES = {
   },
 
   // Player is thinking — the ambient in-question loop. 10 takes, then repeats.
-  // Durations are DOUBLE the original brief (owner note: the quick cuts were
-  // distracting behind the quiz card — each take now lingers twice as long).
+  // Slowed WAY down from the original brief (owner note, twice): long takes
+  // and tiny camera travel, so the backdrop breathes instead of competing
+  // with the quiz card. Same ten compositions as specced.
   thinking: {
     set: 'studio', loop: true,
     takes: [
-      // 1. focus on the contestant — 10s
-      { type: 'dolly', dur: 10,
-        from: { p: [1.8, 1.75, 4.4], t: [-2.1, 1.45, 0] },
-        to:   { p: [1.3, 1.65, 3.6], t: [-2.1, 1.4, 0] } },
-      // 2. both contestant and host — 10s
-      { type: 'dolly', dur: 10,
-        from: { p: [0, 2.6, 9.6], t: [0, 1.4, 0] },
-        to:   { p: [0, 2.4, 8.5], t: [0, 1.35, 0] } },
-      // 3. pan left→right across the audience — 6s
-      { type: 'pan', dur: 6, p: [0, 2.6, 2.5], from: [-9, 2.3, -9.5], to: [9, 2.3, -9.5] },
-      // 4. above host + contestant, slowly tilting down onto them — 6s
-      { type: 'pan', dur: 6, p: [0, 10.5, 4.5], from: [0, 6, -6.5], to: [0, 0.9, 0] },
-      // 5. the piggy bank, dramatic slow zoom — 8s
-      { type: 'dolly', dur: 8,
-        from: { p: [7.8, 2.6, 6.2], t: [4.2, 1.4, 2.2] },
-        to:   { p: [6.0, 1.8, 4.1], t: [4.2, 1.4, 2.2] } },
-      // 6. the other side of the audience, watching the contestant — 10s
-      { type: 'pan', dur: 10, p: [-1.5, 2.7, 2.2], from: [9, 2.3, -9.5], to: [-6, 2.5, -11] },
-      // 7. wideshot — host/contestant centered, the whole room visible — 10s*
-      { type: 'static', dur: 10, p: [0, 5.4, 15.5], t: [0, 1.7, -1] },
-      // 8. slow zoom on the intensity of the contestant — 6s
-      { type: 'dolly', dur: 6,
-        from: { p: [0.6, 1.75, 3.0], t: [-2.1, 1.5, 0] },
-        to:   { p: [0.0, 1.66, 2.35], t: [-2.1, 1.5, 0] } },
-      // 9. slow zoom on the intensity of the host — 6s
-      { type: 'dolly', dur: 6,
-        from: { p: [-0.6, 1.75, 3.0], t: [2.1, 1.5, 0] },
-        to:   { p: [0.0, 1.66, 2.35], t: [2.1, 1.5, 0] } },
-      // 10. slow orbital pan around the soundstage — 10s
-      { type: 'orbit', dur: 10, center: [0, 1.2, 0], radius: 11, height: 3.6, from: -70, to: -20, look: [0, 1.3, 0] },
+      // 1. focus on the contestant — 16s, gentle drift
+      { type: 'dolly', dur: 16,
+        from: { p: [1.7, 1.74, 4.2], t: [-2.1, 1.45, 0] },
+        to:   { p: [1.5, 1.68, 3.85], t: [-2.1, 1.43, 0] } },
+      // 2. both contestant and host — 16s, near-still
+      { type: 'dolly', dur: 16,
+        from: { p: [0, 2.55, 9.4], t: [0, 1.4, 0] },
+        to:   { p: [0, 2.45, 8.9], t: [0, 1.38, 0] } },
+      // 3. slow pan left→right across the audience — 14s, narrower sweep
+      { type: 'pan', dur: 14, p: [0, 2.6, 2.5], from: [-5, 2.3, -9.5], to: [5, 2.3, -9.5] },
+      // 4. above host + contestant, a slow settling tilt — 12s
+      { type: 'pan', dur: 12, p: [0, 10.5, 4.5], from: [0, 3.6, -3.4], to: [0, 1.6, -0.9] },
+      // 5. the piggy bank, unhurried push — 14s
+      { type: 'dolly', dur: 14,
+        from: { p: [7.3, 2.4, 5.8], t: [4.2, 1.4, 2.2] },
+        to:   { p: [6.6, 2.1, 5.0], t: [4.2, 1.4, 2.2] } },
+      // 6. the other side of the audience, watching the contestant — 16s
+      { type: 'pan', dur: 16, p: [-1.5, 2.7, 2.2], from: [6.5, 2.3, -9.8], to: [-1.5, 2.4, -10.6] },
+      // 7. wideshot — host/contestant centered, the whole room visible — 16s*
+      { type: 'static', dur: 16, p: [0, 5.4, 15.5], t: [0, 1.7, -1] },
+      // 8. slow drift on the intensity of the contestant — 12s
+      { type: 'dolly', dur: 12,
+        from: { p: [0.5, 1.72, 2.9], t: [-2.1, 1.5, 0] },
+        to:   { p: [0.28, 1.68, 2.62], t: [-2.1, 1.5, 0] } },
+      // 9. slow drift on the intensity of the host — 12s
+      { type: 'dolly', dur: 12,
+        from: { p: [-0.5, 1.72, 2.9], t: [2.1, 1.5, 0] },
+        to:   { p: [-0.28, 1.68, 2.62], t: [2.1, 1.5, 0] } },
+      // 10. barely-moving orbital around the soundstage — 16s, 18° of arc
+      { type: 'orbit', dur: 16, center: [0, 1.2, 0], radius: 11, height: 3.6, from: -54, to: -36, look: [0, 1.3, 0] },
     ],
   },
 

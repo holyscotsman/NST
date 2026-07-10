@@ -60,8 +60,13 @@ export class Hud {
       this.lifelinesEl.append(slot);
     });
 
+    this.pauseBtn = h('button', {
+      class: 'pause-btn', type: 'button', 'aria-label': 'Pause menu',
+      onclick: () => this.handlers.onPause && this.handlers.onPause(),
+    }, '☰ Menu');
+
     this.cluster = h('div', { class: 'hud', role: 'region', 'aria-label': 'Game status' },
-      this.coinsEl, this.lifelinesEl);
+      this.coinsEl, this.lifelinesEl, this.pauseBtn);
   }
 
   /* ---------------- right-rail ladder ---------------- */

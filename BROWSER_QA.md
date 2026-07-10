@@ -7,7 +7,27 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
-## Pending sign-off — owner feedback batch (newest)
+## Pending sign-off — owner feedback batch 2 (newest)
+
+- [ ] **Capsule people** — host (suit, silver hair, bow tie), contestant,
+  crew, sofa contestant; hot seats read as chairs (backrest + footrest).
+  Look via `?scene=hostWelcome`, `?scene=thinking&take=1`, and the wideshot
+  `?scene=thinking&take=7`.
+- [ ] **Host welcome beat** — every run opens on the host + a fresh line;
+  after 3 attempts the snarky ones may appear.
+- [ ] **Question read-out** — stem alone first, answers appear one at a time;
+  the host quip bubble shows alongside; nothing feels too slow/too fast.
+- [ ] **"Final answer!" bubble** — pops by the contestant on lock-in.
+- [ ] **Thinking loop, slowed way down** — drifts, not moves; confirm it no
+  longer distracts behind the card.
+- [ ] **Pause menu** — ☰ Menu / Escape; toggles work live; seed copy works
+  on a seeded run; quit-to-title confirms.
+- [ ] **Green room** — dashboard gone, menu low, lounge visible; the sofa
+  contestant reads as a person.
+- [ ] **Audio recovery** — background the tab a while, come back, click once:
+  music resumes.
+
+## Pending sign-off — owner feedback batch
 
 - [ ] **Stage-manager door beat** — in the green room press "Start next
   round": the door swings open with warm hallway light, the manager stands in

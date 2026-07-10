@@ -254,22 +254,31 @@ export class Studio {
     }
     s.add(console_);
 
-    const stoolMat = mat(0x14141f, 0, 0.4, 0.3);
-    const stoolH = cyl(0.34, 0.3, 0.12, stoolMat); stoolH.position.set(2.1, 0.85, 0); s.add(stoolH);
-    const stoolP = cyl(0.34, 0.3, 0.12, stoolMat); stoolP.position.set(-2.1, 0.85, 0); s.add(stoolP);
-    const legH = cyl(0.06, 0.06, 0.85, stoolMat); legH.position.set(2.1, 0.42, 0); s.add(legH);
-    const legP = cyl(0.06, 0.06, 0.85, stoolMat); legP.position.set(-2.1, 0.42, 0); s.add(legP);
+    // The hot seats — tall chairs with an aqua-trimmed backrest and a footrest
+    // ring, bright enough to read behind the seated figures.
+    const seatMat = mat(0x2a2a3e, PAL.aqua, 0.16, 0.45, 0.4);
+    for (const x of [2.1, -2.1]) {
+      const seat = cyl(0.36, 0.32, 0.12, seatMat); seat.position.set(x, 0.85, 0); s.add(seat);
+      const back = box(0.56, 0.72, 0.09, seatMat); back.position.set(x, 1.28, -0.3); back.rotation.x = -0.1; s.add(back);
+      const leg = cyl(0.06, 0.06, 0.85, seatMat); leg.position.set(x, 0.42, 0); s.add(leg);
+      const rest = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.028, 8, 24), seatMat);
+      rest.rotation.x = Math.PI / 2; rest.position.set(x, 0.34, 0.08); s.add(rest);
+    }
 
-    const host = figure(PAL.gold, -1); host.position.set(2.1, 0, 0); host.rotation.y = Math.PI;
-    const bow = box(0.16, 0.08, 0.05, mat(0x000000, PAL.gold, 1.5)); bow.position.set(0, 1.42, 0.12); host.add(bow);
-    const hand = host.children[7]; if (hand) { hand.rotation.z = -1.1; hand.position.y = 1.55; }
+    // The host — silver hair, dark suit, gold bow tie — mid-gesture; and
+    // tonight's contestant in the hot seat. Both angled slightly to center.
+    const host = person({ skin: 0xd9b48f, hair: 0x9aa3b2, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.09, seated: true });
+    host.position.set(2.1, 0.16, 0); host.rotation.y = -0.28;
+    const bow = box(0.12, 0.055, 0.04, mat(0x1a1408, PAL.gold, 0.55)); bow.position.set(0, 1.415, 0.15); host.add(bow);
+    host.userData.parts.armR.rotation.z = -1.0; // working the room
     s.add(host);
 
-    const player = figure(PAL.mantis, 1); player.position.set(-2.1, 0, 0); s.add(player);
-    const parm = player.children[6]; if (parm) { parm.rotation.z = 1.4; parm.position.set(-0.05, 1.5, 0.16); }
+    const player = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true });
+    player.position.set(-2.1, 0.16, 0); player.rotation.y = 0.28;
+    s.add(player);
 
-    const body = new THREE.CapsuleGeometry(0.13, 0.62, 4, 8); body.translate(0, 1.0, 0);
-    const ah = new THREE.SphereGeometry(0.17, 10, 8); ah.translate(0, 1.55, 0);
+    const body = new THREE.CapsuleGeometry(0.115, 0.56, 4, 8); body.translate(0, 1.0, 0);
+    const ah = new THREE.SphereGeometry(0.155, 10, 8); ah.translate(0, 1.52, 0);
     const audMat = mat(0x1a1a34, PAL.iris, 0.22, 0.7);
     let count = 0; const tiers = 4, per = 42; const total = tiers * per;
     const aud = new THREE.InstancedMesh(mergeTwo(body, ah), audMat, total); const o = new THREE.Object3D();
@@ -305,15 +314,8 @@ export class Studio {
 
     // The stage manager in the wings — headset, clipboard, permanently busy.
     // The "producerReady" scene cuts to them when a new game starts.
-    const sm = standingFigure(0x23232f, PAL.aqua, 0.08);
+    const sm = crewPerson({ clipboard: true });
     sm.position.set(-6.5, 0, 3.0); sm.rotation.y = 0.9; // facing the stage
-    // over-ear headset band + a little boom mic
-    const headset = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.028, 8, 20), mat(0x0a0a14, PAL.aqua, 0.5));
-    headset.position.set(0, 1.58, 0); headset.rotation.y = Math.PI / 2; sm.add(headset);
-    const mic = box(0.03, 0.03, 0.16, mat(0x0a0a14, PAL.aqua, 0.6));
-    mic.position.set(0.12, 1.5, 0.12); mic.rotation.y = 0.5; sm.add(mic);
-    const clipboard = box(0.26, 0.36, 0.03, mat(0x22222e, PAL.aqua, 0.25));
-    clipboard.position.set(-0.28, 1.12, 0.14); clipboard.rotation.set(0.3, 0.2, 0.1); sm.add(clipboard);
     s.add(sm);
 
     return s;
@@ -375,18 +377,16 @@ export class Studio {
     hall.position.set(-2.0, 1.7, -6.91); s.add(hall);
 
     // The stage manager, hidden until they open that door on "Start next round".
-    const gsm = standingFigure(0x23232f, PAL.aqua, 0.12);
-    const gband = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.028, 8, 20), mat(0x0a0a14, PAL.aqua, 0.5));
-    gband.position.set(0, 1.58, 0); gband.rotation.y = Math.PI / 2; gsm.add(gband);
-    const gmic = box(0.03, 0.03, 0.16, mat(0x0a0a14, PAL.aqua, 0.6));
-    gmic.position.set(0.12, 1.5, 0.12); gmic.rotation.y = 0.5; gsm.add(gmic);
+    const gsm = crewPerson();
     gsm.position.set(-2.15, 0, -6.4); gsm.rotation.y = -0.2; // in the doorway
+    gsm.userData.parts.armR.rotation.z = -2.3; // hand up: "we're ready!"
     gsm.visible = false;
     s.add(gsm);
     this._greenSM = gsm;
 
-    const you = figure(PAL.mantis, 1); you.position.set(0.4, 0.55, -4.8); you.rotation.y = 0.2;
-    you.traverse((o) => { if (o.material) { o.material = o.material.clone(); o.material.emissiveIntensity = 0.1; o.material.color.set(0x4a4a5a); } });
+    // The contestant, waiting on the sofa between runs (same outfit as on stage).
+    const you = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.04, seated: true });
+    you.position.set(0.4, 0.06, -4.8); you.rotation.y = 0.2;
     s.add(you);
 
     // The sketchy guy — Steve's man, loitering by the doors in a long coat and
@@ -414,30 +414,67 @@ function box(w, h, d, m) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
 function sph(r, m) { return new THREE.Mesh(new THREE.SphereGeometry(r, 18, 14), m); }
 function pos(m, x, y, z) { m.position.set(x, y, z); return m; }
 
-function figure(accent, dir) {
+/* ---------- people (original art drawn in code) ---------- */
+
+// A proportioned low-poly person — rounded capsule limbs, separate skin /
+// hair / clothes colours, a simple face — replacing the earlier stick
+// figures (owner: "they look a bit blocky"). External model files stay out
+// of the repo (brand rule: original art in code), so the "3D asset" feel
+// comes from geometry, not imports. Faces point +z; arms are posable via
+// group.userData.parts.armL/armR (hands ride along as children).
+function person({ skin = 0xd9b48f, hair = 0x2a2118, shirt = 0x2f3a55, pants = 0x252c3a, shoes = 0x15151f, accent = 0x000000, glow = 0.06, seated = false } = {}) {
   const g = new THREE.Group();
-  const skin = mat(0xeef0ff, accent, 0.5, 0.5); // bright enough to read, no close-up blowout
-  const head = sph(0.2, skin); head.position.set(0, 1.62, 0); g.add(head);
-  const torso = cyl(0.09, 0.11, 0.62, skin); torso.position.set(0, 1.2, 0); g.add(torso);
-  const thighL = cyl(0.07, 0.07, 0.5, skin); thighL.position.set(-0.12, 0.92, 0.22 * dir); thighL.rotation.x = Math.PI / 2 * dir; g.add(thighL);
-  const thighR = cyl(0.07, 0.07, 0.5, skin); thighR.position.set(0.12, 0.92, 0.22 * dir); thighR.rotation.x = Math.PI / 2 * dir; g.add(thighR);
-  const shinL = cyl(0.06, 0.06, 0.55, skin); shinL.position.set(-0.12, 0.62, 0.46 * dir); g.add(shinL);
-  const shinR = cyl(0.06, 0.06, 0.55, skin); shinR.position.set(0.12, 0.62, 0.46 * dir); g.add(shinR);
-  const armL = cyl(0.055, 0.055, 0.5, skin); armL.position.set(-0.18, 1.28, 0.06 * dir); armL.rotation.z = 0.5; g.add(armL);
-  const armR = cyl(0.055, 0.055, 0.5, skin); armR.position.set(0.18, 1.28, 0.06 * dir); armR.rotation.z = -0.5; g.add(armR);
+  const skinM = mat(skin, accent, glow * 0.5, 0.55);
+  const hairM = mat(hair, 0x000000, 0, 0.7);
+  const shirtM = mat(shirt, accent, glow, 0.65);
+  const pantsM = mat(pants, 0x000000, 0, 0.7);
+  const shoeM = mat(shoes, 0x000000, 0, 0.5);
+  const capsule = (r, len, m) => new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, 10), m);
+
+  const head = sph(0.155, skinM); head.position.set(0, 1.56, 0); g.add(head);
+  const hairCap = sph(0.162, hairM); hairCap.scale.set(1, 0.72, 1); hairCap.position.set(0, 1.63, -0.025); g.add(hairCap);
+  for (const dx of [-0.055, 0.055]) { const eye = sph(0.017, shoeM); eye.position.set(dx, 1.575, 0.142); g.add(eye); }
+
+  const torso = capsule(0.155, 0.34, shirtM); torso.position.set(0, 1.17, 0); g.add(torso);
+  const hips = capsule(0.14, 0.08, pantsM); hips.position.set(0, 0.92, 0); g.add(hips);
+
+  const arms = {};
+  for (const sgn of [-1, 1]) {
+    const arm = capsule(0.048, 0.34, shirtM);
+    arm.position.set(sgn * 0.215, 1.16, 0.01);
+    arm.rotation.z = -sgn * 0.16;
+    const hand = sph(0.05, skinM); hand.position.set(sgn * 0.03, -0.24, 0.01); arm.add(hand);
+    g.add(arm);
+    arms[sgn === 1 ? 'armR' : 'armL'] = arm;
+  }
+
+  if (seated) {
+    for (const sgn of [-1, 1]) {
+      const thigh = capsule(0.066, 0.28, pantsM); thigh.rotation.x = Math.PI / 2; thigh.position.set(sgn * 0.1, 0.88, 0.2); g.add(thigh);
+      const shin = capsule(0.056, 0.62, pantsM); shin.position.set(sgn * 0.1, 0.5, 0.38); g.add(shin);
+      const shoe = box(0.11, 0.07, 0.24, shoeM); shoe.position.set(sgn * 0.1, 0.13, 0.44); g.add(shoe);
+    }
+  } else {
+    for (const sgn of [-1, 1]) {
+      const leg = capsule(0.064, 0.56, pantsM); leg.position.set(sgn * 0.1, 0.42, 0); g.add(leg);
+      const shoe = box(0.11, 0.07, 0.24, shoeM); shoe.position.set(sgn * 0.1, 0.035, 0.05); g.add(shoe);
+    }
+  }
+  g.userData.parts = arms;
   return g;
 }
 
-// A standing crew figure (legs, coat/torso, head) with a small accent glow.
-function standingFigure(clothes, accent, glow) {
-  const g = new THREE.Group();
-  const m = mat(clothes, accent, glow, 0.75);
-  const legL = cyl(0.06, 0.07, 0.72, m); legL.position.set(-0.11, 0.36, 0); g.add(legL);
-  const legR = cyl(0.06, 0.07, 0.72, m); legR.position.set(0.11, 0.36, 0); g.add(legR);
-  const torso = cyl(0.14, 0.17, 0.68, m); torso.position.y = 1.06; g.add(torso);
-  const armL = cyl(0.05, 0.05, 0.52, m); armL.position.set(-0.22, 1.1, 0.02); armL.rotation.z = 0.35; g.add(armL);
-  const armR = cyl(0.05, 0.05, 0.52, m); armR.position.set(0.22, 1.1, 0.02); armR.rotation.z = -0.6; g.add(armR);
-  const head = sph(0.17, mat(0xd9cdb8, accent, glow * 0.6, 0.6)); head.position.y = 1.56; g.add(head);
+// A crew member: dark stagewear, aqua headset + boom mic (+ optional clipboard).
+function crewPerson({ clipboard = false } = {}) {
+  const g = person({ skin: 0xd9b48f, hair: 0x3c3c46, shirt: 0x23232f, pants: 0x1a1a24, accent: PAL.aqua, glow: 0.12 });
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.026, 8, 20), mat(0x0a0a14, PAL.aqua, 0.5));
+  band.position.set(0, 1.6, 0); band.rotation.y = Math.PI / 2; g.add(band);
+  const mic = box(0.028, 0.028, 0.15, mat(0x0a0a14, PAL.aqua, 0.6));
+  mic.position.set(0.12, 1.5, 0.12); mic.rotation.y = 0.5; g.add(mic);
+  if (clipboard) {
+    const cb = box(0.26, 0.36, 0.03, mat(0x22222e, PAL.aqua, 0.25));
+    cb.position.set(-0.28, 1.05, 0.16); cb.rotation.set(0.3, 0.2, 0.1); g.add(cb);
+  }
   return g;
 }
 

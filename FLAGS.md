@@ -15,10 +15,13 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
 - **Note:** this only concerns *content quality*. The **runtime never uses AI to
   grade** — correctness is decided solely by the stored authored key.
 
-## 2. Host dialogue — intro cinematic (authored content)
+## 2. Host dialogue — intro cinematic, welcome lines, quips (authored content)
 - **What:** the first-run cinematic (`src/shell/ui/cinematic.js`) contains host
   dialogue: the studio tour lines and the guided tutorial that walks the player
-  through the UI and reveals the first question's answer.
+  through the UI and reveals the first question's answer. The welcome-back
+  lines (including the snarky set) and per-question quips in
+  `src/shell/hostLines.js` are the same category — game-mechanics banter,
+  AI-drafted at the owner's explicit request, awaiting a human read.
 - **Why flagged:** `CLAUDE.md §7` reserves host dialogue for a human. These
   lines were AI-drafted at the owner's explicit request ("the host explains how
   to play") — they are game-mechanics narration, not exam teaching — but still
@@ -39,13 +42,15 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
 - Content targets **AOS 6.x / Prism / AHV** (broad NCP-MCI). If you want to pin a
   specific exam blueprint version, say which and the bank can be curated to it.
 
-## 6. Character models — owner decision pending
-- The owner asked whether to build real 3D models for the contestant, host,
-  and audience (the green-room stick figure "looks weird"). Recommendation
-  given in chat: upgrade the code-built figures (proportioned low-poly bodies,
-  seated poses that match the furniture) rather than shipping external model
-  files — keeps the no-external-assets rule and stays performant. Waiting on
-  the owner's pick before building.
+## 6. Character models — code-built upgrade shipped; imports need a rules change
+- The owner asked twice about using "a 3D digital asset" for the people. The
+  shipped answer: **proportioned capsule-built people** (skin/hair/clothes/
+  faces, posable arms, readable hot seats) drawn in code — because the brand
+  rule is original art in code, imported model files carry licensing risk,
+  and a static Pages site should stay lean. If the owner still wants imported
+  GLB/FBX assets after seeing these, that is an explicit change to the
+  CLAUDE.md §6 brand rule and needs their sign-off (plus a vetted-license
+  asset source) first.
 
 ## 7. Easy-tier difficulty calibration
 - The owner asked whether the easy round is easy enough, and whether the

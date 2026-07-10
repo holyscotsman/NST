@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased — owner feedback batch 2: welcome host, read-out, people, pause menu
+
+- **Host welcome cinematic on every run** — the camera settles on the host and
+  a speech bubble greets the player back to the Hot Seat. A different line
+  each time (never repeats back-to-back), and past three attempts he sometimes
+  gets snarky. Lines live in `src/shell/hostLines.js` (headless-tested
+  rotation/snark gating; copy flagged for human review in FLAGS.md).
+- **Question read-out pacing** — the stem now sits alone long enough to read
+  (scaled to its length), then the answers appear one at a time. No
+  text-to-speech; pacing does the "reading". Reduced motion shows everything
+  at once.
+- **Speech bubbles** — the host gets a short quip bubble as each question is
+  read (his chatter only — questions/answers never leave the DOM card), and
+  locking in pops a **"Final answer!"** bubble by the contestant.
+- **Thinking loop slowed way down** (second owner note): 12–16s takes with
+  tiny camera drifts instead of moves; the title orbit now takes 36s per lap.
+- **People, not sticks** — proportioned capsule-built people with skin, hair,
+  faces, and clothing colours replace the stick figures: suited host with a
+  gold bow tie, contestant in mantis, headset crew, plus readable hot seats
+  (backrest + footrest). All original art drawn in code — no external model
+  files (brand rule; see FLAGS.md #6).
+- **Green room simplified** — the mastery dashboard is gone (owner request)
+  and the menu sits low on screen so the 3D lounge is actually visible.
+- **Audio hardened** — the gesture unlock is now permanent instead of
+  once-only, so a re-suspended AudioContext (backgrounded tab, mobile) comes
+  back on the next click/keypress; the tab regaining visibility also resumes.
+- **Pause menu** — ☰ Menu in the HUD or Escape: music/sound toggles, the
+  run's seed with a copy button (or a note that mastery runs have none), and
+  quit-to-title. Covered by new e2e checks.
+- First-run tutorial's safe-haven line corrected to Q5/Q10/Q17/Q25.
+
 ## Unreleased — owner feedback batch: banks, music, cinematics, green room
 
 - **Safe havens moved to Q5 / Q10 / Q17 / Q25** (bank at Q29 removed) — coins

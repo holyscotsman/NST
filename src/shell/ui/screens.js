@@ -5,7 +5,6 @@
 import { h, money } from './dom.js';
 import { LIFELINE_TYPES, LIFELINE_META, LIFELINE_MAX_SLOTS, SHOP } from '../../core/config.js';
 import { letter } from '../../core/lifelines.js';
-import { DOMAIN_LABEL } from './labels.js';
 
 const GOLD = '#FFC857', AQUA = '#1FDDE9', IRIS = '#7855FA';
 
@@ -125,39 +124,10 @@ export function GreenRoom(ctx) {
       ),
     ),
 
-    MasteryPanel(ctx.progress),
-
     h('div', { class: 'menu' },
       h('button', { class: 'primary big', type: 'button', onclick: () => ctx.onEnterStudio() }, 'Start next round →'),
       h('button', { class: 'link', type: 'button', onclick: () => ctx.onBack() }, 'Back to title'),
     ),
-  );
-}
-
-// Per-domain mastery bars, weakest first — the study map on the green-room
-// wall. Colorblind-safe: every bar carries its numbers, never color alone.
-function MasteryPanel(progress) {
-  if (!progress || !progress.length) return null;
-  const anySeen = progress.some((r) => r.seen > 0);
-  const weakest = anySeen ? progress[0] : null;
-  const row = (r, i) => {
-    const pct = Math.round(r.score * 100);
-    const weak = anySeen && i < 3 && r.score < 0.999;
-    return h('div', { class: 'mastery-row' },
-      h('span', { class: `mastery-name${weak ? ' weak' : ''}` },
-        (weak ? '▲ ' : '') + (DOMAIN_LABEL[r.domain] || r.domain)),
-      h('span', { class: 'mastery-bar-wrap' },
-        h('span', { class: `mastery-bar${weak ? ' weak' : ''}`, style: { width: pct + '%' } })),
-      h('span', { class: 'mastery-num' }, `${pct}%`),
-      h('span', { class: 'mastery-detail' }, `${r.graduated}/${r.total} mastered`),
-    );
-  };
-  return h('div', { class: 'panel mastery' },
-    h('h3', {}, 'Your mastery, domain by domain'),
-    h('p', { class: 'steve-note', style: { margin: '2px 0 10px' } }, anySeen
-      ? `Weakest right now: ${DOMAIN_LABEL[weakest.domain] || weakest.domain} — questions you miss come back until they stick.`
-      : 'Play a run to start mapping your weak spots — every answer feeds this board.'),
-    ...progress.map(row),
   );
 }
 

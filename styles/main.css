@@ -373,6 +373,8 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .option.is-wrong .opt-letter { background: rgba(255, 107, 91, 0.7); color: #2a0b06; }
 .option.is-wrong .opt-mark { color: var(--peach); animation: stampIn 0.3s var(--swift) both; }
 .option.removed { animation: powerDown 0.4s ease both; transform: scale(0.98); filter: grayscale(1); }
+/* the read-out: answers stay hidden until their reveal beat (overlay.js) */
+.option.unrevealed { visibility: hidden; animation: none; }
 .option.removed .opt-text { text-decoration: line-through; }
 .option.faded { filter: saturate(0.7); opacity: 0.7; }
 
@@ -438,8 +440,8 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .title-foot { display: flex; gap: 18px; margin-top: 22px; justify-content: center; animation: riseIn 0.5s var(--swift) 0.34s both; }
 
 /* ============================== green room ============================== */
-/* Sits center-lower on screen (owner request) — the lounge breathes up top. */
-.green-room { max-width: 980px; margin-top: clamp(24px, 12vh, 150px); }
+/* Sits low on screen (owner request) so the 3D lounge stays visible above. */
+.green-room { max-width: 980px; margin-top: clamp(110px, 28vh, 340px); }
 .green-room .screen-title { font-size: 32px; font-weight: 800; text-align: center; }
 .green-room > .muted { text-align: center; max-width: 62ch; margin: 0 auto; color: #b8ab8e; }
 .green-room .wallet-row { margin-top: 4px; }
@@ -554,6 +556,31 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 }
 .speech-who { display: block; font-size: 9.5px; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #8a6f2a; margin-bottom: 5px; }
 
+/* host quip while a question is read out — smaller, tucked up and right */
+.speech-bubble.quip { left: 62%; top: 12%; font-size: 14px; padding: 11px 15px; max-width: min(320px, 60vw); }
+.speech-bubble.quip::after { left: 42%; }
+
+/* the contestant's "Final answer!" — pops by our guy, left of the card */
+.speech-bubble.you { left: 22%; top: auto; bottom: 52%; }
+.speech-bubble.you .speech-who { color: #567a1c; }
+
+/* pause menu */
+.pause-btn {
+  align-self: flex-start; background: var(--panel); border: 1px solid var(--line);
+  color: var(--muted); font-weight: 700; font-size: 11px; letter-spacing: 0.08em;
+  border-radius: 10px; padding: 7px 12px; backdrop-filter: blur(8px); transition: background 0.2s, color 0.2s;
+}
+.pause-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
+.pause-layer {
+  position: fixed; inset: 0; z-index: 24; display: flex; align-items: center; justify-content: center;
+  background: rgba(4, 4, 10, 0.55); backdrop-filter: blur(6px); animation: fadeIn 0.2s ease both;
+}
+.pause-panel { width: min(460px, calc(100vw - 40px)); display: flex; flex-direction: column; gap: 2px; }
+.pause-panel .screen-title { margin-bottom: 8px; }
+.pause-seed { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 4px; border-top: 1px solid var(--line); margin-top: 8px; }
+.pause-seed code { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: var(--aqua); background: #0a0a16; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; }
+.pause-panel .menu { margin-top: 16px; justify-content: flex-start; }
+
 /* first-gesture audio unlock hint (title screen) */
 .sound-hint {
   position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 30;
@@ -610,6 +637,10 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
   .ll-glyph { font-size: 15px; }
   .ll-name { display: none; }
 
+  /* bubbles re-anchor for the narrow screen */
+  .speech-bubble.you { left: 50%; bottom: 58%; }
+  .speech-bubble.quip { left: 50%; top: 15%; }
+
   /* card pinned to the bottom, full width */
   .q-card-wrap { left: 10px; right: 10px; bottom: 12px; width: auto; max-width: none; transform: none; }
   .q-card { padding: 14px 14px 16px; border-radius: 14px; }
@@ -655,17 +686,4 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
 .preview-label { font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); }
 .preview-info { font-family: var(--mono); font-size: 11.5px; color: var(--aqua); min-width: 150px; }
 
-/* ============================== mastery dashboard (green room) ============================== */
-.panel.mastery { animation-delay: 0.24s; }
-.mastery-row { display: grid; grid-template-columns: 150px 1fr 44px 96px; align-items: center; gap: 10px; padding: 6px 0; }
-.mastery-name { font-size: 12.5px; font-weight: 700; color: #eadfc4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mastery-name.weak { color: var(--peach); }
-.mastery-bar-wrap { display: block; height: 10px; background: rgba(255, 255, 255, 0.08); border-radius: 5px; overflow: hidden; }
-.mastery-bar { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--gold), var(--mantis)); transition: width 0.6s var(--swift); }
-.mastery-bar.weak { background: linear-gradient(90deg, var(--peach), var(--gold)); }
-.mastery-num { font-size: 12px; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; color: #eadfc4; }
-.mastery-detail { font-size: 10.5px; color: #9d9078; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-@media (max-width: 760px) {
-  .mastery-row { grid-template-columns: 108px 1fr 40px; }
-  .mastery-detail { display: none; }
-}
+/* (the green-room mastery dashboard was removed at the owner's request) */

@@ -22,7 +22,13 @@ Claude, awaiting take-by-take direction.
 ### ✅ Intro cinematic — `intro` (loops · title screen)
 | # | Take | Duration |
 |---|---|---|
-| 1 | Slow orbital rotation around the soundstage, hot seat centered (full 360°, seamless loop) | 10s |
+| 1 | Slow orbital rotation around the soundstage, hot seat centered (full 360°, seamless loop) | 36s (slowed from the 10s brief — owner: too fast) |
+
+### ✅ Host welcomes you back — `hostWelcome` (top of every run · holds)
+The host's speech-bubble greeting (rotating lines, snark past 3 attempts).
+| # | Take | Duration |
+|---|---|---|
+| 1 | Gentle push onto the host in his chair | 4s + hold |
 
 ### ✅ Host asks the question — `hostAsks` (start of each tier + the final → cuts to Player is thinking)
 | # | Take | Duration |
@@ -31,24 +37,25 @@ Claude, awaiting take-by-take direction.
 
 ### ✅ Player is thinking — `thinking` (loops · the in-question background)
 
-Durations are **double** the original brief (owner note: the quick cuts were
-distracting behind the quiz card — each take now lingers twice as long).
+Slowed **way down** from the original brief (owner note, twice): long takes
+and tiny camera travel — drifts, not moves — so the backdrop never competes
+with the quiz card. Same ten compositions as specced.
 
 | # | Take | Duration |
 |---|---|---|
-| 1 | Focus on the contestant | 10s |
-| 2 | Both contestant and host | 10s |
-| 3 | Pan left → right across the audience | 6s |
-| 4 | Above host + contestant, slowly tilting down onto them | 6s |
-| 5 | Piggy bank, dramatic slow zoom | 8s |
-| 6 | The other side of the audience, watching the contestant | 10s |
-| 7 | Wideshot — host/contestant centered, whole room visible | **10s*** |
-| 8 | Slow zoom on the intensity of the contestant | 6s |
-| 9 | Slow zoom on the intensity of the host | 6s |
-| 10 | Slow orbital pan around the soundstage | 10s |
+| 1 | Focus on the contestant (gentle drift) | 16s |
+| 2 | Both contestant and host (near-still) | 16s |
+| 3 | Slow pan left → right across the audience (narrower sweep) | 14s |
+| 4 | Above host + contestant, a slow settling tilt | 12s |
+| 5 | Piggy bank, unhurried push | 14s |
+| 6 | The other side of the audience, watching the contestant | 16s |
+| 7 | Wideshot — host/contestant centered, whole room visible | **16s*** |
+| 8 | Slow drift on the intensity of the contestant | 12s |
+| 9 | Slow drift on the intensity of the host | 12s |
+| 10 | Barely-moving orbital around the soundstage (18° of arc) | 16s |
 
-\* take 7 had no duration in the brief — set to 10s (doubled from the 5s
-draft), confirm or adjust.
+\* take 7 had no duration in the brief — now 16s like the other long holds,
+confirm or adjust.
 
 ### ✏️ "Is that your final answer?" — `finalAnswer` (on lock-in; holds till the reveal)
 | # | Take | Duration |
@@ -120,7 +127,8 @@ run starts and the show cuts to the studio.
 | 1 | The phone on the coffee table, slow zoom | 3s |
 | 2 | The sketchy guy loitering by the doors — long coat, wide-brim hat | 4s |
 
-### ✏️ Producer says they're ready — `producerReady` (new game starts → host asks)
+### ✏️ Producer says they're ready — `producerReady` (kept for preview; no
+longer triggered — the `hostWelcome` beat fronts every run instead)
 | # | Take | Duration |
 |---|---|---|
 | 1 | The stage manager in the wings — headset, clipboard | 3s |
@@ -131,7 +139,8 @@ run starts and the show cuts to the studio.
 | Game event | Camera |
 |---|---|
 | Title screen | `intro` loop |
-| New game starts (`run:start`) | `producerReady` → `hostAsks` → `thinking` |
+| Run begins (`host:welcome`) | `hostWelcome` (holds under the greeting bubble) |
+| New game starts (`run:start`) | re-bases on `thinking`; Q1's `question:show` cuts to `hostAsks` |
 | Question shown (tier start: Q1/Q11/Q21/final) | `hostAsks` → `thinking` |
 | Question shown (otherwise) | `thinking` (restarts the playlist) |
 | Final answer locked | `finalAnswer` (holds until the reveal) |

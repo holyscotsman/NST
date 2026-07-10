@@ -164,9 +164,11 @@ export class Director {
   cue(type, data = {}) {
     switch (type) {
       case 'run:start':
+        // The welcome beat (host:welcome) now fronts every run, so the run
+        // start just re-bases; Q1's question:show cuts to hostAsks.
         this.baseName = 'thinking';
-        this.play('producerReady'); // "they're ready for you" → hostAsks via question:show
         return true;
+      case 'host:welcome': this.play('hostWelcome'); return true;
       case 'question:show': {
         this.baseName = 'thinking';
         // The host asks at the start of each tier (Q1, Q11, Q21) and the final.

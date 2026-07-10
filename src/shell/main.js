@@ -8,10 +8,10 @@ import { validateBank } from '../core/questionSchema.js';
 import { SetManager } from '../core/selection.js';
 import { RunController } from '../core/runController.js';
 import { generateSeedString } from '../core/rng.js';
-import { domainProgress } from '../core/mastery.js';
 import { payout } from '../core/coins.js';
 import { SHOP, LIFELINE_MAX_SLOTS } from '../core/config.js';
 import { letter } from '../core/lifelines.js';
+import { pickWelcome, pickQuestionLine } from './hostLines.js';
 
 import * as persistence from './persistence.js';
 import { GameAudio } from './audio.js';
@@ -36,7 +36,10 @@ export class Game {
     this.campaign = null;      // persistent mastery SetManager
     this.rc = null;
     this._greenReveal = null;  // loss info shown in the green room
-    this.hud = new Hud({ onLifeline: (t) => this.useLifeline(t) });
+    this.hud = new Hud({
+      onLifeline: (t) => this.useLifeline(t),
+      onPause: () => this.togglePause(),
+    });
     this.quiz = new QuizScreen({
       onAnswer: (idx) => this.answer(idx),
       onContinue: (r) => this.continueAfter(r),
@@ -75,15 +78,23 @@ export class Game {
     // Browsers require a user gesture before audio can start — register the
     // unlock FIRST so a click during the (async) WebGL boot still counts, and
     // show a small hint so the silent title screen explains itself.
+    // The listeners are PERMANENT: a context can re-suspend (backgrounded tab,
+    // mobile route change), and a once-only unlock left the game silent for
+    // good — every later gesture now re-resumes a suspended context.
     const hint = h('div', { class: 'sound-hint' }, '🔊 Click anywhere for sound');
     if (this.save.settings.music !== false || this.save.settings.sound) document.body.append(hint);
     const kick = () => {
       hint.remove();
       this.audio.resume(); this.music.resume();
-      if (this.screen === 'title' || this.screen === 'greenroom') this.music.play('lounge');
+      if ((this.screen === 'title' || this.screen === 'greenroom') && !this.music.currentName) {
+        this.music.play('lounge');
+      }
     };
-    window.addEventListener('pointerdown', kick, { once: true });
-    window.addEventListener('keydown', kick, { once: true });
+    window.addEventListener('pointerdown', kick);
+    window.addEventListener('keydown', kick);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) { this.audio.resume(); this.music.resume(); }
+    });
 
     // The layered CSS studio is always built into the fallback element; it is
     // shown whenever WebGL is unavailable (or skipped) and reacts to the same
@@ -120,6 +131,7 @@ export class Game {
       if (d.isFinal) this._markFinalReached();
       // Tier loops: quicker and brighter on easy, slower and lower as tiers rise.
       this.music.play(d.isFinal ? 'final' : d.tier);
+      this._hostQuip(d);
     });
     this.bus.on('scene:green', () => this.music.play('lounge'));
     this.bus.on('scene:studio', () => { if (this.screen !== 'quiz') this.music.play('lounge'); });
@@ -207,6 +219,7 @@ export class Game {
 
   showTitle() {
     this.screen = 'title';
+    this._clearQuip();
     this.bus.emit('scene:studio', {});
     this._swap(TitleScreen({
       wallet: this.save.wallet,
@@ -229,6 +242,7 @@ export class Game {
 
   showGreenRoom() {
     this.screen = 'greenroom';
+    this._clearQuip();
     this._ensureCampaign();
     this.bus.emit('scene:green', {});
     // Fresh Steve availability each visit.
@@ -243,7 +257,6 @@ export class Game {
     this._swap(GreenRoom({
       wallet: this.save.wallet,
       lifelines: this.save.lifelines,
-      progress: domainProgress(this.bank, this.save.mastery),
       reveal: this._greenReveal, // set after a loss: the answer + explanation first
       onAckReveal: () => { this._greenReveal = null; this._renderGreenRoom(); },
       steve: {
@@ -269,7 +282,7 @@ export class Game {
     this.audio.play('select');
     const line = "We're ready for you back in the Hot Seat!";
     this._announce(`Stage manager: ${line}`);
-    const bubble = h('div', { class: 'speech-bubble', role: 'status' },
+    const bubble = h('div', { class: 'speech-bubble', 'aria-hidden': 'true' },
       h('span', { class: 'speech-who' }, 'Stage manager'), line);
     const doorMs = this.reduced ? 0 : 1200;   // bubble pops once the door is open
     const readMs = this.reduced ? 1600 : 2600; // a beat to read it
@@ -379,8 +392,87 @@ export class Game {
 
     // First run ever: the host gives a tour of the soundstage, then walks the
     // player through the UI on the real first question (and gives the answer).
+    // Every run after that opens with him welcoming the player back instead.
     if (!this.save.flags.seenIntro) this._playIntro(beginPlay);
-    else beginPlay();
+    else this._welcomeBeat(beginPlay);
+  }
+
+  // The host welcomes the player back to the Hot Seat — a different line each
+  // run, drifting snarky once the attempts pile up (authored copy, FLAGS.md).
+  _welcomeBeat(beginPlay) {
+    this.screen = 'cinematic';
+    clear(this.roots.screen);
+    this.bus.emit('scene:studio', {});
+    this.bus.emit('host:welcome', {});
+    const { text, key } = pickWelcome({ runs: this.save.stats.runs, last: this.save.lastWelcome });
+    this.save.lastWelcome = key;
+    this.persist();
+    this._announce(`Host: ${text}`);
+    const bubble = h('div', { class: 'speech-bubble host', 'aria-hidden': 'true' },
+      h('span', { class: 'speech-who' }, 'Host'), text);
+    const showMs = this.reduced ? 200 : 900;   // bubble pops once the camera settles
+    const holdMs = this.reduced ? 1200 : 3000; // a beat to read it
+    setTimeout(() => this.roots.screen.append(bubble), showMs);
+    setTimeout(() => { bubble.remove(); beginPlay(); }, showMs + holdMs);
+  }
+
+  // A short host quip as each question is read out — his voice, never the
+  // question or answers (those stay in the DOM card).
+  _clearQuip() {
+    if (this._quipEl) { this._quipEl.remove(); this._quipEl = null; }
+  }
+
+  _hostQuip(d) {
+    if (document.querySelector('.cine-layer')) return; // the tutorial host is already talking
+    this._clearQuip();
+    const line = pickQuestionLine({ isFinal: d.isFinal });
+    const el = h('div', { class: 'speech-bubble host quip', 'aria-hidden': 'true' },
+      h('span', { class: 'speech-who' }, 'Host'), line);
+    document.body.append(el);
+    this._quipEl = el;
+    setTimeout(() => { el.remove(); if (this._quipEl === el) this._quipEl = null; }, this.reduced ? 1600 : 2800);
+  }
+
+  /* ---------------- pause menu ---------------- */
+
+  togglePause() {
+    if (this._pauseEl) return this._closePause();
+    if (this.screen !== 'quiz') return;
+    this._clearQuip(); // no host chatter floating over the menu
+    const seed = this.seed;
+    const toggle = (key, label, desc) => {
+      const input = h('input', { type: 'checkbox', checked: !!this.save.settings[key],
+        onchange: (e) => { this.save.settings[key] = e.target.checked; this._applySettings(); this.persist(); } });
+      return h('label', { class: 'setting' }, input,
+        h('span', {}, h('b', {}, label), h('span', { class: 'muted small' }, desc)));
+    };
+    const copyBtn = seed ? h('button', { class: 'secondary small', type: 'button' }, 'Copy seed') : null;
+    if (copyBtn) copyBtn.onclick = async () => {
+      try { await navigator.clipboard.writeText(seed); copyBtn.textContent = 'Copied ✓'; }
+      catch { copyBtn.textContent = seed; } // clipboard blocked: show it to hand-copy
+    };
+    const panel = h('section', { class: 'pause-panel panel', role: 'dialog', 'aria-label': 'Pause menu' },
+      h('h2', { class: 'screen-title' }, 'Paused'),
+      toggle('music', 'Music', 'The lounge and tier loops.'),
+      toggle('sound', 'Sound effects', 'Picking, locking, lifelines.'),
+      h('div', { class: 'pause-seed' },
+        seed
+          ? [h('span', { class: 'muted small' }, 'Seed — share it to replay this exact run'), h('code', {}, seed), copyBtn]
+          : h('span', { class: 'muted small' }, 'Mastery run — questions adapt to you, so there is no seed to share. Use "Enter seed" on the title screen for a replayable run.')),
+      h('div', { class: 'menu' },
+        h('button', { class: 'primary', type: 'button', onclick: () => this._closePause() }, 'Resume'),
+        h('button', { class: 'ghost small', type: 'button', onclick: () => {
+          if (confirm('Quit this run? Coins not yet banked are lost.')) { this._closePause(); this.rc = null; this.showTitle(); }
+        } }, 'Quit to title'),
+      ));
+    this._pauseEl = h('div', { class: 'pause-layer' }, panel);
+    this.roots.screen.append(this._pauseEl);
+    const focusTarget = panel.querySelector('h2');
+    if (focusTarget) { focusTarget.setAttribute('tabindex', '-1'); focusTarget.focus({ preventScroll: true }); }
+  }
+
+  _closePause() {
+    if (this._pauseEl) { this._pauseEl.remove(); this._pauseEl = null; }
   }
 
   _playIntro(beginPlay) {
@@ -523,6 +615,12 @@ export class Game {
   }
 
   _handleKey(e) {
+    if (e.key === 'Escape' && (this._pauseEl || this.screen === 'quiz')) {
+      this.togglePause();
+      e.preventDefault();
+      return;
+    }
+    if (this._pauseEl) return; // the pause menu swallows quiz keys
     if (this.screen === 'quiz' && this.quiz) this.quiz.handleKey(e);
   }
 

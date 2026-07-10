@@ -23,7 +23,7 @@ const TOUR = [
 // The guided tutorial, over the live question. `hi` is a selector to spotlight.
 const TUTORIAL = [
   { hi: '.ladder', text: 'The money ladder. Every correct answer climbs one rung — ten easy, ten medium, nine hard, and one final question at the very top.' },
-  { hi: '.coins', text: 'Your coins bank at the safe havens — questions 10, 20 and 29. Banked coins are yours to keep, even if you fall.' },
+  { hi: '.coins', text: 'Your coins bank at the safe havens — questions 5, 10, 17 and 25. Banked coins are yours to keep, even if you fall.' },
   { hi: '.lifelines', text: 'Three lifelines: 50:50, ask the audience, and phone a friend. One use each — spend them wisely.' },
   { hi: '.options', text: 'Pick an answer, then press Final answer to lock it in. But careful — one wrong answer ends the run. That’s the game.' },
   { answerReveal: true, text: '' }, // filled in at runtime with the real Q1 key

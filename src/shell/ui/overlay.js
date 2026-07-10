@@ -8,6 +8,7 @@
 import { h, clear } from './dom.js';
 import { letter } from '../../core/lifelines.js';
 import { DOMAIN_LABEL, TIER_LABEL } from './labels.js';
+import { readoutPacing } from '../hostLines.js';
 
 // The gold lock-in suspense before the reveal. Two 0.9s breaths on the early
 // tiers; the hard round and the final hold noticeably longer (with a drum
@@ -91,10 +92,29 @@ export class QuizScreen {
     );
     clear(this.cardWrap);
     this.cardWrap.append(this.card);
+
+    // The read-out: the stem sits alone long enough to read, then the answers
+    // appear one at a time (no text-to-speech — pacing does the "reading").
+    // Reduced motion shows everything at once.
+    this.revealed = new Set();
+    const btns = [...this.optionsEl.querySelectorAll('.option')];
+    if (reduced()) {
+      btns.forEach((_, i) => this.revealed.add(i));
+    } else {
+      const { stemMs, optionGapMs } = readoutPacing(q.stem.length, q.options.length);
+      btns.forEach((b) => { b.classList.add('unrevealed'); b.disabled = true; });
+      btns.forEach((b, i) => this._after(stemMs + i * optionGapMs, () => {
+        this.revealed.add(i);
+        b.classList.remove('unrevealed');
+        b.style.animationDelay = '0s'; // the reveal IS the stagger
+        if (!this.removed.has(i)) b.disabled = false;
+        if (this.handlers.onReveal) this.handlers.onReveal(i);
+      }));
+    }
   }
 
   pick(i) {
-    if (this.locked || this.removed.has(i)) return;
+    if (this.locked || this.removed.has(i) || !this.revealed.has(i)) return;
     const multi = this.current.q.type === 'multi';
     if (multi) {
       if (this.selected.has(i)) this.selected.delete(i); else this.selected.add(i);
@@ -214,6 +234,14 @@ export class QuizScreen {
     const isFinal = !!this.current.isFinal;
     const ms = reduced() ? 0 : (isFinal ? SUSPENSE_FINAL_MS : this.current.tier === 'hard' ? SUSPENSE_HARD_MS : SUSPENSE_MS);
     if (ms && this.handlers.onSuspense) this.handlers.onSuspense({ ms, tier: this.current.tier, isFinal });
+
+    // The contestant's speech bubble ("our guy" calls it). Plain setTimeout so
+    // the next question's timer sweep can't strand it on screen.
+    const fa = h('div', { class: 'speech-bubble you', 'aria-hidden': 'true' },
+      h('span', { class: 'speech-who' }, 'You'), 'Final answer!');
+    document.body.append(fa);
+    setTimeout(() => fa.remove(), Math.max(1800, ms));
+
     this._after(ms, () => {
       if (this.handlers.onAnswer) this.handlers.onAnswer(indices);
     });
