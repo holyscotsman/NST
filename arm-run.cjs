@@ -241,6 +241,12 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   ok(/BOSS_FLOW = 920/.test(H.ARM_SRC) && /bt \* BOSS_FLOW \* depth/.test(H.ARM_SRC)
      && /bossActive\) drawBossRush\(\)/.test(H.ARM_SRC) && /three static faint shafts/.test(H.ARM_SRC),
      'boss arena rushes upward: BOSS_FLOW streaks behind the world, calm under reduced motion');
+  // (v0.112.0, D4) Center-console briefing: cockpit scene shows in BRIEF, manifest mirrors
+  // progress, console keys stay 1:1 with briefOpts (the A5 answer-last pin still guards content)
+  ok(/arm-brfscene/.test(H.ARM_SRC) && /show\(brfScene, s === "BRIEF"\)/.test(H.ARM_SRC)
+     && /arm-mhex/.test(H.ARM_SRC) && /CORE MANIFEST/.test(H.ARM_SRC)
+     && /state !== "BRIEF"\) return;/.test(H.ARM_SRC),
+     'D4: center-console scene wired (BRIEF-only, manifest hexes, 1/2/3 console keys)');
   // (v0.111.0, D3) Cockpit-lite HUD sources: tape+radar draw fn, rail rows, HC-gated vignette
   ok(/function drawCockpitHud\(\)/.test(H.ARM_SRC) && /drawCompass\(\);\s*\n\s*drawCockpitHud\(\);/.test(H.ARM_SRC)
      && /arm-rrow/.test(H.ARM_SRC) && /if \(!highContrast\) wrap\.appendChild\(mk\("div", "arm-vignette"\)\)/.test(H.ARM_SRC),

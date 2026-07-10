@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-D4 — Center-console briefing (added v0.112.0).** Enter ARM: the briefing sits in a
+  cockpit — the broken station hangs in the canopy (shards + ember), CORE MANIFEST hexes fill
+  1→5 as Vega covers cores, the transmission lives in a CRT bezel, and 1/2/3 press the console
+  keys. The primary key reads as a physical aqua key (LED underline, presses down 2px). Reduced
+  motion: no hex drift, ember, flicker, or waveform. High contrast: CRT text stays legible.
+
 - **QA-D3 — Cockpit HUD (added v0.111.0).** Fly a normal sector: compass tape markers point at
   cores (mantis star when one's exposed), radar blips match the world, rail bars behave, vignette
   frames without obscuring. Boss sectors: tape hides, radar stays. High contrast: no vignette.
