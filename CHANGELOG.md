@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased — graphics + animation polish
+
+- **Procedural textures** (all canvas-generated in code — no image files): the
+  stage disc is a brushed, grooved broadcast platform; console and broadcast-
+  camera monitors show a glowing grid screen (shared emissive texture); the
+  green-room walls get warm vertical wood paneling.
+- **Smoother animation:** the key light now *eases* between tier/mood colours
+  instead of snapping, and the correct/wrong face reactions (head lift/drop,
+  the contestant's arms-up) ramp in and out with an envelope rather than
+  popping. No new per-frame allocation; all still skipped under reduced motion.
+
 ## Unreleased — music variations (selectable arrangements)
 
 - **Pick your arrangement.** A new music-style selector (Settings and the

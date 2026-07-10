@@ -7,7 +7,18 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
-## Pending sign-off — the living studio (newest)
+## Pending sign-off — graphics + animation polish (newest)
+
+- [ ] **Procedural textures** — the stage disc reads as a machined platform
+  (concentric grooves), console + camera monitors show glowing grids, green
+  room walls have warm wood paneling. `?scene=thinking&take=7`, `?scene=greenRoom`.
+- [ ] **Smoother reactions** — tier/mood key-light now eases between colours
+  instead of snapping; correct/wrong face reactions and the contestant's
+  arms-up ramp in and out (no pop).
+- [ ] **Lifeline cutscenes** — Phone a Friend 10s panicking cutscene; audience
+  poll (now fallible). Trigger them in a run.
+
+## Pending sign-off — the living studio
 
 - [ ] **Faces & idle life** — blinking, breathing, head sway; host's mouth
   moves while he talks; smiles on correct, frowns + dropped heads on wrong;

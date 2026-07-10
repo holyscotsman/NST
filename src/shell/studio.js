@@ -38,6 +38,7 @@ export class Studio {
     this._mood = null;   // { kind: 'happy' | 'sad', t } — face reactions
     this._dummy = new THREE.Object3D(); // scratch for instanced-matrix updates
     this._hiddenMat = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
+    this._moodTarget = new THREE.Color(PAL.iris); // key-light colour eases toward this
   }
 
   async init() {
@@ -115,17 +116,17 @@ export class Studio {
         break;
       case 'answer:correct':
         this._flash(PAL.mantis);
-        this._mood = { kind: 'happy', t: 2.2 };
+        this._mood = { kind: 'happy', t: 2.2, total: 2.2 };
         break;
       case 'answer:wrong':
         this._flash(PAL.peach);
         this._setMood(PAL.peach, 0.7);
-        this._mood = { kind: 'sad', t: 2.8 };
+        this._mood = { kind: 'sad', t: 2.8, total: 2.8 };
         break;
       case 'run:win':
         this._setMood(PAL.gold, 1.3);
         this._spin = this.reduced ? 1 : 3;
-        this._mood = { kind: 'happy', t: 8 };
+        this._mood = { kind: 'happy', t: 8, total: 8 };
         break;
       case 'run:dead':
         this._setMood(0x223, 0.5);
@@ -170,7 +171,10 @@ export class Studio {
   _setMood(color, intensity) {
     this.mood.key = color;
     this.mood.intensity = intensity;
-    if (this._keyLight) { this._keyLight.color.setHex(color); }
+    // The key light eases toward the new colour in _tick (smooth tier changes)
+    // rather than snapping. Under reduced motion it snaps in _tick.
+    if (this._moodTarget) this._moodTarget.setHex(color);
+    if (this._keyLight && this.reduced) this._keyLight.color.setHex(color);
   }
 
   _flash(color) {
@@ -198,6 +202,11 @@ export class Studio {
       }
       if (this._spin > 1) this._spin = Math.max(1, this._spin - dt * 0.6);
       this._crowdTick(dt, t);
+    }
+
+    // Key light eases toward the current tier/mood colour (smooth transitions).
+    if (this._keyLight && this._moodTarget && !this.reduced) {
+      this._keyLight.color.lerp(this._moodTarget, Math.min(1, dt * 2.6));
     }
 
     // Life pass: blinking, breathing, head sway, talking mouths, reactions.
@@ -280,12 +289,13 @@ export class Studio {
       const talker = this.active === this.studio ? 'host' : 'greenSM';
       if (mood && (a.role === 'host' || a.role === 'player')) {
         setMouth(P, mood.kind === 'happy' ? 'smile' : 'frown');
-        P.head.rotation.x += mood.kind === 'happy' ? -0.06 : 0.22; // lift / drop
+        // ease the reaction in over the first 0.35s and out over the last 0.35s
+        const env = Math.max(0, Math.min(1, mood.t / 0.35, (mood.total - mood.t) / 0.35));
+        P.head.rotation.x += (mood.kind === 'happy' ? -0.06 : 0.22) * env; // lift / drop
         if (mood.kind === 'happy' && a.role === 'player') {
-          // arms up in relief — eases back down as the mood decays
-          const k = Math.min(1, mood.t);
-          P.armL.rotation.z = a.armL * (1 - k) + 2.3 * k;
-          P.armR.rotation.z = a.armR * (1 - k) - 2.3 * k;
+          // arms up in relief — smoothly in and back down with the envelope
+          P.armL.rotation.z = a.armL * (1 - env) + 2.3 * env;
+          P.armR.rotation.z = a.armR * (1 - env) - 2.3 * env;
         }
       } else if (this._talk > 0 && a.role === talker) {
         setMouth(P, Math.sin(t * 11) > -0.2 ? 'open' : 'flat');
@@ -384,8 +394,8 @@ export class Studio {
     const warm = new THREE.PointLight(PAL.gold, 20, 30); warm.position.set(0, 4, 2); s.add(warm);
     this._pulseLight = new THREE.PointLight(PAL.mantis, 14, 40); this._pulseLight.position.set(0, 2, 3); s.add(this._pulseLight);
 
-    const disc = cyl(9, 9, 0.4, mat(0x0b0b18, 0x090914, 0.2, 0.35, 0.7)); disc.position.y = -0.2;
-    disc.geometry = new THREE.CylinderGeometry(9, 9, 0.4, 64); s.add(disc);
+    const discMat = mat(0x3a3f5c, 0x090914, 0.2, 0.5, 0.55); discMat.map = floorTexture();
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.4, 64), discMat); disc.position.y = -0.2; s.add(disc);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(9, 0.08, 12, 96), mat(0x000000, PAL.aqua, 1.7)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.02; s.add(rim);
 
     const spokeGeo = new THREE.BoxGeometry(0.1, 0.05, 6);
@@ -394,13 +404,19 @@ export class Studio {
     for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; d.position.set(Math.cos(a) * 4.6, 0.03, Math.sin(a) * 4.6); d.rotation.set(0, -a, 0); d.updateMatrix(); spokes.setMatrixAt(i, d.matrix); }
     spokes.instanceMatrix.needsUpdate = true; s.add(spokes);
 
+    // Shared glowing-screen texture for every monitor on the set.
+    const screenTex = screenTexture();
+    const screenMat = () => { const m = mat(0x0a0a16, 0xffffff, 0.7, 0.5); m.emissiveMap = screenTex; m.map = screenTex; return m; };
+    this._screenTex = screenTex;
+
     const console_ = new THREE.Group();
     const pole = cyl(0.28, 0.4, 1.2, mat(0x101020, PAL.aqua, 0.3, 0.4, 0.6)); pole.position.y = 0.6; console_.add(pole);
     for (const dx of [-0.55, 0.55]) {
       const arm = cyl(0.05, 0.05, 0.7, mat(0x101020)); arm.position.set(dx * 0.7, 1.15, 0); arm.rotation.z = Math.PI / 2; console_.add(arm);
-      const mon = box(0.9, 0.7, 0.12, mat(0x0a0a16, PAL.aqua, 0.4)); mon.position.set(dx * 1.05, 1.2, 0); mon.rotation.y = dx > 0 ? -0.5 : 0.5; console_.add(mon);
+      const mon = box(0.9, 0.7, 0.12, screenMat()); mon.position.set(dx * 1.05, 1.2, 0); mon.rotation.y = dx > 0 ? -0.5 : 0.5; console_.add(mon);
     }
     s.add(console_);
+    this._screenMat = screenMat;
 
     // The hot seats — tall chairs with an aqua-trimmed backrest and a footrest
     // ring, bright enough to read behind the seated figures.
@@ -471,7 +487,7 @@ export class Studio {
     // Fourth wall: broadcast pedestal cameras aimed at the stage, plus an
     // operator behind camera one.
     for (const [cx, cz] of [[3.4, 9.5], [-5.2, 8.2], [0.2, 11.2]]) {
-      const cam = studioCamera();
+      const cam = studioCamera(screenMat());
       cam.position.set(cx, 0, cz);
       cam.rotation.y = Math.atan2(cx, cz); // -z (the lens) faces the stage center
       s.add(cam);
@@ -525,12 +541,15 @@ export class Studio {
     const lampL = new THREE.PointLight(PAL.gold, 15, 11); lampL.position.set(-4.2, 2.4, -3.5); s.add(lampL);
     const lampR = new THREE.PointLight(0xffd88a, 10, 10); lampR.position.set(5.2, 2.5, -6.2); s.add(lampR);
 
-    const wallMat = mat(0x4d4438, 0, 0.9), floorMat = mat(0x241c12, 0, 0.95), ceilMat = mat(0x2e271c, 0, 0.95);
+    const panelTex = panelTexture();
+    const wallMat = mat(0x6a5a40, 0, 0.9); wallMat.map = panelTex;
+    const sideMat = mat(0x6a5a40, 0, 0.9); sideMat.map = panelTex;
+    const floorMat = mat(0x241c12, 0, 0.95), ceilMat = mat(0x2e271c, 0, 0.95);
     s.add(pos(box(12, 0.1, 10, floorMat), 0, 0, -2));
     s.add(pos(box(12, 0.1, 10, ceilMat), 0, 4.6, -2));
     s.add(pos(box(12, 4.7, 0.15, wallMat), 0, 2.35, -7));
-    s.add(pos(box(0.15, 4.7, 10, wallMat), -6, 2.35, -2));
-    s.add(pos(box(0.15, 4.7, 10, wallMat), 6, 2.35, -2));
+    s.add(pos(box(0.15, 4.7, 10, sideMat), -6, 2.35, -2));
+    s.add(pos(box(0.15, 4.7, 10, sideMat), 6, 2.35, -2));
     s.add(pos(box(2.4, 0.06, 1.2, mat(0x000000, 0xffe6c2, 0.35)), 0, 4.5, -1));
 
     const leather = mat(0x6e4526, 0, 0.65), wood = mat(0x8a6f45, 0, 0.7), woodDk = mat(0x594430, 0, 0.75);
@@ -721,7 +740,7 @@ function crewPerson({ clipboard = false } = {}) {
 
 // A broadcast pedestal camera for the fourth wall — body, lens, red tally
 // light, and a little operator monitor on the back.
-function studioCamera() {
+function studioCamera(screenMat) {
   const g = new THREE.Group();
   const dark = mat(0x14141f, 0x000000, 0, 0.5, 0.5);
   const ped = cyl(0.09, 0.14, 1.3, dark); ped.position.y = 0.65; g.add(ped);
@@ -731,7 +750,7 @@ function studioCamera() {
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.015, 10, 24), mat(0x000000, PAL.aqua, 0.6));
   ring.position.set(0, 1.45, -0.6); g.add(ring);
   const tally = box(0.045, 0.045, 0.02, mat(0x330000, 0xff3344, 1.4)); tally.position.set(0.13, 1.65, -0.28); g.add(tally);
-  const mon = box(0.24, 0.15, 0.02, mat(0x0a0a16, PAL.aqua, 0.5)); mon.position.set(0, 1.5, 0.33); mon.rotation.x = -0.2; g.add(mon);
+  const mon = box(0.24, 0.15, 0.02, screenMat || mat(0x0a0a16, PAL.aqua, 0.5)); mon.position.set(0, 1.5, 0.33); mon.rotation.x = -0.2; g.add(mon);
   const handle = cyl(0.02, 0.02, 0.3, dark); handle.rotation.z = Math.PI / 2; handle.position.set(0, 1.24, 0.28); g.add(handle);
   return g;
 }
@@ -796,5 +815,60 @@ function artTexture() {
     x.fillStyle = cols[i % cols.length]; x.globalAlpha = 0.85; x.beginPath();
     x.arc(30 + (i * 53 % 210), 30 + (i * 37 % 130), 12 + (i * 7 % 26), 0, 7); x.fill();
   }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// The stage disc: brushed concentric rings with faint radial spokes, so the
+// big floor reads as a machined broadcast platform instead of flat black.
+// Grayscale-ish so the material's base colour tints it. Deterministic.
+function floorTexture() {
+  const S = 512; const c = document.createElement('canvas'); c.width = c.height = S; const x = c.getContext('2d');
+  x.fillStyle = '#8b90ad'; x.fillRect(0, 0, S, S);
+  const cx = S / 2, cy = S / 2;
+  // brushed radial streaks
+  for (let a = 0; a < 720; a++) {
+    const ang = (a / 720) * Math.PI * 2;
+    x.strokeStyle = `rgba(${a % 2 ? 210 : 120},${a % 2 ? 214 : 128},235,0.05)`;
+    x.beginPath(); x.moveTo(cx, cy);
+    x.lineTo(cx + Math.cos(ang) * cx * 1.5, cy + Math.sin(ang) * cy * 1.5); x.stroke();
+  }
+  // concentric grooves
+  for (let r = 18; r < cx; r += 15) {
+    x.strokeStyle = r % 45 === 3 ? 'rgba(31,221,233,0.5)' : 'rgba(20,22,40,0.6)';
+    x.lineWidth = r % 45 === 3 ? 2 : 3;
+    x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke();
+  }
+  // soft centre vignette
+  const g = x.createRadialGradient(cx, cy, 0, cx, cy, cx);
+  g.addColorStop(0, 'rgba(30,34,58,0.55)'); g.addColorStop(0.7, 'rgba(30,34,58,0)'); g.addColorStop(1, 'rgba(6,6,14,0.6)');
+  x.fillStyle = g; x.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+
+// Warm vertical wall paneling for the green room (wood-ish seams + grain).
+function panelTexture() {
+  const W = 256, H = 256; const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  x.fillStyle = '#8a7350'; x.fillRect(0, 0, W, H);
+  for (let px = 0; px < W; px++) {
+    const seam = px % 48; const shade = seam < 3 ? 0.55 : seam > 44 ? 0.75 : 1;
+    const grain = 0.9 + 0.1 * Math.sin(px * 0.7);
+    const v = Math.round(120 * shade * grain);
+    x.fillStyle = `rgb(${v + 30},${v + 12},${Math.round(v * 0.6)})`;
+    x.fillRect(px, 0, 1, H);
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 1.2); return t;
+}
+
+// A glowing monitor face: faint grid + scanlines, used on the console and the
+// broadcast cameras (as an emissive map so it lights up).
+function screenTexture() {
+  const W = 128, H = 96; const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  x.fillStyle = '#04121a'; x.fillRect(0, 0, W, H);
+  x.strokeStyle = 'rgba(31,221,233,0.5)'; x.lineWidth = 1;
+  for (let gx = 8; gx < W; gx += 16) { x.beginPath(); x.moveTo(gx, 0); x.lineTo(gx, H); x.stroke(); }
+  for (let gy = 8; gy < H; gy += 16) { x.beginPath(); x.moveTo(0, gy); x.lineTo(W, gy); x.stroke(); }
+  x.fillStyle = 'rgba(146,221,35,0.5)'; x.fillRect(10, 12, 40, 6); x.fillRect(10, 24, 26, 6);
+  for (let sy = 0; sy < H; sy += 3) { x.fillStyle = 'rgba(0,0,0,0.18)'; x.fillRect(0, sy, W, 1); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
