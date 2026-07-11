@@ -155,6 +155,24 @@ console.log("\nNode churn (v0.45.0 \u2014 persistent voice chains; only one-shot
       return { heavy, src };
     } catch (e) { return { err: e }; }
   }
+  // (v0.122.0, Jason) the boss bed rides a dubstep WOBBLE bass now — a resonant (Q~11) swept
+  // lowpass built once per persistent chain. Prove the signature builds on boss, not on arm.
+  function wobFilters(id, intensity) {
+    A.setMusic(true);
+    globalThis.__ints.length = 0;
+    A.playTrack(id, intensity ? { intensity: true } : undefined);
+    const fn = globalThis.__ints[globalThis.__ints.length - 1];
+    if (typeof fn !== "function") return -1;                 // scheduler missing -> surface, don't crash
+    const seen = []; const rF = AC.createBiquadFilter;
+    AC.createBiquadFilter = function () { const f = rF.call(AC); seen.push(f); return f; };
+    try { for (let k = 0; k < 80; k++) { AC._t += 0.03; fn(); } } finally { AC.createBiquadFilter = rF; }
+    return seen.filter((f) => f.Q && f.Q.value === 11).length;
+  }
+  // boss config carries the wobble bass + darker arp/lead (source); arm's techno bed builds no
+  // Q~11 wob filter (behavioral) — together: the boss bed is 'a tad more dubstep', the arm bed isn't.
+  ok("boss bed is configured for the dubstep wobble bass (wob + dark in the def) — 'a tad more dubstep'",
+    /leadGuitar: true, dark: 0\.85,\s*\n\s*wob: \{ steps: \[0, 8\], hold: 7, cyclesPerBeat: 2 \}/.test(SRC));
+  ok("the techno arm bed builds NO wobble bass at all (no resonant Q~11 filter across a full warmup)", wobFilters("arm", false) === 0);
   const a = churnRun("arm", false);
   ok("steady-state 'arm' creates ZERO heavy nodes (gain/filter/shaper) across 400 ticks", !a.err && a.heavy === 0);
   ok("\u2026while still scheduling notes (oscillators/buffer sources flow)", !a.err && a.src > 50);

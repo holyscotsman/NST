@@ -124,7 +124,11 @@
       // (v0.76.0, Jason: "too piercing — deeper") the solo dropped a full octave (D4 ceiling,
       // was A5), the arp swapped square -> triangle (dark hollow tone, no harsh harmonics),
       // and the tesla stabs halved. Menace now lives in the low mids, not the treble.
-      bpm: 150, level: 0.52, arpWave: "triangle", leadGuitar: true,
+      // (v0.122.0, Jason: "a tad more dubstep") the techno pluck bass -> a HALF-TIME WOBBLE bass
+      // (two sustained resonant-swept notes per bar) + a slightly darker arp/lead. Everything
+      // else (triangle arp, guitar lead, drums) stays, so it's a tad dubstep, not a genre swap.
+      bpm: 150, level: 0.52, arpWave: "triangle", leadGuitar: true, dark: 0.85,
+      wob: { steps: [0, 8], hold: 7, cyclesPerBeat: 2 },
       bars: [
         { bass: "D1", arp: ["D3", "F3", "A3", "D4"] },
         { bass: "D1", arp: ["D3", "F3", "Bb3", "D4"] },

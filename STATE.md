@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.121.0 — ARM boss: unique missile launch sound (Jason)
+## v0.122.0 — Boss music: a tad more dubstep (Jason)
+
+The shared boss bed swapped its techno bass for a half-time wobble bass (resonant swept lowpass,
+5 Hz LFO) + slightly darker arp/lead; drums/arp/lead otherwise intact. Zero-alloc kept. Ear-blind
+(QA-ARM-MUS). Lit up the dormant vWobBass path from v0.49.
+
+> **Earlier this session (v0.121.0):** ## ARM boss: unique missile launch sound (Jason)
 
 The dreadnought's missile fires sfx("missile") (ignition thump + motor whoosh), no longer the
 laser-charge zap. Ear-blind — owed a listen (QA-ARM-SND).

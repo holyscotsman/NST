@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-ARM-MUS — boss music dubstep (added v0.122.0; EAR-BLIND).** Enter an ARM (or KBB) boss
+  fight: the boss music should now carry a wobble bass (the classic dubstep "wub"), a touch darker
+  than before, over the same drums/arp/lead. Confirm it reads as "a tad more dubstep" and isn't
+  overpowering. WRONG: no wobble at all, or so heavy it drowns the melody.
+
 - **QA-ARM-SND — boss missile sound (added v0.121.0; EAR-BLIND).** In an ARM boss fight, the
   dreadnought's missiles now sound like rockets (ignition thump + whoosh), distinct from the laser
   weapon's zap. Confirm by ear that missile vs laser are clearly different attacks. WRONG: both sound identical.
