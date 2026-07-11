@@ -1342,7 +1342,13 @@
     // exists — tinted by the same pinned color, so flat-color fallback and pins are unchanged.
     try {
       var Apk = this._A || {};
-      if (Apk.ccRock || Apk.ccSurface) { matNear.map = this._tex(Apk.ccRock || Apk.ccSurface, 3, 2, true); if (matNear.needsUpdate !== undefined) matNear.needsUpdate = true; }
+      if (Apk.ccRock || Apk.ccSurface) {
+        matNear.map = this._tex(Apk.ccRock || Apk.ccSurface, 3, 2, true); if (matNear.needsUpdate !== undefined) matNear.needsUpdate = true;
+        // (v0.117.0, Jason) the FAR ridge was flat "default gray" (color only) beside the textured
+        // near ridge — give it the SAME rock map, tinted by its own darker color + still fogged, so
+        // the mountains you pass read as one range instead of textured-vs-plastic.
+        matFar.map = matNear.map; if (matFar.needsUpdate !== undefined) matFar.needsUpdate = true;
+      }
     } catch (ePk) {}
     this._peakMatNear = matNear; this._peakMatFar = matFar;   // (P2·2) pinned by cc-view-smoke
     this._disposables.push(matNear); this._disposables.push(matFar);
@@ -1760,8 +1766,13 @@
     // parallax rate and wraps far ahead with a deterministic re-jitter (position-hash — no
     // rng, zero allocation, same 30 children forever). Frozen under reduced motion.
     if (this.peaks && this.peaks.children && !this.reducedMotion) {
-      var pk = this.peaks.children, pv = sim.speed * dt;
-      for (var pi = 0; pi < pk.length; pi++) {
+      // (v0.117.0, Jason) drift by WORLD-DISTANCE delta, not speed*dt — the peaks now ride the
+      // exact clock the walls/floor scroll on (d = sim.distance), which is FROZEN while a question
+      // holds the world (sim.step isn't called), so they stop dead behind the card instead of sliding.
+      var pv = (this._peakDist === undefined) ? 0 : (d - this._peakDist);
+      this._peakDist = d;
+      var pk = this.peaks.children;
+      if (pv > 0) for (var pi = 0; pi < pk.length; pi++) {
         var pm = pk[pi], pu = pm.userData;
         if (!pu || !pu.par) continue;
         pm.position.z += pv * pu.par;

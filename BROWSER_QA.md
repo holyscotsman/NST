@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CC1 — mountain fixes (added v0.117.0; texture browser-VERIFIED, freeze headless-pinned).**
+  Chasm Chase: the rim mountains (both near and far ridges) now carry the same layered rock as the
+  canyon walls — confirmed in-browser, shots 101/101b, no flat-gray peaks. Still owed a human pass:
+  fly into a question gate and confirm the mountains FREEZE with the walls while the card is up
+  (they used to keep sliding), then resume together on Continue. Reduced motion: range stays frozen
+  throughout. WRONG: any peak sliding behind the question card, or a far peak reading untextured.
+
 - **QA-R1 — sweep fixes (added v0.116.0).** ARM sector: the radar now shows aqua core squares
   and peach threat triangles (they NEVER drew v0.111–v0.115 — a strict-mode throw; open DevTools:
   zero console errors in flight). Pause during a briefing: 1/2/3 do nothing until resumed.

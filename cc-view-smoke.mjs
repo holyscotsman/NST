@@ -194,6 +194,9 @@ if (view) {
       !!view._peakMatNear && view._peakMatNear.fog === false
       && !!view._peakMatFar && view._peakMatFar.fog !== false
       && view._peakMatNear.color.value !== view._peakMatFar.color.value);
+    // (v0.117.0) the far ridge shares the near ridge's rock map (was flat color = "default gray")
+    ok("peaks: the far ridge wears the SAME rock map as the near ridge (no more default-gray range)",
+      !!view._peakMatNear.map && view._peakMatFar.map === view._peakMatNear.map);
     const src = fs.readFileSync("./cc.js", "utf8");
     ok("peaks: crag amplitude + height-segmented cones pinned at source (the no-op-jitter root cause)",
       /CRAG_AMT = 0\.42/.test(src) && /ConeGeometry\(r, h, 7, 4\)/.test(src) && /ConeGeometry\(rk, hk, 6, 3\)/.test(src));
@@ -206,8 +209,10 @@ if (view) {
   // (v0.105.0, C8/C3) mountains pass by (30 children forever, frozen under reduced motion)
   {
     const zs0 = view.peaks.children.map(m2 => m2.position.z);
-    sim.speed = sim.cfg.MAX_SPEED;
-    for (let f = 0; f < 90; f++) view.render(1 / 60);
+    // (v0.117.0) travel = the world DISTANCE advancing (sim.step), not raw render dt — the peaks
+    // now ride that clock, so the honest "pass by with travel" drive must step the sim.
+    sim.phase = "RUN"; sim.pending = null; sim.speed = sim.cfg.MAX_SPEED;
+    for (let f = 0; f < 90; f++) { sim.step(1 / 60); view.render(1 / 60); }
     const zs1 = view.peaks.children.map(m2 => m2.position.z);
     const moved = zs1.filter((z, i2) => z !== zs0[i2]).length;
     ok("C8: peaks drift +z with travel (" + moved + "/30 moved)", moved === 30 && view.peaks.children.length === 30);
@@ -268,6 +273,23 @@ if (view) {
     sim.player.ducking = false; sim.player.duckT = 0;
     for (let f = 0; f < 40; f++) view.render(1 / 60);
     ok("pitch releases when the duck ends", view.ship.rotation.x < 0.05);
+  }
+
+  // (v0.117.0, Jason) the pass-by mountains ride the world-distance clock, so they FREEZE the
+  // moment the world pauses for a question (distance stops advancing) and resume with it.
+  {
+    sim.phase = "RUN"; sim.pending = null;
+    const pk = view.peaks.children.find((m) => m.userData && m.userData.par);
+    for (let s = 0; s < 30; s++) sim.step(1 / 120);          // world advances
+    view.render(1 / 60);
+    const zRun = pk.position.z;
+    for (let f = 0; f < 12; f++) view.render(1 / 60);        // QUESTION: render, but do NOT step the sim
+    const zPaused = pk.position.z;
+    for (let s = 0; s < 30; s++) sim.step(1 / 120);          // resume the world
+    view.render(1 / 60);
+    const zResumed = pk.position.z;
+    ok("peaks: frozen while a question pauses the world, moving again on resume (distance clock)",
+      zPaused === zRun && zResumed !== zPaused);
   }
 
   let dispErr = null;
