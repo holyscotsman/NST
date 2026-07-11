@@ -754,6 +754,35 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     run.log.push('Salvage cache: +' + amt + ' coins');
     return amt;
   }
+  // (v0.133.0, V1.1 KBB#1) the unknown-stop EVENT DECK — each ? stop carries one pre-rolled
+  // event from the map rng (deterministic, checkpoint-safe). All appliers are log-honest.
+  function applyStopEvent(run, ev) {
+    if (!ev) return { note: '' };
+    if (ev.type === 'cache') { var g = claimCache(run, ev.coins); return { note: 'Salvage cache: <b>+' + g + '</b> coins' }; }
+    if (ev.type === 'supply') {
+      if (run.consumables.length < CONFIG.consumableCap) {
+        run.consumables.push(ev.cid);
+        run.log.push('Supply drop: ' + CONSUMABLES[ev.cid].name);
+        return { note: 'Supply drop: <b>' + CONSUMABLES[ev.cid].name + '</b> added to your hold' };
+      }
+      var g2 = claimCache(run, 10);
+      return { note: 'Hold full \u2014 the drop was scrapped for <b>+' + g2 + '</b> coins' };
+    }
+    if (ev.type === 'repair') {
+      var before = run.squad.hp;
+      run.squad.hp = Math.min(run.squad.maxHp, run.squad.hp + ev.heal);
+      var healed = run.squad.hp - before;
+      run.log.push('Field repair: +' + healed + ' HP');
+      return { note: 'Field repair: <b>+' + healed + '</b> HP' };
+    }
+    if (ev.type === 'gamble') {
+      if (ev.win) { var g3 = claimCache(run, ev.coins); return { note: 'Risky salvage paid off: <b>+' + g3 + '</b> coins' }; }
+      run.squad.hp = Math.max(1, run.squad.hp - ev.dmg);
+      run.log.push('Risky salvage backfired: -' + ev.dmg + ' HP');
+      return { note: 'It was rigged \u2014 <b>-' + ev.dmg + '</b> HP. Never lethal, always embarrassing.' };
+    }
+    return { note: '' };
+  }
 
   // ---- Run creation ----
   function createRun(ctx, opts) {
@@ -2423,7 +2452,14 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
         nodes.push({ id: 'r' + r + 'b', rank: r, type: boss ? 'boss' : 'battle' });
         if (!boss && r >= 2 && nx() < 0.45) nodes.push({ id: 'r' + r + 'e', rank: r, type: 'elite' });
         stops.push({ id: 'w' + r + 's', afterRank: r, type: 'shop', used: false });   // a shop stop after EVERY rank = today's cadence, node-shaped
-        if (nx() < 0.4) stops.push({ id: 'w' + r + 'u', afterRank: r, type: 'unknown', used: false, coins: 12 + Math.floor(nx() * 14) });
+        if (nx() < 0.4) {
+          var er = nx(), ev;                                     // (v0.133.0, KBB#1) pre-rolled event deck
+          if (er < 0.35) ev = { type: 'cache', coins: 12 + Math.floor(nx() * 14) };
+          else if (er < 0.65) ev = { type: 'supply', cid: CONSUMABLE_IDS[Math.floor(nx() * CONSUMABLE_IDS.length)] };
+          else if (er < 0.85) ev = { type: 'repair', heal: 6 + Math.floor(nx() * 5) };
+          else ev = { type: 'gamble', win: nx() < 0.5, coins: 30, dmg: 4 };
+          stops.push({ id: 'w' + r + 'u', afterRank: r, type: 'unknown', used: false, ev: ev });
+        }
       }
       return { section: run.section, nodes: nodes, stops: stops, taken: {} };
     }
@@ -2529,7 +2565,12 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
           b3.onclick = function () {
             if (st.used) return;
             if (st.type === 'shop') { st.used = true; s.mapShop = true; renderMain(s); }
-            else { st.used = true; var got = claimCache(s.run, st.coins); s.mapNote = 'Salvage cache: <b>+' + got + '</b> coins'; renderCoins(s); renderLog(s); renderMain(s); }
+            else {
+              st.used = true;
+              var res = applyStopEvent(s.run, st.ev || (st.coins != null ? { type: 'cache', coins: st.coins } : null));   // legacy saved maps carry bare coins
+              s.mapNote = res.note;
+              renderCoins(s); renderSquad(s); renderArtifacts(s); renderLog(s); renderMain(s);
+            }
           };
           area.appendChild(b3);
         })(corr2[si]);

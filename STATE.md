@@ -103,7 +103,7 @@
 
 ## V1.1 IN PROGRESS — wave 1 (top item per area)
 
-Working VERSION_1_1.md as gated units. DONE: Menu#1 Continue (v0.128.0); NIT#1 bank lint (v0.129.0, 17 suites); Backend#1 save safety net (v0.130.0); ARM#1 lost-core pool (v0.131.0); CC#2 turns-you-can-see — TURN_KM 34, boost re-anchor, canyon-bend yaw (v0.132.0). NEXT: KBB#1 event deck, Flow#1 debrief, FE#1 focus.
+Working VERSION_1_1.md as gated units. DONE: Menu#1 Continue (v0.128.0); NIT#1 bank lint (v0.129.0); Backend#1 save net (v0.130.0); ARM#1 lost-core pool (v0.131.0); CC#2 turns (v0.132.0); KBB#1 event deck (v0.133.0). NEXT: Flow#1 post-sortie debrief, FE#1 keyboard focus.
 NEXT: NIT#1 bank lint, Backend#1 save safety net, ARM#1 lost-core pool, CC#2 turns, KBB#1
 event deck, Flow#1 debrief, FE#1 focus.
 

@@ -561,7 +561,7 @@ function newWindow() {
     st2.run.phase = 'shop'; W2.KBB._test.buildShop(st2.run);
     var c2 = W2.doc.querySelector('.kbb-cont:not(.kbb-submit)'); if (c2) { c2.click(); W2.step(1); }
     var m2 = W2.KBB._test.state().run.map;
-    return { win: W2, map: m2 ? JSON.parse(JSON.stringify({ nodes: m2.nodes, stops: m2.stops.map(function (s3) { return { id: s3.id, afterRank: s3.afterRank, type: s3.type, coins: s3.coins }; }) })) : null };
+    return { win: W2, map: m2 ? JSON.parse(JSON.stringify({ nodes: m2.nodes, stops: m2.stops.map(function (s3) { return { id: s3.id, afterRank: s3.afterRank, type: s3.type, ev: s3.ev || null }; }) })) : null };
   }
   var g1 = mapOf(4242), g2 = mapOf(4242), g3 = mapOf(9191);
   ok(!!g1.map && JSON.stringify(g1.map) === JSON.stringify(g2.map),
@@ -581,6 +581,34 @@ function newWindow() {
   var coins2 = W4.KBB._test.state().run.squad.coins;
   ok(!!unk && coins1 === coins0 + 20 && coins2 === coins1 && (!unk2 || unk2.disabled),
      'D6: an unknown stop pays its salvage cache exactly once (' + coins0 + ' → ' + coins1 + ' → ' + coins2 + ')');
+  // ============ (v0.133.0, V1.1 KBB#1) the event deck ============
+  {
+    var st5 = W4.KBB._test.state();
+    function driveStop(ev, id5) {
+      st5.run.map.stops.push({ id: id5, afterRank: st5.run.round, type: 'unknown', used: false, ev: ev });
+      var sel5 = doc4.querySelector('.kbb-mapnode.pick'); if (sel5) { sel5.click(); W4.step(1); }
+      var node5 = doc4.querySelector('.kbb-mapnode[data-node="' + id5 + '"]');
+      if (node5) { node5.click(); W4.step(1); }
+      return !!node5;
+    }
+    var consB = st5.run.consumables.length;
+    ok(driveStop({ type: 'supply', cid: 'repair' }, 'wS1') && st5.run.consumables.length === consB + 1,
+       'KBB#1: a supply-drop stop grants a consumable');
+    st5.run.squad.hp = Math.max(1, st5.run.squad.hp - 8);
+    var hpLow = st5.run.squad.hp;
+    ok(driveStop({ type: 'repair', heal: 6 }, 'wS2') && st5.run.squad.hp === Math.min(st5.run.squad.maxHp, hpLow + 6),
+       'KBB#1: a field-repair stop heals (capped at maxHp)');
+    var coinG = st5.run.squad.coins;
+    ok(driveStop({ type: 'gamble', win: true, coins: 30, dmg: 4 }, 'wS3') && st5.run.squad.coins === coinG + 30,
+       'KBB#1: a winning gamble pays out');
+    var hpG = st5.run.squad.hp;
+    ok(driveStop({ type: 'gamble', win: false, coins: 30, dmg: 4 }, 'wS4') && st5.run.squad.hp === Math.max(1, hpG - 4),
+       'KBB#1: a losing gamble bites, never lethal');
+    var evTypes = (g1.map.stops || []).map(function (s6) { return s6.ev && s6.ev.type; }).join(',');
+    var evTypes2 = (g2.map.stops || []).map(function (s6) { return s6.ev && s6.ev.type; }).join(',');
+    ok(evTypes === evTypes2 && /cache|supply|repair|gamble/.test(evTypes),
+       'KBB#1: the event deck is pre-rolled deterministically per seed (' + evTypes + ')');
+  }
 })();
 
 H.summary('KBB RUN');

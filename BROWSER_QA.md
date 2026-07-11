@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-KBB-EVENTS — the ? stop deck (added v0.133.0).** Visit several ? stops across KBB runs:
+  outcomes should vary — coin caches, supply drops (consumable appears in the left card), field
+  repairs (+HP), and the occasional gamble that pays +30 or stings -4 HP. The map note narrates
+  each. WRONG: every ? paying coins, a supply drop with a full hold losing value silently, or a
+  gamble killing you.
+
 - **QA-CC-TURN — corners you can see (added v0.132.0).** Fly CC ~30-40 km (skip/expire the
   gates): a MOVE LEFT/RIGHT warning should arrive with the canyon visibly bending toward the
   corner (camera leans, the end wall slides); be in the matching lane or clip. Corners should now
