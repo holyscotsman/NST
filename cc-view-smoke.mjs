@@ -319,6 +319,27 @@ if (view) {
       tEarly === view._tickN && tMid > 0 && tMid < tEarly && tLate === 0);
   }
 
+  // (v0.132.0, V1.1 CC#2) the canyon bends toward an armed corner: camera yaw eases toward
+  // the turn side during the warning; reduced motion keeps it flat.
+  {
+    sim.phase = "RUN"; sim.pending = null;
+    sim.turnPending = { dir: "right", atScore: sim.scoreDistance + 100 };   // deep in the warning window
+    for (let f = 0; f < 40; f++) view.applySpeedCamera(sim.speed, true, 0, 1 / 60);
+    const yawR = view._camYaw;
+    sim.turnPending = { dir: "left", atScore: sim.scoreDistance + 100 };
+    for (let f = 0; f < 60; f++) view.applySpeedCamera(sim.speed, true, 0, 1 / 60);
+    const yawL = view._camYaw;
+    sim.turnPending = null;
+    for (let f = 0; f < 90; f++) view.applySpeedCamera(sim.speed, true, 0, 1 / 60);
+    ok("CC#2: camera yaw leans right for a right corner, left for left, and re-centers after",
+      yawR > 0.5 && yawL < -0.5 && Math.abs(view._camYaw) < 0.1);
+    const savedRM = view.reducedMotion; view.reducedMotion = true;
+    sim.turnPending = { dir: "right", atScore: sim.scoreDistance + 100 };
+    for (let f = 0; f < 40; f++) view.applySpeedCamera(sim.speed, true, 0, 1 / 60);
+    ok("CC#2: reduced motion keeps the camera flat through a warning", Math.abs(view._camYaw) < 0.15);
+    sim.turnPending = null; view.reducedMotion = savedRM;
+  }
+
   let dispErr = null;
   try { view.dispose(); } catch (e) { dispErr = e; }
   ok("dispose runs clean (frees disposables, nulls scene/camera/renderer)", !dispErr);

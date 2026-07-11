@@ -78,7 +78,7 @@
     // stays dodgeable (literal 500 m/s collision speed would be unreactable). A question gate lands every
     // GATE_KM of scored distance; coins are removed (score is distance only).
     SCORE_SPEED: 500,          // dramatized metres/second the HUD shows + the rate scored distance accrues
-    TURN_KM: 250,              // (v0.104.0, C4) a 90° turn every N scored km; matching lane or you clip the wall
+    TURN_KM: 34,               // (v0.132.0, V1.1 CC#2) a 90° turn every N scored km — was 250, which the 100-per-120km boost cadence skipped ~5/6 of; 34 + the 5km offset provably never lands on the ≡4-mod-10 gate grid
     TURN_WARN_S: 4,            // seconds of MOVE LEFT/RIGHT warning before the turn hits
     GATE_KM: 10,               // a question gate every 10 km of scored distance
     FIRST_GATE_KM: 4,          // (v0.126.0, Jason playtest) the FIRST gate lands at 4 km — hook the learning loop before 10 km
@@ -359,6 +359,11 @@
       }
       this.iframe = Math.max(this.iframe, 1.0);      // hand control back gently — no instant faceplant
       this._nextGateScore = (Math.floor(this.scoreDistance / (cfg.GATE_KM * 1000)) + 1) * (cfg.GATE_KM * 1000);   // (v0.108.0, G4) SNAP to the 10-km grid — drift was letting gates land inside turn warnings
+      // (v0.132.0, V1.1 CC#2) corners re-anchor the same way — the next turn lands on the turn
+      // grid in the post-boost window, with at least two full warning windows of runway
+      var t1000 = cfg.TURN_KM * 1000;
+      this._nextTurnScore = (Math.floor((this.scoreDistance - 5000) / t1000) + 1) * t1000 + 5000;
+      if (this._nextTurnScore - this.scoreDistance < cfg.SCORE_SPEED * cfg.TURN_WARN_S * 2) this._nextTurnScore += t1000;
     }
 
     // player lane tween (linear from the lane being left to the target)
@@ -933,7 +938,7 @@
     // velocity-driven ship bank, eased duck, landing squash/dip. All view-only.
     this._camFX = 0;        // camera x, easing toward a fraction of the player's x
     this._camPX = 0; this._camLatV = 0;   // player-x history + smoothed lateral velocity (camera roll)
-    this._shipPX = 0; this._bank = 0; this._rollT = 0; this._rollDir = 1; this._turnKickT = 0; this._turnKickDir = 1; this._turnSeen = undefined;   // (v0.104.0, C10/C4)     // ship bank from smoothed lateral velocity
+    this._shipPX = 0; this._bank = 0; this._rollT = 0; this._rollDir = 1; this._turnKickT = 0; this._turnKickDir = 1; this._turnSeen = undefined; this._camYaw = 0;   // (v0.104.0, C10/C4; v0.132.0 CC#2 _camYaw)     // ship bank from smoothed lateral velocity
     this._duckF = 0;                      // eased 0..1 duck factor
     this._wasJump = false; this._landT = 0; this._landDip = 0;   // landing squash + camera dip
 
@@ -1528,9 +1533,20 @@
     }
     var roll = this.reducedMotion ? 0 : Math.max(-0.05, Math.min(0.05, -this._camLatV * 0.006));
     var dip = this.reducedMotion ? 0 : this._landDip;
+    // (v0.132.0, V1.1 CC#2) the canyon reads as BENDING toward an armed corner: during the
+    // warning window the camera look-target eases toward the turn side (and the end-cap slides
+    // with it), so MOVE LEFT/RIGHT has a visual cause. Reduced motion: no yaw (banner + HUD carry it).
+    var yawT = 0, tp = this.sim.turnPending;
+    if (tp && !this.reducedMotion) {
+      var winS = this.sim.cfg.SCORE_SPEED * this.sim.cfg.TURN_WARN_S;
+      var kY = 1 - Math.max(0, Math.min(1, (tp.atScore - this.sim.scoreDistance) / Math.max(winS, 1)));
+      yawT = (tp.dir === 'right' ? 1 : -1) * kY * 2.6;
+    }
+    this._camYaw += (yawT - this._camYaw) * Math.min(1, (dt || 0.016) * 5);
+    if (this._endCap && this._endCap.position) this._endCap.position.x = this._camYaw * 6;
     var P = CAM.chasePos, K = CAM.chaseLook;
     if (cam.position && cam.position.set) cam.position.set(P[0] + sx + this._camFX, P[1] + sy - dip, P[2]);
-    if (cam.lookAt) cam.lookAt(K[0] + this._camFX * 0.65, K[1] + sy * 0.5 - dip * 0.5, K[2]);
+    if (cam.lookAt) cam.lookAt(K[0] + this._camFX * 0.65 + this._camYaw, K[1] + sy * 0.5 - dip * 0.5, K[2]);
     if (cam.rotation && typeof cam.rotation.z === 'number') cam.rotation.z += roll;   // small view-space roll after lookAt
   };
   CCView.prototype.render = function (dt) {

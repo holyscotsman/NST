@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CC-TURN — corners you can see (added v0.132.0).** Fly CC ~30-40 km (skip/expire the
+  gates): a MOVE LEFT/RIGHT warning should arrive with the canyon visibly bending toward the
+  corner (camera leans, the end wall slides); be in the matching lane or clip. Corners should now
+  appear regularly — including shortly after a boost ends, never DURING one, and never on a
+  question gate. Reduced motion: no camera lean, banner only. WRONG: 20 minutes with no corner.
+
 - **QA-ARM-POOL — recovered cores (added v0.131.0).** Lose a core in ARM (fail a scan), finish
   the sector, fly the next one: one core should wear a gold dashed halo — that's your missed
   question coming back. Confirm the halo reads as "recovered", not as an error. WRONG: no halo,

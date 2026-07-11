@@ -54,11 +54,16 @@ function runToQuestion(sim, maxSecs, pinShields) {
      'every row is jumpable on reaction at max speed (' + CFG.MIN_GAP + ' >= ' + (CFG.MAX_SPEED * CFG.JUMP_TIME).toFixed(1) + ')');
 })();
 
-/* ============ C4 (v0.104.0): 90° turns every 250 km ============ */
+/* ============ C4 (v0.104.0 / v0.132.0 CC#2): 90° turns players actually SEE ============ */
 (function turns() {
   group('C4: turn warning, lane check, wall clip on miss');
   var sim = mkSim(SEED + 81), dt = 1 / 60;
-  ok(CFG.TURN_KM === 250, 'turns every 250 km (TURN_KM)');
+  ok(CFG.TURN_KM <= 40 && CFG.TURN_KM >= 25, 'CC#2: turns land every ' + CFG.TURN_KM + ' km — inside a normal session, not once per 250 km');
+  {  // the +5km-offset turn grid provably never collides with the ≡4-mod-10 gate grid
+    var clash = false;
+    for (var tw = 1; tw <= 12; tw++) { var ts = 5000 + tw * CFG.TURN_KM * 1000; if ((ts - CFG.FIRST_GATE_KM * 1000) % (CFG.GATE_KM * 1000) === 0 || ts % (CFG.GATE_KM * 1000) === 0) { clash = true; break; } }
+    ok(!clash, 'CC#2: no turn score collides with a gate score across 12 windows');
+  }
   // fast-forward to just before the first warning
   sim.scoreDistance = CFG.TURN_KM * 1000 + 5000 - CFG.SCORE_SPEED * CFG.TURN_WARN_S - 50;
   sim._nextGateScore = sim.scoreDistance + 20000;   // teleported score: skip the gate catch-up storm
@@ -74,7 +79,17 @@ function runToQuestion(sim, maxSecs, pinShields) {
   var turnEvts = sim.ctx._rec.telemetry.filter(function (e) { return e.t === 'turn'; });
   ok(!sim.turnPending && sim.turnMade === false && turnEvts.length === 1 && turnEvts[0].made === false && sim.phase === 'RUN',
      'missing the corner clips the wall (telemetry made:false), run continues');
-  ok(sim._nextTurnScore >= CFG.TURN_KM * 1000 * 2 + 5000, 'next turn armed at +250 km (5 km off the gate grid; boost may autopilot past)');
+  ok(sim._nextTurnScore >= CFG.TURN_KM * 1000 * 2 + 5000, 'next turn armed a full window out (5 km off the gate grid)');
+  // (v0.132.0, CC#2) boost end re-anchors the next corner onto the turn grid with real runway
+  {
+    var sB = mkSim(SEED + 41);
+    sB.phase = 'RUN'; sB.shields = 99;
+    sB.boostActive = true; sB._boostTargetScore = 137000; sB.scoreDistance = 137100;   // boost overruns several turn windows
+    sB.step(1 / 60);
+    var t1k = CFG.TURN_KM * 1000, offOK = (sB._nextTurnScore - 5000) % t1k === 0;
+    ok(!sB.boostActive && offOK && sB._nextTurnScore > sB.scoreDistance + CFG.SCORE_SPEED * CFG.TURN_WARN_S * 2,
+       'CC#2: boost end re-anchors the next turn on the grid with >= 2 warning windows of runway');
+  }
   // second turn: made properly (settle any boost FIRST — boost autopilots corners)
   for (var tb = 0; tb < 60 * 12 && sim.boostActive; tb++) { sim.shields = 5; sim.step(dt); if (sim.phase === 'QUESTION') { sim.answer(0); sim.resumeAfterQuestion(); } }
   sim.scoreDistance = sim._nextTurnScore - CFG.SCORE_SPEED * CFG.TURN_WARN_S - 50;
