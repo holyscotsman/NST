@@ -101,7 +101,14 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.126.0 — Playtest improvements: Codex nav + CC first-gate/timer (Jason)
+## v0.127.0 — KBB: artifact cards in the hand, move buttons by the ships (Jason)
+
+The fanned bottom cards now display the artifact collection (5 slots, filled = full card with
+category/rarity colors); Attack/Brace/Repair are compact buttons atop the played card. Left
+column keeps squad + coins + a consumables card (when owned). Same .kbb-action contract; engine
+untouched. Browser-verified incl. resume re-equip rendering into the fan.
+
+> **Earlier this session (v0.126.0):** ## Playtest improvements: Codex nav + CC first-gate/timer (Jason)
 
 From the live in-browser playtest: Codex/Progress gets a sticky top back + Escape-to-menu; CC's
 first question gate moves to 4 km (then 10 km cadence); CC question timer ×1.5. Fixed a

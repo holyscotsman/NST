@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-KBB-SWAP — artifact cards + move buttons (added v0.127.0; browser-VERIFIED).** KBB battle:
+  the bottom fan is now the artifact collection (5 card slots — filled perks as cards with rarity
+  footers, empties dashed), and Attack / Brace +N / Repair +N are compact buttons at the top of the
+  question card, right under the ships. Selecting a move highlights it and re-frames the stake line.
+  Consumables appear as a small left-column card when owned. WRONG: moves still fanned at the bottom,
+  artifacts back in a left panel, or fewer than 5 card slots in the hand.
+
 - **QA-IMPROVE — playtest fixes (added v0.126.0; browser-VERIFIED).** Codex/Progress: a sticky
   "← Menu" is at the top and Escape returns to the menu (no scrolling to the bottom to leave). CC:
   the first question gate arrives at ~4 km (not 10), and the gate-question timer is ~1.5× longer.

@@ -859,7 +859,6 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-pltext .lg .dt{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:middle;}');
     css.push('.kbb-pltext .lg b{color:#fff;}');
     css.push('.kbb-pltext .st{font-size:12px;color:' + P.dim + ';margin-top:3px;}.kbb-pltext .st b{color:#fff;}');
-    css.push('.kbb-arts-card{flex:1 1 auto;min-height:0;overflow:auto;}');
     css.push('.kbb-coins{flex:none;margin-top:auto;background:rgba(13,13,24,.62);border:1px solid ' + P.border + ';border-radius:12px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;}');
     css.push('.kbb-coins .v{color:' + P.gold + ';font-size:20px;font-weight:800;}');
     css.push('.kbb-ring{flex:none;}.kbb-ring-pl{width:104px;height:104px;}.kbb-ring-en{width:84px;height:84px;}');
@@ -869,28 +868,25 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-ring .rt{fill:' + P.text + ';font-size:22px;font-weight:800;text-anchor:middle;font-family:Montserrat,Arial,sans-serif;}');
     css.push('.kbb-ring .rt.sm{font-size:18px;}.kbb-ring .rt.tiny{font-size:10px;font-weight:600;fill:' + P.dim + ';}');
     css.push('.kbb-actions{display:flex;gap:8px;margin:0 0 10px;}');
-    css.push('.kbb-action{position:relative;width:140px;height:148px;flex:none;background:linear-gradient(#191926,#101018);border:1.5px solid ' + P.border + ';border-radius:12px;padding:8px 10px;color:' + P.dim + ';font-family:inherit;cursor:pointer;transition:transform .14s,border-color .14s,box-shadow .14s;transform-origin:50% 100%;display:flex;flex-direction:column;align-items:center;gap:4px;}');
-    css.push('.kbb-action.t-pe{background:linear-gradient(#231627,#160e18);}');
-    css.push('.kbb-action.t-ir{background:linear-gradient(#1a1630,#110e1e);}');
-    css.push('.kbb-action.t-ma{background:linear-gradient(#182310,#0d1408);}');
-    css.push('.kbb-action.c0{transform:rotate(-7deg) translateY(7px);}');
-    css.push('.kbb-action.c2{transform:rotate(7deg) translateY(7px);}');
-    css.push('.kbb-root:not(.kbb-reduced) .kbb-action:hover{transform:translateY(-8px);z-index:2;}');
-    css.push('.kbb-root:not(.kbb-reduced) .kbb-action.c0:hover{transform:rotate(-7deg) translateY(-6px);}');
-    css.push('.kbb-root:not(.kbb-reduced) .kbb-action.c2:hover{transform:rotate(7deg) translateY(-6px);}');
-    css.push('.kbb-action.on{border-color:' + P.aqua + ';color:' + P.text + ';box-shadow:0 0 18px rgba(31,221,233,.25);transform:translateY(-10px);}');
-    css.push('.kbb-action.c0.on{transform:rotate(-7deg) translateY(-9px);}');
-    css.push('.kbb-action.c2.on{transform:rotate(7deg) translateY(-9px);}');
-    css.push('.kbb-action[data-act=brace].on{border-color:' + P.iris300 + ';box-shadow:0 0 18px rgba(120,85,250,.3);}');
-    css.push('.kbb-action[data-act=repair].on{border-color:' + P.mantis + ';box-shadow:0 0 18px rgba(146,221,35,.25);}');
-    css.push('.kbb-reduced .kbb-action{transition:none;}');
-    css.push('.kbb-action .cc{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:6px;border:1px solid ' + P.aqua + ';color:' + P.aqua + ';font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;background:rgba(31,221,233,.08);}');
-    css.push('.kbb-action .cn{font-weight:800;font-size:12px;color:' + P.text + ';margin-top:2px;}');
-    css.push('.kbb-action .ci{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;background:rgba(255,255,255,.05);flex:none;}');
-    css.push('.kbb-action.t-pe .ci{background:rgba(255,107,91,.14);}.kbb-action.t-ir .ci{background:rgba(120,85,250,.16);}.kbb-action.t-ma .ci{background:rgba(146,221,35,.12);}');
-    css.push('.kbb-action .ce{font-weight:600;font-size:9.5px;line-height:1.4;color:' + P.mid + ';text-align:center;}');
-    css.push('.kbb-action .ce b{color:' + P.gold + ';}');
-    css.push('.kbb-action .cf{margin-top:auto;font-weight:800;font-size:8px;letter-spacing:.14em;color:' + P.dim + ';}');
+    css.push('.kbb-action{flex:1;background:rgba(255,255,255,.05);border:1.5px solid ' + P.border + ';border-radius:10px;padding:9px 6px;color:' + P.dim + ';font:700 12.5px Montserrat,Arial,sans-serif;cursor:pointer;transition:border-color .12s,color .12s;}');
+    css.push('.kbb-action.on{border-color:' + P.aqua + ';color:' + P.text + ';background:rgba(31,221,233,.10);}');
+    css.push('.kbb-action[data-act=brace].on{border-color:' + P.iris300 + ';background:rgba(120,85,250,.14);}');
+    css.push('.kbb-action[data-act=repair].on{border-color:' + P.mantis + ';background:rgba(146,221,35,.10);}');
+    css.push('.kbb-actions.spent .kbb-action{opacity:.45;pointer-events:none;}');
+    // (v0.127.0, Jason) the hand's fanned cards = the ARTIFACT collection
+    css.push('.kbb-acard{position:relative;width:118px;height:150px;flex:none;background:linear-gradient(#191926,#101018);border:1.5px solid ' + P.border + ';border-radius:12px;padding:10px 9px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;transform-origin:50% 100%;transition:transform .14s;}');
+    css.push('.kbb-acard.a0{transform:rotate(-8deg) translateY(9px);}.kbb-acard.a1{transform:rotate(-4deg) translateY(3px);}.kbb-acard.a3{transform:rotate(4deg) translateY(3px);}.kbb-acard.a4{transform:rotate(8deg) translateY(9px);}');
+    css.push('.kbb-root:not(.kbb-reduced) .kbb-acard:hover{transform:translateY(-10px);z-index:2;}');
+    css.push('.kbb-root:not(.kbb-reduced) .kbb-acard.a0:hover{transform:rotate(-8deg) translateY(-8px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a1:hover{transform:rotate(-4deg) translateY(-9px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a3:hover{transform:rotate(4deg) translateY(-9px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a4:hover{transform:rotate(8deg) translateY(-8px);}');
+    css.push('.kbb-reduced .kbb-acard{transition:none;}');
+    css.push('.kbb-acard .an{font-weight:800;font-size:10.5px;color:' + P.text + ';text-align:center;line-height:1.15;}');
+    css.push('.kbb-acard .ai{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;}');
+    css.push('.kbb-acard .ad{font-weight:600;font-size:8.5px;line-height:1.35;color:' + P.mid + ';text-align:center;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;}');
+    css.push('.kbb-acard .af{margin-top:auto;font-weight:800;font-size:7.5px;letter-spacing:.12em;padding:2px 6px;border-radius:5px;}');
+    css.push('.kbb-acard.empty{border-style:dashed;background:none;justify-content:center;}');
+    css.push('.kbb-acard.empty .ae{font-weight:800;font-size:11px;letter-spacing:.08em;color:' + P.dim + ';text-transform:uppercase;}');
+    css.push('.kbb-acard.empty .ae2{font-size:9px;color:' + P.dim + ';}');
+    css.push('.kbb-consum{flex:none;}');
     css.push('.kbb-combat{grid-area:stage;position:relative;min-width:0;min-height:0;border:1px solid ' + P.border + ';border-radius:12px;overflow:hidden;background:#06060c;}');
     css.push('.kbb-combat.is-cine{position:absolute;inset:0;z-index:40;border-radius:0;border:none;width:auto;height:auto;grid-column:1 / -1;grid-row:1 / -1;}');   // (P2·3, PLAYTEST A6) abs-pos GRID items resolve inset against their grid AREA — span the whole grid so the cinematic truly goes full-bleed instead of floating over a blank battle panel
     css.push('.kbb-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:transparent;}');
@@ -1108,7 +1104,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     // (v0.85.0, B4) phone stack: the QUESTION panel sits directly under the combat view (no
     // per-turn scrolling past artifacts/enemy), and shop actions stay sticky at the viewport
     // bottom. CSS order diverges from DOM order here by design — flagged in BROWSER_QA.
-    css.push('@media (max-width:820px){.kbb-root{display:flex;flex-direction:column;height:auto;min-height:100%;overflow:auto;}.kbb-top{align-self:center;order:0;}.kbb-combat{height:250px;flex:none;order:1;}.kbb-combat.is-cine{height:auto;}.kbb-main{overflow:visible;order:2;width:auto;max-height:none;align-self:stretch;margin:0;}.kbb-hand{order:3;flex-wrap:wrap;justify-content:center;min-height:0;padding-top:24px;}.kbb-enemy{align-self:stretch;order:4;width:auto;margin:0;}.kbb-leftcol{min-height:0;order:5;width:auto;max-height:none;margin:0;}.kbb-arts-card{flex:none;overflow:visible;}.kbb-main.is-shop{display:block;overflow:visible;width:auto;}.kbb-shop-scroll{overflow:visible;}.kbb-shop-actions{position:sticky;bottom:0;background:rgba(20,20,29,.96);z-index:4;padding-bottom:8px;}}');
+    css.push('@media (max-width:820px){.kbb-root{display:flex;flex-direction:column;height:auto;min-height:100%;overflow:auto;}.kbb-top{align-self:center;order:0;}.kbb-combat{height:250px;flex:none;order:1;}.kbb-combat.is-cine{height:auto;}.kbb-main{overflow:visible;order:2;width:auto;max-height:none;align-self:stretch;margin:0;}.kbb-hand{order:3;flex-wrap:wrap;justify-content:center;min-height:0;padding-top:24px;}.kbb-enemy{align-self:stretch;order:4;width:auto;margin:0;}.kbb-leftcol{min-height:0;order:5;width:auto;max-height:none;margin:0;}.kbb-consum{flex:none;overflow:visible;}.kbb-main.is-shop{display:block;overflow:visible;width:auto;}.kbb-shop-scroll{overflow:visible;}.kbb-shop-actions{position:sticky;bottom:0;background:rgba(20,20,29,.96);z-index:4;padding-bottom:8px;}}');
     st.textContent = css.join('');
     (doc.head || doc.documentElement).appendChild(st);
   }
@@ -1214,9 +1210,11 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
           }
         } catch (eSq) {}
       })();
-      s.artPanel = el(doc, 'div', 'kbb-panel kbb-arts-card');
+      // (v0.127.0, Jason) artifacts moved into the HAND as cards; the left column keeps a
+      // small consumables card (hidden until you own one) + coins.
+      s.consumEl = el(doc, 'div', 'kbb-panel kbb-consum'); s.consumEl.style.display = 'none';
       s.coinPanel = el(doc, 'div', 'kbb-coins');
-      s.leftCol.appendChild(s.squadPanel); s.leftCol.appendChild(s.artPanel); s.leftCol.appendChild(s.coinPanel);
+      s.leftCol.appendChild(s.squadPanel); s.leftCol.appendChild(s.consumEl); s.leftCol.appendChild(s.coinPanel);
 
       s.enemyPanel = el(doc, 'div', 'kbb-enemy'); container.appendChild(s.enemyPanel);       // BLUE
       s.enemyPanel.innerHTML =
@@ -2070,38 +2068,49 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       if (s.pillSh) s.pillSh.innerHTML = '\u26E8 <b>' + sq.shield + '</b>';
     }
 
+    // (v0.127.0, Jason) the fanned cards at the bottom ARE the artifact collection now —
+    // always maxArtifacts card slots (filled = the perk as a card, empty = a dashed invite).
+    // JB2's always-render-slots rule carries over from the old left panel.
     function renderArtifacts(s) {
-      var p = s.artPanel; p.textContent = '';
       var sq = s.run.squad;
-      p.appendChild(el(s.doc, 'div', 'kbb-eyebrow', 'Artifacts \u00b7 ' + sq.artifacts.length + '/' + CONFIG.maxArtifacts));
-      // (v0.78.0, JB2) always render maxArtifacts SLOTS: filled = full card, empty = invite
-      var arts = s.doc.createElement('div'); arts.className = 'kbb-arts kbb-slots';
-      for (var i = 0; i < CONFIG.maxArtifacts; i++) {
-        var slot = s.doc.createElement('div');
-        var a = sq.artifacts[i];
-        if (a) {
-          slot.className = 'kbb-slot';
-          slot.style.borderLeftColor = CAT_COLOR[a.def.category] || PALETTE.iris;
-          slot.innerHTML = '<div class="nm"><span class="sw" style="width:8px;height:14px;border-radius:3px;flex:none;background:' + (CAT_COLOR[a.def.category] || PALETTE.iris) + '"></span>' + a.def.name + '<span class="rar kbb-rar-' + a.def.rarity + '">' + a.def.rarity + '</span></div><div class="desc">' + a.def.description + '</div>';
-        } else {
-          slot.className = 'kbb-slot empty';
-          slot.textContent = 'Slot ' + (i + 1) + ' \u2014 empty';
+      if (s.handArts) {
+        s.handArts.textContent = '';
+        for (var i = 0; i < CONFIG.maxArtifacts; i++) {
+          var a = sq.artifacts[i];
+          var card = s.doc.createElement('div');
+          if (a) {
+            var cc2 = CAT_COLOR[a.def.category] || PALETTE.iris;
+            card.className = 'kbb-acard a' + i;
+            card.style.borderColor = cc2;
+            card.title = a.def.name + ' \u2014 ' + a.def.description;
+            card.innerHTML = '<span class="an">' + a.def.name + '</span>' +
+              '<span class="ai" style="color:' + cc2 + ';background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px ' + cc2 + '">\u27F3</span>' +
+              '<span class="ad">' + a.def.description + '</span>' +
+              '<span class="af kbb-rar-' + a.def.rarity + '">ARTIFACT \u00b7 ' + a.def.rarity.toUpperCase() + '</span>';
+          } else {
+            card.className = 'kbb-acard empty a' + i;
+            card.innerHTML = '<span class="ae">Slot ' + (i + 1) + '</span><span class="ae2">empty</span>';
+          }
+          s.handArts.appendChild(card);
         }
-        arts.appendChild(slot);
       }
-      p.appendChild(arts);
-      if (s.run.consumables.length) {
-        var crow = s.doc.createElement('div'); crow.className = 'kbb-shoprow';
-        for (var ci2 = 0; ci2 < s.run.consumables.length; ci2++) {
-          (function (cid) {
-            var btn = s.doc.createElement('button'); btn.className = 'kbb-btn alt';
-            btn.textContent = 'Use ' + CONSUMABLES[cid].name;
-            btn.disabled = s.run.phase !== 'battle';
-            btn.onclick = function () { onUseConsumable(s, cid); };
-            crow.appendChild(btn);
-          })(s.run.consumables[ci2]);
-        }
-        p.appendChild(crow);
+      if (s.consumEl) {
+        s.consumEl.textContent = '';
+        if (s.run.consumables.length) {
+          s.consumEl.style.display = '';
+          s.consumEl.appendChild(el(s.doc, 'div', 'kbb-eyebrow', 'Consumables'));
+          var crow = s.doc.createElement('div'); crow.className = 'kbb-shoprow';
+          for (var ci2 = 0; ci2 < s.run.consumables.length; ci2++) {
+            (function (cid) {
+              var btn = s.doc.createElement('button'); btn.className = 'kbb-btn alt';
+              btn.textContent = 'Use ' + CONSUMABLES[cid].name;
+              btn.disabled = s.run.phase !== 'battle';
+              btn.onclick = function () { onUseConsumable(s, cid); };
+              crow.appendChild(btn);
+            })(s.run.consumables[ci2]);
+          }
+          s.consumEl.appendChild(crow);
+        } else { s.consumEl.style.display = 'none'; }
       }
     }
 
@@ -2147,54 +2156,26 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     // class, data-act, .on toggle, s.pendingAction — only the body moved out of the
     // question panel), an energy gem (1 play per turn — today's real rule), and the
     // turn piles (draw = window turns left, discard = turns spent; honest counts).
-    function actMeta(s) {
-      var sq = s.run.squad;
-      return [
-        { id: 'attack', ic: '\u2694', name: 'Attack', tint: 'pe', eff: 'Fire the volley for <b>' + sq.basePower + '</b>+ damage.', foot: 'ATTACK \u00b7 MOVE' },
-        { id: 'brace', ic: '\uD83D\uDEE1', name: 'Brace', tint: 'ir', eff: 'Raise <b>+' + sq.block + '</b> shield before the counter.', foot: 'BRACE \u00b7 MOVE' },
-        { id: 'repair', ic: '\u271A', name: 'Repair', tint: 'ma', eff: 'Patch the hull for <b>+' + sq.healPower + '</b> HP.', foot: 'REPAIR \u00b7 MOVE' }
-      ];
-    }
     function stakeLine(s, act) {
       var sq = s.run.squad;
       if (act === 'brace') return 'Answer correctly to raise <b>+' + sq.block + '</b> shield. Miss and the enemy strikes free.';
       if (act === 'repair') return 'Answer correctly to restore <b>+' + sq.healPower + '</b> HP. Miss and the enemy strikes free.';
       return 'Answer correctly to fire for <b>' + sq.basePower + '</b>+ damage. Miss and the volley fizzles.';
     }
-    function buildHand(s) {
+    function buildHand(s) {   // (v0.127.0, Jason) the hand fans the ARTIFACT collection; moves are buttons on the played card
       var h = s.hand; if (!h) return; h.textContent = '';
       var b = s.run.battle;
       var gem = el(s.doc, 'div', 'kbb-gem');
       gem.innerHTML = '<svg viewBox="0 0 60 66" aria-hidden="true"><polygon points="30,2 57,17 57,49 30,64 3,49 3,17" fill="none" stroke="' + PALETTE.aqua + '" stroke-width="2"/></svg><span class="gv">1/1</span><span class="gc">ENERGY</span>';
       s.gemVal = gem.querySelector('.gv');
       h.appendChild(gem);
-      var fan = el(s.doc, 'div', 'kbb-fan'); s.fanEl = fan;
-      var acts = actMeta(s);
-      s.pendingAction = 'attack';
-      for (var ai = 0; ai < acts.length; ai++) {
-        (function (a, i2) {
-          var ab = s.doc.createElement('button');
-          ab.className = 'kbb-action kbb-card c' + i2 + ' t-' + a.tint + (a.id === 'attack' ? ' on' : ''); ab.type = 'button';
-          ab.setAttribute('data-act', a.id);
-          ab.innerHTML = '<span class="cc">1</span><span class="cn">' + a.name + '</span><span class="ci">' + a.ic + '</span><span class="ce">' + a.eff + '</span><span class="cf">' + a.foot + '</span>';
-          ab.onclick = function () {
-            if (s.locked) return;
-            s.pendingAction = a.id;
-            var all = fan.querySelectorAll('.kbb-action');
-            for (var bi = 0; bi < all.length; bi++) all[bi].classList.toggle('on', all[bi].getAttribute('data-act') === a.id);
-            if (s.stakeEl) s.stakeEl.innerHTML = stakeLine(s, a.id);
-            if (s.playIc) s.playIc.textContent = a.ic;
-            if (s.playNm) s.playNm.textContent = a.name;
-          };
-          fan.appendChild(ab);
-        })(acts[ai], ai);
-      }
+      var fan = el(s.doc, 'div', 'kbb-fan'); s.handArts = fan;
       h.appendChild(fan);
       var side = el(s.doc, 'div', 'kbb-piles');
       var leftN = b ? Math.max(0, b.maxAttacks - b.attackIndex) : 0;
       side.innerHTML = '<div class="kbb-pile draw"><b>' + leftN + '</b><i>turns left</i></div><div class="kbb-pile disc"><b>' + (b ? b.attackIndex : 0) + '</b><i>spent</i></div>';
       h.appendChild(side);
-      h.appendChild(el(s.doc, 'div', 'kbb-act-hint', 'Correct fires your action \u00b7 Wrong = the enemy strikes free'));
+      renderArtifacts(s);   // fills the fan (and the consumables card) — buildHand just cleared it
     }
     function renderBattle(s, p) {
       if (s.enemyPanel && s.enemyPanel.classList) s.enemyPanel.classList.remove('kbb-en-strike');   // (v0.48.0) telegraph resets with the fresh question
@@ -2210,6 +2191,33 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       s.playIc = head.querySelector('.pic'); s.playNm = head.querySelector('.pnm'); s.playRs = head.querySelector('.prs');
       p.appendChild(head);
       var stake = el(s.doc, 'div', 'kbb-play-stake'); stake.innerHTML = stakeLine(s, 'attack'); s.stakeEl = stake; p.appendChild(stake);
+      // (v0.127.0, Jason) fire / block / heal as simple buttons right here, closest to the ships
+      var actRow = el(s.doc, 'div', 'kbb-actions'); s.actRowEl = actRow;
+      var acts = [
+        { id: 'attack', ic: '\u2694', name: 'Attack', label: '\u2694 Attack' },
+        { id: 'brace', ic: '\uD83D\uDEE1', name: 'Brace', label: '\uD83D\uDEE1 Brace +' + s.run.squad.block },
+        { id: 'repair', ic: '\u271A', name: 'Repair', label: '\u271A Repair +' + s.run.squad.healPower }
+      ];
+      s.pendingAction = 'attack';
+      for (var ai = 0; ai < acts.length; ai++) {
+        (function (a) {
+          var ab = s.doc.createElement('button');
+          ab.className = 'kbb-action' + (a.id === 'attack' ? ' on' : ''); ab.type = 'button'; ab.textContent = a.label;
+          ab.setAttribute('data-act', a.id);
+          ab.onclick = function () {
+            if (s.locked) return;
+            s.pendingAction = a.id;
+            var all = actRow.querySelectorAll('.kbb-action');
+            for (var bi = 0; bi < all.length; bi++) all[bi].classList.toggle('on', all[bi].getAttribute('data-act') === a.id);
+            if (s.stakeEl) s.stakeEl.innerHTML = stakeLine(s, a.id);
+            if (s.playIc) s.playIc.textContent = a.ic;
+            if (s.playNm) s.playNm.textContent = a.name;
+          };
+          actRow.appendChild(ab);
+        })(acts[ai]);
+      }
+      p.appendChild(actRow);
+      p.appendChild(el(s.doc, 'div', 'kbb-act-hint', 'Correct fires your action \u00b7 Wrong = the enemy strikes free'));
       p.appendChild(el(s.doc, 'div', 'kbb-stem', q.stem));
       if (q.image) p.appendChild(el(s.doc, 'div', 'kbb-exhibit-warn', '\u26A0 Exhibit question served in error \u2014 its image only renders in Study/Exam.'));   // (v0.91.0) loud leak guard
       var opts = s.doc.createElement('div'); opts.className = 'kbb-opts';
@@ -2253,7 +2261,7 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
       if (s.locked || s.run.phase !== 'battle') return;
       s.locked = true; hideTip(s);
       if (s.gemVal) s.gemVal.textContent = '0/1';                       // (v0.113.0, D5) the turn's one play is spent
-      if (s.fanEl && s.fanEl.classList) s.fanEl.classList.add('spent');
+      if (s.actRowEl && s.actRowEl.classList) s.actRowEl.classList.add('spent');   // (v0.127.0) the turn's play dims the move row
       if (s.playRs) s.playRs.textContent = 'RESOLVING\u2026';
       if (s.submitEl) s.submitEl.disabled = true;
       var q = s.run.battle.question;
@@ -2662,9 +2670,9 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
         { ref: 'leftCol',    t: 'Your squad',        pos: 'bottom', x: 'Your fleet. The ring shows hull HP (inner) and shield (outer) \u2014 if HP hits zero, the run ends.' },
         { ref: 'enemyPanel', t: 'The enemy',         pos: 'bottom', x: 'The BCM you\u2019re fighting. Its ring is its HP, and its incoming attack is flagged here so you can brace for it.' },
         { ref: 'combat',     t: 'Battle arena',      pos: 'bottom', x: 'The fight plays out here \u2014 your hits and the enemy\u2019s strikes animate in this view.' },
-        { ref: 'mainPanel',  t: 'Questions & shop',  pos: 'top',    x: 'The panel that drives the game: answer the exam question to attack, and spend coins in the shop between battles.' },
-        { ref: 'hand',       t: 'Your hand',         pos: 'top',    x: 'Your three moves fan out here \u2014 pick Attack, Brace, or Repair, then answer to fire it. The gem is your one play per turn.' },
-        { ref: 'artPanel',   t: 'Artifacts & coins', pos: 'bottom', x: 'Artifacts are permanent perks you\u2019ve earned; your coins (just below) buy more in the shop.' },
+        { ref: 'mainPanel',  t: 'Questions & moves', pos: 'top',    x: 'The panel that drives the game: pick Attack, Brace, or Repair up top, answer the question to fire it, and spend coins in the shop between battles.' },
+        { ref: 'hand',       t: 'Your artifacts',    pos: 'top',    x: 'Your permanent perks fan out here as cards \u2014 win battles and spend coins in the shop to fill the five slots. The gem is your one play per turn.' },
+        { ref: 'coinPanel',  t: 'Coins & supplies',  pos: 'bottom', x: 'Coins buy artifacts and consumables in the shop; any consumables you own appear just above, ready to use.' },
         { ref: 'topBar',     t: 'Depth & best',      pos: 'bottom', x: 'How deep into the belt you are, and your best depth so far. Your score is the depth you reach.' }
       ];
       var steps = ZONES.length + 1, i = 0, spot = null;

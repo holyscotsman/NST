@@ -661,7 +661,7 @@ async function runFrames(n = 6) {
   ok("battle question sits in the question cell (.kbb-main, YELLOW zone)", !!w.document.querySelector(".kbb-main") && w.document.querySelectorAll(".kbb-opt").length > 0);
   ok("player health rings present (green HP + blue shield)", !!w.document.querySelector(".kbb-ring-pl .arc.hp") && !!w.document.querySelector(".kbb-ring-pl .arc.shield"));
   ok("enemy health ring present", !!w.document.querySelector(".kbb-ring-en .arc.ehp"));
-  ok("left column shows artifacts + coins", !!w.document.querySelector(".kbb-arts-card .kbb-arts") && !!w.document.querySelector(".kbb-coins .v"));
+  ok("artifact cards fan in the hand; coins stay in the left column (v0.127.0, Jason)", w.document.querySelectorAll(".kbb-hand .kbb-acard").length === 5 && !!w.document.querySelector(".kbb-coins .v"));
   { const top = w.document.querySelector(".kbb-top"); ok("first battle is round 1-1 (#24: Start didn't advance the round)", !!top && /depth[\s\u00a0]+1-1/i.test(top.textContent || "")); }
   { const e = await runFrames(); if (e.length) console.log("    first KBB frame error:", e[0] && e[0].message); ok("KBB draw loop runs without error", e.length === 0); }
   const kbbRoot = shell.currentGameRoot;

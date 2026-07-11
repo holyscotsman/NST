@@ -303,18 +303,19 @@ function newWindow() {
   ok(!q('.kbb-howto') && doc.querySelectorAll('.kbb-opt').length > 0, 'skipping the tour leaves the live first battle ready');
   ok(doc.querySelectorAll('.kbb-action').length === 3 && !!q('.kbb-act-hint'), 'action row + hint render');
   // ============ (v0.113.0, D5) card-hand battle — behavioral pins ============
-  ok(!!q('.kbb-hand') && q('.kbb-hand').querySelectorAll('.kbb-action').length === 3
-     && !!q('.kbb-hand .kbb-gem') && q('.kbb-hand').querySelectorAll('.kbb-pile').length === 2,
-     'D5: the hand strip holds the 3 fanned move cards + energy gem + turn piles');
+  ok(!!q('.kbb-hand') && q('.kbb-hand').querySelectorAll('.kbb-acard').length === 5
+     && !!q('.kbb-hand .kbb-gem') && q('.kbb-hand').querySelectorAll('.kbb-pile').length === 2
+     && q('.kbb-main').querySelectorAll('.kbb-action').length === 3,
+     'v0.127.0 (Jason): the hand fans the 5 ARTIFACT card slots (+gem+piles); the 3 move buttons sit on the played card');
   ok(!!q('.kbb-main .kbb-play-head') && !!q('.kbb-main .kbb-play-stake'),
      'D5: the question is framed as the played card (header + stake line)');
   var stake0 = (q('.kbb-main .kbb-play-stake') || {}).innerHTML || '';
-  var braceCard = q('.kbb-hand .kbb-action[data-act="brace"]');
+  var braceCard = q('.kbb-main .kbb-action[data-act="brace"]');
   if (braceCard) { braceCard.click(); V.step(1); }
   var stake1 = (q('.kbb-main .kbb-play-stake') || {}).innerHTML || '';
   ok(!!braceCard && stake1 !== stake0 && /shield/i.test(stake1) && braceCard.classList.contains('on'),
      'D5: playing Brace re-frames the played card (stake flips to shield, card lifts .on)');
-  var atkCard = q('.kbb-hand .kbb-action[data-act="attack"]');
+  var atkCard = q('.kbb-main .kbb-action[data-act="attack"]');
   if (atkCard) { atkCard.click(); V.step(1); }
   ok(/fire/i.test((q('.kbb-main .kbb-play-stake') || {}).innerHTML || ''),
      'D5: switching back to Attack restores the volley stake');
@@ -322,9 +323,9 @@ function newWindow() {
   ok(!!pillHp && pillHp.textContent === String(KBB._test.state().run.squad.hp),
      'D5: the top pill mirrors live squad HP');
   // (v0.78.0, JB2) the left panel is 5 always-visible artifact slots; a fresh run = all empty
-  var slots0 = doc.querySelectorAll('.kbb-arts-card .kbb-slot');
-  ok(slots0.length === 5 && doc.querySelectorAll('.kbb-arts-card .kbb-slot.empty').length === 5,
-     'JB2: left panel renders 5 artifact slots, all empty at mount (' + slots0.length + ')');
+  var slots0 = doc.querySelectorAll('.kbb-hand .kbb-acard');
+  ok(slots0.length === 5 && doc.querySelectorAll('.kbb-hand .kbb-acard.empty').length === 5,
+     'JB2/v0.127.0: the hand renders 5 artifact card slots, all empty at mount (' + slots0.length + ')');
   ok(ctx._rec.tracks.some(function (t) { return t.id === 'kbb'; }), "mount plays the 'kbb' bed");
 
   // Advance across whatever screen is up (feedback Continue / shop "Next battle") until options exist.
