@@ -234,6 +234,7 @@ export function SettingsScreen(ctx) {
         ...MUSIC_STYLES.map((s) => h('option', { value: s.id, selected: (ctx.settings.musicStyle || 'studio') === s.id }, s.label))),
       h('span', {}, h('b', {}, 'Music style'), h('span', { class: 'muted small' }, 'Pick an arrangement — the change is audible right away. Same original score, different voice.'))),
     ctx.audioStatus ? h('p', { class: 'muted small audio-status' }, ctx.audioStatus) : null,
+    toggle('postFx', 'Cinematic effects', 'Bloom, vignette, film grain, and a subtle handheld camera drift. Turn off for a flatter, cheaper image.'),
     toggle('extraTime', 'No timers', 'There is never a countdown; this keeps it that way if timers are ever added.'),
     h('div', { class: 'save-transfer' },
       h('b', {}, 'Move progress between devices'),

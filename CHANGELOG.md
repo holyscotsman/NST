@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — graphics overhaul (phase 4): post polish + camera micro-motion
+
+- **Vignette + film grain** — a final grade pass (inline custom shader, last in
+  the composer) darkens the corners and adds very subtle animated grain, so the
+  frame reads as produced footage. Blacks stay black (bloom still only catches
+  emissives).
+- **Camera micro-motion** — a ≈0.5% handheld drift on top of the director's
+  pose so even settled shots never feel frozen. Off under reduced motion.
+- **Cinematic-effects toggle** — a new Settings switch turns off bloom +
+  vignette/grain + camera drift for a flatter, cheaper image (accessibility /
+  low-end hardware); persists in the save.
+
 ## Unreleased — graphics overhaul (phase 1): set detail
 
 - **Wraparound LED video wall** — a curved emissive panel arcing above the

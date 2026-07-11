@@ -25,6 +25,7 @@ export class Studio {
   constructor(container, opts = {}) {
     this.container = container;
     this.reduced = !!opts.reducedMotion;
+    this.postFx = opts.postFx !== false; // bloom + vignette/grain + camera micro-motion
     this.onError = opts.onError || (() => {});
     this.beams = [];
     this.disposed = false;
@@ -78,11 +79,32 @@ export class Studio {
       const { RenderPass } = await import('three/addons/postprocessing/RenderPass.js');
       const { UnrealBloomPass } = await import('three/addons/postprocessing/UnrealBloomPass.js');
       const { OutputPass } = await import('three/addons/postprocessing/OutputPass.js');
+      const { ShaderPass } = await import('three/addons/postprocessing/ShaderPass.js');
       this.composer = new EffectComposer(this.renderer);
       this.composer.addPass(new RenderPass(this.active, this.camera));
       // gentle bloom: strong bloom washed out the host/contestant/audience
       this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.42, 0.45, 0.34));
       this.composer.addPass(new OutputPass());
+      // Final grade: a soft vignette + very subtle animated film grain, applied
+      // in display space (last pass). Blacks stay black; only edges darken.
+      this._grainPass = new ShaderPass({
+        uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uGrain: { value: 0.045 } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: [
+          'uniform sampler2D tDiffuse; uniform float uTime; uniform float uGrain; varying vec2 vUv;',
+          'float rand(vec2 c){ return fract(sin(dot(c, vec2(12.9898,78.233))) * 43758.5453); }',
+          'void main(){',
+          '  vec4 col = texture2D(tDiffuse, vUv);',
+          '  vec2 d = vUv - 0.5;',
+          '  float vig = smoothstep(0.86, 0.32, dot(d,d) * 2.4);', // radial darkening toward corners
+          '  col.rgb *= mix(0.62, 1.0, vig);',
+          '  float g = (rand(vUv + fract(uTime)) - 0.5) * uGrain;',
+          '  col.rgb += g;',
+          '  gl_FragColor = col;',
+          '}',
+        ].join('\n'),
+      });
+      this.composer.addPass(this._grainPass);
       this.useBloom = true;
     } catch {
       this.useBloom = false; // graceful: direct render still looks good
@@ -243,6 +265,13 @@ export class Studio {
     const pose = this.director.update(dt);
     if (pose) {
       this.camera.position.set(pose.p[0], pose.p[1], pose.p[2]);
+      // Micro-motion: a tiny handheld drift so static shots never feel frozen
+      // (≈0.5% of a typical framing). Off under reduced motion / effects-off.
+      if (!this.reduced && this.postFx) {
+        const t = this.clock.elapsedTime;
+        this.camera.position.x += Math.sin(t * 0.7) * 0.02 + Math.sin(t * 1.9) * 0.006;
+        this.camera.position.y += Math.sin(t * 0.9 + 1.3) * 0.013;
+      }
       this._look.set(pose.t[0], pose.t[1], pose.t[2]);
       this.camera.lookAt(this._look);
     }
@@ -301,10 +330,12 @@ export class Studio {
       if (k >= 1) { this.pulse.active = false; this._pulseLight.intensity = 14; }
     }
 
-    if (this.useBloom && this.composer) {
+    if (this.useBloom && this.composer && this.postFx) {
+      if (this._grainPass) this._grainPass.uniforms.uTime.value = this.clock.elapsedTime;
       try { this.composer.render(); }
       catch { this.useBloom = false; this.renderer.render(this.active, this.camera); }
     } else {
+      // effects off (or unavailable): flat direct render
       this.renderer.render(this.active, this.camera);
     }
   };

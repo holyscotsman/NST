@@ -119,6 +119,7 @@ export class Game {
       const { Studio } = await import('./studio.js');
       this.studio = new Studio(this.roots.studio, {
         reducedMotion: this.reduced,
+        postFx: this.save.settings.postFx !== false,
         onAmbient: (k) => this.audio.play(k), // diegetic crowd sounds (a cough)
       });
       await this.studio.init();
@@ -653,7 +654,7 @@ export class Game {
 
   _applySettings() {
     this.reduced = this._resolveReduced();
-    if (this.studio) this.studio.reduced = this.reduced;
+    if (this.studio) { this.studio.reduced = this.reduced; this.studio.postFx = this.save.settings.postFx !== false; }
     this.audio.setEnabled(this.save.settings.sound);
     this.music.setEnabled(this.save.settings.music !== false);
     if (this.music.style !== (this.save.settings.musicStyle || 'studio')) {
