@@ -255,6 +255,12 @@ var detSector3 = null;   // captured for the determinism probe against window 2
      'R1: cockpit HUD draws from cached label table + heading caption (no per-frame string churn)');
   ok(/mm\.life = 9; sfx\("missile"\);/.test(H.ARM_SRC),
      'v0.121.0: the dreadnought MISSILE fires its own sfx("missile"), NOT the laser-charge zap (Jason)');
+  ok(/drawBossAura\(\);\s*\n\s*drawBossAt\(/.test(H.ARM_SRC) && /function drawBossAura\(\)/.test(H.ARM_SRC),
+     'v0.123.0: the dreadnought looms out of a red danger-aura drawn BEHIND it (Jason boss look/feel)');
+  ok(/banner\.classList\.toggle\("boss", !!bossActive\)/.test(H.ARM_SRC) && /\.arm-banner\.boss\{top:auto;bottom:104px/.test(H.ARM_SRC),
+     'v0.123.0: the boss objective banner drops to the bottom, off the dreadnought (Jason)');
+  ok(/v0\.123\.0\) faint green wash = "stand HERE"/.test(H.ARM_SRC),
+     'v0.123.0: the wall-laser SAFE column reads clearly (green lane fill + brighter outline) (Jason)');
   // (v0.111.0, D3) Cockpit-lite HUD sources: tape+radar draw fn, rail rows, HC-gated vignette
   ok(/function drawCockpitHud\(\)/.test(H.ARM_SRC) && /drawCompass\(\);\s*\n\s*drawCockpitHud\(\);/.test(H.ARM_SRC)
      && /arm-rrow/.test(H.ARM_SRC) && /if \(!highContrast\) wrap\.appendChild\(mk\("div", "arm-vignette"\)\)/.test(H.ARM_SRC),

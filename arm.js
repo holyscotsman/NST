@@ -749,6 +749,7 @@
     }
     function setBanner(m) {
       bannerText = m || ""; banner.textContent = bannerText;
+      if (banner) banner.classList.toggle("boss", !!bossActive);   // (v0.123.0, Jason) boss banner -> bottom, off the dreadnought
       show(banner, (state === "SECTOR" || state === "HOME") && !!bannerText);
     }
     function conceptTag(core) {
@@ -2383,6 +2384,25 @@
       var aw = dw * 1.5, l = (W - aw) / 2;
       return { l: l, r: l + aw, w: aw, top: Math.max(H * 0.44, 280), bot: H - 50 };
     }
+    function drawBossAura() {                             // (v0.123.0, Jason) the dreadnought looms out of a charged red void
+      if (!c2d || !boss || boss.dying) return;
+      var A = bossArena(), tE = now() / 1000;
+      var pulse = reducedMotion ? 0.7 : (0.6 + 0.28 * Math.sin(tE * 2.1) + 0.12 * Math.sin(tE * 5.3));
+      var gy = boss.y + 24;
+      c2d.save();
+      var rg = c2d.createRadialGradient(boss.x, gy, 16, boss.x, gy, Math.max(A.w, 520) * 0.58);
+      rg.addColorStop(0, "rgba(255,66,52," + (0.20 * pulse) + ")");
+      rg.addColorStop(0.45, "rgba(150,30,64," + (0.10 * pulse) + ")");
+      rg.addColorStop(1, "rgba(0,0,0,0)");
+      c2d.fillStyle = rg; c2d.fillRect(A.l, 0, A.w, H);
+      // a thin scorched band right under the hull racks — the reactor heat bleed
+      if (!reducedMotion) {
+        c2d.globalAlpha = 0.10 + 0.06 * Math.sin(tE * 3.3);
+        c2d.fillStyle = COL.peach; c2d.shadowColor = COL.peach; c2d.shadowBlur = 30;
+        c2d.beginPath(); c2d.ellipse ? c2d.ellipse(boss.x, boss.y + 40, A.w * 0.34, 26, 0, 0, TAU) : c2d.arc(boss.x, boss.y + 40, 40, 0, TAU); c2d.fill();
+      }
+      c2d.restore(); c2d.globalAlpha = 1; c2d.shadowBlur = 0;
+    }
     function drawArenaFrame() {                           // letterbox the sides so the field reads as a tight channel
       if (!c2d) return;
       var A = bossArena();
@@ -2425,12 +2445,16 @@
       if (boss.laserState === "charge" && boss.laserMode === "wall") {   // (A10) inverse telegraph: everything burns EXCEPT the safe column
         var kw = boss.laserT / (LASER_CHARGE * 1.5), BAd = bossArena();
         c2d.save();
-        c2d.globalAlpha = 0.06 + 0.16 * kw; c2d.fillStyle = COL.peach;
+        c2d.globalAlpha = 0.12 + 0.24 * kw; c2d.fillStyle = COL.peach;   // (v0.123.0) hotter burn so the danger reads
         c2d.fillRect(BAd.l, 0, Math.max(0, boss.gapX - GAP_HALF - BAd.l), H);
         c2d.fillRect(boss.gapX + GAP_HALF, 0, Math.max(0, BAd.l + BAd.w - (boss.gapX + GAP_HALF)), H);
-        c2d.globalAlpha = 0.25 + 0.45 * kw; c2d.strokeStyle = COL.mantis; c2d.lineWidth = 2;
+        c2d.globalAlpha = 0.10 + 0.06 * kw; c2d.fillStyle = COL.mantis;  // (v0.123.0) faint green wash = "stand HERE"
+        c2d.fillRect(boss.gapX - GAP_HALF, 0, GAP_HALF * 2, H);
+        var sp = reducedMotion ? 1 : (0.7 + 0.3 * Math.sin(now() / 1000 * 6));
+        c2d.globalAlpha = (0.4 + 0.5 * kw) * sp; c2d.strokeStyle = COL.mantis; c2d.lineWidth = 3;
+        c2d.shadowColor = COL.mantis; c2d.shadowBlur = reducedMotion ? 0 : 12;
         c2d.strokeRect(boss.gapX - GAP_HALF, 0, GAP_HALF * 2, H);        // the safe lane, outlined in green
-        c2d.restore(); return;
+        c2d.restore(); c2d.shadowBlur = 0; return;
       }
       if (boss.laserState === "fire" && boss.laserMode === "wall") {
         var BAf = bossArena();
@@ -2639,6 +2663,7 @@
       c2d.shadowBlur = 0;
       for (i = 0; i < enemies.length; i++) drawEnemy(enemies[i]);
       if (bossActive && boss) {
+        drawBossAura();
         drawBossAt(boss.x, boss.y, boss.dying ? (1 + boss.deathT * 0.35) : 1);
         drawBossLaser(); drawMissiles();
         if (!boss.dying) drawWeakpoints();
@@ -3062,6 +3087,7 @@
       ".arm-wrap *{box-sizing:border-box;}",
       ".arm-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}",
       ".arm-banner{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:5;display:none;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:" + C.aqua + ";text-align:center;text-shadow:0 0 16px rgba(31,221,233,.55);pointer-events:none;background:rgba(10,10,18,.5);padding:6px 14px;border-radius:999px;border:1px solid rgba(31,221,233,.25);max-width:90%;}",
+      ".arm-banner.boss{top:auto;bottom:104px;color:" + C.peach + ";text-shadow:0 0 16px rgba(255,107,91,.55);border-color:rgba(255,107,91,.3);}",
       ".arm-gear{position:absolute;top:14px;right:14px;z-index:7;border:1px solid #34344a;background:rgba(10,10,17,.92);border-radius:10px;color:" + C.mid + ";font-family:inherit;font-size:13px;font-weight:600;padding:8px 11px;cursor:pointer;display:none;letter-spacing:.04em;box-shadow:0 2px 10px rgba(0,0,0,.5);}",   // (P2·3, PLAYTEST A5) near-opaque backdrop + drop shadow: world markers scrolling beneath read as UNDER the HUD, not colliding with it
       ".arm-gear:hover{border-color:" + C.iris + ";color:" + C.text + ";}",
       ".arm-stats{position:absolute;left:16px;top:50%;transform:translateY(-50%);z-index:6;display:none;flex-direction:column;gap:8px;background:rgba(8,8,14,.72);border:1px solid #26263a;border-radius:14px;padding:12px;width:118px;}",

@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-ARM-BOSS — boss look & feel (added v0.123.0; browser-VERIFIED still).** In an ARM boss
+  fight: the dreadnought is fully visible with a red danger-aura behind it, the objective banner
+  sits at the BOTTOM (not on the ship), and during a WALL laser the safe column is a clear
+  green-outlined lane in the red burn. Confirmed via screenshots (104-106). Owed a live-play pass:
+  does the fight FEEL more epic/menacing, and is the safe lane obvious under pressure? WRONG: banner
+  back over the hull, no aura, or an unreadable safe lane.
+
 - **QA-ARM-MUS — boss music dubstep (added v0.122.0; EAR-BLIND).** Enter an ARM (or KBB) boss
   fight: the boss music should now carry a wobble bass (the classic dubstep "wub"), a touch darker
   than before, over the same drums/arp/lead. Confirm it reads as "a tad more dubstep" and isn't

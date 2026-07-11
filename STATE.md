@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.122.0 — Boss music: a tad more dubstep (Jason)
+## v0.123.0 — ARM boss fight: look & feel pass (Jason)
+
+Banner off the dreadnought (bottom), a red danger-aura behind the boss, and a clearly-readable
+green safe lane during the wall laser. Presentation only — gapX/collision unchanged. Browser-
+verified (shots 104-106). NEXT (this request): intro cinematic — wire real ARM sprites in.
+
+> **Earlier this session (v0.122.0):** ## Boss music: a tad more dubstep (Jason)
 
 The shared boss bed swapped its techno bass for a half-time wobble bass (resonant swept lowpass,
 5 Hz LFO) + slightly darker arp/lead; drums/arp/lead otherwise intact. Zero-alloc kept. Ear-blind
