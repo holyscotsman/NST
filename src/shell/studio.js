@@ -421,13 +421,17 @@ export class Studio {
     return d.matrix;
   }
 
+  // Set one seat's instance matrix across every audience mesh (body/head/hair).
+  _seatSet(idx, matrix) {
+    for (const m of this._crowd.meshes) { m.setMatrixAt(idx, matrix); m.instanceMatrix.needsUpdate = true; }
+  }
+
   _crowdTick(dt, t) {
     const c = this._crowd;
     if (!c) return;
     // restore a seat someone walked out of
     if (c.restoreIdx >= 0 && t >= c.restoreAt) {
-      c.mesh.setMatrixAt(c.restoreIdx, this._seatMatrix(c.seats[c.restoreIdx], c.seats[c.restoreIdx].scale));
-      c.mesh.instanceMatrix.needsUpdate = true;
+      this._seatSet(c.restoreIdx, this._seatMatrix(c.seats[c.restoreIdx], c.seats[c.restoreIdx].scale));
       c.restoreIdx = -1;
     }
     const ev = c.event;
@@ -436,19 +440,16 @@ export class Studio {
       const seat = c.seats[ev.idx];
       if (ev.kind === 'cough') {
         // a couple of quick shoulder jolts
-        c.mesh.setMatrixAt(ev.idx, this._seatMatrix(seat, seat.scale * (1 + Math.abs(Math.sin(ev.t * 24)) * 0.05)));
-        c.mesh.instanceMatrix.needsUpdate = true;
+        this._seatSet(ev.idx, this._seatMatrix(seat, seat.scale * (1 + Math.abs(Math.sin(ev.t * 24)) * 0.05)));
         if (ev.t >= 0.5) {
-          c.mesh.setMatrixAt(ev.idx, this._seatMatrix(seat, seat.scale));
-          c.mesh.instanceMatrix.needsUpdate = true;
+          this._seatSet(ev.idx, this._seatMatrix(seat, seat.scale));
           c.event = null;
         }
       } else if (ev.kind === 'wave') {
         c.actor.userData.parts.armR.rotation.z = -2.0 + Math.sin(ev.t * 7) * 0.5;
         if (ev.t >= 2.8) {
           c.actor.visible = false;
-          c.mesh.setMatrixAt(ev.idx, this._seatMatrix(seat, seat.scale));
-          c.mesh.instanceMatrix.needsUpdate = true;
+          this._seatSet(ev.idx, this._seatMatrix(seat, seat.scale));
           c.event = null;
         }
       } else if (ev.kind === 'leave') {
@@ -475,8 +476,7 @@ export class Studio {
       this.onAmbient('cough');
     } else {
       // swap the instance for the animated actor
-      c.mesh.setMatrixAt(idx, this._hiddenMat);
-      c.mesh.instanceMatrix.needsUpdate = true;
+      this._seatSet(idx, this._hiddenMat);
       c.actor.position.set(seat.x, seat.y, seat.z);
       c.actor.rotation.y = seat.rotY;
       c.actor.scale.setScalar(seat.scale * 0.97);
@@ -563,20 +563,37 @@ export class Studio {
     player.position.set(-2.1, 0.16, 0); player.rotation.y = 0.28;
     castShadows(player); s.add(player);
 
-    // ---- the audience: seated bodies on visible chairs, on riser platforms ----
-    const body = new THREE.CapsuleGeometry(0.115, 0.3, 5, 12); body.translate(0, 1.06, 0);
-    const lap = new THREE.BoxGeometry(0.24, 0.09, 0.32); lap.translate(0, 0.84, 0.14);
-    const ah = new THREE.SphereGeometry(0.15, 12, 10); ah.translate(0, 1.5, 0);
-    const audMat = mat(0x1a1a34, PAL.iris, 0.22, 0.7);
+    // ---- the audience: seated PEOPLE on visible chairs, on riser platforms ----
+    // Built to match the walk-on "crowd actor" (a full person): a shirt torso with
+    // resting arms, a skin head, and a hair cap. Three instanced meshes cover the
+    // whole crowd (one draw call each), with per-person colour variation via
+    // instanceColor so they read as individuals, not clones. Chairs are a fourth.
+    const bTorso = new THREE.CapsuleGeometry(0.13, 0.26, 5, 12); bTorso.translate(0, 1.14, 0);
+    const bLap = new THREE.BoxGeometry(0.26, 0.1, 0.34); bLap.translate(0, 0.84, 0.14);
+    const bArmL = new THREE.CapsuleGeometry(0.043, 0.24, 4, 8); bArmL.rotateX(0.95); bArmL.translate(-0.16, 1.02, 0.1);
+    const bArmR = new THREE.CapsuleGeometry(0.043, 0.24, 4, 8); bArmR.rotateX(0.95); bArmR.translate(0.16, 1.02, 0.1);
+    const headGeo = new THREE.SphereGeometry(0.15, 12, 10); headGeo.translate(0, 1.52, 0);
+    const hairGeo = new THREE.SphereGeometry(0.155, 10, 8); hairGeo.scale(1, 0.72, 1); hairGeo.translate(0, 1.57, -0.02);
+    // white base so instanceColor (which multiplies) shows the true per-person hue
+    const bodyMat = mat(0xffffff, PAL.iris, 0.09, 0.72);
+    const headMat = mat(0xffffff, PAL.iris, 0.04, 0.6);
+    const hairMat = mat(0xffffff, 0x000000, 0, 0.8);
     const chairGeoSeat = new THREE.BoxGeometry(0.36, 0.07, 0.36); chairGeoSeat.translate(0, 0.76, 0.05);
     const chairGeoBack = new THREE.BoxGeometry(0.36, 0.55, 0.07); chairGeoBack.translate(0, 1.02, -0.16);
     const chairMat = mat(0x141428, PAL.iris, 0.07, 0.7);
     let count = 0; const tiers = 4, per = 42; const total = tiers * per;
-    const aud = new THREE.InstancedMesh(mergeGeos(body, lap, ah), audMat, total);
+    const audBody = new THREE.InstancedMesh(mergeGeos(bTorso, bLap, bArmL, bArmR), bodyMat, total);
+    const audHead = new THREE.InstancedMesh(headGeo, headMat, total);
+    const audHair = new THREE.InstancedMesh(hairGeo, hairMat, total);
     const chairs = new THREE.InstancedMesh(mergeGeos(chairGeoSeat, chairGeoBack), chairMat, total);
+    const audMeshes = [audBody, audHead, audHair];
     const o = new THREE.Object3D();
     const seats = []; // per-instance placement, for the crowd-moment events
-    // Deterministic jitter so there is no per-frame allocation and no RNG surprises.
+    // Deterministic palettes + index hashing so the crowd varies with no RNG.
+    const shirtCols = [0x3a3f63, 0x4a3350, 0x2f4a4a, 0x554524, 0x3a3a44, 0x394a2c, 0x50324a, 0x2b3b57];
+    const skinCols = [0xc9a07a, 0xdbb488, 0xb07a52, 0x8a5a3c, 0xe6c6a0, 0xa06a44];
+    const hairCols = [0x241c14, 0x120d0a, 0x3c2a18, 0x5a5a64, 0x2a2320];
+    const col = new THREE.Color();
     for (let t = 0; t < tiers; t++) {
       const R = 11 + t * 1.7, Y = 0.2 + t * 1.15;
       // riser platform under each row so the arc reads as seating, not floaters
@@ -591,19 +608,27 @@ export class Studio {
         const scale = 0.95 + ((i * 37 + t * 13) % 15) / 100;
         o.position.set(Math.cos(a) * R, Y, Math.sin(a) * R); o.rotation.y = -a + Math.PI / 2;
         o.scale.setScalar(1); o.updateMatrix(); chairs.setMatrixAt(count, o.matrix);
-        o.scale.setScalar(scale); o.updateMatrix(); aud.setMatrixAt(count, o.matrix);
+        o.scale.setScalar(scale); o.updateMatrix();
+        audBody.setMatrixAt(count, o.matrix); audHead.setMatrixAt(count, o.matrix); audHair.setMatrixAt(count, o.matrix);
+        audBody.setColorAt(count, col.setHex(shirtCols[(i * 7 + t * 29) % shirtCols.length]));
+        audHead.setColorAt(count, col.setHex(skinCols[(i * 5 + t * 11) % skinCols.length]));
+        audHair.setColorAt(count, col.setHex(hairCols[(i * 3 + t * 7) % hairCols.length]));
         seats.push({ x: o.position.x, y: Y, z: o.position.z, rotY: o.rotation.y, scale });
         count++;
       }
     }
-    aud.instanceMatrix.needsUpdate = true; s.add(aud);
-    chairs.instanceMatrix.needsUpdate = true; s.add(chairs);
+    for (const m of [...audMeshes, chairs]) {
+      m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+      s.add(m);
+    }
 
     // One reusable "crowd actor" who stands in for a seat during the random
-    // audience moments (waving, getting up and leaving). Hidden until then.
-    const actor = person({ skin: 0xc9a07a, hair: 0x33271a, shirt: 0x30305a, pants: 0x22223a, accent: PAL.iris, glow: 0.06 });
+    // audience moments (waving, getting up and leaving). Hidden until then; its
+    // colours sit inside the crowd palette so the swap-in reads seamlessly.
+    const actor = person({ skin: 0xc9a07a, hair: 0x33271a, shirt: 0x3a3f63, pants: 0x22223a, accent: PAL.iris, glow: 0.06 });
     actor.visible = false; s.add(actor);
-    this._crowd = { mesh: aud, chairs, seats, actor, event: null, nextAt: 7, restoreIdx: -1, restoreAt: 0 };
+    this._crowd = { meshes: audMeshes, chairs, seats, actor, event: null, nextAt: 7, restoreIdx: -1, restoreAt: 0 };
 
     // Fourth wall: broadcast pedestal cameras aimed at the stage, plus an
     // operator behind camera one.
@@ -645,12 +670,23 @@ export class Studio {
     this._ledWall = ledWall;
 
     // Perimeter light columns — vertical neon fins framing the stage, alternating
-    // iris/aqua (two instanced meshes so each keeps its emissive colour).
-    const colGeo = new THREE.BoxGeometry(0.13, 5.2, 0.42);
+    // iris/aqua (two instanced meshes so each keeps its emissive colour). Dimmer
+    // than before so they frame rather than distract, and the back-center ones
+    // (directly in front of the show title) are skipped so they stop occluding it.
+    const colGeo = new THREE.BoxGeometry(0.11, 5.2, 0.34);
     const makeCols = (color, offset) => {
-      const m = new THREE.InstancedMesh(colGeo, mat(0x0a0a16, color, 0.5, 0.5, 0.3), 9);
+      const angles = [];
+      for (let i = 0; i < 9; i++) {
+        const a = ((i * 2 + offset) / 18) * Math.PI * 2;
+        // Skip columns near the ±z centre line — both the back-centre ones (right
+        // in front of the wordmark) and the front-centre ones (between the camera
+        // and the title on the menu). Columns near ±x stay and frame the stage.
+        if (Math.abs(Math.cos(a)) < 0.52) continue;
+        angles.push(a);
+      }
+      const m = new THREE.InstancedMesh(colGeo, mat(0x08080f, color, 0.12, 0.66, 0.12), angles.length);
       const o2 = new THREE.Object3D();
-      for (let i = 0; i < 9; i++) { const a = ((i * 2 + offset) / 18) * Math.PI * 2; o2.position.set(Math.cos(a) * 9.4, 2.6, Math.sin(a) * 9.4); o2.rotation.y = -a; o2.updateMatrix(); m.setMatrixAt(i, o2.matrix); }
+      angles.forEach((a, k) => { o2.position.set(Math.cos(a) * 9.4, 2.6, Math.sin(a) * 9.4); o2.rotation.y = -a; o2.updateMatrix(); m.setMatrixAt(k, o2.matrix); });
       m.instanceMatrix.needsUpdate = true; return m;
     };
     s.add(makeCols(PAL.iris, 0), makeCols(PAL.aqua, 1));

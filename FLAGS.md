@@ -20,7 +20,8 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
 - **What:** the first-run cinematic (`src/shell/ui/cinematic.js`) contains host
   dialogue: the studio tour lines and the guided tutorial that walks the player
   through the UI and reveals the first question's answer. The welcome-back
-  lines (including the snarky set) and per-question quips in
+  lines (including the snarky set), per-question quips, and the new
+  safe-haven / tier-crossing congrats beats (`BANK_LINES`, `TIER_LINES`) in
   `src/shell/hostLines.js` are the same category — game-mechanics banter,
   AI-drafted at the owner's explicit request, awaiting a human read.
 - **Why flagged:** `CLAUDE.md §7` reserves host dialogue for a human. These

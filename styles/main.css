@@ -266,12 +266,12 @@ button:disabled { opacity: 0.45; }
 
 /* ============================== money ladder (right rail) ============================== */
 .ladder {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 212px; z-index: 4;
+  position: fixed; top: 0; right: 0; bottom: 0; width: 176px; z-index: 4;
   list-style: none; margin: 0;
   background: linear-gradient(270deg, rgba(8, 8, 18, 0.78), rgba(8, 8, 18, 0.6));
   border-left: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(12px);
-  padding: 12px 14px;
+  padding: 10px 11px;
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
   overflow-y: auto; scrollbar-width: none;
 }
@@ -280,15 +280,15 @@ button:disabled { opacity: 0.45; }
 .ladder-track { position: relative; }
 
 .rung {
-  position: relative; display: flex; align-items: center; gap: 6px;
-  height: 28px; margin-bottom: 2px; padding: 0 7px; border-radius: 9px;
+  position: relative; display: flex; align-items: center; gap: 5px;
+  height: 23px; margin-bottom: 1.5px; padding: 0 6px; border-radius: 7px;
   transition: transform 0.3s var(--swift);
 }
-.rung-num { width: 30px; text-align: right; font-size: 11px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
-.rung-glyph { width: 15px; text-align: center; font-size: 10px; line-height: 1; }
-.rung.tier-extreme .rung-glyph { font-size: 12px; }
-.rung-val { flex: 1; text-align: right; font-size: 13px; font-weight: 700; color: #c9cbe8; font-variant-numeric: tabular-nums; }
-.rung-safe { width: 12px; text-align: center; font-size: 8px; opacity: 0; }
+.rung-num { width: 25px; text-align: right; font-size: 10px; font-weight: 600; color: var(--dim); font-variant-numeric: tabular-nums; }
+.rung-glyph { width: 13px; text-align: center; font-size: 9px; line-height: 1; }
+.rung.tier-extreme .rung-glyph { font-size: 11px; }
+.rung-val { flex: 1; text-align: right; font-size: 11.5px; font-weight: 700; color: #c9cbe8; font-variant-numeric: tabular-nums; }
+.rung-safe { width: 10px; text-align: center; font-size: 7px; opacity: 0; }
 .rung.tier-easy .rung-glyph { color: var(--aqua); }
 .rung.tier-medium .rung-glyph { color: var(--iris); }
 .rung.tier-hard .rung-glyph { color: var(--peach); }
@@ -300,23 +300,23 @@ button:disabled { opacity: 0.45; }
 .rung.cleared { opacity: 0.5; }
 .rung.cleared .rung-val { color: rgba(146, 221, 35, 0.75); }
 .rung.cleared .rung-glyph { color: rgba(146, 221, 35, 0.55); }
-.rung.current { transform: scale(1.05); }
+.rung.current { transform: scale(1.04); }
 .rung.current .rung-val, .rung.current .rung-num { color: var(--gold); }
 .rung.bank-pulse { animation: safePulse 0.8s ease-out both; }
 
 .rung-highlight {
-  position: absolute; left: 0; right: 0; height: 28px; z-index: 2; pointer-events: none;
-  border: 1px solid var(--gold); border-radius: 9px; background: rgba(255, 200, 87, 0.13);
+  position: absolute; left: 0; right: 0; height: 23px; z-index: 2; pointer-events: none;
+  border: 1px solid var(--gold); border-radius: 7px; background: rgba(255, 200, 87, 0.13);
   transition: top 0.4s var(--swift);
 }
-.rung-highlight .glow { position: absolute; inset: 0; border-radius: 9px; box-shadow: 0 0 16px rgba(255, 200, 87, 0.45), inset 0 0 12px rgba(255, 200, 87, 0.12); animation: glowBreathe 3s ease-in-out infinite; }
-.rung-trail { position: absolute; left: 0; right: 0; height: 26px; border-radius: 9px; pointer-events: none; background: linear-gradient(180deg, rgba(255, 200, 87, 0), rgba(255, 200, 87, 0.28)); }
+.rung-highlight .glow { position: absolute; inset: 0; border-radius: 7px; box-shadow: 0 0 16px rgba(255, 200, 87, 0.45), inset 0 0 12px rgba(255, 200, 87, 0.12); animation: glowBreathe 3s ease-in-out infinite; }
+.rung-trail { position: absolute; left: 0; right: 0; height: 22px; border-radius: 7px; pointer-events: none; background: linear-gradient(180deg, rgba(255, 200, 87, 0), rgba(255, 200, 87, 0.28)); }
 .rung-trail.up { animation: climbTrail 0.5s ease-out both; }
 .rung-trail.down { animation: dropTrail 0.5s ease-out both; }
 .ladder-burst { position: absolute; left: 50%; top: 13px; width: 60px; height: 60px; margin: -30px 0 0 -30px; border: 2px solid var(--gold); border-radius: 50%; box-shadow: 0 0 24px rgba(255, 200, 87, 0.8); animation: starBurst 0.9s ease-out both; pointer-events: none; }
 
 /* ============================== question card ============================== */
-.q-card-wrap { position: fixed; left: calc((100vw - 212px) / 2); bottom: 26px; transform: translateX(-50%); width: 720px; max-width: calc(100vw - 320px); z-index: 5; }
+.q-card-wrap { position: fixed; left: calc((100vw - 176px) / 2); bottom: 26px; transform: translateX(-50%); width: 720px; max-width: calc(100vw - 280px); z-index: 5; }
 .q-card {
   background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
   padding: 20px 24px 22px; backdrop-filter: blur(14px);
@@ -632,7 +632,7 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 
 /* ============================== responsive (mobile) ============================== */
 @media (max-width: 900px) {
-  .q-card-wrap { max-width: calc(100vw - 246px); }
+  .q-card-wrap { max-width: calc(100vw - 210px); }
 }
 @media (max-width: 760px) {
   /* ladder becomes a top horizontal strip */

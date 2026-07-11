@@ -11,7 +11,7 @@ import { generateSeedString, normalizeSeed } from '../core/rng.js';
 import { payout } from '../core/coins.js';
 import { SHOP, LIFELINE_MAX_SLOTS } from '../core/config.js';
 import { letter } from '../core/lifelines.js';
-import { pickWelcome, pickQuestionLine } from './hostLines.js';
+import { pickWelcome, pickQuestionLine, pickBankLine, pickTierLine } from './hostLines.js';
 
 import * as persistence from './persistence.js';
 import { GameAudio } from './audio.js';
@@ -37,6 +37,7 @@ export class Game {
     this.campaign = null;      // persistent mastery SetManager
     this.rc = null;
     this._greenReveal = null;  // loss info shown in the green room
+    this._lastShownTier = null; // tracks tier crossings for the host's congrats beat
     this.hud = new Hud({
       onLifeline: (t) => this.useLifeline(t),
       onPause: () => this.togglePause(),
@@ -141,13 +142,23 @@ export class Game {
       if (d.isFinal) this._markFinalReached();
       // Tier loops: quicker and brighter on easy, slower and lower as tiers rise.
       this.music.play(d.isFinal ? 'final' : d.tier);
-      this._hostQuip(d);
+      // Crossing into a harder tier: the host congratulates + warns instead of the
+      // generic read-out quip (the final keeps its own FINAL_LINE via _hostQuip).
+      const tierLine = (!d.isFinal && this._lastShownTier && d.tier !== this._lastShownTier)
+        ? pickTierLine(d.tier) : null;
+      this._lastShownTier = d.tier;
+      if (tierLine) this._hostSay(tierLine, { announce: true });
+      else this._hostQuip(d);
     });
     this.bus.on('scene:green', () => this.music.play('lounge'));
     this.bus.on('scene:studio', () => { if (this.screen !== 'quiz') this.music.play('lounge'); });
 
     // HUD flourishes: banking particles + shield stamp, and the win ★ burst.
-    this.bus.on('coins:bank', () => { if (this.rc) this.hud.bank(this.rc.index); });
+    // The host also pauses to celebrate the safe haven and steady the player.
+    this.bus.on('coins:bank', () => {
+      if (this.rc) this.hud.bank(this.rc.index);
+      this._hostSay(pickBankLine(), { announce: true });
+    });
     this.bus.on('run:win', () => this.hud.burst());
 
     window.addEventListener('keydown', this._onKey);
@@ -425,6 +436,7 @@ export class Game {
 
     const beginPlay = () => {
       this._wipe(); // branded transition into the studio
+      this._lastShownTier = null; // fresh run: the first tier crossing is Q11
       this.screen = 'quiz';
       this.quiz.mount(this.roots.screen, this.hud.el);
       this.audio.resume();
@@ -467,14 +479,22 @@ export class Game {
   }
 
   _hostQuip(d) {
-    if (document.querySelector('.cine-layer')) return; // the tutorial host is already talking
+    this._hostSay(pickQuestionLine({ isFinal: d.isFinal }));
+  }
+
+  // Show a host speech bubble — the read-out quip, or a congrats beat on a bank /
+  // tier crossing. The meaningful beats announce to the live region and hold a
+  // little longer; all of it is skipped while the tutorial host is mid-sentence.
+  _hostSay(line, { announce = false, ms } = {}) {
+    if (document.querySelector('.cine-layer')) return;
     this._clearQuip();
-    const line = pickQuestionLine({ isFinal: d.isFinal });
     const el = h('div', { class: 'speech-bubble host quip', 'aria-hidden': 'true' },
       h('span', { class: 'speech-who' }, 'Host'), line);
     document.body.append(el);
     this._quipEl = el;
-    setTimeout(() => { el.remove(); if (this._quipEl === el) this._quipEl = null; }, this.reduced ? 1600 : 2800);
+    if (announce) this._announce(`Host: ${line}`);
+    const hold = ms != null ? ms : (announce ? (this.reduced ? 2000 : 3800) : (this.reduced ? 1600 : 2800));
+    setTimeout(() => { el.remove(); if (this._quipEl === el) this._quipEl = null; }, hold);
   }
 
   /* ---------------- pause menu ---------------- */

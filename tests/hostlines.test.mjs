@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  pickWelcome, pickQuestionLine, readoutPacing,
-  WELCOME_LINES, SNARKY_LINES, FINAL_LINE, SNARK_MIN_RUNS,
+  pickWelcome, pickQuestionLine, readoutPacing, pickBankLine, pickTierLine,
+  WELCOME_LINES, SNARKY_LINES, FINAL_LINE, SNARK_MIN_RUNS, BANK_LINES, TIER_LINES,
 } from '../src/shell/hostLines.js';
 
 // deterministic rng from a fixed sequence
@@ -41,6 +41,24 @@ test('the final question gets its fixed line; others draw from the pool', () => 
   assert.equal(pickQuestionLine({ isFinal: true }), FINAL_LINE);
   const line = pickQuestionLine({ isFinal: false, rng: seq(0.5) });
   assert.notEqual(line, FINAL_LINE); // NEGATIVE CONTROL
+});
+
+test('bank line comes from the bank pool', () => {
+  const line = pickBankLine({ rng: seq(0.5) });
+  assert.ok(BANK_LINES.includes(line));
+  assert.ok(!QUESTION_LINES_LEAK(line), 'a bank beat is never a read-out quip'); // NEGATIVE CONTROL
+});
+// tiny guard: the bank beat must not accidentally be one of the read-out quips
+function QUESTION_LINES_LEAK(line) { return line === FINAL_LINE; }
+
+test('tier line only exists for the harder tiers, never easy/extreme', () => {
+  assert.ok(TIER_LINES.medium.includes(pickTierLine('medium', { rng: seq(0.1) })));
+  assert.ok(TIER_LINES.hard.includes(pickTierLine('hard', { rng: seq(0.9) })));
+  // NEGATIVE CONTROL: tiers with no congrats beat return null so the caller
+  // falls back to the normal read-out quip (easy is the start; extreme = final).
+  assert.equal(pickTierLine('easy'), null);
+  assert.equal(pickTierLine('extreme'), null);
+  assert.equal(pickTierLine('nonsense'), null);
 });
 
 test('read-out pacing scales with stem length within bounds', () => {

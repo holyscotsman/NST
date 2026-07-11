@@ -41,8 +41,16 @@ audio-resume hardening, pause menu, mastery dashboard removed).
   green room (reveal + pep talk → shop, "Start next round"); win → prestige.
 
 ### Gates
-- Tests: 86 headless (negative controls) + 7 smoke + 18 e2e; CI runs headless
+- Tests: 88 headless (negative controls) + 7 smoke + 18 e2e; CI runs headless
   on every push/PR. All green as of the last drop.
+
+### Owner feedback pass (post-overhaul)
+- Compact money ladder; perimeter pillars darkened/thinned + center-line ones
+  removed so they clear the title; audience rebuilt as instanced *people*
+  (torso+arms/skin head/hair, per-person colour) to match the walk-on actor;
+  host congrats beats on safe-haven banks (`BANK_LINES`) and tier crossings
+  (`TIER_LINES`, Q11/Q21). New host copy flagged in `FLAGS.md §2`. Visual items
+  queued in `BROWSER_QA.md`.
 
 ### Graphics overhaul (docs/GRAPHICS_OVERHAUL.md)
 - All 5 phases shipped: P0 audit + dev FPS meter + shots harness; P2 env map +

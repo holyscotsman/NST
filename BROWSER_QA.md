@@ -7,6 +7,23 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
+## Pending sign-off — owner feedback (newest)
+
+- [ ] **Compact ladder** — the right rail is narrower with smaller rungs; all 30
+  rungs fit without scrolling on desktop; the gold highlight still tracks the
+  current rung; mobile top-strip still reads.
+- [ ] **Pillars** — the perimeter columns are darker/thinner and no longer cross
+  the show title (front or back); the menu title and the 3D wordmark read clean;
+  side columns still frame the stage. Watch across the menu's slow orbit.
+- [ ] **Audience as people** — the seated crowd has skin heads, hair, shirts, and
+  resting arms with per-person colour variation (no uniform blue mass); the
+  walk-on waver/cough/leave moments still swap in seamlessly and restore the
+  seat afterward (`?scene=thinking&take=3` and `take=7` for the wide shots).
+- [ ] **Host congrats beats** — clear a safe haven (Q5/Q10/Q17/Q25): the host
+  bubble celebrates the bank during the reveal. Cross into medium (Q11) and hard
+  (Q21): the host congratulates + warns it gets harder. Nothing fires on easy Q1
+  or over the tutorial; reduced-motion still shows the bubbles briefly.
+
 ## Pending sign-off — graphics overhaul (newest; `docs/GRAPHICS_OVERHAUL.md`)
 
 Structural verification passed (tests green; effects-off + reduced-motion path

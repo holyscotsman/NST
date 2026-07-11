@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — owner feedback: ladder, pillars, audience, host congrats
+
+- **Compact money ladder** — the right-rail ladder is narrower with tighter,
+  smaller rungs so it reads cleaner and frees space for the question card.
+- **Pillars recede** — the perimeter light columns are darker, thinner, and the
+  ones on the center line (front and back) are removed so they stop crowding
+  the show title; the remaining columns frame the stage from the sides.
+- **The audience are people now** — the seated crowd is rebuilt to match the
+  walk-on actor: a shirt torso with resting arms, a skin-tone head, and hair,
+  with per-person colour variation so they read as individuals instead of a
+  uniform blue mass. Still just a few instanced draw calls for the whole crowd.
+- **Host congrats beats** — clearing a safe haven now gets a "that's banked,
+  take a breath" beat from the host; crossing into the medium and hard tiers
+  gets a "nice work — it gets tougher now" beat. Authored show-host flavour
+  (never exam content); flagged for human review with the other host lines.
+
 ## Unreleased — graphics overhaul (phase 5): UI lozenges, dust motes, transitions
 
 - **Broadcast answer lozenges** — the A/B/C/D options are redrawn to the classic

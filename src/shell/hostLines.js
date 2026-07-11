@@ -37,6 +37,28 @@ export const QUESTION_LINES = [
 
 export const FINAL_LINE = 'This is it. The final question.';
 
+// Host beats between questions. BANK_LINES fire when a safe haven is cleared —
+// he pauses to celebrate the banked money and steady the player. TIER_LINES fire
+// when the player crosses into a harder tier — congrats plus a heads-up. Generic
+// show-host flavour only; never the question, an answer, or exam content.
+export const BANK_LINES = [
+  'That one is in the bank — nobody can take it from you now. Breathe.',
+  'Safe and banked. Shake it off, and let us keep climbing.',
+  'Money in the vault! Take a second, then we go again.',
+  'Locked in the bank. Nicely done — ready for the next stretch?',
+];
+
+export const TIER_LINES = {
+  medium: [
+    'Nice work — the easy ten are behind you. It steps up a little from here.',
+    'That is the warm-up done. The medium round now — stay with me.',
+  ],
+  hard: [
+    'Look at you — into the hard round! No easy ones left. Bring your focus.',
+    'The gloves are off now. These are the tough ones. Take your time.',
+  ],
+};
+
 export const SNARK_MIN_RUNS = 3; // attempts completed before snark unlocks
 
 // Pick a welcome line: never the same line twice in a row, and snark only
@@ -54,6 +76,20 @@ export function pickWelcome({ runs = 0, last = null, rng = Math.random } = {}) {
 export function pickQuestionLine({ isFinal = false, rng = Math.random } = {}) {
   if (isFinal) return FINAL_LINE;
   return QUESTION_LINES[Math.floor(rng() * QUESTION_LINES.length) % QUESTION_LINES.length];
+}
+
+// The host's "safe haven cleared" beat (money banked).
+export function pickBankLine({ rng = Math.random } = {}) {
+  return BANK_LINES[Math.floor(rng() * BANK_LINES.length) % BANK_LINES.length];
+}
+
+// The host's "you crossed into a harder tier" beat. Returns null for tiers with
+// no line (easy start / the final gets its own FINAL_LINE), so callers can fall
+// back to the normal read-out quip.
+export function pickTierLine(tier, { rng = Math.random } = {}) {
+  const pool = TIER_LINES[tier];
+  if (!pool || !pool.length) return null;
+  return pool[Math.floor(rng() * pool.length) % pool.length];
 }
 
 // Read-out pacing: how long the stem sits alone before the answers start
