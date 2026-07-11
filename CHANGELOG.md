@@ -6,6 +6,10 @@ Sections per entry: **Added · Changed · Fixed · Removed**. Each line: `<what>
 
 ---
 
+## [0.120.0] - 2026-07-04
+
+- **Menu — the shattered MCI-station vista is gone (Jason).** The Bridge menu's blown-up station (the `armStation` art split into drifting clip-path shards + ember + core-progress cap on the right) is removed; the photo background stays exactly as it was. The ARM campaign progress it carried still reads on the ARM mission strip (`Station n/60`), so no information is lost. Cleanup: the station markup, its shard-art wiring, ~20 CSS rules and four keyframes (`sxStationBob`/`sxShardFlick`/`sxEmber`/`sxHexDrift`) all deleted; the `.sx-reduced` in-app reduced-motion hook now freezes the background photo drift instead (a real R1 tightening — the in-app toggle previously left the bg panning). Pins: verify-build's Bridge pin flipped to assert the station is ABSENT (0 shards, no `.sx-station-group`) with strips + dock still present; the R1 reduced-motion source pin repointed to the bg-drift kill. Control: station markup re-added → the "GONE" pin fell → restored, gate 0. Browser-verified (shot 103). Files: starnix-shell.js, verify-build.mjs. Tests: gate exit 0.
+
 ## [0.119.0] - 2026-07-04
 
 - **Chasm Chase — the aqua edge speed-ticks retire after 5 km (Jason).** The blue dashed lines streaming down both edges of the corridor (the `iTick` aqua bars, a speed cue + soft lane guide) now guide only the opening stretch: full for the first 5 km, then they thin out over the next 600 m and vanish, so the later run reads cleaner. Keyed to `sim.scoreDistance` (the HUD km, not world-scroll), so a run resumed from a checkpoint past 5 km stays clear too. The gold energy CELLS you collect are untouched (they're the currency, not the guide). Browser-verified: present at ~1 km, gone at 6.2 km. Pin: cc-view-smoke behavioral — full (22) below 5 km, thinning (11) at 5.3 km, zero past ~5.6 km. Control: gate removed (always full) → the pin fell (22 everywhere) → restored, gate 0. Files: cc.js, cc-view-smoke.mjs. Tests: gate exit 0.

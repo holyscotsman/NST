@@ -101,7 +101,12 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.119.0 — Chasm Chase: edge speed-ticks retire after 5 km (Jason)
+## v0.120.0 — Menu: removed the shattered-station vista (Jason)
+
+The blown-up station shard-group is gone from the Bridge menu; the photo background stays.
+ARM progress still shows on the ARM strip. In-app reduced-motion now freezes the bg drift.
+
+> **Earlier this session (v0.119.0):** ## Chasm Chase: edge speed-ticks retire after 5 km (Jason)
 
 The aqua dashed edge lines guide only the first 5 km, then thin out over 600 m and vanish
 (keyed to the HUD km, so resume stays clear). Gold cells untouched. Browser-verified.

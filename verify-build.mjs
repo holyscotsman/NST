@@ -134,8 +134,9 @@ async function runFrames(n = 6) {
   ok("no card disabled (all four live)", w.document.querySelectorAll(".sx-card-disabled").length === 0);
   {
     const bg = w.document.querySelector(".sx-menu-bg");
-    ok("menu is the Bridge (D2): mission strips + shattered station + dock (wireframe tile retired)",
-    !!w.document.querySelector(".sx-strip") && w.document.querySelectorAll(".sx-shard").length === 4
+    ok("menu is the Bridge: mission strips + dock, and the shattered station is GONE (v0.120.0, Jason — keep the bg)",
+    !!w.document.querySelector(".sx-strip") && w.document.querySelectorAll(".sx-shard").length === 0
+    && !w.document.querySelector(".sx-station-group")
     && !!w.document.querySelector(".sx-bridge-dock") && !!w.document.querySelector(".sx-strip-divider"));
     const photo = w.document.querySelector(".sx-menu-photo");
     ok("menu has a moving photo background wired to menuBg", !!photo && photo.classList.contains("on") && /menuBg|data:image\/(jpeg|png)/.test(photo.style.backgroundImage || ""));
@@ -1507,7 +1508,7 @@ async function runFrames(n = 6) {
         const rootB = contB.querySelector(".sx-exam");
         const bgB = (rootB.style.backgroundImage || "");
         ok("R1: the bridge menu honors the in-app Reduced-motion toggle (class hook + kill rules, source)",
-        html.includes('s.className += " sx-reduced"') && html.includes(".sx-reduced .sx-station-group,.sx-reduced .sx-shard-rwing,.sx-reduced .sx-station-ember,.sx-reduced .sx-station-hex{animation:none;}"));
+        html.includes('s.className += " sx-reduced"') && html.includes(".sx-reduced .sx-menu-photo.on,.sx-reduced .sx-title-photo.on{animation:none;transform:scale(1.04);}"));
       ok("D7: Blitz keeps the arcade skin — nebula bg, no .station, no rail",
           !/\bstation\b/.test(rootB.className) && bgB.indexOf("linear-gradient") === 0 && bgB.includes("url(")
           && rootB.style.backgroundSize === "cover" && !contB.querySelector(".sx-exam-rail"));

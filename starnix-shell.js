@@ -451,25 +451,12 @@
         '<div class="sx-bridge-sub">The BCM shattered the MCI Station. Four operations stand between you and certification.</div>' +
         '<div class="sx-cards"></div>' +
       '</div>' +
-      '<div class="sx-station-group" aria-hidden="true">' +
-        '<div class="sx-station-ember"></div>' +
-        '<div class="sx-shard sx-shard-spire"></div><div class="sx-shard sx-shard-lwing"></div>' +
-        '<div class="sx-shard sx-shard-rwing"></div><div class="sx-shard sx-shard-core"></div>' +
-        '<span class="sx-station-hex h1">\u2B21</span><span class="sx-station-hex h2">\u2B21</span><span class="sx-station-hex h3">\u2B21</span>' +
-        '<i class="sx-bracket tl"></i><i class="sx-bracket tr"></i><i class="sx-bracket bl"></i><i class="sx-bracket br"></i>' +
-        '<div class="sx-station-cap">MCI STATION' +
-          '<span class="sx-station-bar"><i style="width:' + Math.round(stationN / 60 * 100) + '%"></i></span>' +
-          '<span class="sx-station-n">' + stationN + '/60 cores restored</span></div>' +
-      '</div>' +
       '<div class="sx-bridge-dock"><span class="sx-dock-lbl">DAILY MISSIONS</span><div class="sx-daily"></div><div class="sx-dock-cta"></div></div>';
     this._renderRank(s.querySelector(".sx-rank"));
     this._renderDaily(s.querySelector(".sx-daily"), { compact: true, head: false });   // (D2) the dock carries its own label
     var photoEl = s.querySelector(".sx-menu-photo");
     var menuBg = global.STARNIX_ASSETS && global.STARNIX_ASSETS.menuBg;
     if (photoEl && menuBg) { photoEl.style.backgroundImage = 'url("' + menuBg + '")'; photoEl.classList.add("on"); }
-    var stArt = global.STARNIX_ASSETS && global.STARNIX_ASSETS.armStation;
-    if (stArt) s.querySelectorAll(".sx-shard").forEach(function (sh) { sh.style.backgroundImage = 'url("' + stArt + '")'; });
-    else s.querySelector(".sx-station-group").style.display = "none";
     var cards = s.querySelector(".sx-cards");
 
     var STRIP_META = {
@@ -1457,27 +1444,8 @@
       ".sx-strip-divider i{flex:1;height:1px;background:linear-gradient(90deg, transparent, rgba(255,200,87,.5));}",
       ".sx-strip-divider i:last-child{background:linear-gradient(90deg, rgba(255,200,87,.5), transparent);}",
       ".sx-strip-divider span{font-size:10px;letter-spacing:.22em;color:var(--gold);}",
-      // shattered station group
-      ".sx-station-group{position:absolute;right:64px;top:96px;width:400px;height:400px;z-index:2;pointer-events:none;animation:sxStationBob 12s ease-in-out infinite;}",
-      "@keyframes sxStationBob{0%,100%{transform:translateY(0) rotate(-1deg);}50%{transform:translateY(-14px) rotate(1deg);}}",
-      ".sx-shard{position:absolute;inset:0;background-size:contain;background-position:center;background-repeat:no-repeat;}",
-      ".sx-shard-spire{clip-path:polygon(28% 0, 72% 0, 63% 43%, 37% 43%);transform:translate(-12px,-26px) rotate(-6deg);}",
-      ".sx-shard-lwing{clip-path:polygon(0 28%, 38% 40%, 34% 80%, 0 88%);transform:translate(-30px,16px) rotate(-8deg);}",
-      ".sx-shard-rwing{clip-path:polygon(62% 40%, 100% 28%, 100% 88%, 66% 80%);transform:translate(28px,10px) rotate(7deg);animation:sxShardFlick 7s steps(2) infinite;}",
-      "@keyframes sxShardFlick{0%,92%{opacity:1;}94%,96%{opacity:.55;}98%,100%{opacity:1;}}",
-      ".sx-shard-core{clip-path:polygon(35% 44%, 65% 44%, 74% 100%, 26% 100%);transform:translate(4px,30px) rotate(3deg);}",
-      ".sx-station-ember{position:absolute;left:34%;top:38%;width:32%;height:26%;background:radial-gradient(circle, rgba(120,85,250,.7), transparent 70%);animation:sxEmber 3.2s ease-in-out infinite;}",
-      "@keyframes sxEmber{0%,100%{opacity:.35;}50%{opacity:.7;}}",
-      ".sx-station-hex{position:absolute;font-size:16px;color:var(--aqua);filter:drop-shadow(0 0 8px rgba(31,221,233,.8));animation:sxHexDrift 9s ease-in-out infinite;}",
-      ".sx-station-hex.h1{left:8%;top:20%;} .sx-station-hex.h2{right:6%;top:56%;color:var(--gold);filter:drop-shadow(0 0 8px rgba(255,200,87,.8));animation-duration:7s;} .sx-station-hex.h3{left:16%;bottom:12%;font-size:13px;animation-duration:11s;}",
-      "@keyframes sxHexDrift{0%,100%{transform:translate(0,0);}50%{transform:translate(6px,-10px);}}",
-      ".sx-bracket{position:absolute;width:26px;height:26px;border:0 solid rgba(31,221,233,.5);}",
-      ".sx-bracket.tl{left:-6px;top:-6px;border-left-width:2px;border-top-width:2px;} .sx-bracket.tr{right:-6px;top:-6px;border-right-width:2px;border-top-width:2px;}",
-      ".sx-bracket.bl{left:-6px;bottom:34px;border-left-width:2px;border-bottom-width:2px;} .sx-bracket.br{right:-6px;bottom:34px;border-right-width:2px;border-bottom-width:2px;}",
-      ".sx-station-cap{position:absolute;left:0;right:0;bottom:-16px;text-align:center;font-size:11px;letter-spacing:.18em;color:var(--iris300);display:flex;flex-direction:column;align-items:center;gap:5px;}",
-      ".sx-station-bar{width:120px;height:6px;border-radius:3px;background:rgba(255,255,255,.09);overflow:hidden;}",
-      ".sx-station-bar i{display:block;height:100%;background:linear-gradient(90deg, var(--iris), var(--aqua));}",
-      ".sx-station-n{font-size:11.5px;letter-spacing:0;text-transform:none;color:var(--mid);}",
+      // (v0.120.0, Jason) the shattered MCI-station vista was removed from the menu — the photo
+      // background stays; the ARM campaign progress still reads on the ARM mission strip.
       // bottom dock
       ".sx-bridge-dock{position:relative;z-index:3;display:flex;align-items:center;gap:16px;margin:22px 28px 20px;background:rgba(10,10,18,.72);border:1px solid #26263a;border-radius:14px;padding:12px 18px;backdrop-filter:blur(6px);}",
       ".sx-dock-lbl{font-size:10.5px;letter-spacing:.18em;color:var(--dim);flex:none;}",
@@ -1485,9 +1453,8 @@
       ".sx-bridge-dock .sx-daily-row{border:0;background:none;padding:0 6px;font-size:12px;flex:none;}",
       ".sx-dock-continue{font-family:inherit;font-size:14px;font-weight:800;color:#04222a;background:var(--aqua);border:0;border-radius:10px;padding:11px 18px;cursor:pointer;box-shadow:0 0 22px rgba(31,221,233,.45);}",
       ".sx-dock-continue:hover{filter:brightness(1.08);}",
-      "@media (max-width:1000px){.sx-station-group{display:none;}.sx-bridge-left{max-width:none;}}",
-      "@media (prefers-reduced-motion: reduce){.sx-station-group,.sx-shard-rwing,.sx-station-ember,.sx-station-hex{animation:none;}}",
-      ".sx-reduced .sx-station-group,.sx-reduced .sx-shard-rwing,.sx-reduced .sx-station-ember,.sx-reduced .sx-station-hex{animation:none;}",
+      "@media (max-width:1000px){.sx-bridge-left{max-width:none;}}",
+      ".sx-reduced .sx-menu-photo.on,.sx-reduced .sx-title-photo.on{animation:none;transform:scale(1.04);}",
       ".sx-due-chip{border-color:var(--gold);color:var(--gold);}",
       ".sx-due-chip:hover{background:rgba(255,200,87,.12);}",
       ".sx-cards{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:480px;margin:0 auto;}",
