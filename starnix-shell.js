@@ -55,6 +55,12 @@
   Shell.prototype._cancelRaf = function () {
     if (this._raf) { global.cancelAnimationFrame(this._raf); this._raf = 0; }
   };
+  // (v0.135.0, V1.1 FE#1) every screen swap wipes the stage, which silently drops keyboard
+  // focus to <body>. Screens now hand focus to themselves (tabindex=-1 container) so Tab
+  // starts from the top of the new screen and screen readers announce the change.
+  Shell.prototype._focusScreen = function (s) {
+    try { s.tabIndex = -1; s.focus({ preventScroll: true }); } catch (e) { try { s.focus(); } catch (e2) {} }
+  };
   Shell.prototype._clearScreen = function () {
     this._cancelRaf();
     if (this._exam && this._exam.teardown) { try { this._exam.teardown(); } catch (e) {} this._exam = null; }
@@ -563,6 +569,7 @@
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
 
     this.stage.appendChild(s);
+    this._focusScreen(s);   // (v0.135.0, FE#1) hand keyboard focus to the new screen
   };
 
   /* Commander rank strip (v0.52.0 unit 2) — renders name + XP bar + to-next line from
@@ -1067,6 +1074,7 @@
     s.querySelector(".sx-row").appendChild(back);
     this._on(s.querySelector(".sx-stats-topback"), "click", function () { self.showMenu(); });
     this.stage.appendChild(s);
+    this._focusScreen(s);
   };
 
   /* =================================================================== *
@@ -1243,6 +1251,7 @@
     this._on(back, "click", function () { if (core.persistence.flush) core.persistence.flush(); self.showMenu(); });
     s.querySelector(".sx-row").appendChild(back);
     this.stage.appendChild(s);
+    this._focusScreen(s);
   };
 
   /* =================================================================== *
@@ -1399,12 +1408,27 @@
     ov.appendChild(card); this.stage.appendChild(ov); this._pauseOverlay = ov;
     this._on(resume, "click", function () { try { core.audio.sfx("click"); } catch (e) {} self.closePause(); });
     this._on(menu, "click", function () { try { core.audio.sfx("click"); } catch (e) {} self.exitGame(); });
+    // (v0.135.0, V1.1 FE#1) focus trap: the overlay owns Tab while open; Resume gets focus on
+    // open and the previously-focused element gets it back on close.
+    try { this._pauseReturnFocus = this.root.ownerDocument.activeElement; } catch (ePf) { this._pauseReturnFocus = null; }
+    try { resume.focus(); } catch (eRf) {}
+    this._on(ov, "keydown", function (e) {
+      if (e.key !== "Tab") return;
+      var els = ov.querySelectorAll("button, [tabindex]");
+      if (!els.length) return;
+      var first = els[0], last = els[els.length - 1], act = ov.ownerDocument.activeElement;
+      if (e.shiftKey && act === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && act === last) { e.preventDefault(); first.focus(); }
+      else if (act !== null && !ov.contains(act)) { e.preventDefault(); first.focus(); }
+    });
   };
   Shell.prototype.closePause = function () {
     if (!this._paused) return;
     this._paused = false;
     if (this._pauseOverlay && this._pauseOverlay.parentNode) this._pauseOverlay.parentNode.removeChild(this._pauseOverlay);
     this._pauseOverlay = null;
+    try { if (this._pauseReturnFocus && this._pauseReturnFocus.focus) this._pauseReturnFocus.focus(); } catch (eRb) {}
+    this._pauseReturnFocus = null;
     try { StarNix.core.audio.setMusic(!!StarNix.core.profile.settings.music); } catch (e) {}
     try { if (this.currentModule && this.currentModule.resume) this.currentModule.resume(); } catch (e) {}
   };

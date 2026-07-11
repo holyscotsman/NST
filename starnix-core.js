@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.134.0";
+  var BUILD_VERSION = "0.135.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -879,7 +879,10 @@
     var hcRules =
       ':root[data-contrast="high"] .sx-btn-iris{border:1px solid var(--white);}' +
       ':root[data-contrast="high"] .sx-stat{background:rgba(255,255,255,.09);}' +
-      ':root[data-contrast="high"] :focus-visible{outline:2px solid var(--aqua);outline-offset:2px;}';
+      // (v0.135.0, V1.1 FE#1) the focus ring is ALWAYS on now — keyboard users on a dark bg
+      // got invisible browser-default rings everywhere outside high-contrast mode.
+      ':focus-visible{outline:2px solid var(--aqua);outline-offset:2px;border-radius:4px;}' +
+      ':root[data-contrast="high"] :focus-visible{outline-width:3px;}';
     return base + hc + hcRules;
   }
   function injectTheme(doc) {

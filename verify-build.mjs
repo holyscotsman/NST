@@ -1272,6 +1272,31 @@ async function runFrames(n = 6) {
       ok("Flow#1: an exit with NO answered questions shows no debrief (no empty ceremony)",
         shell.screen === "menu" && !w.document.querySelector(".sx-debrief"));
     }
+    // ============ (v0.135.0, V1.1 FE#1) keyboard focus overhaul ============
+    {
+      ok("FE#1: the focus ring is ALWAYS on (not gated behind high-contrast)",
+        html.includes(":focus-visible{outline:2px solid var(--aqua);outline-offset:2px;border-radius:4px;}"));
+      shell.showMenu(); await wait(10);
+      ok("FE#1: a screen swap hands keyboard focus to the new screen (menu container focused)",
+        w.document.activeElement && w.document.activeElement.classList && w.document.activeElement.classList.contains("sx-menu"));
+      // pause trap: focus lands on Resume, Tab wraps inside the card, close restores focus
+      delete SN.core.profile.saves; shell.enterGame("CC"); await wait(10);
+      { const hc135 = w.document.querySelector(".cc-howto-cont"); if (hc135) hc135.click(); }   // CC's howto autofocuses — clear it first
+      await wait(30);
+      shell.openPause(); await wait(10);
+      const ovFE = w.document.querySelector(".sx-pause");
+      const btnsFE = ovFE ? ovFE.querySelectorAll("button") : [];
+      ok("FE#1: opening pause focuses the Resume control",
+        !!ovFE && btnsFE.length >= 2 && w.document.activeElement && /sx-pause-resume/.test(w.document.activeElement.className || ""));
+      // Tab on the LAST button wraps to the first (the trap owns Tab)
+      const lastFE = btnsFE[btnsFE.length - 1]; lastFE.focus();
+      lastFE.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+      ok("FE#1: Tab past the last pause control wraps back to the first (focus trap)",
+        w.document.activeElement === btnsFE[0]);
+      shell.closePause(); await wait(10);
+      shell.exitGame(); await wait(10);
+      { const d135 = w.document.querySelector(".sx-debrief-done"); if (d135) d135.click(); await wait(10); }
+    }
     ok("Backend#1: Settings Data section offers Export + Import + Reset",
         btns130.some(t => /Export progress/.test(t)) && btns130.some(t => /Import progress/.test(t)) && btns130.some(t => /Reset all progress/.test(t)));
       shell.showMenu(); await wait(10);
