@@ -58,6 +58,10 @@
   // (v0.135.0, V1.1 FE#1) every screen swap wipes the stage, which silently drops keyboard
   // focus to <body>. Screens now hand focus to themselves (tabindex=-1 container) so Tab
   // starts from the top of the new screen and screen readers announce the change.
+  // (v0.136.0, V1.1 FE#2) dev-only surfaces (Jukebox) hide from players — same detection ARM uses
+  function shellDevMode() {
+    try { return !!(global.STARNIX_DEV || (global.location && global.location.search && /[?&]dev\b/.test(global.location.search))); } catch (e) { return false; }
+  }
   Shell.prototype._focusScreen = function (s) {
     try { s.tabIndex = -1; s.focus({ preventScroll: true }); } catch (e) { try { s.focus(); } catch (e2) {} }
   };
@@ -1124,6 +1128,33 @@
    * playTrack(id, {exact:true}) bypasses playlist resolution so EVERY id is reachable,
    * including rotation-only variants. Leaving Settings self-cleans: showMenu replays
    * the menu bed. Grouped fixed-beds-first, then per-context playlists. */
+  // (v0.136.0, V1.1 FE#2) Upbeat/Chill — extracted from openPause so Settings offers it too.
+  // The retrigger only fires when a game bed is active (menu bed handles itself).
+  Shell.prototype._buildGenreRow = function (host) {
+    var self = this, core = StarNix.core;
+    var st = core.profile.settings;
+    var grow = el("div", "sx-genre-row");
+    grow.appendChild(el("span", "sx-genre-label", "Music style"));
+    var gUp = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Upbeat");
+    var gCh = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Chill");
+    function paintGenre() {
+      var g = st.musicGenre === "chill" ? "chill" : "upbeat";
+      gUp.className = "sx-btn sx-genre-btn" + (g === "upbeat" ? " sx-btn-primary" : " sx-btn-ghost");
+      gCh.className = "sx-btn sx-genre-btn" + (g === "chill" ? " sx-btn-primary" : " sx-btn-ghost");
+    }
+    function pickGenre(g) {
+      try { core.audio.sfx("click"); } catch (e) {}
+      st.musicGenre = g; paintGenre();
+      try { if (core.persistence && core.persistence.save) core.persistence.save(core.profile); } catch (e) {}
+      try { if (core.audio.setMusicGenre) core.audio.setMusicGenre(g); } catch (e) {}
+      // (v0.68.0, J3 fix) resolve UPPERCASE game ids through GAME_META like enterGame does
+      try { if (self.lastGameId) core.audio.playTrack((GAME_META[self.lastGameId] && GAME_META[self.lastGameId].track) || String(self.lastGameId).toLowerCase()); } catch (e) {}
+    }
+    this._on(gUp, "click", function () { pickGenre("upbeat"); });
+    this._on(gCh, "click", function () { pickGenre("chill"); });
+    paintGenre();
+    grow.appendChild(gUp); grow.appendChild(gCh); host.appendChild(grow);
+  };
   Shell.prototype._buildJukebox = function (host) {
     var self = this, audio = StarNix.core.audio;
     var ids = (audio.trackIds ? audio.trackIds() : []).slice();
@@ -1180,16 +1211,17 @@
       + '<div class="sx-seclabel">Display &amp; input</div><div class="sx-toggles"></div>'
       + '<div class="sx-seclabel">Ship trail</div><div class="sx-trails"></div>'
       + '<div class="sx-seclabel">Data</div><div class="sx-data"></div>'
-      + '<div class="sx-seclabel">Dev \u00b7 Jukebox</div><div class="sx-jukebox"></div>'
+      + (shellDevMode() ? '<div class="sx-seclabel">Dev \u00b7 Jukebox</div><div class="sx-jukebox"></div>' : '')
       + '<div class="sx-row"></div></div>';
     var sliderBox = s.querySelector(".sx-sliders");
     var box = s.querySelector(".sx-toggles");
     var dataBox = s.querySelector(".sx-data");
 
     this._buildVolumeSliders(sliderBox);
+    this._buildGenreRow(sliderBox);   // (v0.136.0, FE#2) music style reachable without pausing a game
     this._buildToggles(box);
     this._buildTrailPicker(s.querySelector(".sx-trails"));
-    this._buildJukebox(s.querySelector(".sx-jukebox"));   // (v0.79.0, JB1)
+    if (s.querySelector(".sx-jukebox")) this._buildJukebox(s.querySelector(".sx-jukebox"));   // (v0.79.0, JB1; FE#2: dev mode only)
 
     // ---- reset progress (two-tap confirm; persists a fresh profile, then reloads) ----
     var resetBtn = el("button", "sx-btn sx-btn-danger", "Reset all progress");
@@ -1357,34 +1389,8 @@
     card.appendChild(el("div", "sx-seclabel", "Audio"));
     var sliders = el("div", "sx-sliders"); card.appendChild(sliders);
     try { this._buildVolumeSliders(sliders); } catch (e) {}
-    // (Jason v0.49.0) music style — Upbeat / Chill. Persists, and swaps the current game's bed
-    // immediately (the new track starts when the pause lifts; setMusic(true) restarts `current`).
-    try {
-      var st = core.profile.settings;
-      var grow = el("div", "sx-genre-row");
-      grow.appendChild(el("span", "sx-genre-label", "Music style"));
-      var gUp = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Upbeat");
-      var gCh = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Chill");
-      function paintGenre() {
-        var g = st.musicGenre === "chill" ? "chill" : "upbeat";
-        gUp.className = "sx-btn sx-genre-btn" + (g === "upbeat" ? " sx-btn-primary" : " sx-btn-ghost");
-        gCh.className = "sx-btn sx-genre-btn" + (g === "chill" ? " sx-btn-primary" : " sx-btn-ghost");
-      }
-      function pickGenre(g) {
-        try { core.audio.sfx("click"); } catch (e) {}
-        st.musicGenre = g; paintGenre();
-        try { if (core.persistence && core.persistence.save) core.persistence.save(core.profile); } catch (e) {}
-        try { if (core.audio.setMusicGenre) core.audio.setMusicGenre(g); } catch (e) {}
-        // (v0.68.0, J3 fix) lastGameId is UPPERCASE ("ARM") but track/playlist ids are lowercase —
-        // playTrack("ARM") hit `if (!def) return` and the whole genre toggle was a silent no-op.
-        // Resolve through GAME_META like enterGame does.
-        try { if (self.lastGameId) core.audio.playTrack((GAME_META[self.lastGameId] && GAME_META[self.lastGameId].track) || String(self.lastGameId).toLowerCase()); } catch (e) {}
-      }
-      this._on(gUp, "click", function () { pickGenre("upbeat"); });
-      this._on(gCh, "click", function () { pickGenre("chill"); });
-      paintGenre();
-      grow.appendChild(gUp); grow.appendChild(gCh); card.appendChild(grow);
-    } catch (e) {}
+    // (v0.136.0, V1.1 FE#2) music style lives in the shared builder now — pause AND Settings
+    try { this._buildGenreRow(card); } catch (e) {}
     card.appendChild(el("div", "sx-seclabel", "Display & input"));
     var toggles = el("div", "sx-toggles"); card.appendChild(toggles);
     try { this._buildToggles(toggles); } catch (e) {}

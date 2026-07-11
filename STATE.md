@@ -103,7 +103,7 @@
 
 ## V1.1 IN PROGRESS — wave 1 (top item per area)
 
-Working VERSION_1_1.md as gated units. WAVE 1 COMPLETE — the top item from every area shipped: Menu#1 (v0.128.0), NIT#1 (v0.129.0), Backend#1 (v0.130.0), ARM#1 (v0.131.0), CC#2 (v0.132.0), KBB#1 (v0.133.0), Flow#1 (v0.134.0), FE#1 (v0.135.0). Next wave: continue down VERSION_1_1.md per area (item #2s), or Jason picks.
+Working VERSION_1_1.md as gated units. WAVE 1 COMPLETE (v0.128-135, top item per area). WAVE 2 IN FLIGHT: FE#2 settings cleanup (v0.136.0). NEXT: Backend#2 bank freshness, Menu#2 due-chip promotion, CC#1 answer-charged boost, KBB#2 battle debrief, Flow#2 flight plan, ARM#2 boss phases, NIT#2 quarantine (keys stay quarantined per the hard rule — investigate holds only).
 NEXT: NIT#1 bank lint, Backend#1 save safety net, ARM#1 lost-core pool, CC#2 turns, KBB#1
 event deck, Flow#1 debrief, FE#1 focus.
 

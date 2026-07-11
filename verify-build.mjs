@@ -922,8 +922,12 @@ async function runFrames(n = 6) {
   ok("JB3: the dying hull persists until the core detonation in BOTH render paths",
     (html.match(/s\.deathAt && ts < s\.deathAt/g) || []).length === 2);
 
-  // JB1 (v0.79.0) — Dev Jukebox: one button per library track, exact playback, stop control
-  console.log("\nJB1. Dev Jukebox");
+  // JB1 (v0.79.0 / v0.136.0 FE#2) — Dev Jukebox: DEV-ONLY now; players never see it
+  console.log("\nJB1. Dev Jukebox (dev mode)");
+  ok("FE#2: the Jukebox is HIDDEN from players (no dev mode)", !w.document.querySelector(".sx-jukebox"));
+  ok("FE#2: Settings offers the Music style toggle without pausing a game",
+    !!w.document.querySelector(".sx-panel .sx-genre-row"));
+  w.STARNIX_DEV = true; shell.showSettings(); await wait(10);   // re-open with dev mode on
   const jbIds = SN.core.audio.trackIds ? SN.core.audio.trackIds() : [];
   ok("audio.trackIds() lists the full library (>= 43 tracks, got " + jbIds.length + ")", jbIds.length >= 43);
   const jbBtns = w.document.querySelectorAll(".sx-jukebox .sx-jb-btn");
@@ -940,9 +944,11 @@ async function runFrames(n = 6) {
     jbStop.click();
     ok("Stop returns to the menu bed", /^menu/.test(SN.core.audio.state().trackId || ""));
   } else { ok("jukebox click probe (unreached)", false); ok("jukebox highlight probe (unreached)", false); ok("jukebox stop probe (unreached)", false); }
+  delete w.STARNIX_DEV;   // (FE#2) dev mode off again for every later drive
 
   let slideThrew = false;
-  try { ranges[1].value = "50"; ranges[1].dispatchEvent(new w.Event("input", { bubbles: true })); } catch (e) { slideThrew = true; }
+  const ranges136 = w.document.querySelectorAll(".sx-sliders input");   // (FE#2) re-query — the dev-mode re-open rebuilt the screen
+  try { ranges136[1].value = "50"; ranges136[1].dispatchEvent(new w.Event("input", { bubbles: true })); } catch (e) { slideThrew = true; }
   ok("adjusting a volume slider does not throw", !slideThrew);
   ok("slider write persists to settings.musicVol", Math.abs((SN.core.profile.settings.musicVol || 0) - 0.5) < 1e-6);
   let resetThrew = false;
