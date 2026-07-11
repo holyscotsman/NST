@@ -39,6 +39,8 @@ export class Studio {
     this._dummy = new THREE.Object3D(); // scratch for instanced-matrix updates
     this._hiddenMat = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
     this._moodTarget = new THREE.Color(PAL.iris); // key-light colour eases toward this
+    this._lightEnv = 1;    // fill-light multiplier target (1 = full, ~0.3 = lock-in)
+    this._lightEnvCur = 1; // eased value applied each frame
   }
 
   async init() {
@@ -48,6 +50,8 @@ export class Studio {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.92; // keep the stage moody, not blown out
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft-edged contact shadows
     this.renderer = renderer;
     this.container.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -143,6 +147,10 @@ export class Studio {
         else if (data.tier === 'medium') this._setMood(PAL.aqua, 1.0);
         else this._setMood(PAL.iris, 0.95);
         this._talk = 2.6; // the host reads it out
+        this._lightEnv = 1; // restore full rig for the next question
+        break;
+      case 'ui:lockin':
+        this._lightEnv = 0.32; // dim the fills — hard key on the contestant
         break;
       case 'host:welcome':
         this._talk = 3.6;
@@ -150,11 +158,13 @@ export class Studio {
       case 'answer:correct':
         this._flash(PAL.mantis);
         this._mood = { kind: 'happy', t: 2.2, total: 2.2 };
+        this._lightEnv = 1; // rig flares back up on the reveal
         break;
       case 'answer:wrong':
         this._flash(PAL.peach);
         this._setMood(PAL.peach, 0.7);
         this._mood = { kind: 'sad', t: 2.8, total: 2.8 };
+        this._lightEnv = 1;
         break;
       case 'run:win':
         this._setMood(PAL.gold, 1.3);
@@ -250,6 +260,18 @@ export class Studio {
     // Key light eases toward the current tier/mood colour (smooth transitions).
     if (this._keyLight && this._moodTarget && !this.reduced) {
       this._keyLight.color.lerp(this._moodTarget, Math.min(1, dt * 2.6));
+    }
+
+    // Lock-in cue: fills dim toward the target so only the key pool survives
+    // (the classic tension beat), crossfading. Reduced motion snaps.
+    if (this._baseLights && Math.abs(this._lightEnvCur - this._lightEnv) > 0.001) {
+      this._lightEnvCur = this.reduced ? this._lightEnv
+        : this._lightEnvCur + (this._lightEnv - this._lightEnvCur) * Math.min(1, dt * 3.2);
+      const e = this._lightEnvCur, B = this._baseLights;
+      if (this._ambient) this._ambient.intensity = B.ambient * (0.5 + 0.5 * e);
+      if (this._key2) this._key2.intensity = B.key2 * e;
+      if (this._warm) this._warm.intensity = B.warm * e;
+      if (this._rimLight) this._rimLight.intensity = B.rim * (0.5 + 0.5 * e);
     }
 
     // Life pass: blinking, breathing, head sway, talking mouths, reactions.
@@ -431,13 +453,23 @@ export class Studio {
     s.background = new THREE.Color(0x05050d);
     s.fog = new THREE.FogExp2(0x05050d, 0.018);
 
-    // dimmer wash so the figures and set read against the dark (was 120/90/40)
-    s.add(new THREE.AmbientLight(0x222244, 0.4));
+    // Darkness is the default; the rig is the accent. Fills stay dim; the key
+    // spotlight is the one shadow-caster (soft PCF), pooling on stage centre.
+    const ambient = new THREE.AmbientLight(0x222244, 0.4); s.add(ambient); this._ambient = ambient;
     const key = new THREE.SpotLight(PAL.iris, 65, 60, 0.6, 0.5, 1.2); key.position.set(6, 14, 8); key.target.position.set(0, 1, 0); s.add(key, key.target);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.camera.near = 4; key.shadow.camera.far = 34;
+    key.shadow.bias = -0.0006; key.shadow.radius = 4; // soft edges, no acne
     this._keyLight = key;
-    const key2 = new THREE.SpotLight(PAL.aqua, 48, 60, 0.7, 0.5, 1.2); key2.position.set(-8, 12, 4); key2.target.position.set(0, 1, 0); s.add(key2, key2.target);
-    const warm = new THREE.PointLight(PAL.gold, 20, 30); warm.position.set(0, 4, 2); s.add(warm);
+    const key2 = new THREE.SpotLight(PAL.aqua, 48, 60, 0.7, 0.5, 1.2); key2.position.set(-8, 12, 4); key2.target.position.set(0, 1, 0); s.add(key2, key2.target); this._key2 = key2;
+    const warm = new THREE.PointLight(PAL.gold, 20, 30); warm.position.set(0, 4, 2); s.add(warm); this._warm = warm;
     this._pulseLight = new THREE.PointLight(PAL.mantis, 14, 40); this._pulseLight.position.set(0, 2, 3); s.add(this._pulseLight);
+    // Cool rim/back light from behind the hot seats to separate the host and
+    // contestant from the dark background (no shadow, cheap).
+    const rimL = new THREE.SpotLight(PAL.aqua, 26, 40, 0.7, 0.6, 1.4); rimL.position.set(0, 6, -8); rimL.target.position.set(0, 1.3, 1); s.add(rimL, rimL.target);
+    this._rimLight = rimL;
+    this._baseLights = { ambient: 0.4, key2: 48, warm: 20, rim: 26 };
 
     // Hero floor: near-black, low-roughness, high-metalness so it mirrors the
     // environment's neon (the signature glossy game-show floor). The floor
@@ -445,7 +477,7 @@ export class Studio {
     const floorTex = floorTexture();
     const discMat = mat(0x14172a, 0x05060f, 0.15, 0.22, 0.9);
     discMat.map = floorTex; discMat.roughnessMap = floorTex; discMat.envMapIntensity = 1.5;
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.4, 64), discMat); disc.position.y = -0.2; s.add(disc);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.4, 64), discMat); disc.position.y = -0.2; disc.receiveShadow = true; s.add(disc);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(9, 0.08, 12, 96), mat(0x000000, PAL.aqua, 2.2)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.02; s.add(rim);
 
     const spokeGeo = new THREE.BoxGeometry(0.1, 0.05, 6);
@@ -486,11 +518,11 @@ export class Studio {
     const bow = box(0.12, 0.055, 0.04, mat(0x1a1408, PAL.gold, 0.55)); bow.position.set(0, 1.415, 0.15); host.add(bow);
     host.userData.parts.armR.rotation.z = -1.0; // working the room
     setMouth(host.userData.parts, 'smile');
-    s.add(host);
+    castShadows(host); s.add(host);
 
     const player = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true });
     player.position.set(-2.1, 0.16, 0); player.rotation.y = 0.28;
-    s.add(player);
+    castShadows(player); s.add(player);
 
     // ---- the audience: seated bodies on visible chairs, on riser platforms ----
     const body = new THREE.CapsuleGeometry(0.115, 0.3, 5, 12); body.translate(0, 1.06, 0);
@@ -682,6 +714,7 @@ function cyl(rt, rb, h, m) { return new THREE.Mesh(new THREE.CylinderGeometry(rt
 function box(w, h, d, m) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); }
 function sph(r, m) { return new THREE.Mesh(new THREE.SphereGeometry(r, 24, 18), m); }
 function pos(m, x, y, z) { m.position.set(x, y, z); return m; }
+function castShadows(group) { group.traverse((o) => { if (o.isMesh) o.castShadow = true; }); }
 
 /* ---------- people (original art drawn in code) ---------- */
 

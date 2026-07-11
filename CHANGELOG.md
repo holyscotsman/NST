@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — graphics overhaul (phase 3): shadows, rim light, lock-in cue
+
+- **Soft shadows** — the renderer now casts PCF soft shadows from one key
+  spotlight (1024 map, tuned bias/radius); the host and contestant cast, the
+  stage floor receives, so the figures ground into the set. Fills and the
+  distant audience don't cast (perf).
+- **Rim/back light** — a cool spot behind the hot seats separates the host and
+  contestant from the dark background.
+- **Lock-in lighting cue** — when you lock an answer, the fill lights crossfade
+  down to a hard-key pool on the contestant (the classic tension beat) and
+  flare back up on the reveal. Driven by a new `ui:lockin` event; reduced
+  motion snaps rather than dims.
+
 ## Unreleased — graphics overhaul (phases 0 + 2): environment, reflective floor
 
 Adapted from the owner's 5-phase graphics directive (docs/GRAPHICS_OVERHAUL.md),

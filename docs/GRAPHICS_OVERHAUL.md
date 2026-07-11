@@ -25,7 +25,7 @@ The full audit is in `docs/GRAPHICS_AUDIT.md`.
 
 - [x] Phase 0 — Audit, dev FPS meter, shots harness
 - [x] Phase 2 — Environment map + reflective hero floor + emissive tuning
-- [ ] Phase 3 — Shadows, rim/back light, lock-in cue
+- [x] Phase 3 — Shadows, rim/back light, lock-in cue
 - [ ] Phase 1 — Set detail (LED wall, columns, medallion, truss/fixtures, bevels)
 - [ ] Phase 4 — Post polish (vignette/grain) + camera micro-motion + toggle
 - [ ] Phase 5 — UI lozenges, dust motes, branded transitions
@@ -40,6 +40,11 @@ the geometry work in Phase 1 read; camera/UI polish last.)
 - 2026-07-11 | Phase 0 | done | Audit grounded in real src; dev FPS meter
   (`src/shell/fpsMeter.js`, `?fps=1`/Alt+F); shots harness `tests/shots-gfx.mjs`
   writing before/after into `shots/`. Modular/vendored architecture confirmed.
+- 2026-07-11 | Phase 3 | done | PCF soft shadows (one shadow-casting key,
+  1024 map, tuned bias/radius; figures cast, disc receives); cool rim/back
+  light behind the hot seats; `ui:lockin` cue dims the fills to a hard-key pool
+  on lock-in and crossfades back on the reveal (reduced motion snaps; emitted
+  from main's onSuspense).
 - 2026-07-11 | Phase 2 | done | PMREM environment from a procedural neon scene
   (`_setupEnvironment`, core THREE — no addon/CDN) → `scene.environment` on both
   sets; hero floor now low-roughness/high-metal (metal 0.9, rough 0.22,

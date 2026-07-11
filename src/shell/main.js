@@ -52,6 +52,7 @@ export class Game {
       onSuspense: ({ ms, tier, isFinal }) => {
         this.music.duck((ms + 1400) / 1000, 0.25);
         if (tier === 'hard' || isFinal) this.music.drumRoll(ms / 1000);
+        this.bus.emit('ui:lockin', {}); // studio dims to the lock-in tension pool
       },
       onLifelineDone: () => this.music.pop(),
     });
