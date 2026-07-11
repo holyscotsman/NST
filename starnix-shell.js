@@ -947,7 +947,10 @@
 
     var core = StarNix.core;
     var s = el("div", "sx-screen sx-panelwrap");
-    s.innerHTML = '<div class="sx-panel"><div class="sx-eyebrow">Codex</div><h2 class="sx-h2">Your progress</h2>'
+    // (v0.126.0, Jason playtest) the Codex is a long screen; make LEAVING it easy — a sticky top
+    // back button + Escape-to-menu, not just the ← Menu buried at the bottom.
+    this._on(global, "keydown", function (e) { if (e.key === "Escape" || e.key === "Esc") { e.preventDefault(); self.showMenu(); } });
+    s.innerHTML = '<div class="sx-panel"><button class="sx-btn sx-btn-ghost sx-stats-topback" type="button">← Menu</button><div class="sx-eyebrow">Codex</div><h2 class="sx-h2">Your progress</h2>'
       + '<div class="sx-ready"></div>'
       + '<div class="sx-stat-grid"></div>'
       + '<div class="sx-dom-head">Domain mastery heatmap</div><div class="sx-heatmap"></div>'
@@ -1059,6 +1062,7 @@
     var back = el("button", "sx-btn sx-btn-ghost", "← Menu");
     this._on(back, "click", function () { self.showMenu(); });
     s.querySelector(".sx-row").appendChild(back);
+    this._on(s.querySelector(".sx-stats-topback"), "click", function () { self.showMenu(); });
     this.stage.appendChild(s);
   };
 
@@ -1511,6 +1515,7 @@
       ".sx-menu-foot{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:26px;}",
       ".sx-panelwrap{padding:24px;}",
       ".sx-panel{width:100%;max-width:560px;background:rgba(18,18,27,.96);border:1px solid var(--border);border-radius:18px;padding:26px;text-align:left;max-height:88vh;overflow:auto;}",
+      ".sx-stats-topback{position:sticky;top:-26px;z-index:4;margin:-26px -26px 14px;padding:12px 26px;width:calc(100% + 52px);text-align:left;border:0;border-bottom:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(18,18,27,.98);}",
       ".sx-eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:var(--iris300);margin-bottom:8px;}",
       ".sx-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0;}",
       ".sx-stat{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}",

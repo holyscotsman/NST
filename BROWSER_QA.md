@@ -229,6 +229,11 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-IMPROVE — playtest fixes (added v0.126.0; browser-VERIFIED).** Codex/Progress: a sticky
+  "← Menu" is at the top and Escape returns to the menu (no scrolling to the bottom to leave). CC:
+  the first question gate arrives at ~4 km (not 10), and the gate-question timer is ~1.5× longer.
+  WRONG: Codex with no top back / Escape doing nothing; CC first gate still at 10 km.
+
 - **QA-CINE — intro cinematic art (added v0.124.0; browser-VERIFIED).** Watch the cold open: the
   MCI Station is the real armStation sprite, the BCM warship that fires the Disruptor + jumps is the
   real bcmShip, and the squadron diving on the planet is the real armEnemyDive fighters. Confirmed

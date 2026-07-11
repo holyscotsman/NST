@@ -81,6 +81,7 @@
     TURN_KM: 250,              // (v0.104.0, C4) a 90° turn every N scored km; matching lane or you clip the wall
     TURN_WARN_S: 4,            // seconds of MOVE LEFT/RIGHT warning before the turn hits
     GATE_KM: 10,               // a question gate every 10 km of scored distance
+    FIRST_GATE_KM: 4,          // (v0.126.0, Jason playtest) the FIRST gate lands at 4 km — hook the learning loop before 10 km
 
     // Boost power-up (04 task 8): every GATES_PER_BOOST gates, the ship blasts forward — invulnerable,
     // the canyon fast-forwards (real scroll jumps to BOOST_SPEED), and scored distance covers BOOST_KM
@@ -258,7 +259,7 @@
 
     this._nextRowAt = cfg.BASE_GAP;      // distance threshold for next obstacle row
     this._nextGateAt = this.rng.next() * (cfg.GATE_GAP_MAX - cfg.GATE_GAP_MIN) + cfg.GATE_GAP_MIN + 20;
-    this._nextGateScore = cfg.GATE_KM * 1000;   // 04 task 7: first gate at 10 km of scored distance, then every 10 km
+    this._nextGateScore = cfg.FIRST_GATE_KM * 1000;   // (v0.126.0) first gate at FIRST_GATE_KM, then every GATE_KM
     this._gatesSpawned = 0;
     this.boostActive = false;                   // 04 task 8: boost power-up state
     this._gatesPassed = 0;
@@ -571,6 +572,7 @@
         limitS = this.ctx.questions.timerSeconds(q, { extraTime: !!(this.ctx.settings && this.ctx.settings.extraTime) });
       }
     } catch (e) {}
+    limitS = limitS * 1.5;   // (v0.126.0, Jason playtest) extend the question window 1.5x for now
     this.pending = { question: q, power: c.power, kind: c.kind, startedMs: this._nowMs, limitS: limitS, remainS: limitS };
     this.lastResult = null;
     this.phase = PHASE_QUESTION;    // PAUSE

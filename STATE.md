@@ -101,7 +101,14 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.125.0 — Full playtest + repo/code cleanup (Jason)
+## v0.126.0 — Playtest improvements: Codex nav + CC first-gate/timer (Jason)
+
+From the live in-browser playtest: Codex/Progress gets a sticky top back + Escape-to-menu; CC's
+first question gate moves to 4 km (then 10 km cadence); CC question timer ×1.5. Fixed a
+seed-fingerprint test made fragile by the gate shift (now hashes the whole obstacle stream).
+Note: the in-app browser pane now renders canvas live when focused (RAF throttles on idle).
+
+> **Earlier this session (v0.125.0):** ## Full playtest + repo/code cleanup (Jason)
 
 Live in-browser playtest of every surface (zero console errors) + Playwright error sweep; gate
 491/491 all-green. Repo: removed err.txt, a duplicate md, 6 retired session docs (kept masters,

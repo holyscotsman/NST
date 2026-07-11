@@ -447,7 +447,7 @@ async function runFrames(n = 6) {
       ok("J9: a collected cell feeds the wallet, not the km score",
         ccSim.coinScore === sc7 + 1 && Math.abs(ccSim.score() - km7) < 20);
     }
-    ok("gate threshold is a 10 km multiple", ccSim._nextGateScore % (cfg7.GATE_KM * 1000) === 0);
+    ok("first gate lands at FIRST_GATE_KM (early learning hook), before the 10 km cadence (v0.126.0, Jason)", ccSim._nextGateScore === cfg7.FIRST_GATE_KM * 1000 && cfg7.FIRST_GATE_KM < cfg7.GATE_KM);
     // 04 task 8: every 5 gates -> boost (invuln + ~100 km fast-forward, then normal cadence resumes)
     ccSim.reset();
     ccSim._gatesPassed = cfg7.GATES_PER_BOOST - 1;
@@ -499,7 +499,7 @@ async function runFrames(n = 6) {
     { const o = w.document.querySelector(".cc-overlay"); if (o) o.style.display = "none"; }
     ccSim.reset();
     ccSim._passGate(ccSim.gates.items[0]);
-    ok("gate question sets a per-question time limit in range (12–45s)", !!ccSim.pending && ccSim.pending.limitS >= 12 && ccSim.pending.limitS <= 45);
+    ok("gate question sets a sane time window — 1.5x the base, ~18–68s (v0.126.0, Jason)", !!ccSim.pending && ccSim.pending.limitS >= 12 && ccSim.pending.limitS <= 68);
     await runFrames(3);
     ok("countdown is displayed on the question overlay", /\d+\s*s/.test((w.document.querySelector(".cc-qtimer") || {}).textContent || ""));
     const lim = ccSim.pending.limitS, sh0 = ccSim.shields;
@@ -856,6 +856,10 @@ async function runFrames(n = 6) {
   try { shell.showStats(); } catch (e) { statsThrew = true; console.log("    showStats error:", e && e.message); }
   ok("Stats screen renders without throwing", !statsThrew && shell.screen === "stats");
   ok("Stats shows stat boxes", w.document.querySelectorAll(".sx-stat").length >= 4);
+  ok("Codex: a top ← Menu back button is present, so you can leave without scrolling to the bottom (v0.126.0, Jason)", !!w.document.querySelector(".sx-stats-topback"));
+  w.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  ok("Codex: Escape returns to the menu (v0.126.0, Jason)", shell.screen === "menu");
+  shell.showStats();   // re-open so the remaining Stats checks run
   ok("Stats shows per-domain rows (all 9 domains)", w.document.querySelectorAll(".sx-dom-row").length >= 9);
   ok("Stats surfaces a 'Due for review' metric", /Due for review/.test(w.document.querySelector(".sx-stat-grid").textContent || ""));
   shell.showMenu();

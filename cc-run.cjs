@@ -231,6 +231,7 @@ function runToQuestion(sim, maxSecs, pinShields) {
   group('QUESTION FLOW: gate pause, grading deltas, cap, drain to game over');
   var sim = mkSim(SEED + 2);
   ok(runToQuestion(sim, 90, CFG.SHIELDS_START), 'a gate reaches the ship and pauses the world into QUESTION');
+  ok(sim.pending.limitS === 30, 'v0.126.0: the CC question window is 1.5x the base (20 -> 30s) (Jason playtest)');
   var q1 = sim.pending.question;
   var r1 = sim.answer((q1.correctIndex + 1) % 4);
   ok(r1 && r1.correct === false && r1.shieldDelta === -2 && sim.shields === CFG.SHIELDS_START - 2,
@@ -289,10 +290,17 @@ function runToQuestion(sim, maxSecs, pinShields) {
   ok(sim.shields === s0 - 1 && sim.collisions === 1, 'i-frames block the chained second hit');
   function fingerprint(seed) {
     var s = mkSim(seed); s.shields = 99;
-    var dt = 1 / 60;
-    for (var i = 0; i < 60 * 30; i++) { s.step(dt); if (s.phase === 'QUESTION') { s.answer(s.pending.question.correctIndex); s.resumeAfterQuestion(); } }
-    var obs = s.obstacles.items.filter(function (o) { return o.active; }).map(function (o) { return o.type + '@' + o.z.toFixed(2); }).join('|');
-    return s.distance.toFixed(3) + '/' + s.scoreDistance.toFixed(1) + '/' + s._gatesSpawned + '/' + obs;
+    var dt = 1 / 60, acc = 0, seen = 0;
+    for (var i = 0; i < 60 * 30; i++) {
+      s.step(dt);
+      if (s.phase === 'QUESTION') { s.answer(s.pending.question.correctIndex); s.resumeAfterQuestion(); }
+      var items = s.obstacles.items;                        // (v0.126.0) hash the WHOLE obstacle stream — a
+      for (var j = 0; j < items.length; j++) {               // single-frame sample coincided across seeds once
+        var o = items[j];                                    // the first gate moved to 4 km; the run-wide stream
+        if (o.active) { acc += (o.type + 1) * 31 + (o.lane + 1) * 7 + o.z; seen++; }   // stays seed-divergent.
+      }
+    }
+    return s.distance.toFixed(3) + '/' + s.scoreDistance.toFixed(1) + '/' + s._gatesSpawned + '/' + acc.toFixed(2) + '/' + seen;
   }
   ok(fingerprint(SEED + 5) === fingerprint(SEED + 5), 'same seed -> identical 30s world fingerprint');
   ok(fingerprint(SEED + 5) !== fingerprint(SEED + 6), 'different seed -> different world');
@@ -357,6 +365,18 @@ function runToQuestion(sim, maxSecs, pinShields) {
   var b3 = CC.garage.buy(prof, 'magnet');
   ok(b3.ok && prof.ccCells === 15 && CC.garage.buy(prof, 'magnet').ok === false,
      'magnet buys once then reports maxed');
+})();
+
+(function firstGate() {
+  group('FIRST GATE: earlier first question, then the normal cadence (v0.126.0, Jason)');
+  var s9 = mkSim(SEED + 9);
+  ok(s9._nextGateScore === CFG.FIRST_GATE_KM * 1000 && CFG.FIRST_GATE_KM < CFG.GATE_KM,
+     'the FIRST gate is at FIRST_GATE_KM (' + CFG.FIRST_GATE_KM + 'km) < GATE_KM (' + CFG.GATE_KM + 'km)');
+  var b9 = s9._nextGateScore;
+  s9.scoreDistance = CFG.FIRST_GATE_KM * 1000 + 100;
+  s9.step(1 / 60);
+  ok(s9._nextGateScore === b9 + CFG.GATE_KM * 1000,
+     'after the first gate, cadence returns to GATE_KM (' + (b9/1000) + 'km -> ' + (s9._nextGateScore/1000) + 'km)');
 })();
 
 console.log('\n' + (fails ? ('CC RUN: ' + fails + ' FAILED of ' + total) : ('CC RUN: ALL GREEN (' + total + '/' + total + ')')));
