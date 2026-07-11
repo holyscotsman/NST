@@ -1197,6 +1197,46 @@
       try { self.root.ownerDocument.defaultView.location.reload(); }
       catch (e) { resetBtn.textContent = "Progress reset \u2014 restart to apply"; resetBtn.classList.remove("armed"); resetBtn.disabled = true; }
     });
+    // ---- (v0.130.0, V1.1 Backend#1) portable progress: export / import via a JSON textarea ----
+    (function () {
+      var row = el("div", "sx-btnrow sx-data-row");
+      var exp = el("button", "sx-btn sx-btn-ghost", "Export progress");
+      var imp = el("button", "sx-btn sx-btn-ghost", "Import progress");
+      row.appendChild(exp); row.appendChild(imp); dataBox.appendChild(row);
+      var area = el("textarea", "sx-data-json"); area.rows = 5; area.spellcheck = false; area.style.display = "none";
+      var note = el("div", "sx-data-note"); note.style.display = "none";
+      var apply = el("button", "sx-btn", "Apply import"); apply.style.display = "none";
+      dataBox.appendChild(area); dataBox.appendChild(note); dataBox.appendChild(apply);
+      function show(mode) {
+        area.style.display = ""; note.style.display = "";
+        apply.style.display = (mode === "import") ? "" : "none";
+        if (mode === "export") {
+          var json = "";
+          try { json = core.persistence.exportProfile ? core.persistence.exportProfile() : JSON.stringify(core.profile); } catch (eE) {}
+          area.value = json; area.readOnly = true;
+          note.textContent = "Copy this somewhere safe (it's your whole profile). Paste it into Import on any device.";
+          try { area.focus(); area.select(); } catch (eS) {}
+        } else {
+          area.value = ""; area.readOnly = false;
+          note.textContent = "Paste an exported profile here, then Apply. Your current progress is kept as a backup.";
+          try { area.focus(); } catch (eF) {}
+        }
+      }
+      self._on(exp, "click", function () { show("export"); });
+      self._on(imp, "click", function () { show("import"); });
+      self._on(apply, "click", function () {
+        try {
+          var p2 = core.persistence.importProfile(area.value);
+          // in-place swap so every live reference (menu, games, xp) sees the imported state
+          for (var k in core.profile) { if (Object.prototype.hasOwnProperty.call(core.profile, k)) delete core.profile[k]; }
+          for (var k2 in p2) { if (Object.prototype.hasOwnProperty.call(p2, k2)) core.profile[k2] = p2[k2]; }
+          note.textContent = "Imported \u2713 — progress restored.";
+          self._toast("Profile imported \u2713", "sx-toast-gold");
+        } catch (eI) {
+          note.textContent = "That doesn't parse as a StarNix profile — nothing was changed.";
+        }
+      });
+    })();
     dataBox.appendChild(resetBtn);
 
     var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
@@ -1524,6 +1564,9 @@
       ".sx-panelwrap{padding:24px;}",
       ".sx-panel{width:100%;max-width:560px;background:rgba(18,18,27,.96);border:1px solid var(--border);border-radius:18px;padding:26px;text-align:left;max-height:88vh;overflow:auto;}",
       ".sx-stats-topback{position:sticky;top:-26px;z-index:4;margin:-26px -26px 14px;padding:12px 26px;width:calc(100% + 52px);text-align:left;border:0;border-bottom:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(18,18,27,.98);}",
+      ".sx-data-row{display:flex;gap:10px;margin-bottom:10px;}",
+      ".sx-data-json{width:100%;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--text);background:rgba(10,10,18,.8);border:1px solid var(--border);border-radius:10px;padding:10px;resize:vertical;}",
+      ".sx-data-note{font-size:11.5px;color:var(--mid);margin:6px 0 10px;}",
       ".sx-eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:var(--iris300);margin-bottom:8px;}",
       ".sx-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0;}",
       ".sx-stat{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}",

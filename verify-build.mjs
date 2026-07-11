@@ -1212,6 +1212,42 @@ async function runFrames(n = 6) {
     shell.exitGame(); await wait(120);
     ok("CC checkpoints each survived gate + clears on SHIP DOWN (source)",
       html.includes("p.saves.CC = snap") && html.includes("delete p.saves.CC"));
+    // ============ (v0.130.0, V1.1 Backend#1) save safety net ============
+    {
+      function memStore() { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); }, removeItem: k => { delete m[k]; }, _m: m }; }
+      const st = memStore();
+      const prov = SN._internal.makeLocalStorageProvider({ storage: st, debounceMs: 1, autoFlush: false });
+      const p1 = SN._internal.defaultProfile(); p1.xp = 111;
+      prov.save(p1); prov.flush();
+      const p2 = SN._internal.defaultProfile(); p2.xp = 222;
+      prov.save(p2); prov.flush();
+      st._m["starnix:profile"] = "{corrupt!!!";                     // main dies
+      const back = await prov.load();
+      ok("Backend#1: a corrupt main save falls back to the last-known-good backup (xp 111, not a fresh profile)",
+        back && back.xp === 111);
+      // export/import round-trip validates + restores (clean provider — main intact)
+      const st3 = memStore();
+      const prov3 = SN._internal.makeLocalStorageProvider({ storage: st3, debounceMs: 1, autoFlush: false });
+      const p3 = SN._internal.defaultProfile(); p3.xp = 111; prov3.save(p3); prov3.flush();
+      const exported = prov3.exportProfile();
+      const st2 = memStore();
+      const prov2 = SN._internal.makeLocalStorageProvider({ storage: st2, debounceMs: 1, autoFlush: false });
+      let importErr = null; let imported = null;
+      try { imported = prov2.importProfile(exported); } catch (e) { importErr = e; }
+      ok("Backend#1: export -> import round-trips the profile into a fresh store", !importErr && imported && imported.xp === 111 && (await prov2.load()).xp === 111);
+      let badErr = null; try { prov2.importProfile("not json at all"); } catch (e) { badErr = e; }
+      ok("Backend#1: importing garbage throws and leaves storage untouched", !!badErr && (await prov2.load()).xp === 111);
+      // pagehide flush: the REAL page provider flushes the debounce window on lifecycle events
+      ok("Backend#1: the live provider auto-flushes on pagehide/visibilitychange (source)",
+        html.includes('addEventListener("pagehide"') && html.includes('provider.flush()') && html.includes('visibilityState === "hidden"'));
+      // Settings surfaces Export/Import
+      shell.showSettings(); await wait(10);
+      const btns130 = [...w.document.querySelectorAll(".sx-data .sx-btn")].map(b => b.textContent);
+      ok("Backend#1: Settings Data section offers Export + Import + Reset",
+        btns130.some(t => /Export progress/.test(t)) && btns130.some(t => /Import progress/.test(t)) && btns130.some(t => /Reset all progress/.test(t)));
+      shell.showMenu(); await wait(10);
+    }
+
     delete SN.core.profile.saves;
   }
 

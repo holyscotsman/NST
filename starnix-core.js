@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.129.0";
+  var BUILD_VERSION = "0.130.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -776,24 +776,29 @@
 
     function writeNow(p) {
       p.updatedAt = clock.now();
+      // (v0.130.0, V1.1 Backend#1) rotate the previous good state into a backup key BEFORE
+      // overwriting — one bad write can no longer take weeks of Leitner history with it.
+      try { var prevRaw = storage.getItem(key); if (prevRaw) storage.setItem(key + ":bak", prevRaw); } catch (eB) {}
       try { storage.setItem(key, JSON.stringify(p)); } catch (e) { /* quota/serialize */ }
     }
-    return {
+    function parseProfile(raw) {   // shared by main + backup load paths
+      var parsed = JSON.parse(raw);
+      var p = (parsed && parsed.schemaVersion === SCHEMA_VERSION) ? parsed : migrate(parsed);
+      if (!p || typeof p !== "object") return null;
+      return migrate(p);
+    }
+    var provider = {
       load: function () {
-        var p;
+        var p = null;
         try {
           var raw = storage.getItem(key);
-          if (!raw) p = defaultProfile();
-          else {
-            var parsed = JSON.parse(raw);
-            p = (parsed && parsed.schemaVersion === SCHEMA_VERSION) ? parsed : migrate(parsed);
-            if (!p || typeof p !== "object") p = defaultProfile();
-            // minimal shape repair
-            p = migrate(p);
-          }
-        } catch (e) {
-          p = defaultProfile();           // corrupt JSON -> fresh profile, never crash
+          if (raw) p = parseProfile(raw);
+        } catch (e) { p = null; }
+        if (!p) {
+          // (v0.130.0, V1.1 Backend#1) corrupt/missing main -> try the last-known-good backup
+          try { var bak = storage.getItem(key + ":bak"); if (bak) p = parseProfile(bak); } catch (e2) { p = null; }
         }
+        if (!p) p = defaultProfile();     // both gone/corrupt -> fresh profile, never crash
         return Promise.resolve(p);
       },
       save: function (p) {
@@ -805,8 +810,33 @@
       flush: function () {                  // run-end explicit save
         if (timer) { clearTimeout(timer); timer = null; }
         if (pending) { writeNow(pending); pending = null; }
+      },
+      // (v0.130.0, V1.1 Backend#1) portable progress: export the current stored profile as
+      // JSON; import validates + migrates before it touches storage, so bad pastes can't wipe.
+      exportProfile: function () {
+        this.flush();
+        try { return storage.getItem(key) || ""; } catch (e) { return ""; }
+      },
+      importProfile: function (json) {
+        var p = parseProfile(json);       // throws on bad JSON; null on bad shape
+        if (!p) throw new Error("not a StarNix profile");
+        writeNow(p);
+        return p;
       }
     };
+    // (v0.130.0, V1.1 Backend#1) the debounce window is a data-loss window on tab close —
+    // flush when the page hides. Guarded so headless/mock environments are unaffected.
+    if (opts.autoFlush !== false) {
+      try {
+        if (global.addEventListener) {
+          global.addEventListener("pagehide", function () { provider.flush(); });
+          global.addEventListener("visibilitychange", function () {
+            try { if (global.document && global.document.visibilityState === "hidden") provider.flush(); } catch (eV) {}
+          });
+        }
+      } catch (eL) {}
+    }
+    return provider;
   }
 
   /* =================================================================== *
