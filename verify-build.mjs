@@ -144,6 +144,22 @@ async function runFrames(n = 6) {
     const photo = w.document.querySelector(".sx-menu-photo");
     ok("menu has a moving photo background wired to menuBg", !!photo && photo.classList.contains("on") && /menuBg|data:image\/(jpeg|png)/.test(photo.style.backgroundImage || ""));
     ok("menu shows the NX-SRC crew crest", !!w.document.querySelector(".sx-crest .sx-crest-x"));
+    // (v0.128.0, V1.1 Menu#1) Continue survives a reload: with in-memory lastGameId gone,
+    // the dock CTA rebuilds from the PERSISTED profile.lastGame
+    {
+      const memLG = shell.lastGameId;
+      shell.lastGameId = null; SN.core.profile.lastGame = "CC";
+      shell.showMenu(); await wait(10);
+      const cta = w.document.querySelector(".sx-dock-continue");
+      ok("Continue rebuilds from persisted profile.lastGame after a 'reload' (dock CTA present, right game)",
+        !!cta && /Chasm/.test(cta.textContent));
+      ok("the redundant top Continue stays deduped (dock CTA is the only Continue)",
+        ![...w.document.querySelectorAll(".sx-menu-top .sx-btn")].some(b => /^Continue$/.test(b.textContent.trim())));
+      shell.enterGame("ARM"); await wait(10);
+      ok("enterGame persists profile.lastGame", SN.core.profile.lastGame === "ARM");
+      shell.exitGame(); await wait(60);
+      shell.lastGameId = memLG; delete SN.core.profile.lastGame; shell.showMenu(); await wait(10);
+    }
   }
   {
     // NIT — the Practice Exam is now a first-class tile (not a footer button)

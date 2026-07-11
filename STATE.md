@@ -101,7 +101,13 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## VERSION 1.1 PLANNED — VERSION_1_1.md is the next-tasks list (Jason)
+## V1.1 IN PROGRESS — wave 1 (top item per area)
+
+Working VERSION_1_1.md as gated units. DONE: Menu#1 Continue-survives-reload (v0.128.0).
+NEXT: NIT#1 bank lint, Backend#1 save safety net, ARM#1 lost-core pool, CC#2 turns, KBB#1
+event deck, Flow#1 debrief, FE#1 focus.
+
+> **Earlier (planning):** ## VERSION 1.1 PLANNED — VERSION_1_1.md is the next-tasks list (Jason)
 
 Development paused for planning: **`VERSION_1_1.md`** holds 80 vetted tasks (10 per area x 8
 areas: cinematic/menu, ARM, CC, KBB, NIT, flow, backend, front-end UI). Every item was proposed

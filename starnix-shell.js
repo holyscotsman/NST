@@ -533,10 +533,13 @@
       });
       cards.appendChild(card);
     });
-    // dock CTA: Continue — last game (falls back to ARM)
+    // dock CTA: Continue — last game (v0.128.0, V1.1 Menu#1: survives reloads via profile.lastGame,
+    // falling back to any populated G2 save so a returning player always gets the affordance)
     (function () {
       var dockCta = s.querySelector(".sx-dock-cta");
       var lg = self.lastGameId && StarNix.getGame(self.lastGameId) ? self.lastGameId : null;
+      if (!lg && prof0.lastGame && StarNix.getGame(prof0.lastGame)) lg = prof0.lastGame;
+      if (!lg && prof0.saves) { for (var sg in prof0.saves) { if (Object.prototype.hasOwnProperty.call(prof0.saves, sg) && StarNix.getGame(sg)) { lg = sg; break; } } }
       if (!lg) return;
       var lbl = "Continue \u2014 " + GAME_META[lg].title.split(" ")[0];
       if (lg === "ARM" && prof0.saves && prof0.saves.ARM) lbl = "Continue \u2014 ARM \u00b7 Sector " + prof0.saves.ARM.sector;
@@ -547,7 +550,7 @@
 
     var top = s.querySelector(".sx-menu-top");
     function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", fn); top.appendChild(b); }
-    if (this.lastGameId && StarNix.getGame(this.lastGameId)) topBtn("Continue", function () { self.enterGame(self.lastGameId); });
+    // (v0.128.0, V1.1 Menu#1) the top Continue deduped away — the dock CTA is the one Continue
     // (v0.87.0, L1) the due queue becomes playable: one tap -> Study mode on exactly those cards
     var dueQs = this._dueQuestions(30);
     if (dueQs.length) {
@@ -1237,6 +1240,11 @@
     this._clearScreen();
     this.screen = "game:" + id;
     this.lastGameId = id;
+    // (v0.128.0, V1.1 Menu#1) Continue must survive a reload — persist the last game
+    try {
+      var profLG = StarNix.core.profile;
+      if (profLG && profLG.lastGame !== id) { profLG.lastGame = id; if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(profLG); }
+    } catch (eLG) {}
 
     var bar = el("div", "sx-gamebar");
     var back = el("button", "sx-btn sx-btn-ghost sx-back", "← Menu");
