@@ -42,6 +42,7 @@ export class Studio {
     this._moodTarget = new THREE.Color(PAL.iris); // key-light colour eases toward this
     this._lightEnv = 1;    // fill-light multiplier target (1 = full, ~0.3 = lock-in)
     this._lightEnvCur = 1; // eased value applied each frame
+    this._phase = null;    // 'readout' | 'thinking' | 'lockin' | 'reveal' — drives the thinking dim
   }
 
   async init() {
@@ -169,10 +170,12 @@ export class Studio {
         else if (data.tier === 'medium') this._setMood(PAL.aqua, 1.0);
         else this._setMood(PAL.iris, 0.95);
         this._talk = 2.6; // the host reads it out
-        this._lightEnv = 1; // restore full rig for the next question
+        this._lightEnv = 1; // full rig while the host presents the question
+        this._phase = 'readout'; // then eases down to the thinking dim (in _tick)
         break;
       case 'ui:lockin':
         this._lightEnv = 0.32; // dim the fills — hard key on the contestant
+        this._phase = 'lockin';
         break;
       case 'host:welcome':
         this._talk = 3.6;
@@ -181,12 +184,14 @@ export class Studio {
         this._flash(PAL.mantis);
         this._mood = { kind: 'happy', t: 2.2, total: 2.2 };
         this._lightEnv = 1; // rig flares back up on the reveal
+        this._phase = 'reveal';
         break;
       case 'answer:wrong':
         this._flash(PAL.peach);
         this._setMood(PAL.peach, 0.7);
         this._mood = { kind: 'sad', t: 2.8, total: 2.8 };
         this._lightEnv = 1;
+        this._phase = 'reveal';
         break;
       case 'run:win':
         this._setMood(PAL.gold, 1.3);
@@ -316,6 +321,13 @@ export class Studio {
     if (!this.reduced) {
       if (this._talk > 0) this._talk -= dt;
       if (this._mood && (this._mood.t -= dt) <= 0) this._mood = null;
+      // Once the host finishes reading out, the "thinking" cinematic takes over —
+      // ease the rig down a touch for a more dramatic, deliberative mood (the
+      // lock-in later dims it much further). Reveal/read-out sit at full.
+      if (this._phase === 'readout' && this._talk <= 0) {
+        this._phase = 'thinking';
+        this._lightEnv = 0.84;
+      }
       this._animatePeople(this.clock.elapsedTime);
     }
 
@@ -370,19 +382,35 @@ export class Studio {
       if (!a.g.visible) continue;
       const ph = a.phase;
       const P = a.parts;
-      // breathing + a slow, slight head wander
-      P.torso.scale.y = 1 + Math.sin(t * 1.6 + ph) * 0.013;
-      P.head.rotation.y = Math.sin(t * 0.37 + ph) * (a.role === 'crew' ? 0.3 : 0.12);
-      P.head.rotation.x = Math.sin(t * 0.29 + ph * 2) * 0.05;
-      // blinking: a quick lid-drop every few seconds, offset per person
-      const blink = ((t + ph * 1.31) % 3.6) < 0.1 ? 0.12 : 1;
+      // Breathing: two layered sines make an organic in/out (not a metronome);
+      // the chest widens a touch as it rises.
+      const breath = Math.sin(t * 1.5 + ph) * 0.62 + Math.sin(t * 0.83 + ph * 1.7) * 0.38;
+      P.torso.scale.y = 1 + breath * 0.017;
+      P.torso.scale.x = P.torso.scale.z = 1 + breath * 0.006;
+      // Head: a slow wander + a faster micro-jitter + a slight roll, layered so
+      // it never holds a pose. Crew glance around more (watching the monitors).
+      const look = a.role === 'crew' ? 0.3 : 0.13;
+      P.head.rotation.y = Math.sin(t * 0.35 + ph) * look + Math.sin(t * 1.27 + ph * 2) * 0.022;
+      P.head.rotation.x = Math.sin(t * 0.29 + ph * 2) * 0.05 + Math.sin(t * 2.1 + ph) * 0.012;
+      P.head.rotation.z = Math.sin(t * 0.5 + ph * 1.3) * 0.03;
+      // A very slow whole-body weight shift so nobody stands like a statue
+      // (skip the crowd actor — the crowd-moment animation owns its transform).
+      if (a.role !== 'extra') a.g.rotation.z = Math.sin(t * 0.6 + ph) * 0.008;
+      // Blinking: a smooth lid close-and-open (a sine hump over ~0.14s, many
+      // frames) instead of a hard 1-frame drop, with an occasional double blink.
+      const bt = (t + ph * 1.31) % 3.4;
+      let blink = 1;
+      if (bt < 0.14) blink = 1 - Math.sin((bt / 0.14) * Math.PI) * 0.9;
+      else if (bt > 0.22 && bt < 0.34 && Math.floor((t + ph) / 3.4) % 3 === 0) {
+        blink = 1 - Math.sin(((bt - 0.22) / 0.12) * Math.PI) * 0.9; // the second flick of a double blink
+      }
       P.eyeL.scale.y = blink; P.eyeR.scale.y = blink;
-      // idle arm sway around the posed base (the crowd actor's arms belong to
-      // the crowd-moment animation while one is running)
+      // idle arm sway around the posed base, layered for a looser feel (the crowd
+      // actor's arms belong to the crowd-moment animation while one is running)
       const actorBusy = a.role === 'extra' && this._crowd && this._crowd.event;
       if (!actorBusy) {
-        P.armL.rotation.z = a.armL + Math.sin(t * 0.8 + ph) * 0.05;
-        P.armR.rotation.z = a.armR + Math.sin(t * 0.8 + ph + 1.3) * 0.05;
+        P.armL.rotation.z = a.armL + Math.sin(t * 0.8 + ph) * 0.05 + Math.sin(t * 1.7 + ph) * 0.015;
+        P.armR.rotation.z = a.armR + Math.sin(t * 0.8 + ph + 1.3) * 0.05 + Math.sin(t * 1.9 + ph) * 0.015;
       }
 
       if (a.role === 'greenSM') {

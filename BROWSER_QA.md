@@ -9,6 +9,14 @@ the live site). Prefer a real GPU browser for the WebGL.
 
 ## Pending sign-off — owner feedback (newest)
 
+- [ ] **Thinking-scene dim** — while a question is being read out the rig is full;
+  a couple of seconds in (the thinking cinematic) it eases down a touch for drama;
+  it flares back on the reveal and dims hard on lock-in. Confirm it reads as a
+  subtle mood shift, not a jarring cut, and reduced-motion still looks fine.
+- [ ] **More natural idle** — host/contestant/crew breathe with a layered rise,
+  the head drifts with a slight roll, the body slowly shifts weight, blinks are
+  smooth (with the odd double blink), and arms sway loosely — nobody loops one
+  stiff wobble. No hitching; crowd wave/cough/leave still fine.
 - [ ] **Compact ladder** — the right rail is narrower with smaller rungs; all 30
   rungs fit without scrolling on desktop; the gold highlight still tracks the
   current rung; mobile top-strip still reads.

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — owner feedback: thinking-scene dim + more natural idle motion
+
+- **Dramatic thinking beat** — once the host finishes reading a question out, the
+  rig eases down a touch (the "thinking" cinematic) for a more deliberative mood;
+  it flares back to full on the reveal, and the lock-in still dims much further.
+  A distinct light level between the bright read-out and the deep lock-in.
+- **More natural people** — the idle animation is richer: layered two-tone
+  breathing (chest widens as it rises), multi-frequency head motion with a slight
+  roll, a very slow whole-body weight shift, a smooth multi-frame blink (with an
+  occasional double blink), and layered arm sway — so the cast reads as alive
+  rather than looping one wobble. Still allocation-free, one RAF, motion-gated.
+
 ## Unreleased — owner feedback: ladder, pillars, audience, host congrats
 
 - **Compact money ladder** — the right-rail ladder is narrower with tighter,
