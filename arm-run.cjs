@@ -261,6 +261,8 @@ var detSector3 = null;   // captured for the determinism probe against window 2
      'v0.123.0: the boss objective banner drops to the bottom, off the dreadnought (Jason)');
   ok(/v0\.123\.0\) faint green wash = "stand HERE"/.test(H.ARM_SRC),
      'v0.123.0: the wall-laser SAFE column reads clearly (green lane fill + brighter outline) (Jason)');
+  ok(/if \(devMode\(\)\) \{[^]*?Skip to boss fight/.test(H.ARM_SRC),
+     'v0.125.0 cleanup: the ARM Settings dev tools ("Skip to boss fight") are gated behind devMode() — not shipped to players');
   // (v0.111.0, D3) Cockpit-lite HUD sources: tape+radar draw fn, rail rows, HC-gated vignette
   ok(/function drawCockpitHud\(\)/.test(H.ARM_SRC) && /drawCompass\(\);\s*\n\s*drawCockpitHud\(\);/.test(H.ARM_SRC)
      && /arm-rrow/.test(H.ARM_SRC) && /if \(!highContrast\) wrap\.appendChild\(mk\("div", "arm-vignette"\)\)/.test(H.ARM_SRC),

@@ -101,7 +101,18 @@
 > **v0.6.21:** title screen uses the no-station nebula (`kbbBg`→`nebulaBg`); menu keeps the station vista. KBB shows `nebulaBg` + `bcmShip`. 200/200; art negative-controlled.
 > </details>
 
-## v0.124.0 — Intro cinematic: real ARM art (Jason)
+## v0.125.0 — Full playtest + repo/code cleanup (Jason)
+
+Live in-browser playtest of every surface (zero console errors) + Playwright error sweep; gate
+491/491 all-green. Repo: removed err.txt, a duplicate md, 6 retired session docs (kept masters,
+spec history, pipeline, test harnesses incl. the Audio Bench). Dead code removed across
+shell/arm/kbb/cc (all verified unreferenced whole-repo; IIFE + test-usage false positives caught
+and kept). Fixed a leaked dev button: ARM Settings "Skip to boss fight" now gated behind devMode()
+(?dev), hidden from players. Note for testing: the in-app browser pane throttles canvas RAF when
+unfocused, so live canvas gameplay renders black there — DOM screens are fine; canvas visuals
+verified via non-throttled Playwright captures.
+
+> **Earlier this session (v0.124.0):** ## Intro cinematic: real ARM art (Jason)
 
 The cold open now flies armStation (the station), bcmShip (the BCM warship firing the Disruptor +
 jumping to the belt), and armEnemyDive (the squadron diving on the planet) — asset-gated, vector

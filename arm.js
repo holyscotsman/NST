@@ -589,12 +589,6 @@
     function srow(label, valEl) {
       var r = mk("div", "arm-srow"); r.appendChild(mk("span", null, label)); r.appendChild(valEl); return r;
     }
-    function meterRow(label, which) {
-      var r = mk("div", "arm-srow"); r.appendChild(mk("span", null, label));
-      var m = mk("span", "arm-meter arm-m-" + which); var i = mk("i"); i.style.width = "100%"; m.appendChild(i);
-      if (which === "shield") mShield = i; else mCharge = i;
-      r.appendChild(m); return r;
-    }
     function keyBtn(k, glyph) {
       var b = mk("div", "arm-key" + (k === "thrust" ? " thrust" : ""), glyph);
       var onDown = function (e) { e.preventDefault(); ensureAudio(); input[k] = true; };
@@ -2089,10 +2083,12 @@
       panel.appendChild(toggleRow("Sound effects", sfxOn, function (v) { sfxOn = v; try { AUD.setSfx(v); } catch (e) {} persistSetting("sfx", v); }));
       panel.appendChild(toggleRow("Reduced motion", reducedMotion, function (v) { reducedMotion = v; persistSetting("reducedMotion", v); }));
       panel.appendChild(toggleRow("Extra time", extraTime, function (v) { extraTime = v; persistSetting("extraTime", v); }));
-      panel.appendChild(mk("div", "arm-eyebrow e-peach", "\u2699 Dev tools"));
-      var devrow = mk("div", "arm-btnrow");
-      devrow.appendChild(btn("arm-act ghost", "Skip to boss fight \u25b8", function () { sfx("click"); devSkipToBoss(); }));
-      panel.appendChild(devrow);
+      if (devMode()) {   // (cleanup) dev tools only in dev mode (STARNIX_DEV / ?dev) — no longer shipped to players
+        panel.appendChild(mk("div", "arm-eyebrow e-peach", "\u2699 Dev tools"));
+        var devrow = mk("div", "arm-btnrow");
+        devrow.appendChild(btn("arm-act ghost", "Skip to boss fight \u25b8", function () { sfx("click"); devSkipToBoss(); }));
+        panel.appendChild(devrow);
+      }
       var row = mk("div", "arm-btnrow");
       row.appendChild(btn("arm-act", "Resume ▸", function () { sfx("click"); setState(prevState || "SECTOR"); }));
       panel.appendChild(row);

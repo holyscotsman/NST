@@ -143,7 +143,6 @@
   var SIDE_LEFT = 0, SIDE_RIGHT = 1;   // OB_NARROW.side -> which outer lane it seals (left=lane0, right=lane2)
   var BUFF_MAGNET = 'magnet', BUFF_INVINCIBLE = 'invincible', BUFF_SHIELDPLUS = 'shieldPlus',
       BUFF_COINX2 = 'coinX2', BUFF_SLOWMO = 'slowmo';
-  var TIMED_BUFFS = [BUFF_MAGNET, BUFF_INVINCIBLE, BUFF_COINX2, BUFF_SLOWMO]; // shieldPlus instant
   var POWER_KINDS = [BUFF_MAGNET, BUFF_INVINCIBLE, BUFF_SHIELDPLUS, BUFF_COINX2, BUFF_SLOWMO];
 
   // Phases
@@ -908,29 +907,8 @@
     for (i = 0; i < n; i++) { var o = items[i]; if (o.active && Math.abs(o.z - zRel) < zWin) this.obstacles.release(o); }
   };
 
-  CCSim.prototype._obstacleNear = function (lane, z, zWin) {
-    var items = this.obstacles.items, n = items.length;
-    for (var i = 0; i < n; i++) {
-      var o = items[i];
-      if (o.active && o.lane === lane && Math.abs(o.z - z) < zWin) return true;
-    }
-    return false;
-  };
-
   // optional sfx hook the module can set: sim._emit = function(name){...}
   CCSim.prototype._emit = null;
-
-  // diagnostics for the harness
-  CCSim.prototype.poolReport = function () {
-    var r = {}, names = ['obstacles', 'coins', 'gates'], i;
-    for (i = 0; i < names.length; i++) {
-      var p = this[names[i]];
-      r[names[i]] = { cap: p.capacity, live: p.live, factoryCalls: p.factoryCalls,
-        acquiredEver: p.acquiredEver, releasedEver: p.releasedEver, exhaustions: p.exhaustions,
-        balance: p.acquiredEver - p.releasedEver };
-    }
-    return r;
-  };
 
   /* ============================== CCView ====================================
    * Three.js renderer. Only file section that touches THREE. Pooled/instanced
@@ -1010,7 +988,6 @@
     this._buildSurface(cfg);     // planet ground flanking the chasm (the "not a rectangle" fix)
     this._buildPeaks(cfg);       // distant mountains on the rim surface (intro/overhead scenery — Jason)
     this._buildLightShafts(cfg); // (04 task 5) faint god-ray planes from the rim
-    // this._buildLaneLines(cfg);   // (Jason) blue lane indicators removed
 
     // --- instanced pools (one InstancedMesh per visual kind) ---
     this.scratchM = new THREE.Matrix4();
@@ -1289,16 +1266,6 @@
       a[i] = x + inward * (n * 0.5 + 0.32) * taper;             // craggy, pushed slightly into the canyon
     }
     pos.needsUpdate = true; geo.computeVertexNormals();
-  };
-  CCView.prototype._buildLaneLines = function (cfg) {
-    var THREE = this.THREE;
-    var g = this._track(new THREE.BoxGeometry(0.05, 0.02, cfg.DRAW_DIST * 1.3));
-    var m = this.M.aqua;
-    for (var l = -1; l <= 1; l += 2) {
-      var line = new THREE.Mesh(g, m);
-      line.position.set(l * cfg.LANE_W * 0.5, 0.01, -cfg.DRAW_DIST * 0.45);
-      this.scene.add(line);
-    }
   };
   // Planet surface flanking the chasm. Two large ground planes sit flush with the canyon-wall
   // tops (RIM_Y), starting at the chasm lip and running out toward the horizon — so the canyon

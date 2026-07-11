@@ -1345,12 +1345,6 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       for (i = 0; i < 34; i++) STARS2[i] = { x: crand(), y: crand(), s: 0.5 + crand() * 0.9, a: 0.1 + crand() * 0.3, z: 0.15 + crand() * 0.3 };
     }
     function regPolyG(g, r, sides, rot) { g.beginPath(); for (var p = 0; p < sides; p++) { var a = rot + (p / sides) * 6.283; var px = Math.cos(a) * r, py = Math.sin(a) * r; if (p === 0) g.moveTo(px, py); else g.lineTo(px, py); } g.closePath(); }
-    function rrectG(g, x, y, w, h, r) {
-      r = Math.min(r, h / 2, w / 2);
-      g.beginPath();
-      g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
-      g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
-    }
     // Procedural nebula -> offscreen canvas, built once per size, blitted each frame (no per-frame alloc).
     function buildNebula(s, W, H) {
       var doc = s.doc, oc = doc.createElement('canvas');
@@ -1413,7 +1407,6 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         g.restore(); g.globalAlpha = 1;
       }
     }
-    function hpCol(f) { return f > 0.5 ? PALETTE.mantis : (f > 0.22 ? PALETTE.gold : PALETTE.peach); }
     function blastRing(g, cx, cy, r, col, alpha, lw) {
       g.save(); g.globalAlpha = alpha; g.strokeStyle = col; g.lineWidth = lw;
       g.shadowColor = col; g.shadowBlur = 8; g.beginPath(); g.arc(cx, cy, r, 0, 6.283); g.stroke();

@@ -94,14 +94,6 @@
   }
 
   /* Original neon "NX" wireframe-X motif, drawn in code (not the official mark). */
-  var NX_TILE =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="84" height="84" viewBox="0 0 84 84">' +
-    '<g fill="none" stroke-width="1.25">' +
-    '<path d="M16 16 L68 68 M68 16 L16 68" stroke="#AC9BFD" stroke-opacity="0.55"/>' +
-    '<rect x="34" y="34" width="16" height="16" transform="rotate(45 42 42)" stroke="#1FDDE9" stroke-opacity="0.5"/>' +
-    '<path d="M42 7 L42 19 M42 65 L42 77 M7 42 L19 42 M65 42 L77 42" stroke="#AC9BFD" stroke-opacity="0.3"/>' +
-    '</g></svg>';
-  function nxTileUrl() { return 'url("data:image/svg+xml;utf8,' + encodeURIComponent(NX_TILE) + '")'; }
   var NX_CREST =
     '<svg class="sx-crest-x" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="1.6">' +
     '<path d="M5 5 L19 19 M19 5 L5 19" stroke="#AC9BFD"/>' +
