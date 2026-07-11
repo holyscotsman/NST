@@ -43,6 +43,11 @@ export class QuizScreen {
     this.removed = new Set();
     this.el = h('section', { class: 'quiz-screen', 'aria-label': 'Quiz' });
     this._timers = [];
+    this._roveI = 0;           // roving-tabindex focus stop (single-answer radiogroup)
+    this._faBubble = null;     // the "Final answer!" body bubble, so pause can clear it
+    this._submitTimer = null;  // pending lock-in submit (parked while paused)
+    this._pendingIndices = null;
+    this._submitParked = false;
   }
 
   mount(root, hudEl) {
@@ -64,6 +69,10 @@ export class QuizScreen {
     this.selected.clear();
     this.removed.clear();
     this.locked = false;
+    this._roveI = 0;
+    this._submitTimer = null; this._pendingIndices = null; this._submitParked = false;
+    if (this._faBubble) { this._faBubble.remove(); this._faBubble = null; }
+    document.querySelectorAll('.speech-bubble.you').forEach((el) => el.remove());
     const q = current.q;
     this.current = current;
 
@@ -87,7 +96,10 @@ export class QuizScreen {
         h('span', { class: 'opt-text' }, opt),
         h('span', { class: 'opt-mark', 'aria-hidden': 'true' }),
       );
-      this.optionsEl.append(h('li', {}, btn));
+      // role=presentation so the <li> doesn't break the radiogroup→radio owned
+      // relationship. Roving tabindex is applied as options reveal (single only).
+      if (!multi) btn.tabIndex = i === 0 ? 0 : -1;
+      this.optionsEl.append(h('li', { role: 'presentation' }, btn));
     });
 
     this.lockBtn = h('button', {
@@ -119,6 +131,7 @@ export class QuizScreen {
     const btns = [...this.optionsEl.querySelectorAll('.option')];
     if (reduced()) {
       btns.forEach((_, i) => this.revealed.add(i));
+      this._applyRoving();
     } else {
       const { stemMs, optionGapMs } = readoutPacing(q.stem.length, q.options.length);
       btns.forEach((b) => { b.classList.add('unrevealed'); b.disabled = true; });
@@ -127,9 +140,57 @@ export class QuizScreen {
         b.classList.remove('unrevealed');
         b.style.animationDelay = '0s'; // the reveal IS the stagger
         if (!this.removed.has(i)) b.disabled = false;
+        this._applyRoving(); // keep the tab stop on the first live option
         if (this.handlers.onReveal) this.handlers.onReveal(i);
       }));
     }
+  }
+
+  /* ---------- radiogroup keyboard model (single-answer only) ---------- */
+
+  // Options currently focusable: revealed and not 50:50-removed, in DOM order.
+  _focusableOptionIndices() {
+    const out = [];
+    for (const b of this.optionsEl.querySelectorAll('.option')) {
+      const i = Number(b.dataset.i);
+      if (this.revealed.has(i) && !this.removed.has(i)) out.push(i);
+    }
+    return out;
+  }
+
+  _optionBtn(i) { return this.optionsEl.querySelector(`.option[data-i="${i}"]`); }
+
+  // Roving tabindex: exactly one live option is the Tab stop (the selected one,
+  // else the current rove target, else the first live option). Multi (checkbox
+  // group) keeps native per-option Tab stops, so this is a no-op there.
+  _applyRoving() {
+    if (!this.optionsEl || (this.current && this.current.q.type === 'multi')) return;
+    const live = this._focusableOptionIndices();
+    if (!live.length) return;
+    const active = this.selected.size ? [...this.selected][0]
+      : (live.includes(this._roveI) ? this._roveI : live[0]);
+    this._roveI = active;
+    for (const b of this.optionsEl.querySelectorAll('.option')) {
+      b.tabIndex = Number(b.dataset.i) === active ? 0 : -1;
+    }
+  }
+
+  // Arrow / Home / End within the radiogroup: move focus AND (radio pattern)
+  // select as focus moves. dir is +1 / -1 / 'home' / 'end'.
+  _moveRove(dir) {
+    if (this.locked || (this.current && this.current.q.type === 'multi')) return;
+    const live = this._focusableOptionIndices();
+    if (!live.length) return;
+    let pos = live.indexOf(this._roveI);
+    if (pos < 0) pos = 0;
+    let next;
+    if (dir === 'home') next = live[0];
+    else if (dir === 'end') next = live[live.length - 1];
+    else next = live[(pos + dir + live.length) % live.length];
+    this._roveI = next;
+    this.pick(next); // selection follows focus (_refreshSelection re-applies roving)
+    const b = this._optionBtn(next);
+    if (b) b.focus({ preventScroll: true });
   }
 
   pick(i) {
@@ -152,6 +213,7 @@ export class QuizScreen {
       btn.setAttribute('aria-checked', on ? 'true' : 'false');
     });
     this.lockBtn.disabled = this.selected.size === 0;
+    this._applyRoving();
   }
 
   // Signal (once) that a lifeline has delivered its help — the music engine
@@ -286,13 +348,17 @@ export class QuizScreen {
     if (ms && this.handlers.onSuspense) this.handlers.onSuspense({ ms, tier: this.current.tier, isFinal });
 
     // The contestant's speech bubble ("our guy" calls it). Plain setTimeout so
-    // the next question's timer sweep can't strand it on screen.
+    // the next question's timer sweep can't strand it on screen; tracked on
+    // this._faBubble so a pause can pull it off before the menu opens.
     const fa = h('div', { class: 'speech-bubble you', 'aria-hidden': 'true' },
       h('span', { class: 'speech-who' }, 'You'), 'Final answer!');
     document.body.append(fa);
-    setTimeout(() => fa.remove(), Math.max(1800, ms));
+    this._faBubble = fa;
+    setTimeout(() => { fa.remove(); if (this._faBubble === fa) this._faBubble = null; }, Math.max(1800, ms));
 
-    this._after(ms, () => {
+    this._pendingIndices = indices;
+    this._submitTimer = this._after(ms, () => {
+      this._submitTimer = null;
       if (this.handlers.onAnswer) this.handlers.onAnswer(indices);
     });
   }
@@ -358,9 +424,52 @@ export class QuizScreen {
     }
     const q = this.current && this.current.q;
     if (!q) return;
+    // Radiogroup arrow navigation — only when an option is focused, so arrows
+    // elsewhere behave normally. Single-answer only (checkbox groups Tab).
+    if (q.type !== 'multi') {
+      const onOption = document.activeElement && document.activeElement.classList
+        && document.activeElement.classList.contains('option');
+      if (onOption) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { this._moveRove(1); e.preventDefault(); return; }
+        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { this._moveRove(-1); e.preventDefault(); return; }
+        if (e.key === 'Home') { this._moveRove('home'); e.preventDefault(); return; }
+        if (e.key === 'End') { this._moveRove('end'); e.preventDefault(); return; }
+      }
+    }
     const map = { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4, '6': 5, a: 0, b: 1, c: 2, d: 3, e: 4, f: 5 };
     const k = e.key.toLowerCase();
     if (k in map && map[k] < q.options.length) { this.pick(map[k]); e.preventDefault(); }
     else if (e.key === 'Enter' && this.selected.size > 0) { this.lock(); e.preventDefault(); }
+  }
+
+  // Pause hooks (main calls these around the pause menu). Park the pending
+  // lock-in submit so the locked answer isn't graded behind the overlay, and
+  // pull the transient "Final answer!" bubble off-screen.
+  onPause() {
+    if (this._faBubble) { this._faBubble.remove(); this._faBubble = null; }
+    document.querySelectorAll('.speech-bubble.you').forEach((el) => el.remove());
+    if (this._submitTimer != null) {
+      clearTimeout(this._submitTimer);
+      this._timers = this._timers.filter((id) => id !== this._submitTimer);
+      this._submitTimer = null;
+      this._submitParked = true;
+    }
+  }
+
+  onResume() {
+    if (!this._submitParked || !this.locked || !this._pendingIndices) return;
+    this._submitParked = false;
+    const indices = this._pendingIndices;
+    this._submitTimer = this._after(reduced() ? 0 : 600, () => {
+      this._submitTimer = null;
+      if (this.handlers.onAnswer) this.handlers.onAnswer(indices);
+    });
+  }
+
+  // Quitting the run: drop the parked submit entirely so it never fires.
+  abortPending() {
+    if (this._submitTimer != null) { clearTimeout(this._submitTimer); this._submitTimer = null; }
+    this._submitParked = false; this._pendingIndices = null;
+    if (this._faBubble) { this._faBubble.remove(); this._faBubble = null; }
   }
 }

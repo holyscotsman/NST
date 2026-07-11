@@ -225,7 +225,13 @@ export class Studio {
     window.removeEventListener('resize', this._onResize);
     if (this.renderer) {
       this.renderer.setAnimationLoop(null);
-      if (this.composer && this.composer.dispose) this.composer.dispose();
+      if (this.composer) {
+        // EffectComposer.dispose() only frees its own two render targets + copy
+        // pass — the added passes (bloom's FBO chain, output + grain materials)
+        // own GPU resources it never touches, so dispose each of them too.
+        this.composer.passes.forEach((p) => { if (p && typeof p.dispose === 'function') p.dispose(); });
+        if (this.composer.dispose) this.composer.dispose();
+      }
       if (this._envRT) this._envRT.dispose();
       this.renderer.dispose();
       [this.studio, this.green].forEach((sc) => sc && sc.traverse((o) => {
@@ -237,6 +243,9 @@ export class Studio {
           if (m.roughnessMap && m.roughnessMap !== m.map) m.roughnessMap.dispose();
           m.dispose();
         });
+        // An InstancedMesh keeps its instanceMatrix / instanceColor buffers on the
+        // mesh (not the geometry), so geometry.dispose() misses them — free them.
+        if (o.isInstancedMesh && o.dispose) o.dispose();
       }));
       if (this.renderer.domElement && this.renderer.domElement.parentNode) {
         this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
@@ -351,7 +360,9 @@ export class Studio {
     }
 
     if (this.useBloom && this.composer && this.postFx) {
-      if (this._grainPass) this._grainPass.uniforms.uTime.value = this.clock.elapsedTime;
+      // Freeze the grain field under reduced motion — advancing uTime reshuffles
+      // per-pixel noise every frame, which is continuous motion.
+      if (this._grainPass && !this.reduced) this._grainPass.uniforms.uTime.value = this.clock.elapsedTime;
       try { this.composer.render(); }
       catch { this.useBloom = false; this.renderer.render(this.active, this.camera); }
     } else {
@@ -503,8 +514,14 @@ export class Studio {
     if (kind === 'cough') {
       this.onAmbient('cough');
     } else {
-      // swap the instance for the animated actor
+      // swap the instance for the animated actor, matching the seat's colours so
+      // the stand-in doesn't pop (torso.material is shared by torso+arms; head's
+      // by head/nose/ears/hands; hairM is the exposed hair cap material).
       this._seatSet(idx, this._hiddenMat);
+      const P = c.actor.userData.parts;
+      P.torso.material.color.setHex(seat.shirt);
+      P.head.material.color.setHex(seat.skin);
+      if (P.hairM) P.hairM.color.setHex(seat.hair);
       c.actor.position.set(seat.x, seat.y, seat.z);
       c.actor.rotation.y = seat.rotY;
       c.actor.scale.setScalar(seat.scale * 0.97);
@@ -638,10 +655,14 @@ export class Studio {
         o.scale.setScalar(1); o.updateMatrix(); chairs.setMatrixAt(count, o.matrix);
         o.scale.setScalar(scale); o.updateMatrix();
         audBody.setMatrixAt(count, o.matrix); audHead.setMatrixAt(count, o.matrix); audHair.setMatrixAt(count, o.matrix);
-        audBody.setColorAt(count, col.setHex(shirtCols[(i * 7 + t * 29) % shirtCols.length]));
-        audHead.setColorAt(count, col.setHex(skinCols[(i * 5 + t * 11) % skinCols.length]));
-        audHair.setColorAt(count, col.setHex(hairCols[(i * 3 + t * 7) % hairCols.length]));
-        seats.push({ x: o.position.x, y: Y, z: o.position.z, rotY: o.rotation.y, scale });
+        const shirt = shirtCols[(i * 7 + t * 29) % shirtCols.length];
+        const skin = skinCols[(i * 5 + t * 11) % skinCols.length];
+        const hair = hairCols[(i * 3 + t * 7) % hairCols.length];
+        audBody.setColorAt(count, col.setHex(shirt));
+        audHead.setColorAt(count, col.setHex(skin));
+        audHair.setColorAt(count, col.setHex(hair));
+        // stash each seat's palette so the walk-on actor can match it (no colour pop)
+        seats.push({ x: o.position.x, y: Y, z: o.position.z, rotY: o.rotation.y, scale, shirt, skin, hair });
         count++;
       }
     }
@@ -957,7 +978,9 @@ function person({ skin = 0xd9b48f, hair = 0x2a2118, shirt = 0x2f3a55, pants = 0x
       const shoe = box(0.11, 0.07, 0.24, shoeM); shoe.position.set(sgn * 0.1, 0.035, 0.05); g.add(shoe);
     }
   }
-  g.userData.parts = { head, torso, mouths, ...eyes, ...arms };
+  // hairM is exposed so the crowd stand-in actor can recolour its hair to match
+  // the seat it replaces (torso.material === shirtM, head.material === skinM).
+  g.userData.parts = { head, torso, hairM, mouths, ...eyes, ...arms };
   return g;
 }
 

@@ -7,6 +7,24 @@ Items stay **code-complete, visual-pending** until signed off here.
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open
 the live site). Prefer a real GPU browser for the WebGL.
 
+## Pending sign-off — hardening pass (newest; `docs/HARDENING_REVIEW.md`)
+
+- [ ] **Keyboard focus ring** — Tab to the answer options: each shows a clear
+  inset gold focus ring (it used to be clipped away by the lozenge shape). Arrow
+  keys move between options (selection follows focus); number keys + Enter still
+  work; the ring reads on every state.
+- [ ] **Selection glyph** — a selected option shows a ◉ (single) / ▣ (multi)
+  marker, not just the aqua tint — check it's legible and that it gives way to the
+  ✓/✗ on reveal.
+- [ ] **Grain under reduced motion** — with reduced motion on and effects on, the
+  film grain is static (no shimmer); everything else still cuts, not moves.
+- [ ] **Pause during suspense** — lock an answer, then hit Escape during the gold
+  hold: the "Final answer!" bubble should not float over the pause menu, and the
+  answer should grade only after you resume (not behind the overlay). Quit-to-title
+  from that state must not later flash a stray reveal.
+- [ ] **Audience swap** — during a wave/leave crowd moment the stand-in should be
+  the same colour as the seat it replaced (no colour pop in or out).
+
 ## Pending sign-off — owner feedback (newest)
 
 - [ ] **Thinking-scene dim** — while a question is being read out the rig is full;

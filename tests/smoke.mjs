@@ -38,6 +38,28 @@ async function main() {
     const optionCount = await page.$$eval('.option', (els) => els.length);
     check('question has options', optionCount >= 4, `${optionCount} options`);
 
+    // Accessibility: the single-answer radiogroup must honour arrow-key nav with
+    // a roving tab stop (declared role=radiogroup + roving tabindex + selection
+    // follows focus). Skip gracefully if this question happens to be multi.
+    const isRadio = await page.$eval('.options', (el) => el.getAttribute('role') === 'radiogroup');
+    if (isRadio) {
+      // wait out the progressive read-out so the options are revealed + enabled
+      await page.waitForFunction(() => [...document.querySelectorAll('.option')].every((b) => !b.classList.contains('unrevealed') && !b.disabled), { timeout: 15000 });
+      await page.$eval('.option[data-i="0"]', (el) => el.focus());
+      await page.keyboard.press('ArrowDown');
+      const kb = await page.evaluate(() => {
+        const opts = [...document.querySelectorAll('.option')];
+        return {
+          checked: opts.findIndex((o) => o.getAttribute('aria-checked') === 'true'),
+          roving: opts.findIndex((o) => o.tabIndex === 0),
+          active: document.activeElement && document.activeElement.dataset ? Number(document.activeElement.dataset.i) : -1,
+        };
+      });
+      check('arrow key navigates + selects within the radiogroup', kb.checked === 1 && kb.roving === 1 && kb.active === 1, JSON.stringify(kb));
+    } else {
+      check('arrow key navigates + selects within the radiogroup', true, 'skipped (multi question)');
+    }
+
     const rungs = await page.$$eval('.rung', (els) => els.length);
     check('money ladder has 30 rungs', rungs === 30, `${rungs} rungs`);
 

@@ -2,7 +2,7 @@
 // storage is unavailable (private mode, etc.). Mastery is shared learning state
 // and is NEVER wiped by a prestige/win (CLAUDE.md §3).
 
-import { STORAGE_KEY, LIFELINE_DEFAULT_SLOTS } from '../core/config.js';
+import { STORAGE_KEY, LIFELINE_DEFAULT_SLOTS, SAVE_VERSION } from '../core/config.js';
 import { emptyMastery } from '../core/mastery.js';
 
 let memoryFallback = null;
@@ -20,7 +20,7 @@ function storage() {
 
 export function defaultSave() {
   return {
-    version: 1,
+    version: SAVE_VERSION,
     mastery: emptyMastery(),
     wallet: 0,
     lifelines: defaultLifelines(),
@@ -87,7 +87,9 @@ export function importString(raw) {
   try {
     const parsed = JSON.parse(String(raw));
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-    if (parsed.version !== 1) return null;
+    // Reject a save the current build can't read (a future/unknown schema). When
+    // a real v2 lands, add its upgrade path in migrate() and widen this gate.
+    if (parsed.version !== SAVE_VERSION) return null;
     return migrate(parsed);
   } catch {
     return null;
@@ -97,6 +99,7 @@ export function importString(raw) {
 function migrate(parsed) {
   const base = defaultSave();
   const merged = { ...base, ...parsed };
+  merged.version = SAVE_VERSION; // normalize: never let a stored version survive unnormalized
   merged.mastery = parsed.mastery && parsed.mastery.records ? parsed.mastery : emptyMastery();
   merged.lifelines = { ...defaultLifelines(), ...(parsed.lifelines || {}) };
   merged.flags = { ...base.flags, ...(parsed.flags || {}) };

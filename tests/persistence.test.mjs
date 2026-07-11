@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { defaultSave, exportString, importString, prestige } from '../src/shell/persistence.js';
+import { SAVE_VERSION } from '../src/core/config.js';
 
 test('export → import round-trips a save (mastery, wallet, stats survive)', () => {
   const s = defaultSave();
@@ -24,8 +25,16 @@ test('negative control: garbage and wrong shapes import as null', () => {
   assert.equal(importString('not json {'), null);
   assert.equal(importString('[1,2,3]'), null);
   assert.equal(importString('"just a string"'), null);
-  assert.equal(importString(JSON.stringify({ version: 99 })), null);
+  assert.equal(importString(JSON.stringify({ version: 99 })), null); // NEGATIVE CONTROL: future/unknown version rejected
   assert.equal(importString(''), null);
+});
+
+test('the save version is stamped from SAVE_VERSION and migrate normalizes it', () => {
+  assert.equal(defaultSave().version, SAVE_VERSION);
+  // migrate() always stamps the current version so no stored value survives
+  // unnormalized (both load() and importString() route through it).
+  const back = importString(exportString(defaultSave()));
+  assert.equal(back.version, SAVE_VERSION);
 });
 
 test('prestige keeps mastery but resets wallet and slots (import-safe)', () => {

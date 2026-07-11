@@ -76,10 +76,13 @@ export const SHOP = {
 };
 
 // Mastery / Leitner boxes. Low box = still hard for you; high box = mastered.
+// The promotion cap and the graduate-out ceiling are the SAME value — a question
+// graduates exactly when it reaches the top box — so they share one source.
+const MASTERY_MAX_BOX = 5;
 export const MASTERY = {
   MIN_BOX: 0,
-  MAX_BOX: 5,          // box 5 == graduated (rarely resurfaced)
-  GRADUATED_BOX: 5,
+  MAX_BOX: MASTERY_MAX_BOX,       // box 5 == graduated (rarely resurfaced)
+  GRADUATED_BOX: MASTERY_MAX_BOX, // must equal MAX_BOX (same source above)
   // Chance a graduated question is resurfaced into an easy slot so it isn't forgotten.
   RESURFACE_CHANCE: 0.12,
 };
@@ -99,3 +102,7 @@ export function coldStartTier(authoredDifficulty) {
 }
 
 export const STORAGE_KEY = 'wwtbane.save.v1';
+// The save-schema version. defaultSave() stamps it and migrate() normalizes to
+// it, so every load/import path agrees on the version field. Bump this only
+// alongside a real migration step in persistence.migrate().
+export const SAVE_VERSION = 1;

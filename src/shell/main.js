@@ -503,6 +503,7 @@ export class Game {
     if (this._pauseEl) return this._closePause();
     if (this.screen !== 'quiz') return;
     this._clearQuip(); // no host chatter floating over the menu
+    if (this.quiz) this.quiz.onPause(); // park a pending lock-in + clear its bubble
     const seed = this.seed;
     const toggle = (key, label, desc) => {
       const input = h('input', { type: 'checkbox', checked: !!this.save.settings[key],
@@ -540,7 +541,7 @@ export class Game {
       h('div', { class: 'menu' },
         h('button', { class: 'primary', type: 'button', onclick: () => this._closePause() }, 'Resume'),
         h('button', { class: 'ghost small', type: 'button', onclick: () => {
-          if (confirm('Quit this run? Coins not yet banked are lost.')) { this._closePause(); this.rc = null; this.showTitle(); }
+          if (confirm('Quit this run? Coins not yet banked are lost.')) { if (this.quiz) this.quiz.abortPending(); this._closePause(); this.rc = null; this.showTitle(); }
         } }, 'Quit to title'),
       ));
     this._pauseEl = h('div', { class: 'pause-layer' }, panel);
@@ -551,6 +552,7 @@ export class Game {
 
   _closePause() {
     if (this._pauseEl) { this._pauseEl.remove(); this._pauseEl = null; }
+    if (this.quiz) this.quiz.onResume(); // re-arm any parked lock-in submit
   }
 
   _playIntro(beginPlay) {

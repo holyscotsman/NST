@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased — hardening pass (adversarial review of the graphics + feedback work)
+
+An adversarial review (five reviewers + per-finding verification) over everything
+that landed since the last critical review. 11 findings confirmed, 2 refuted;
+fixes applied:
+
+- **Keyboard focus ring restored (a11y, high)** — the hex-lozenge `clip-path` was
+  clipping the answer options' focus outline to nothing, leaving keyboard users
+  with no visible focus. Replaced with a clip-safe inset gold ring that wins over
+  the state styles.
+- **True radiogroup semantics (a11y)** — single-answer options now honour the
+  ARIA radio contract they declare: roving tabindex (one Tab stop), arrow / Home /
+  End navigation with selection following focus, and `role=presentation` on the
+  list items so the group→radio relationship is intact. Number keys + Enter-lock
+  unchanged; the multi-answer (checkbox) path keeps its per-option Tab stops.
+- **Colourblind-safe selection** — a selected option now shows a shape marker
+  (◉ radio / ▣ checkbox) in the mark slot, so "selected" no longer rests on colour
+  + glow alone (which reduced motion flattened further).
+- **GL teardown leaks fixed** — `dispose()` now disposes the composer's added
+  passes (bloom FBO chain, output + grain materials) and calls `dispose()` on
+  every InstancedMesh so their instance buffers are freed.
+- **Reduced-motion: grain freezes** — the film-grain shader time no longer
+  advances under reduced motion (it was the one continuous animation still
+  running).
+- **Pause during lock-in suspense** — pausing mid-suspense no longer strands the
+  "Final answer!" bubble over the menu or submits the locked answer behind it; the
+  submit is parked and re-armed on resume (dropped on quit).
+- **Audience swap has no colour pop** — the walk-on crowd actor now adopts the
+  colours of the seat it replaces, so wave/leave moments read seamlessly.
+- **Save/mastery hardening** — the save version is one constant, normalized on
+  every migrate so load and import agree; the mastery promotion cap and
+  graduate-out ceiling share one source so graduation can never become
+  unreachable.
+
 ## Unreleased — owner feedback: thinking-scene dim + more natural idle motion
 
 - **Dramatic thinking beat** — once the host finishes reading a question out, the

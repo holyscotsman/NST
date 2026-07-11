@@ -41,8 +41,17 @@ audio-resume hardening, pause menu, mastery dashboard removed).
   green room (reveal + pep talk → shop, "Start next round"); win → prestige.
 
 ### Gates
-- Tests: 88 headless (negative controls) + 7 smoke + 18 e2e; CI runs headless
+- Tests: 90 headless (negative controls) + 8 smoke + 18 e2e; CI runs headless
   on every push/PR. All green as of the last drop.
+
+### Hardening pass (docs/HARDENING_REVIEW.md)
+- Adversarial review (5 reviewers + per-finding verify) over the graphics
+  overhaul + feedback batches: 11 confirmed fixes, 2 refuted. Notables: restored
+  the keyboard focus ring the lozenge clip-path was eating; true radiogroup
+  keyboard nav (roving tabindex + arrows); GL teardown now frees composer passes
+  + instanced-mesh buffers; grain freezes under reduced motion; pause-during-
+  suspense parks the submit; crowd swap-in matches the seat colour; save-version
+  + mastery-box constants single-sourced. Visual cues queued in `BROWSER_QA.md`.
 
 ### Owner feedback pass (post-overhaul)
 - Compact money ladder; perimeter pillars darkened/thinned + center-line ones

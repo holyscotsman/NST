@@ -392,6 +392,21 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .option.removed .opt-text { text-decoration: line-through; }
 .option.faded { filter: saturate(0.7); opacity: 0.7; }
 
+/* Keyboard focus ring: an INSET gold ring — an outset outline would be clipped
+   away by the lozenge clip-path. Declared after the state rules (equal
+   specificity) so a focused option always shows the ring. Shape cue, not colour
+   alone. */
+.option:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2.4px var(--gold), inset 0 0 14px rgba(255, 200, 87, 0.34);
+}
+/* Colourblind-safe selection: a shape marker in the mark slot while an option is
+   selected (pre-lock), so "selected" never rests on colour + glow alone. The
+   reveal (is-correct/is-wrong) writes ✓/✗ into .opt-mark and clears `selected`,
+   so this marker naturally gives way to those. Distinct per role. */
+.option[role="radio"].selected .opt-mark::before { content: '\25C9'; color: var(--aqua); }
+.option[role="checkbox"].selected .opt-mark::before { content: '\25A3'; color: var(--aqua); }
+
 .lock-row { display: flex; justify-content: center; margin-top: 16px; }
 .lock-btn {
   background: linear-gradient(100deg, var(--gold), #f0a94b); color: #2a1400;

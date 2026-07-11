@@ -47,6 +47,12 @@ test('mastery graduates out at the ceiling and cannot exceed it', () => {
   assert.equal(isGraduated(m, easy.id), true);
 });
 
+test('the graduate-out ceiling equals the promotion cap, so graduation is reachable', () => {
+  // NEGATIVE CONTROL: record() caps the box at MAX_BOX, so if GRADUATED_BOX ever
+  // exceeded MAX_BOX, isGraduated() could never fire. They share one source.
+  assert.equal(MASTERY.GRADUATED_BOX, MASTERY.MAX_BOX);
+});
+
 test('extreme questions stay pinned to the extreme tier regardless of mastery', () => {
   const m = emptyMastery();
   for (let i = 0; i < 10; i++) record(m, extreme.id, { correct: true, authoredDifficulty: 'extreme' });
