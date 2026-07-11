@@ -284,6 +284,14 @@ export class Studio {
       }
       if (this._spin > 1) this._spin = Math.max(1, this._spin - dt * 0.6);
       this._crowdTick(dt, t);
+      // dust motes drift up and slowly rotate; wrap at the top (in-place)
+      if (this._motes && this.postFx) {
+        const p = this._motePos;
+        for (let i = 1; i < p.length; i += 3) { p[i] += dt * 0.14; if (p[i] > 7) p[i] = 0.2; }
+        this._motes.geometry.attributes.position.needsUpdate = true;
+        this._motes.rotation.y += dt * 0.02;
+        this._motes.visible = true;
+      } else if (this._motes) { this._motes.visible = false; }
     }
 
     // Key light eases toward the current tier/mood colour (smooth transitions).
@@ -666,6 +674,27 @@ export class Studio {
       const a = i / beamColors.length * Math.PI * 2; cone.position.set(Math.cos(a) * 3, 5.5, Math.sin(a) * 3);
       cone.rotation.z = Math.cos(a) * 0.18; cone.rotation.x = Math.sin(a) * 0.18; cone.userData.base = a; s.add(cone); this.beams.push(cone);
     }
+
+    // Dust motes drifting through the beams — sells the volumetric light. One
+    // additive Points cloud; positions drift upward in place (no allocation in
+    // the loop). Only in the studio, only with motion + effects on.
+    const MOTES = 150;
+    const mpos = new Float32Array(MOTES * 3);
+    for (let i = 0; i < MOTES; i++) {
+      mpos[i * 3] = (Math.random() * 2 - 1) * 6;
+      mpos[i * 3 + 1] = Math.random() * 7;
+      mpos[i * 3 + 2] = (Math.random() * 2 - 1) * 6;
+    }
+    const mgeo = new THREE.BufferGeometry();
+    mgeo.setAttribute('position', new THREE.BufferAttribute(mpos, 3));
+    this._motes = new THREE.Points(mgeo, new THREE.PointsMaterial({
+      color: 0xffe6c2, size: 0.055, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false }));
+    this._motePos = mpos;
+    // start hidden under reduced motion / effects-off; the tick (which only runs
+    // when !reduced) turns them on. Otherwise they'd hang as a static gold field.
+    this._motes.visible = !this.reduced && this.postFx;
+    s.add(this._motes);
 
     // The piggy bank — where the coins live. On a pedestal at stage right;
     // the "thinking" playlist gives it a dramatic slow zoom (takes.js).

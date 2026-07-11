@@ -233,7 +233,17 @@ export class Game {
     if (focusTarget) { focusTarget.setAttribute('tabindex', '-1'); focusTarget.focus({ preventScroll: true }); }
   }
 
+  // A quick branded gradient wipe over the top-level screen changes (no hard
+  // cuts). Skipped under reduced motion / effects-off. Self-removing.
+  _wipe() {
+    if (this.reduced || this.save.settings.postFx === false) return;
+    const w = h('div', { class: 'screen-wipe', 'aria-hidden': 'true' });
+    document.body.appendChild(w);
+    setTimeout(() => w.remove(), 650);
+  }
+
   showTitle() {
+    this._wipe();
     this.screen = 'title';
     this._clearQuip();
     this._greenReveal = null; // a loss reveal never survives leaving to the title
@@ -271,6 +281,7 @@ export class Game {
   }
 
   showGreenRoom() {
+    if (this.screen !== 'greenroom') this._wipe(); // wipe on entry, not on shop re-renders
     this.screen = 'greenroom';
     this._clearQuip();
     this._ensureCampaign();
@@ -413,6 +424,7 @@ export class Game {
     this.hud.setSeed && this.hud.setSeed(seed);
 
     const beginPlay = () => {
+      this._wipe(); // branded transition into the studio
       this.screen = 'quiz';
       this.quiz.mount(this.roots.screen, this.hud.el);
       this.audio.resume();

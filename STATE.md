@@ -41,8 +41,17 @@ audio-resume hardening, pause menu, mastery dashboard removed).
   green room (reveal + pep talk → shop, "Start next round"); win → prestige.
 
 ### Gates
-- Tests: 71 headless (negative controls) + 7 smoke + 18 e2e; CI runs headless
+- Tests: 86 headless (negative controls) + 7 smoke + 18 e2e; CI runs headless
   on every push/PR. All green as of the last drop.
+
+### Graphics overhaul (docs/GRAPHICS_OVERHAUL.md)
+- All 5 phases shipped: P0 audit + dev FPS meter + shots harness; P2 env map +
+  reflective floor; P3 shadows + rim light + lock-in cue; P1 set detail (LED
+  wall, columns, medallion, truss); P4 vignette/grain + camera micro-motion +
+  effects toggle; P5 hexagonal answer lozenges + dust motes + branded screen
+  wipes. FPS budget + WebGL look need owner sign-off on real hardware
+  (dev meter: `?fps=1` / Alt+F); queued in `BROWSER_QA.md`. Final verification
+  pass (cross-check the whole overhaul on device) is the one remaining item.
 
 ### Owner-authored bank (in progress)
 - Ingestion pipeline is live: `docs/QUESTION_AUTHORING.md` → Markdown →

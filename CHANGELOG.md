@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased — graphics overhaul (phase 5): UI lozenges, dust motes, transitions
+
+- **Broadcast answer lozenges** — the A/B/C/D options are redrawn to the classic
+  game-show hexagonal-lozenge silhouette (pointed ends via `clip-path`), with a
+  cool hairline that traces the shape and a subtle top-lit gradient fill. Every
+  answer state (hover / selected / locked / correct / wrong / removed) reads on
+  the new shape; the "borders" moved to inset shadows so they follow the clipped
+  silhouette instead of a cut-off rectangle.
+- **Animated lock-in edge glow** — the locked option gets a breathing gold ring
+  clipped to the lozenge.
+- **Volumetric dust motes** — a faint additive mote field drifts up through the
+  light beams during play, selling the volumetric light. Motion + effects only
+  (off under reduced motion and the cinematic-effects toggle).
+- **Branded screen transitions** — top-level screen changes (menu ↔ game ↔
+  results) sweep a brand-gradient wipe instead of hard-cutting. Skipped under
+  reduced motion / effects-off.
+
 ## Unreleased — graphics overhaul (phase 4): post polish + camera micro-motion
 
 - **Vignette + film grain** — a final grade pass (inline custom shader, last in

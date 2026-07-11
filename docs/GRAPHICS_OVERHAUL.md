@@ -28,7 +28,7 @@ The full audit is in `docs/GRAPHICS_AUDIT.md`.
 - [x] Phase 3 — Shadows, rim/back light, lock-in cue
 - [x] Phase 1 — Set detail (LED wall, columns, medallion, truss/fixtures, bevels)
 - [x] Phase 4 — Post polish (vignette/grain) + camera micro-motion + toggle
-- [ ] Phase 5 — UI lozenges, dust motes, branded transitions
+- [x] Phase 5 — UI lozenges, dust motes, branded transitions
 - [ ] Final verification pass
 
 (Phase order is 0 → 2 → 3 → 1 → 4 → 5: materials/light first, since they make
@@ -50,3 +50,22 @@ the geometry work in Phase 1 read; camera/UI polish last.)
   sets; hero floor now low-roughness/high-metal (metal 0.9, rough 0.22,
   envMapIntensity 1.5) reflecting the rig; emissive bumped >1 on rim/spokes/
   monitors/halo to drive bloom. Tests green; dispose frees the env RT.
+- 2026-07-11 | Phase 1 | done | Set detail: curved LED video wall (procedural
+  panel texture, BackSide cylinder arc), emissive light columns (two instanced
+  meshes, tuned below bloom threshold so they read as tubes not slabs), show
+  medallion (torus rings + emblem — the show's own mark, not Nutanix's), and
+  instanced truss fixtures (cans + lenses). Higher segment counts / bevels on
+  hero props. Shipped #21.
+- 2026-07-11 | Phase 4 | done | Post polish: inline vignette+grain ShaderPass
+  appended last in the composer; slow camera micro-motion (breathing) in the
+  studio idle; `postFx` setting gates the whole composer vs a direct render, so
+  the effects can be turned off. Reduced motion holds the camera still. #22.
+- 2026-07-11 | Phase 5 | done | UI/motion/VFX: answer options redesigned to the
+  broadcast hexagonal-lozenge silhouette (`clip-path` hex, cool hairline that
+  traces the shape + subtle top-lit gradient fill; all state "borders" moved to
+  inset shadows since a clipped border is a no-op); animated gold edge-glow on
+  the locked option clipped to the lozenge; floating dust motes in the beams
+  (additive Points, drift+wrap in place, gated on motion+effects); branded
+  gradient screen-wipe on top-level screen changes (menu↔game↔results), skipped
+  under reduced motion / effects-off. Verified all answer states via the shots
+  harness; 86/7/18 green.
