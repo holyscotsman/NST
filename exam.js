@@ -127,6 +127,10 @@
       ".sx-exam-slowrow{display:flex;gap:10px;align-items:baseline;font-size:12.5px;margin:4px 0;} .sx-exam-slowrow .t{flex:0 0 40px;font-weight:800;color:" + P.gold + ";font-variant-numeric:tabular-nums;} .sx-exam-slowrow .q{color:" + P.dim + ";}",
       ".sx-exam-rv.right{border-left-color:" + P.mantis + ";}",
       ".sx-exam-revall-btn{margin:10px 0 4px;}",
+      ".sx-exam-rvfilters{display:flex;gap:8px;margin-bottom:12px;}",
+      ".sx-exam-rvchip{background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.14);border-radius:999px;padding:5px 13px;font:600 12.5px Montserrat,Arial,sans-serif;color:" + P.dim + ";cursor:pointer;}",
+      ".sx-exam-rvchip.on{border-color:" + P.aqua + ";color:" + P.ink + ";background:rgba(31,221,233,.12);}",
+      ".sx-exam-btn.warn{border-color:" + P.peach + ";color:" + P.peach + ";}",
       ".sx-exam-opt{display:flex;gap:11px;align-items:flex-start;text-align:left;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.12);border-radius:11px;padding:12px 14px;font:600 15px Montserrat,Arial,sans-serif;color:" + P.ink + ";cursor:pointer;transition:border-color .12s,background .12s;}",
       ".sx-exam-opt:hover{border-color:" + P.iris + ";background:rgba(120,85,250,.10);}",
       ".sx-exam-opt .k{flex:0 0 22px;height:22px;border-radius:6px;background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:" + P.dim + ";}",
@@ -689,14 +693,24 @@
     function next() { S.i++; if (S.i >= order.length) finish(false); else renderQuestion(S.i); }
 
     /* ---- sim: review + submit --------------------------------------------- */
-    function renderReview() {
+    function renderReview(filter) {
+      S._rvFilter = filter = filter || S._rvFilter || "all";   // (v0.169.0, V1.1 NIT#6) sticky filter
       progEl.textContent = "Review"; barsEl.style.visibility = "visible";
       var rv = el("div", "sx-exam-rvw");
       var blanks = 0; for (var k = 0; k < S.drafts.length; k++) if (S.drafts[k] == null) blanks++;
+      var flagsN = S.flags.filter(Boolean).length;
       var h = "<h3>Review before you submit</h3>";
-      h += '<div class="sx-exam-sub" style="margin-bottom:12px;">' + (S.drafts.length - blanks) + " answered &middot; " + blanks + " blank &middot; " + S.flags.filter(Boolean).length + " flagged</div>";
+      h += '<div class="sx-exam-sub" style="margin-bottom:12px;">' + (S.drafts.length - blanks) + " answered &middot; " + blanks + " blank &middot; " + flagsN + " flagged</div>";
+      // (NIT#6) Pearson-style filter chips — the exact last-10-minutes workflow to practice
+      h += '<div class="sx-exam-rvfilters">'
+        + '<button type="button" class="sx-exam-rvchip' + (filter === "all" ? " on" : "") + '" data-f="all">All ' + order.length + "</button>"
+        + '<button type="button" class="sx-exam-rvchip' + (filter === "flagged" ? " on" : "") + '" data-f="flagged">\u2691 Flagged ' + flagsN + "</button>"
+        + '<button type="button" class="sx-exam-rvchip' + (filter === "blank" ? " on" : "") + '" data-f="blank">Blank ' + blanks + "</button>"
+        + "</div>";
       rv.innerHTML = h;
       order.forEach(function (q, qi) {
+        if (filter === "flagged" && !S.flags[qi]) return;
+        if (filter === "blank" && S.drafts[qi] != null) return;
         var row = el("button", "sx-exam-rvrow"); row.type = "button";
         row.innerHTML = '<span class="n">' + (qi + 1) + '</span><span class="st">' + esc(q.stem) + '</span>' +
           '<span class="tag ' + (S.drafts[qi] == null ? 'blank">blank' : 'done">answered') + "</span>" +
@@ -704,11 +718,26 @@
         on(row, "click", function () { renderQuestion(qi); });
         rv.appendChild(row);
       });
+      var chips = rv.querySelectorAll(".sx-exam-rvchip");
+      for (var ch2 = 0; ch2 < chips.length; ch2++) {
+        (function (chip) { on(chip, "click", function () { renderReview(chip.getAttribute("data-f")); }); })(chips[ch2]);
+      }
       var nav = el("div", "sx-exam-nav");
       var back = el("button", "sx-exam-btn ghost", "&larr; Back to questions"); back.type = "button";
       var sub = el("button", "sx-exam-btn primary", "Submit exam"); sub.type = "button";
       on(back, "click", function () { renderQuestion(S.order.length - 1); });
-      on(sub, "click", function () { submitSim(false); });
+      // (NIT#6) blanks score zero — say so LOUDLY before grading, like the real UI
+      on(sub, "click", function () {
+        var bl2 = 0; for (var k2 = 0; k2 < S.drafts.length; k2++) if (S.drafts[k2] == null) bl2++;
+        if (bl2 > 0 && !S._blankWarned) {
+          S._blankWarned = true;
+          sub.textContent = bl2 + " unanswered \u2014 blanks score zero. Submit anyway?";
+          sub.classList.add("warn");
+          announce(bl2 + " unanswered questions. Blanks score zero. Activate submit again to confirm.", true);
+          return;
+        }
+        submitSim(false);
+      });
       nav.appendChild(back); nav.appendChild(sub);
       rv.appendChild(nav);
       host.textContent = ""; host.appendChild(rv);
@@ -748,6 +777,11 @@
         var nx3 = host.querySelector(".sx-exam-nav .primary"); if (nx3) nx3.click();
       } else if ((key === "f" || key === "F") && S.mode === "sim") {
         var fg = host.querySelector(".sx-exam-flag"); if (fg) fg.click();
+      } else if ((key === "g" || key === "G") && S.mode === "sim") {   // (v0.169.0, NIT#6) jump to the NEXT flagged question
+        for (var gf = 1; gf <= order.length; gf++) {
+          var gi = (S.view + gf) % order.length;
+          if (S.flags[gi]) { renderQuestion(gi); break; }
+        }
       }
     });
 

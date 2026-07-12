@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-REVIEW-FILTERS — the last ten minutes (added v0.169.0).** In a sim's Review screen:
+  three chips (All/Flagged/Blank) with correct counts, filtering live; G from inside a
+  question hops to the next flagged one. Submit with blanks: the button itself turns peach
+  and asks "N unanswered — blanks score zero. Submit anyway?" — one more press submits.
+  WRONG: a modal dialog, counts drifting from the rail, or G doing nothing.
+
 - **QA-COACH — the recruit's first look (added v0.168.0).** On a FRESH profile (clear site
   data): the bridge should greet you with the iris tip pointing at a gently pulsing Acropolis
   Rescue strip. Dismiss it (✕ or by launching ARM): it never returns — including after a

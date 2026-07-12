@@ -166,6 +166,42 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.169.0, V1.1 NIT#6) sim review filters + the blank-submit confirmation
+      {
+        shell._examMode = "sim";
+        shell.showExam(4, { mode: "sim" }); await wait(30);
+        const exR = shell._exam._state;
+        const nitMm6 = SN.core.mastery.all();
+        const nitPrev6 = {};
+        exR.order.forEach((q) => { nitPrev6[q.id] = nitMm6[q.id] ? JSON.parse(JSON.stringify(nitMm6[q.id])) : null; });
+        w.document.querySelector(".sx-exam-opt").click(); await wait(10);           // answer q1
+        w.document.querySelector(".sx-exam-flag").click(); await wait(10);          // flag q1
+        // walk to Review
+        for (let nv6 = 0; nv6 < 8; nv6++) {
+          if ([...w.document.querySelectorAll(".sx-exam-btn")].some((b) => /Submit exam|Submit anyway/.test(b.textContent))) break;
+          const nx6 = w.document.querySelector(".sx-exam-nav .primary"); if (nx6) { nx6.click(); await wait(10); } else break;
+        }
+        const chips6 = w.document.querySelectorAll(".sx-exam-rvchip");
+        ok("NIT#6: the review offers All/Flagged/Blank chips with LIVE counts",
+          chips6.length === 3 && /All 4/.test(chips6[0].textContent) && /Flagged 1/.test(chips6[1].textContent) && /Blank 3/.test(chips6[2].textContent));
+        chips6[1].click(); await wait(10);
+        ok("NIT#6: the Flagged filter shows exactly the flagged row",
+          w.document.querySelectorAll(".sx-exam-rvrow").length === 1 && !!w.document.querySelector(".sx-exam-rvrow .tag.flag"));
+        w.document.querySelector('.sx-exam-rvchip[data-f="blank"]').click(); await wait(10);
+        ok("NIT#6: the Blank filter shows exactly the three blanks",
+          w.document.querySelectorAll(".sx-exam-rvrow").length === 3 && [...w.document.querySelectorAll(".sx-exam-rvrow .tag.blank")].length === 3);
+        const subW = [...w.document.querySelectorAll(".sx-exam-btn")].find((b) => /Submit exam/.test(b.textContent));
+        subW.click(); await wait(10);
+        ok("NIT#6: submitting with blanks WARNS first ('3 unanswered — blanks score zero')",
+          /3 unanswered/.test(subW.textContent) && !shell._exam._state.examDone);
+        subW.click(); await wait(30);
+        ok("NIT#6: the second activation submits (the confirmation is one honest step, not a wall)",
+          shell._exam._state.examDone === true);
+        for (const nk6 in nitPrev6) { if (nitPrev6[nk6]) nitMm6[nk6] = nitPrev6[nk6]; else delete nitMm6[nk6]; }
+        SN.core.profile.examHistory && SN.core.profile.examHistory.pop();   // drop the probe sim's entry
+        shell._examMode = "study";
+        shell.showMenu(); await wait(10);
+      }
       // (v0.168.0, V1.1 Menu#6) first-run coach mark: one-shot, latched, launch-dismissed
       {
         const hadFlag = SN.core.profile.firstMenuSeen;
@@ -250,8 +286,8 @@ async function runFrames(n = 6) {
         w.document.querySelector(".sx-exam-opt").click(); await wait(30);
         // submit PROPERLY (the quit path grades as abandoned, which rightly suppresses the report)
         for (let nv = 0; nv < 8; nv++) {
-          const sub5 = [...w.document.querySelectorAll(".sx-exam-btn")].find((b) => /Submit exam/.test(b.textContent));
-          if (sub5) { sub5.click(); await wait(40); break; }
+          const sub5 = [...w.document.querySelectorAll(".sx-exam-btn")].find((b) => /Submit exam|Submit anyway/.test(b.textContent));
+          if (sub5) { sub5.click(); await wait(20); if (!shell._exam._state.examDone) { sub5.click(); await wait(40); } break; }   // (NIT#6) blank-warning needs the confirm click
           const nxt5 = w.document.querySelector(".sx-exam-nav .primary");
           if (nxt5) { nxt5.click(); await wait(15); } else break;
         }
@@ -2009,6 +2045,7 @@ async function runFrames(n = 6) {
       cont.querySelector(".sx-exam-nav .primary").click();                     // back to Review
       const subBtn = Array.prototype.slice.call(cont.querySelectorAll(".sx-exam-btn")).filter(b => /Submit exam/.test(b.textContent))[0];
       subBtn.click();
+      if (/Submit anyway/.test(subBtn.textContent)) subBtn.click();   // (v0.169.0, NIT#6) the blank warning takes one confirm click
       ok("sim: submit grades everything at once (mastery x3, blank=wrong)", recs.length === 3 && recs[0] === true && recs[1] === false && recs[2] === false);
       ok("sim: results show 33% + the PACE line (v0.165.0 NIT#5: budget stats replaced the old no-stats rule; blitz speed points still absent)",
         /33%/.test(cont.querySelector(".sx-exam-pct").textContent)
