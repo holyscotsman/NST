@@ -42,6 +42,7 @@
     // leaner squad; repair/brace values shrink to match. Fuzz targets re-verified below.
     squad: { hp: 40, maxHp: 40, basePower: 12, block: 6, healPower: 6, coins: 6, startShield: 0 },
     maxAttacks: 7, maxArtifacts: 5, consumableCap: 4, roundsPerSection: 5,   // (v0.99.0, K10) window widened with the rounder enemies
+    flagshipSection: 3,   // (v0.149.0, V1.1 KBB#3) the section-3 boss is THE BCM Flagship — the run's winnable target
     enemyBaseHp: 14, hpPerRound: 2.4, hpPerSection: 0.10, bossHpMult: 1.3,
     intentBase: 2.2, intentPerRound: 0.30, intentPerSection: 0.08,   // v0.46.0 K4: softer chip; deaths should come from the ladder, not attrition
     coinBase: 3, bossCoinMult: 2.5,
@@ -333,9 +334,10 @@
     } else { pattern = ENEMY_PATTERNS[(r - 1) % ENEMY_PATTERNS.length]; }
     var step = Math.max(1, Math.round(intent * 0.4));
     if (mechanic === 'enrage') step = Math.max(2, Math.round(intent * 0.6));
+    var flagship = boss && s === CONFIG.flagshipSection;   // (v0.149.0, KBB#3)
     return {
-      id: 'e-s' + s + '-r' + r, name: enemyName(s, boss, mechanic),
-      boss: boss, mechanic: mechanic, hp: hp, maxHp: hp,
+      id: 'e-s' + s + '-r' + r, name: flagship ? 'BCM FLAGSHIP \u00b7 Sovereign' : enemyName(s, boss, mechanic),
+      boss: boss, flagship: flagship, mechanic: mechanic, hp: hp, maxHp: hp,
       intent: intent, baseIntent: intent, intentStep: step, pattern: pattern,
       intentToggle: false, shieldUp: false, locked: !!(boss && mechanic === 'gated'),
       rewardCoins: bossOrNormalCoins(s, r, boss)
@@ -510,8 +512,23 @@
     fireSide(run, 'onBattleWon', {});
     run.depthClearedSection = run.section; run.depthClearedRound = run.round;
     run.bestScore = Math.max(run.bestScore, scoreOf(run));
+    // (v0.149.0, V1.1 KBB#3) the Flagship kill is the run's VICTORY — a named beat ~15 rounds
+    // out. The Deep Belt past it stays endless, but it's now a choice, not the only mode.
+    if (b.enemy.flagship && !run.won) {
+      run.won = true;
+      run.log.push('THE FLAGSHIP IS DOWN \u2014 the Belt is yours');
+      if (run.ctx.telemetry) run.ctx.telemetry.emit({ t: 'run_ended', game: 'KBB', result: 'win', depth: depthLabel(run), score: scoreOf(run) });
+      run.phase = 'won';
+      return res;
+    }
     run.phase = 'shop'; buildShop(run);
     return res;
+  }
+  // (v0.149.0, KBB#3) "Push into the Deep Belt": claim the win into the normal post-boss shop
+  function claimVictory(run) {
+    if (run.phase !== 'won') return { ok: false, reason: 'not-won' };
+    run.phase = 'shop'; buildShop(run);
+    return { ok: true };
   }
   function isMultiQ(q) { return !!(q && Array.isArray(q.correctIndices) && q.correctIndices.length); }
   function gradeAnswer(q, chosen) {
@@ -809,6 +826,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     var run = {
       ctx: ctx, seed: seed, rng: rng, section: 1, round: 1, squad: squad,
       consumables: [], phase: 'battle', shop: null, battle: null, flags: {}, log: [],
+      won: false,   // (v0.149.0, KBB#3) flagship downed — the run has been WON (Deep Belt optional)
       depthClearedSection: 0, depthClearedRound: 0, bestScore: 0
     };
     run._api = makeApi(run);
@@ -840,7 +858,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     shopBuyConsumable: shopBuyConsumable, shopReroll: shopReroll,
     shopBuyBoost: shopBuyBoost, BOOSTS: BOOSTS, rarityWeightsFor: rarityWeightsFor,
     sellArtifact: sellArtifact, isSellable: isSellable, sellRefund: sellRefund,
-    useConsumable: useConsumable, leaveShop: leaveShop,
+    useConsumable: useConsumable, leaveShop: leaveShop, claimVictory: claimVictory,
     equipArtifact: equipArtifact, hasArtifact: hasArtifact,
     currentIntent: currentIntent, makeEnemy: makeEnemy,
     scoreOf: scoreOf, depthLabel: depthLabel,
@@ -990,6 +1008,10 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-map-name{font-weight:800;font-size:24px;margin:2px 0 4px;}');
     css.push('.kbb-map-note{font-size:12px;color:' + P.gold + ';margin-bottom:2px;}.kbb-map-note b{color:' + P.gold + ';}');
     css.push('.kbb-debrief{flex:none;margin:6px 0 4px;background:rgba(13,13,26,.72);border:1px solid ' + P.border + ';border-radius:12px;padding:8px 12px;max-width:560px;overflow:auto;max-height:180px;}');
+    css.push('.kbb-won .kbb-big{color:' + P.gold + ';text-shadow:0 0 22px rgba(255,200,87,.55);}');
+    css.push('.kbb-won .kbb-lost-card{border-color:' + P.gold + ';box-shadow:0 0 40px rgba(255,200,87,.25);}');
+    css.push('.kbb-won-note{font-size:12.5px;color:' + P.dim + ';text-align:center;margin-top:8px;}');
+    css.push('.kbb-won-push{border-color:' + P.gold + ';color:' + P.gold + ';}');
     css.push('.kbb-debrief summary{cursor:pointer;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:' + P.gold + ';}');
     css.push('.kbb-debrief-row{margin:8px 0 2px;border-left:3px solid ' + P.peach + ';padding-left:10px;}');
     css.push('.kbb-debrief-stem{font-size:12.5px;color:' + P.text + ';}');
@@ -1193,6 +1215,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       if (ctx.resumeData && ctx.resumeData.section) {
         var rz = ctx.resumeData;
         run.section = rz.section; run.round = rz.round;
+        run.won = !!rz.won;   // (v0.149.0, KBB#3)
         if (rz.squad) for (var rk3 in rz.squad) { if (Object.prototype.hasOwnProperty.call(rz.squad, rk3)) run.squad[rk3] = rz.squad[rk3]; }
         if (rz.artifacts) for (var ra3 = 0; ra3 < rz.artifacts.length; ra3++) {
           try {
@@ -2169,6 +2192,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       if (s.run.phase !== 'lost') clearLost(s);
       var p = s.mainPanel; p.className = 'kbb-main'; p.textContent = '';
       if (s.hand) s.hand.style.display = (s.run.phase === 'battle') ? '' : 'none';   // (v0.113.0, D5)
+      if (s.run.phase === 'won') { renderWon(s); return; }   // (v0.149.0, KBB#3)
       if (s.run.phase === 'lost') { renderLost(s); return; }
       if (s.run.phase === 'shop') return (s.run._preRun || s.mapShop) ? renderShop(s, p) : renderMap(s, p);   // (v0.114.0, D6)
       return renderBattle(s, p);
@@ -2176,6 +2200,33 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
 
     function clearLost(s) { if (s.lostEl && s.lostEl.parentNode) s.lostEl.parentNode.removeChild(s.lostEl); s.lostEl = null; }
     // YELLOW stays clear; lost is a full-cover modal so no panel bleeds behind it.
+    // (v0.149.0, V1.1 KBB#3) VICTORY — the Flagship is down. Bank the win (one-shot counter,
+    // checkpoint cleared: a won run is complete), then push endless or start fresh.
+    function renderWon(s) {
+      saveBest(s); clearLost(s);
+      try {
+        var P4 = s.ctx.persistence;
+        if (!s.run._winBanked) {
+          s.run._winBanked = true;
+          if (P4 && P4.update) P4.update(function (p) { p.kbbWins = (p.kbbWins | 0) + 1; if (p.saves) delete p.saves.KBB; });
+          else if (P4 && P4.load && P4.save) P4.load().then(function (p) { p.kbbWins = (p.kbbWins | 0) + 1; if (p.saves) delete p.saves.KBB; return P4.save(p); }).catch(function () {});
+        }
+      } catch (eW) {}
+      var d = s.doc, ov = el(d, 'div', 'kbb-lost kbb-won'); s.lostEl = ov;
+      var card = el(d, 'div', 'kbb-lost-card');
+      card.appendChild(el(d, 'div', 'kbb-big', '\u2605 VICTORY'));
+      var sub = el(d, 'div', 'kbb-row'); sub.style.justifyContent = 'center';
+      sub.innerHTML = '<span>The <b style="color:' + PALETTE.gold + '">BCM Flagship</b> is down \u00b7 score <b>' + scoreOf(s.run) + '</b></span>';
+      card.appendChild(sub);
+      card.appendChild(el(d, 'div', 'kbb-won-note', 'The Belt past here is uncharted \u2014 push on for score, or bank the win.'));
+      var row = el(d, 'div', 'kbb-shoprow'); row.style.justifyContent = 'center'; row.style.marginTop = '16px';
+      var push = el(d, 'button', 'kbb-btn kbb-won-push', 'Push into the Deep Belt \u25b8');
+      push.onclick = function () { claimVictory(s.run); clearLost(s); renderAll(s); };
+      var again = el(d, 'button', 'kbb-btn', 'New run');
+      again.onclick = function () { restart(s); };
+      row.appendChild(push); row.appendChild(again); card.appendChild(row);
+      ov.appendChild(card); s.container.appendChild(ov);
+    }
     function renderLost(s) {
       saveBest(s); clearLost(s);
       try { var P3 = s.ctx.persistence; if (P3 && P3.update) P3.update(function (p) { if (p.saves) delete p.saves.KBB; }); else if (P3 && P3.load && P3.save) P3.load().then(function (p) { if (p.saves && p.saves.KBB) { delete p.saves.KBB; return P3.save(p); } }).catch(function () {}); } catch (eCl) {}   // (v0.108.0, G4) live profile
@@ -2497,6 +2548,7 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
             artifacts: rq.artifacts.map(function (ai) { return { id: ai.def.id, state: ai.state || {} }; }),
             flags: s.run.flags || {},
             depthClearedSection: s.run.depthClearedSection || 0, depthClearedRound: s.run.depthClearedRound || 0,
+            won: !!s.run.won,   // (v0.149.0, KBB#3) a Deep Belt run resumes as a WON run
             consumables: s.run.consumables.slice(),
             map: s.run.map ? JSON.parse(JSON.stringify(s.run.map)) : null,   // (v0.116.0, R1) deep copy — the live map kept mutating inside the saved checkpoint
             elite: !!(s.run.battle && s.run.battle.enemy && s.run.battle.enemy.elite && !s.run.battle.over),   // (v0.116.0, R1) resume must re-arm the elite

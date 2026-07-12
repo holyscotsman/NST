@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-KBB-VICTORY — the Flagship beat (added v0.149.0).** Fight to section 3's boss: it must
+  announce itself as BCM FLAGSHIP · Sovereign (not another Mk name). Kill it: a gold-rimmed
+  VICTORY card (star, score) — NOT the shop. "Push into the Deep Belt ▸" continues into the
+  normal shop and section 4 plays endless as before; "New run" restarts. Quit during the Deep
+  Belt and resume: still marked won (no second victory card on the next boss). WRONG: the
+  victory card on any other boss, a doubled kbbWins count, or the Deep Belt feeling different
+  from pre-arc endless play.
+
 - **QA-ARM-ARCHETYPES — orbiters + lancers (added v0.148.0).** Fly sector 5+: some enemies
   should be aqua DIAMONDS that circle you at range and shoot more often (never ramming), and
   from sector 9: long peach CHEVRONS that stop dead, flash a white charge ring for ~half a

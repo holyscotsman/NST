@@ -312,6 +312,39 @@ function newWindow() {
   ok(crossed && run2.misses.length === 0, 'starting the next battle clears the previous debrief');
 })();
 
+(function flagshipArc() {
+  group('KBB#3: the run has an arc — Flagship victory at section 3, then the endless Deep Belt');
+  var V = newWindow(), K = V.KBB;
+  var right = function (q) { return q.multi ? q.correctIndices.slice() : q.correctIndex; };
+  var ctxF = H.makeCtx(K, { seed: SEED + 50 });
+  var run = K.createRun(ctxF, { seed: SEED + 50 });
+  run.section = 3; run.round = K.CONFIG.roundsPerSection;
+  var fe = K.makeEnemy(run);
+  ok(fe.flagship === true && /FLAGSHIP/i.test(fe.name) && fe.boss === true, 'the section-3 boss IS the named BCM Flagship');
+  run.section = 6;
+  var fe6 = K.makeEnemy(run);
+  ok(!fe6.flagship && !/FLAGSHIP/i.test(fe6.name), 'the section-6 boss is a regular Mk boss — the flagship moment is singular');
+  // arm the real 3-5 battle through the public seam, then kill it clean
+  run.section = 3; run.round = K.CONFIG.roundsPerSection - 1; run.phase = 'shop'; run.shop = null; K._test.buildShop(run);
+  K.leaveShop(run);
+  ok(run.round === K.CONFIG.roundsPerSection && run.battle && run.battle.enemy.flagship === true, 'leaveShop at 3-4 arms the flagship battle');
+  var guard = 0, resW = null;
+  while (guard++ < 30 && run.phase === 'battle') {
+    var dq = K.drawQuestion(run); if (!dq || !dq.question) break;
+    run.battle.enemy.locked = false; run.battle.enemy.shieldUp = false;   // the ARC is under test, not the gate mechanic
+    run.battle.enemy.hp = Math.min(run.battle.enemy.hp, 1);
+    resW = K.submitAnswer(run, right(dq.question), 900, 'attack');
+  }
+  ok(!!resW && resW.win === true && run.phase === 'won' && run.won === true, 'killing the Flagship lands phase WON (not shop)');
+  var winEvs = ctxF._rec.telemetry.filter(function (e) { return e.ev && e.ev.t === 'run_ended' && e.ev.result === 'win'; });
+  ok(winEvs.length === 1 && winEvs[0].ev.game === 'KBB' && winEvs[0].ev.score > 0, "telemetry lands ONE run_ended result:'win' with the score");
+  ok(K.claimVictory(run).ok === true && run.phase === 'shop' && !!run.shop, 'Push into the Deep Belt: the win claims into the normal post-boss shop');
+  K.leaveShop(run);
+  ok(run.section === 4 && run.round === 1 && run.phase === 'battle' && !run.battle.enemy.flagship, 'section 4 (The Deep Belt) continues endless exactly as before');
+  ok(K.claimVictory(run).ok === false, 'claimVictory is phase-guarded — no double-claim mid-battle');
+  ok(run.won === true, 'the run stays marked WON through the Deep Belt (checkpoint carries it)');
+})();
+
 (function domFlow() {
   group('DOM: mount -> skip intro -> Start run -> answered turns -> boss music -> unmount');
   var V = newWindow(), doc = V.doc, KBB = V.KBB;
@@ -652,6 +685,18 @@ function newWindow() {
     var evTypes2 = (g2.map.stops || []).map(function (s6) { return s6.ev && s6.ev.type; }).join(',');
     ok(evTypes === evTypes2 && /cache|supply|repair|gamble/.test(evTypes),
        'KBB#1: the event deck is pre-rolled deterministically per seed (' + evTypes + ')');
+  }
+  // (v0.149.0, KBB#3) DOM: flip the live run to WON and repaint — the gold victory card
+  // renders, and Push into the Deep Belt claims back into the run (shop phase)
+  {
+    var stW = W4.KBB._test.state();
+    stW.run.won = true; stW.run.phase = 'won'; stW.run._winBanked = true;   // banked already — the DOM is under test
+    var rpW = doc4.querySelector('.kbb-mapnode.pick'); if (rpW) { rpW.click(); W4.step(2); }
+    var cardW = doc4.querySelector('.kbb-won');
+    ok(!!cardW && /VICTORY/.test(cardW.textContent) && /Flagship/.test(cardW.textContent), 'KBB#3 DOM: the gold VICTORY card renders over the map');
+    var pushBtn = doc4.querySelector('.kbb-won-push');
+    if (pushBtn) { pushBtn.click(); W4.step(2); }
+    ok(!!pushBtn && stW.run.phase === 'shop' && !doc4.querySelector('.kbb-won'), 'KBB#3 DOM: Push into the Deep Belt clears the card and claims into the shop');
   }
 })();
 
