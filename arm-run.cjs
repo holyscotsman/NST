@@ -86,6 +86,9 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   ok(m.length >= 1 && m[m.length - 1].id === qid1 && m[m.length - 1].correct === true
      && m[m.length - 1].meta && m[m.length - 1].meta.game === 'ARM',
      'right answer → mastery.record(id, true, {game:"ARM"})');
+  ok(typeof m[m.length - 1].meta.latencyMs === 'number' && m[m.length - 1].meta.latencyMs >= 0
+     && m[m.length - 1].meta.reason === 'answered',
+     'Backend#7: the ARM answer carries latency + reason through safeRecord');
   ok(T.coins() === coins0 + 15 && T.held().indexOf(qid1) >= 0 && T.cores()[1].state === 'collected'
      && T.state() === 'SECTOR', 'right answer → +15 coins, core collected into cargo, back to SECTOR');
   T.prepCore(4); T.arrive(4);

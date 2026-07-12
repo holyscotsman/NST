@@ -321,7 +321,13 @@
     /* ---------------------------------------------------------------------- */
     /* mastery / telemetry passthrough (guarded; never throws to gameplay)    */
     /* ---------------------------------------------------------------------- */
-    function safeRecord(id, correct) { try { MAST.record(id, correct, { game: "ARM" }); } catch (e) {} }
+    function safeRecord(id, correct, extra) {   // (v0.183.0, Backend#7) extra = {latencyMs, timerPct, reason}
+      try {
+        var mm = { game: "ARM" };
+        if (extra) for (var mk in extra) mm[mk] = extra[mk];
+        MAST.record(id, correct, mm);
+      } catch (e) {}
+    }
     // (v0.71.0, J7/J8) display caps — authored text is NEVER edited; long explanations tuck
     // their tail behind a native <details>, and Vega's comms hard-cap at 120 words (the full
     // authored detail resurfaces in the answer explanation).
@@ -1738,7 +1744,9 @@
         if (submitBtn) submitBtn.disabled = true;
         lastCorrect = gradeAnswer(q, answer);
         var ms = Math.round(gnow() - t0);
-        safeRecord(q.id, lastCorrect);
+        safeRecord(q.id, lastCorrect, { latencyMs: ms,
+          timerPct: limitS ? Math.min(1, ms / (limitS * 1000)) : null,
+          reason: timedOut ? "timeout" : "answered" });   // (v0.183.0, Backend#7)
         safeTel({ t: "question_answered", game: "ARM", id: q.id, correct: lastCorrect, ms: ms, difficulty: q.difficulty });
         var correctSet = multi ? q.correctIndices : [q.correctIndex];
         var chosenSet = multi ? answer : [answer];

@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-PACE-FEED — the slow-card signal (added v0.183.0).** Answer a handful of questions
+  SLOWLY (use most of the timer) but correctly, across a few sessions, then open the Codex:
+  the readiness box should grow an orange line ('N mastered cards still run slow'), slow rows
+  in 'Weakest questions' wear a 🐢 chip, and drilling boards those cards early. WRONG: the
+  line appearing with no slow answers recorded, a 🐢 on fast cards, or pace text under
+  reduced contrast that is unreadable.
+
 - **QA-SHELL-PHONE — the shell at phone width (added v0.182.0).** Narrow the window under
   600px (or open on a phone): the bridge must stack — rank strip above the settings cluster
   on the right, the daily dock as a single column with a full-width aqua Continue, each

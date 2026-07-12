@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.182.0";
+  var BUILD_VERSION = "0.183.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -221,6 +221,21 @@
         var sb = profile.streaksBest || (profile.streaksBest = {});
         sk[g] = correct ? (sk[g] || 0) + 1 : 0;
         if ((sk[g] || 0) > (sb[g] || 0)) sb[g] = sk[g];
+        // (v0.183.0, V1.1 Backend#7) telemetry is REAL: per-question rolling pace aggregates
+        // (EMA 0.3) + ONE standardized answer event per grade. 'Slow but correct' is a study
+        // signal Leitner buckets can't see; the aggregates are also the scheduler-tuning evidence base.
+        var lat = (ctx && typeof ctx.latencyMs === "number" && isFinite(ctx.latencyMs) && ctx.latencyMs >= 0) ? Math.round(ctx.latencyMs) : null;
+        var tpc = (ctx && typeof ctx.timerPct === "number" && isFinite(ctx.timerPct) && ctx.timerPct >= 0) ? Math.min(1, ctx.timerPct) : null;
+        if (lat != null) {
+          var qsA = profile.qstats || (profile.qstats = {});
+          var qr = qsA[id] || (qsA[id] = { n: 0, lat: 0, pct: null });
+          qr.n++;
+          qr.lat = (qr.n === 1) ? lat : Math.round(qr.lat + 0.3 * (lat - qr.lat));
+          if (tpc != null) qr.pct = (qr.pct == null) ? tpc : +(qr.pct + 0.3 * (tpc - qr.pct)).toFixed(4);
+        }
+        if (opts.onAnswer) {
+          try { opts.onAnswer({ t: "answer", qid: id, game: g, correct: !!correct, latencyMs: lat, timerPct: tpc, reason: (ctx && ctx.reason) || "answered" }); } catch (eTA) {}
+        }
         // Daily missions (v0.56.0 unit 6): per-day counters off the same choke point.
         var dd = ensureDaily(profile);
         if (dd && correct) {
@@ -814,6 +829,7 @@
       streaksBest: {},       // high-water streaks — achievement predicates read these
       achievements: {},      // unlocked achievement id -> unlock timestamp
       trailsUnlocked: {},    // (v0.65.0) cosmetic latches: trail id -> earn timestamp (earned forever)
+      qstats: {},            // (v0.183.0, V1.1 Backend#7) per-question pace aggregates: id -> {n, lat(EMA ms), pct(EMA of window used)}
       settings: defaultSettings(),
       updatedAt: clock.now()
     };
@@ -835,6 +851,7 @@
     if (!p.streaksBest || typeof p.streaksBest !== "object") p.streaksBest = {};
     if (!p.achievements || typeof p.achievements !== "object") p.achievements = {};
     if (!p.trailsUnlocked || typeof p.trailsUnlocked !== "object") p.trailsUnlocked = {};
+    if (!p.qstats || typeof p.qstats !== "object") p.qstats = {};       // (v0.183.0, Backend#7)
     if (typeof p.streakDays !== "number") p.streakDays = 0;            // (v0.153.0, Flow#4)
     if (typeof p.streakDaysBest !== "number") p.streakDaysBest = 0;
     p.settings = Object.assign({}, def.settings, p.settings || {});
@@ -1139,7 +1156,10 @@
     var persistence = opts.persistence || makeLocalStorageProvider({ storage: opts.storage });
     return persistence.load().then(function (profile) {
       var telemetry = opts.telemetry || makeTelemetry({ sink: opts.telemetrySink });
-      var mastery = makeMasteryStore(profile, { onChange: function () { persistence.save(profile); } });
+      var mastery = makeMasteryStore(profile, {
+        onChange: function () { persistence.save(profile); },
+        onAnswer: function (e) { telemetry.emit(e); }   // (v0.183.0, Backend#7) the standardized answer event
+      });
 
       // v0.52.0 unit 2: complete the 01 persistence seam ARM already calls (guarded — it was a
       // silent no-op until now). Records the game's best score + awards run XP into the pool.

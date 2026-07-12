@@ -1167,8 +1167,13 @@
         var m = core.mastery.get(pool[i].id);
         if (m && m.seen) out.push({ q: pool[i], m: m });
       }
+      var qsS = core.profile.qstats || {};   // (v0.183.0, Backend#7) the pace feed
       out.sort(function (a, b) {
-        return (a.m.bucket - b.m.bucket) || (a.m.streak - b.m.streak) || (b.m.incorrect - a.m.incorrect) || (a.m.lastSeen - b.m.lastSeen);
+        // slow-but-correct is a REAL study signal: a >=65% window EMA costs one effective
+        // bucket, so slow-mastered cards surface ahead of equally-mastered fast ones.
+        var ea = a.m.bucket - ((qsS[a.q.id] && qsS[a.q.id].pct != null && qsS[a.q.id].pct >= 0.65) ? 1 : 0);
+        var eb2 = b.m.bucket - ((qsS[b.q.id] && qsS[b.q.id].pct != null && qsS[b.q.id].pct >= 0.65) ? 1 : 0);
+        return (ea - eb2) || (a.m.streak - b.m.streak) || (b.m.incorrect - a.m.incorrect) || (a.m.lastSeen - b.m.lastSeen);
       });
     } catch (e) {}
     return out.slice(0, n || 20).map(function (x) { return x.q; });
@@ -1240,6 +1245,12 @@
         }
         box.appendChild(strip);
       }
+      // (v0.183.0, Backend#7) the pace feed: mastered cards that still run slow
+      try {
+        var qsP = core.profile.qstats || {}, slowN = 0;
+        for (var qk in qsP) { var mP = core.mastery.get(qk); if (mP && mP.bucket >= 4 && qsP[qk].pct != null && qsP[qk].pct >= 0.65) slowN++; }
+        if (slowN > 0) box.appendChild(el("div", "sx-ready-pace", "\ud83d\udc22 " + slowN + " mastered card" + (slowN === 1 ? "" : "s") + " still run" + (slowN === 1 ? "s" : "") + " slow \u2014 the drill boards them first"));
+      } catch (ePc) {}
       var simBtn = el("button", "sx-btn sx-btn-ghost sx-ready-go", r.sims ? "Run another Exam sim" : "Take an Exam sim");
       self._on(simBtn, "click", function () { self._examMode = "sim"; self.showExam(75); });   // (v0.84.0, B1) count-less call ran the ENTIRE bank (~6 h)
       box.appendChild(simBtn);
@@ -1337,10 +1348,12 @@
       var show = Math.min(6, weak.length);
       for (var i = 0; i < show; i++) {
         var q = weak[i], m = core.mastery.get(q.id) || {};
+        var qsR = (core.profile.qstats || {})[q.id];
+        var slowR = !!(qsR && qsR.pct != null && qsR.pct >= 0.65);   // (v0.183.0, Backend#7)
         var row = el("div", "sx-weak-row");
         row.innerHTML = '<span class="sx-weak-dom">' + (q.domain || "") + '</span>'
           + '<span class="sx-weak-stem">' + String(q.stem || "").slice(0, 72).replace(/&/g, "&amp;").replace(/</g, "&lt;") + (String(q.stem || "").length > 72 ? "\u2026" : "") + "</span>"
-          + '<span class="sx-weak-miss">' + (m.incorrect || 0) + "\u2715</span>";
+          + '<span class="sx-weak-miss">' + (slowR ? "\ud83d\udc22 " : "") + (m.incorrect || 0) + "\u2715</span>";
         list.appendChild(row);
       }
       box.appendChild(list);
@@ -2097,6 +2110,7 @@
       ".sx-weak-stem{color:var(--fg);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;}",
       ".sx-weak-miss{color:var(--peach);flex:0 0 auto;font-weight:700;}",
       ".sx-weak-more{font-size:11px;color:var(--mid);margin-top:4px;text-align:left;}",
+      ".sx-ready-pace{font-size:12.5px;color:#FF9857;margin:8px 0 2px;}",   /* (v0.183.0, Backend#7) */
       ".sx-weak-empty{font-size:12px;color:var(--mid);text-align:left;}",
       ".sx-drill{margin-top:10px;}",
       ".sx-stat.good .sx-stat-val{color:var(--mantis);}",

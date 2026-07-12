@@ -575,7 +575,8 @@
     if (!q) return { error: 'no-question' };
     var act = (action === 'brace' || action === 'repair') ? action : 'attack';
     var correct = gradeAnswer(q, chosen);
-    if (run.ctx.mastery) run.ctx.mastery.record(q.id, correct, { game: 'KBB' });
+    if (run.ctx.mastery) run.ctx.mastery.record(q.id, correct, { game: 'KBB',
+      latencyMs: (answerMs == null ? null : answerMs), reason: 'answered' });   // (v0.183.0, Backend#7) turn-based: no window pct
     if (run.ctx.telemetry) run.ctx.telemetry.emit({ t: 'question_answered', game: 'KBB', id: q.id, correct: correct, ms: (answerMs == null ? 0 : answerMs), difficulty: q.difficulty });
     var res = { correct: correct, action: act, damage: 0, blocked: false, shieldGained: 0, healed: 0, enemyHpBefore: b.enemy.hp, win: false, loss: false, lossReason: null, refunded: false, enemyAttacked: false, incoming: 0, coinsGained: 0 };
     if (correct) {

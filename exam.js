@@ -674,7 +674,10 @@
       S.score += pts;
       renderRail();   // (v0.116.0, R1) the palette fills the moment the answer grades
       if (S.mode === "blitz") { S.combo = correct ? S.combo + 1 : 0; renderCombo(correct); }
-      if (mastery && mastery.record) { try { mastery.record(q.id, correct, { game: "EXAM" }); } catch (e) {} }
+      if (mastery && mastery.record) { try { mastery.record(q.id, correct, { game: "EXAM",
+        latencyMs: (S.mode === "blitz" && S.qStart != null) ? Math.round(elapsed) : null,
+        timerPct: (S.mode === "blitz" && S.qWindow) ? Math.min(1, elapsed / S.qWindow) : null,
+        reason: "answered" }); } catch (e) {} }   // (v0.183.0, Backend#7)
       if (audio && audio.sfx) { try { audio.sfx(correct ? "correct" : "wrong"); } catch (e) {} }
       scoreEl.textContent = (S.mode === "blitz") ? (S.score + " pts") : scoreEl.textContent;
 
@@ -758,7 +761,10 @@
         var q = order[qi], chosen = S.drafts[qi];
         var correct = gradeAnswer(q, chosen);
         S.results.push({ q: q, chosen: chosen, correct: correct, points: 0, timeMs: S.qTime[qi] || 0 });   // (NIT#5) real time-on-question
-        if (mastery && mastery.record) { try { mastery.record(q.id, correct, { game: "EXAM" }); } catch (e) {} }
+        if (mastery && mastery.record) { try { mastery.record(q.id, correct, { game: "EXAM",
+          latencyMs: S.qTime[qi] ? Math.round(S.qTime[qi]) : null,
+          timerPct: S.qTime[qi] ? Math.min(1, S.qTime[qi] / 96000) : null,
+          reason: abandoned ? "abandoned" : "answered" }); } catch (e) {} }   // (v0.183.0, Backend#7) pace vs the 96s sim budget
       }
       finish(!!abandoned);
     }

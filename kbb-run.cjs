@@ -857,6 +857,19 @@ function newWindow() {
   }
 })();
 
+/* ============ Backend#7 (v0.183.0): the KBB answer carries its latency ============ */
+(function answerLatency() {
+  group('Backend#7: submitAnswer passes answerMs as latencyMs into mastery.record');
+  var V = newWindow(), K = V.KBB;
+  var ctxL = H.makeCtx(K, { seed: SEED + 92 });
+  var runL = K.createRun(ctxL, { seed: SEED + 92 });
+  var dL = K.drawQuestion(runL), qL = dL.question;
+  K.submitAnswer(runL, qL.multi ? qL.correctIndices.slice() : qL.correctIndex, 1234, 'attack');
+  var recL = ctxL._rec.mastery[ctxL._rec.mastery.length - 1];
+  ok(recL && recL.meta && recL.meta.game === 'KBB' && recL.meta.latencyMs === 1234 && recL.meta.reason === 'answered',
+     'the 1234ms answer time lands verbatim in the record meta');
+})();
+
 /* ============ Flow#7 (v0.179.0): the Lieutenant perk pays +25 starting coins ============ */
 (function rankPerk() {
   group('Flow#7: ctx.perks.kbbCoins raises the starting purse (CONFIG untouched)');

@@ -27,7 +27,7 @@ function makeCtx(seed) {
   return {
     rng: makeRng(seed),
     questions: { next: function (o) { var ex = new Set((o && o.excludeIds) || []); var pool = bank.filter(function (q) { return !ex.has(q.id); }); if (!pool.length) pool = bank; return { question: pool[Math.floor(rnd() * pool.length)], reason: 'probe' }; } },
-    mastery: { record: function (id, c) { rec.mastery.push({ id: id, c: !!c }); } },
+    mastery: { record: function (id, c, meta) { rec.mastery.push({ id: id, c: !!c, meta: meta || null }); } },   // (v0.183.0, Backend#7) meta captured
     telemetry: { emit: function (e) { rec.telemetry.push(e); } },
     _rec: rec
   };
@@ -254,6 +254,8 @@ function runToQuestion(sim, maxSecs, pinShields) {
   ok(sim.phase === 'EXPLAIN', 'the world stays paused through the explanation');
   sim.resumeAfterQuestion();
   ok(sim.phase === 'RUN' && sim.iframe >= CFG.POST_Q_GRACE - 0.01, 'Continue resumes with post-question grace i-frames');
+  ok((function () { var e0 = sim.ctx._rec.mastery[0]; return e0.meta && typeof e0.meta.latencyMs === 'number' && e0.meta.latencyMs >= 0 && e0.meta.timerPct >= 0 && e0.meta.timerPct <= 1 && e0.meta.reason === 'answered'; })(),
+     'Backend#7: the gate answer carries real latency + window pct + reason into mastery.record');
   ok(sim.ctx._rec.mastery.length === 1 && sim.ctx._rec.mastery[0].c === false
      && sim.ctx._rec.telemetry.some(function (e) { return e.t === 'question_answered' && e.correct === false; }),
      'grading routed through the shared mastery + telemetry providers');

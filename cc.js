@@ -668,7 +668,9 @@
     // route through shared providers
     var ms = Math.round(this._nowMs - this.pending.startedMs);
     if (this.ctx.mastery && typeof this.ctx.mastery.record === 'function') {
-      this.ctx.mastery.record(q.id, correct, { game: 'CC' });
+      this.ctx.mastery.record(q.id, correct, { game: 'CC', latencyMs: ms,
+        timerPct: this.pending.limitS ? Math.min(1, ms / (this.pending.limitS * 1000)) : null,
+        reason: timedOut ? 'timeout' : 'answered' });   // (v0.183.0, Backend#7)
     }
     if (this.ctx.telemetry && typeof this.ctx.telemetry.emit === 'function') {
       this.ctx.telemetry.emit({ t: 'question_answered', game: 'CC', id: q.id, correct: correct, ms: ms, difficulty: q.difficulty });

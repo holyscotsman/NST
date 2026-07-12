@@ -2915,6 +2915,79 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // B7. Backend#7 (v0.183.0): telemetry is real — standardized answer events + pace aggregates
+  console.log("\nB7. Backend#7 telemetry (answer event / qstats EMA / slow-signal drill + Codex feeds)");
+  {
+    const core = SN.core;
+    const qA = core.questions.pool()[5], qB = core.questions.pool()[6];
+    const snapB7 = JSON.stringify({ xp: core.profile.xp, rankSeen: core.profile.rankSeen,
+      totals: core.profile.totals, daily: core.profile.daily || null,
+      streaks: core.profile.streaks, streaksBest: core.profile.streaksBest,
+      ach: core.profile.achievements,
+      mA: core.profile.mastery[qA.id] || null, mB: core.profile.mastery[qB.id] || null });
+    delete core.profile.qstats[qA.id]; delete core.profile.qstats[qB.id];
+    const before = core.telemetry.events().filter(e => e.t === "answer").length;
+    core.mastery.record(qA.id, true, { game: "PROBE", latencyMs: 4000, timerPct: 0.5, reason: "answered" });
+    {
+      const evts = core.telemetry.events().filter(e => e.t === "answer");
+      const ev = evts[evts.length - 1];
+      ok("B7: record() emits ONE standardized answer event {qid, game, correct, latencyMs, timerPct, reason}",
+        evts.length === before + 1 && ev.qid === qA.id && ev.game === "PROBE" && ev.correct === true
+        && ev.latencyMs === 4000 && ev.timerPct === 0.5 && ev.reason === "answered" && typeof ev.ts === "number");
+    }
+    const r1 = core.profile.qstats[qA.id];
+    ok("B7: the first sample seeds the aggregates verbatim (n=1, lat=4000, pct=0.5)",
+      !!r1 && r1.n === 1 && r1.lat === 4000 && r1.pct === 0.5);
+    core.mastery.record(qA.id, false, { game: "PROBE", latencyMs: 8000, timerPct: 0.9, reason: "timeout" });
+    {
+      const r2 = core.profile.qstats[qA.id] || {};   // survives a dead aggregate: the pin fails, the suite reports
+      const evts2 = core.telemetry.events().filter(e => e.t === "answer");
+      ok("B7: EMA(0.3) rolls the aggregates — lat 4000→5200, pct 0.5→0.62 — and the timeout reason rides the event",
+        r2.n === 2 && r2.lat === 5200 && Math.abs(r2.pct - 0.62) < 1e-9
+        && evts2[evts2.length - 1].reason === "timeout");
+    }
+    core.mastery.record(qA.id, true, { game: "PROBE" });
+    ok("B7: latency-less answers leave the aggregates untouched but still emit the event",
+      core.profile.qstats[qA.id].n === 2
+      && core.telemetry.events().filter(e => e.t === "answer").length === before + 3);
+    // the drill feed: slow-but-correct outranks an EQUALLY-mastered fast card
+    core.profile.mastery[qA.id] = { id: qA.id, seen: 5, correct: 5, incorrect: 0, streak: 3, bucket: 4, lastSeen: 1000 };
+    core.profile.mastery[qB.id] = { id: qB.id, seen: 5, correct: 5, incorrect: 0, streak: 3, bucket: 4, lastSeen: 1000 };
+    core.profile.qstats[qA.id] = { n: 3, lat: 30000, pct: 0.9 };   // slow
+    core.profile.qstats[qB.id] = { n: 3, lat: 3000, pct: 0.1 };    // fast
+    {
+      const order = shell._weakestQuestions(core.questions.pool().length).map(q => q.id);
+      ok("B7: the drill boards the slow-but-correct card ahead of the equally-mastered fast one",
+        order.indexOf(qA.id) >= 0 && order.indexOf(qB.id) >= 0 && order.indexOf(qA.id) < order.indexOf(qB.id));
+    }
+    // Codex readiness feed: the pace line counts mastered-but-slow cards
+    shell.showStats();
+    {
+      const pace = w.document.querySelector(".sx-ready-pace");
+      ok("B7: the Codex readiness box carries the pace line (mastered cards that still run slow)",
+        !!pace && /still run/.test(pace.textContent) && /\d+ mastered card/.test(pace.textContent));
+    }
+    shell.showMenu();
+    // wiring: all four surfaces pass latency through the choke point (source)
+    ok("B7: all four surfaces pass latency into mastery.record (source wiring)",
+      html.includes("game: 'CC', latencyMs: ms") && html.includes("latencyMs: (answerMs == null ? null : answerMs)")
+      && html.includes('safeRecord(q.id, lastCorrect, { latencyMs: ms')
+      && html.includes('reason: abandoned ? "abandoned" : "answered"')
+      && html.includes('timerPct: (S.mode === "blitz" && S.qWindow)'));
+    // hygiene: state-neutral exit
+    {
+      const sv = JSON.parse(snapB7);
+      core.profile.xp = sv.xp; core.profile.rankSeen = sv.rankSeen; core.profile.totals = sv.totals;
+      if (sv.daily) core.profile.daily = sv.daily;
+      core.profile.streaks = sv.streaks; core.profile.streaksBest = sv.streaksBest;
+      core.profile.achievements = sv.ach;
+      if (sv.mA) core.profile.mastery[qA.id] = sv.mA; else delete core.profile.mastery[qA.id];
+      if (sv.mB) core.profile.mastery[qB.id] = sv.mB; else delete core.profile.mastery[qB.id];
+      delete core.profile.qstats[qA.id]; delete core.profile.qstats[qB.id];
+      shell.showMenu();
+    }
+  }
+
   // J9 (v0.73.0): the CC Garage — module-side source pins (the engine behavior is cc-run's 38)
   console.log("\nJ9. CC Garage source pins (banking + HUD + panel ship in the build)");
   {
