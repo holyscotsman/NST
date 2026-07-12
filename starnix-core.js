@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.171.0";
+  var BUILD_VERSION = "0.172.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -636,11 +636,15 @@
     for (var i = 0; i < all.length; i++) byIdMap[all[i].id] = all[i];
 
     function classify(q, now) {
+      // (v0.172.0, Jason) q.priority (>1) multiplies the draw weight in EVERY state — priority
+      // questions surface more often as new, come back harder when due, and reinforce more,
+      // so they are asked and mastered ahead of the rest of the bank.
+      var pw = (q.priority > 1) ? q.priority : 1;
       var m = mastery && mastery.get ? mastery.get(q.id) : undefined;
-      if (!m || m.seen === 0) return { reason: "new", weight: W["new"] + W.epsilon };
+      if (!m || m.seen === 0) return { reason: "new", weight: (W["new"] + W.epsilon) * pw };
       var due = (m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0)) <= now;
-      if (due) return { reason: "review-due", weight: W.due + W.epsilon };
-      return { reason: "reinforce", weight: W.reinforce + W.epsilon };
+      if (due) return { reason: "review-due", weight: (W.due + W.epsilon) * pw };
+      return { reason: "reinforce", weight: (W.reinforce + W.epsilon) * pw };
     }
 
     // Build candidate list honoring domain/band/exclusions, relaxing if empty.

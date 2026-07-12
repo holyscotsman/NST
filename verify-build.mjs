@@ -152,11 +152,19 @@ async function runFrames(n = 6) {
       const hasStem = (frag) => poolN.some((q) => q.stem.indexOf(frag) >= 0);
       ok("NIT#2: the three U+2028 casualties are LIVE again (a1q59/a1q60/a2q55)",
         hasStem("Auto Detect for Reserve Capacity") && hasStem("establishing synchronous replication between them") && hasStem("application data is completely missing"));
-      ok("NIT#2: a1q52 stays HELD (option-note contradicts the key — Jason's call), bank at 229",
+      ok("NIT#2: a1q52 stays HELD (option-note contradicts the key — Jason's call), bank at 254 (v0.172.0: +25 a6 pack)",
         !hasStem("evaluating Nutanix DR to protect some business-critical")
-        && w.STARNIX_QUESTIONS.questions.length === 229);   // the raw bank (pool() adds fixture seeds)
+        && w.STARNIX_QUESTIONS.questions.length === 254);   // the raw bank (pool() adds fixture seeds)
       ok("NIT#2: every bank question still carries optionNotes (indent-sensitive parse guard)",
-        w.STARNIX_QUESTIONS.questions.filter((q) => q.optionNotes && q.optionNotes.some((nn) => nn && nn.length)).length === 229);
+        w.STARNIX_QUESTIONS.questions.filter((q) => q.optionNotes && q.optionNotes.some((nn) => nn && nn.length)).length === 254);
+      // (v0.172.0, Jason) the a6 practice-exam pack: 25 live, ALL priority-2, keys cross-checked
+      {
+        const a6 = w.STARNIX_QUESTIONS.questions.filter((q) => q.priority === 2);
+        ok("PRIORITY: all 25 a6 questions ship with priority 2 (draw-boosted + due-cap boarding)",
+          a6.length === 25 && a6.every((q) => q.options.length >= 4 && q.explanation.length > 40));
+        ok("PRIORITY: the a6 multis survived import (10 of the 25 are choose-two)",
+          a6.filter((q) => Array.isArray(q.correctIndices) && q.correctIndices.length === 2).length === 10);
+      }
       // (v0.145.0, V1.1 Menu#3) the bridge status board fills the dead right side
       const brP = w.document.querySelector(".sx-bridge-right");
       ok("Menu#3: the bridge shows the Station systems board (3 compact stats + 6 domain readouts)",
@@ -166,6 +174,25 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.172.0, Jason) priority questions: draw-weight boost + due-cap boarding
+      {
+        const I2 = SN._internal;
+        const Qp = (id, pr) => { const q = { id, cert: "NCP-MCI", domain: "storage", difficulty: 2, stem: "stem " + id, options: ["a", "b", "c", "d"], correctIndex: 0, explanation: "x" }; if (pr) q.priority = pr; return q; };
+        const packP = { id: "NCP-MCI", domains: I2.DOMAINS, questions: [Qp("pri-hi", 2), Qp("pri-lo")] };
+        const mP = I2.makeMasteryStore({ mastery: {}, totals: { questionsSeen: 0, correct: 0, incorrect: 0 } }, {});
+        const provP = I2.makeQuestionProvider(packP, mP);
+        const rngP = I2.makeRng(777);
+        let hiN = 0, loN = 0;
+        for (let dp = 0; dp < 900; dp++) { const qd = provP.next({ rng: rngP }).question; if (qd.id === "pri-hi") hiN++; else loN++; }
+        ok("PRIORITY: a priority-2 question draws ~2x its identical twin (" + hiN + " vs " + loN + " over 900)",
+          hiN > loN * 1.6 && loN > 150);
+        const capQ = [];
+        for (let cq = 0; cq < 40; cq++) capQ.push({ id: "d" + cq, priority: cq >= 35 ? 2 : undefined });
+        const boarded = shell._duePartition(capQ, 30);
+        ok("PRIORITY: within the due cap, priority questions board FIRST (the 5 seeded past position 35 all make the 30-cut)",
+          boarded.length === 30 && ["d35", "d36", "d37", "d38", "d39"].every((idb) => boarded.some((x) => x.id === idb))
+          && boarded[0].id === "d35" && boarded[5].id === "d0");   // stable order inside each group
+      }
       // (v0.170.0, V1.1 FE#6) colorblind shape-cue audit: never color alone (01 s12)
       {
         const cssAll = w.document.documentElement.innerHTML;
@@ -269,15 +296,15 @@ async function runFrames(n = 6) {
         const fsMod = await import("node:fs");
         const ledger = JSON.parse(fsMod.readFileSync(new URL("./build-size.json", import.meta.url), "utf8"));
         const BUDGETS = {   // bytes; measured 2026-07-11 + ~10-15% headroom. Raise DELIBERATELY, in a reviewed diff.
-          assets: 2900000, three: 640000, questions: 360000, exhibits: 2500000,
+          assets: 2900000, three: 640000, questions: 430000, exhibits: 2500000,   // questions raised 360k->430k in v0.172.0: the a6 pack (+25) — a reviewed, deliberate raise
           core: 120000, shell: 200000, arm: 280000, kbb: 260000, cc: 240000, exam: 90000, audio: 130000, font: 60000,
           total: 7600000,
         };
         const over = Object.keys(BUDGETS).filter((k) => (ledger[k] || 0) > BUDGETS[k]);
         ok("Backend#6: every module inside its declared byte budget" + (over.length ? " — OVER: " + over.map((k) => k + " " + ledger[k] + ">" + BUDGETS[k]).join(", ") : ""),
           over.length === 0);
-        ok("Backend#6: the compact bank saved the pretty-print tax (~13% real, not the estimated 40% — text dominates; 321KB vs 368KB in-bundle)",
-          (ledger.questions || 9e9) < 340000);
+        ok("Backend#6: the bank stays COMPACT (no pretty-print indentation in questions.js)",
+          !/\n  "id":/.test(fsMod.readFileSync(new URL("./questions.js", import.meta.url), "utf8")));
         ok("Backend#6: the report persisted (per-module + gzip) for humans and this gate",
           typeof ledger.gzip === "number" && ledger.gzip > 0 && typeof ledger.assets === "number");
       }
@@ -1774,9 +1801,14 @@ async function runFrames(n = 6) {
       await wait(10);
       { const ht = w.document.querySelector(".kbb-ht-skip"); if (ht) ht.click(); }
       await wait(10);
-      const opt134 = w.document.querySelector(".kbb-opt:not(:disabled)");
-      if (opt134) opt134.click();                       // one graded answer -> telemetry fires
-      await wait(10);
+      for (let att134 = 0; att134 < 4; att134++) {      // one graded answer -> telemetry fires
+        if (SN.core.telemetry.events().some((e) => e.t === "question_answered")) break;
+        const oN = w.document.querySelectorAll(".kbb-opt:not(:disabled)");
+        if (!oN.length) break;
+        oN[att134 % oN.length].click(); await wait(10);  // (v0.172.0) priority-boosted MULTIS get served now — select until the submit grades
+        const sb134 = w.document.querySelector(".kbb-submit");
+        if (sb134 && !sb134.disabled) { sb134.click(); await wait(10); }
+      }
       shell.exitGame(); await wait(10);
       const deb = w.document.querySelector(".sx-debrief");
       ok("Flow#1: exiting a sortie with answers floats the debrief over the menu",

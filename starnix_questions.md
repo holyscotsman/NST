@@ -4162,3 +4162,488 @@ What is the most likely cause of an AD user being unable to log in to Prism Cent
 @domain: security
 @difficulty: 1
 @explain: The most likely cause is the "Change password at next logon" attribute being set for the AD user. While other issues such as incorrect role mapping or the user not belonging to the appropriate group could prevent access, a user being required to change their password on next login is a very common reason for login failures, especially for newly created accounts. If the user can log in to other AD resources, this further isolates the issue to the password reset requirement.
+
+
+<!-- ============================================================
+     PACK a6 - Practice-exam set (Jason, compiled 2026-07-11 screenshots;
+     added v0.172.0). All 25 carry @priority: high - boosted draw weight
+     + due-cap boarding. Keys/notes/explanations from the authored source.
+     ============================================================ -->
+
+<!-- a6q1 -->
+### Q
+
+If a Nutanix cluster that has been deployed using ESXi is only using one data store, which advanced option needs to be set during the initial cluster deployment?
+
+- ( ) das.ignoreInsufficientHbDatastore with Value of false
+    Incorrect: With only one Nutanix datastore, vSphere HA reports an insufficient-heartbeat-datastores warning unless das.ignoreInsufficientHbDatastore is set to true, not false.
+- ( ) das.ignoreInsufficientHbDatastore with Value of 0
+    Incorrect: The advanced option must be set to the value true; 0 does not suppress the insufficient-heartbeat-datastores warning.
+- ( ) das.ignoreInsufficientHbDatastore with Value of 1
+    Incorrect: The advanced option must be set to the value true; 1 does not suppress the insufficient-heartbeat-datastores warning.
+- (x) das.ignoreInsufficientHbDatastore with Value of true
+    Correct: With only one (Nutanix) datastore, vSphere HA reports an insufficient-heartbeat-datastores warning unless das.ignoreInsufficientHbDatastore = true is set.
+@domain: architecture
+@difficulty: 3
+@priority: high
+@explain: vSphere Availability settings for a Nutanix environment include enabling host monitoring and enabling admission control with the percentage-based policy using a value based on the number of nodes in the cluster (see vSphere HA Admission Control - percentage of cluster resources reserved as failover spare capacity). Because the cluster has only one (Nutanix) datastore, vSphere HA reports an insufficient-heartbeat-datastores warning unless the advanced option das.ignoreInsufficientHbDatastore = true is set during the initial cluster deployment.
+
+<!-- a6q2 -->
+### Q
+
+To improve security on a newly created vSphere based Nutanix cluster, which two default passwords should be changed? (Choose two)
+
+- (x) root user on ESXi
+    Correct: For an ESXi hypervisor, Nutanix recommends changing the default password of the local 'root' user account.
+- ( ) nutanix user on vCenter
+    Incorrect: vCenter is not in Nutanix's list of default passwords to change, which covers the CVM, the installed hypervisor, Prism Central, IPMI, and the FSVMs.
+- (x) nutanix user on the CVM
+    Correct: Nutanix recommends changing the default password of the local 'nutanix' user account on the Nutanix Controller VM (CVM).
+- ( ) root user on Prism Central
+    Incorrect: For Prism Central, the accounts to change are the 'admin' Prism GUI user account and the local 'nutanix' user account, not root.
+@domain: security
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: To secure a Nutanix cluster, Nutanix recommends changing the default passwords, including: the local 'nutanix' user account on the Nutanix Controller VM (CVM); the installed hypervisor - for ESXi the local 'root' user account, for AHV the local 'root', 'admin', and 'nutanix' accounts, for Hyper-V the local 'administrator' account; Prism Central's 'admin' Prism GUI user account and local 'nutanix' user account; the Out-of-Band Management (IPMI) 'ADMIN' user account; and the File Server VMs (FSVMs) 'nutanix' user account. On a vSphere based cluster the two to change are the ESXi root user and the CVM nutanix user.
+
+<!-- a6q3 -->
+### Q
+
+After triggering a set of LCM updates, an administrator notices a failure message in Prism during the pre-checks. Unfortunately, the message does not contain enough information to isolate the exact cause of the pre-check failure.
+In order to obtain more context around the issue, which two logs should be investigated on the CVM? (Choose two)
+
+- ( ) stargate.out
+    Incorrect: LCM writes all operations to genesis.out, lcm_ops.out, lcm_ops.trace, and lcm_wget.log; stargate.out is not among them.
+- (x) lcm_ops.out
+    Correct: lcm_ops.out is one of the output logs LCM writes all operations to.
+- (x) genesis.out
+    Correct: genesis.out is one of the output logs LCM writes all operations to.
+- ( ) lcm_wget.out
+    Incorrect: The LCM output log is named lcm_wget.log, not lcm_wget.out.
+@domain: lifecycle
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: LCM performs two functions: taking inventory of the cluster and performing updates on the cluster. LCM updates are not reversible, so before performing an update LCM runs a set of pre-checks to verify the state of the cluster; if any checks fail, LCM stops the update. LCM writes all operations to these output logs: genesis.out, lcm_ops.out, lcm_ops.trace, and lcm_wget.log - so genesis.out and lcm_ops.out are the two logs to investigate on the CVM for more context around a pre-check failure.
+
+<!-- a6q4 -->
+### Q
+
+Refer to the exhibit. *(Prism hardware view: host 10.38.69.28 shows warning "Host is under maintenance")*
+Which two CLI commands are required to take the CVM and the node out of maintenance mode? (Choose two.)
+
+- (x) acli host.exit_maintenance_mode host-ip
+    Correct: Run from any CVM in the cluster, this command removes the node from maintenance mode; verify with acli host.get host-ip.
+- (x) ncli host edit id=host-ID enable-maintenance-mode=false
+    Correct: Run from any other CVM in the cluster after finding the host ID with ncli host list, this command removes the CVM from maintenance mode.
+- ( ) acli host.disable_maintenance_mode host-ip
+    Incorrect: The documented command to remove the node from maintenance mode is acli host.exit_maintenance_mode host-ip.
+- ( ) ncli host edit id=host-ID disable-maintenance-mode=true
+    Incorrect: The documented command to remove the CVM from maintenance mode is ncli host edit id=host-ID enable-maintenance-mode=false.
+@domain: lifecycle
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: To remove the CVM from maintenance mode, first determine the ID of the host with ncli host list, then from any other CVM in the cluster run ncli host edit id=host-ID enable-maintenance-mode=false, and verify all processes on all CVMs are UP with cluster status | grep -v UP. To remove the node from maintenance mode, from any CVM in the cluster run acli host.exit_maintenance_mode host-ip, then verify the host has exited maintenance mode with acli host.get host-ip.
+
+<!-- a6q5 -->
+### Q
+
+Which terms describe performance acceleration features of the Distributed Storage Fabric?
+
+- ( ) Extent Groups, vDisk flash mode and AHV Turbo
+    Incorrect: The DSF capabilities for performance acceleration are Intelligent Tiering, Data Locality and Automatic Disk Balancing.
+- (x) Intelligent Tiering, Data Locality and Automatic Disk Balancing
+    Correct: These are the key capabilities the Distributed Storage Fabric (DSF) uses for performance acceleration.
+- ( ) Erasure Coding, vDisk flash mode and Autonomous Extent Store
+    Incorrect: These are not the DSF performance acceleration capabilities, which are Intelligent Tiering, Data Locality and Automatic Disk Balancing.
+- ( ) Deduplication, Compression and Erasure Coding
+    Incorrect: These are not the DSF performance acceleration capabilities, which are Intelligent Tiering, Data Locality and Automatic Disk Balancing.
+@domain: storage
+@difficulty: 2
+@priority: high
+@explain: The Distributed Storage Fabric (DSF) uses three key capabilities for performance acceleration. Intelligent Tiering continuously and automatically monitors data access patterns and optimizes data placement, moving data between the SSD and HDD tiers for optimal performance without requiring an administrator. Data Locality stores VM data on the node where the VM is running so read I/O does not have to go through the network, optimizing performance and reducing congestion; when a VM moves to another node (vMotion, live migration, or an HA event), the migrated VM data is also moved to ensure data locality. Automatic Disk Balancing keeps data distributed uniformly across the cluster, lets any node use storage resources across the cluster, reacts to changing workloads once it reaches its threshold, and makes manual rebalancing unnecessary.
+
+<!-- a6q6 -->
+### Q
+
+The Autonomous Extent Store will bypass the OpLog in which workload scenario?
+
+- ( ) Sequential Read
+    Incorrect: The OpLog bypass with AES applies only to sustained random write workloads, not sequential reads.
+- ( ) Sequential Write
+    Incorrect: The OpLog bypass with AES applies only to sustained random write workloads, not sequential writes.
+- (x) Sustained Random Write
+    Correct: Sustained random write workloads bypass the OpLog and are written directly to the Extent Store using AES.
+- ( ) Sustained Random Read
+    Incorrect: The OpLog bypass with AES applies only to sustained random write workloads, not sustained random reads.
+@domain: storage
+@difficulty: 3
+@priority: high
+@explain: The Autonomous Extent Store (AES), introduced in AOS 5.10, is a method for writing and storing data in the Extent Store that leverages a mix of primarily local plus global metadata, allowing much more efficient sustained performance due to metadata locality. Sustained random write workloads bypass the OpLog and are written directly to the Extent Store using AES; bursty random workloads take the typical OpLog I/O path and then drain to the Extent Store using AES where possible. As of AOS 5.20 (LTS), AES is enabled by default for new containers on All Flash Clusters; as of AOS 6.1 (STS), if requirements are met, AES is enabled on new containers created on Hybrid (SSD+HDD) clusters.
+
+<!-- a6q7 -->
+### Q
+
+What two types of VDI workloads benefit from enabling cache deduplication? (Choose two)
+
+- ( ) VAAI Clone
+    Incorrect: Turning deduplication on for VAAI clone environments is not recommended.
+- (x) Persistent Desktops
+    Correct: Cache deduplication is primarily recommended for persistent desktops.
+- (x) Full Clone
+    Correct: Cache deduplication is primarily recommended for full-clone use cases.
+- ( ) Linked Clone
+    Incorrect: Turning deduplication on for linked clone environments is not recommended.
+@domain: storage
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: Selecting the CACHE check box performs inline deduplication of read caches to optimize performance and requires Controller VMs configured with at least 24 GB of RAM; this feature is primarily recommended for full-clone, persistent desktops, and physical-to-virtual migration use cases, while turning deduplication on for VAAI clone or linked clone environments is not recommended. Selecting the CAPACITY check box performs post-process deduplication of persistent data, recommended primarily for full clone, persistent desktops, and physical-to-virtual migration use cases that need storage capacity savings, with Controller VMs having at least 32 GB of RAM and 300 GB SSDs for the metadata disk.
+
+<!-- a6q8 -->
+### Q
+
+An administrator is preparing an RF2 4-node cluster to deploy a VDI project consisting of full clones.
+Which action should the administrator take within the cluster to support this workload?
+
+- ( ) Create a dedicated storage pool with the default storage efficiency configuration.
+    Incorrect: For VDI workloads Nutanix recommends a separate storage container with inline compression and deduplication enabled, not the default configuration.
+- (x) Create a dedicated storage container with inline compression and deduplication.
+    Correct: Nutanix recommends creating a separate storage container for VDI workloads with inline compression enabled and deduplication enabled on that container.
+- ( ) Set cluster redundancy to RF3 to support Erasure Coding in a new Storage Container.
+    Incorrect: The recommended action for a full-clone VDI workload is a dedicated container with inline compression and deduplication, not changing cluster redundancy.
+- ( ) Add one node to the cluster and enable Erasure coding in a new Storage Container.
+    Incorrect: The recommended action for a full-clone VDI workload is a dedicated container with inline compression and deduplication, not adding a node or enabling Erasure Coding.
+@domain: storage
+@difficulty: 2
+@priority: high
+@explain: Capacity optimization guidance: Nutanix recommends enabling inline compression unless otherwise advised, and recommends disabling deduplication for all workloads except VDI. For mixed-workload Nutanix clusters, create a separate storage container for VDI workloads and enable deduplication on that storage container.
+
+<!-- a6q9 -->
+### Q
+
+A company wants a few lower priority VMs to communicate through 1G uplinks only.
+How could the company achieve this while still maintaining maximum throughput for the other mission critical VMs?
+
+- ( ) Add all available uplinks to br0 and configure LACP.
+    Incorrect: Adding all available uplinks to br0 does not keep the lower priority VMs on a separate virtual switch with 1G uplinks only.
+- ( ) Add all available uplinks to br0 and configure balance-slb.
+    Incorrect: Adding all available uplinks to br0 does not keep the lower priority VMs on a separate virtual switch with 1G uplinks only.
+- (x) Create vs1 with 1G uplinks and assign the lower priority VMs a network on br1.
+    Correct: Creating a new virtual switch vs1 with 1G uplink interfaces and assigning the lower priority VMs to it keeps the mission critical VMs on a virtual switch that uses faster uplink interfaces.
+- ( ) Create vs0 with 1G uplinks and assign the lower priority VMs a network on br1.
+    Incorrect: The company needs to create a new virtual switch (vs1) for the 1G uplinks rather than building vs0 with them.
+@domain: networking
+@difficulty: 2
+@priority: high
+@explain: To maintain maximum throughput for the mission-critical VMs, the company needs to create a new virtual switch (vs1) and assign the lower-priority VMs to it. Keeping the lower-priority VMs on a separate virtual switch from the mission-critical VMs allows the company to build the vs1 switch with 1Gb uplink interfaces, while keeping the mission-critical VMs on a virtual switch that uses faster uplink interfaces.
+
+<!-- a6q10 -->
+### Q
+
+What is the Nutanix recommended configuration for taking full advantage of the bandwidth provided by multiple links?
+
+- ( ) No Uplink Bond
+    Incorrect: It is used with only a single uplink interface on the virtual switch and thus cannot provide the same bandwidth advantage as Active-Active can.
+- ( ) Active-Active with MAC Pinning
+    Incorrect: Balance-SLB locks (pins) the VM's network interface card (vNIC) to a single uplink interface at one time.
+- ( ) Active-Backup
+    Incorrect: It only allows VMs to send traffic across one uplink interface at a time.
+- (x) Active-Active
+    Correct: Also known as Balance-TCP, it allows VMs to send traffic across multiple virtual switch uplink interfaces, taking advantage of the aggregated bandwidth across all uplinks.
+@domain: networking
+@difficulty: 2
+@priority: high
+@explain: Active-Active (also known as Balance-TCP) allows VMs to send traffic across multiple virtual switch uplink interfaces, taking advantage of the aggregated amount of bandwidth across all uplink interfaces of the virtual switch. Active-Backup only allows VMs to send traffic across one uplink interface at a time. Active-Active with MAC Pinning (Balance-SLB) locks (pins) the VM's network interface card (vNIC) to a single uplink interface at one time. No Uplink Bond is used with only a single uplink interface on the virtual switch and thus cannot provide the same bandwidth advantage as Active-Active.
+
+<!-- a6q11 -->
+### Q
+
+The administrator wants to create a detailed network mapping of which nodes/NICs connect to which switches/ports, using MAC addresses, and plans on using a script to collect this information from the cluster.
+What would be the most efficient way to collect the node MAC address?
+
+- ( ) Using the network configuration in Prism Element.
+    Incorrect: The way to find a host NIC MAC address is to execute ethtool -P on the AHV host, not the Prism Element network configuration.
+- (x) Use the ethtool command via cli.
+    Correct: Running ethtool -P eth3 on the AHV host returns the NIC's permanent MAC address directly.
+- ( ) Use the manage_ovs command via cli.
+    Incorrect: The way to find a host NIC MAC address is ethtool -P on the AHV host (or ifconfig showing the HWaddr), not manage_ovs.
+- ( ) Use the IPMI interface collect HW data.
+    Incorrect: The way to collect the node MAC address is ethtool -P on the AHV host, not IPMI hardware data.
+@domain: networking
+@difficulty: 2
+@priority: high
+@explain: To find the MAC address of a host NIC, execute ethtool -P eth3 on the AHV host, which returns the permanent address (for example 00:25:90:cb:39:27); this makes the ethtool command the most efficient method for a script collecting node MAC addresses. Alternatively, ifconfig eth3 shows the HWaddr along with interface statistics such as RX/TX packets, errors, and drops.
+
+<!-- a6q12 -->
+### Q
+
+An administrator needs to customize report settings, such as appearance and retention format that are differentiated for each corporate business unit.
+Where should these customizations be configured?
+
+- ( ) In the main Report Setting in Prism Central Reports
+    Incorrect: Settings on the Reports dashboard apply globally to all reports, and settings applied at the report level take precedence over them.
+- ( ) In Prism Central Settings, UI Settings
+    Incorrect: Report settings are configured on the Reports dashboard or in the New Report wizard, not in Prism Central UI Settings.
+- ( ) In Nutanix Cloud Manager Operation Policies
+    Incorrect: Report settings are configured on the Reports dashboard or in the New Report wizard, not in Nutanix Cloud Manager Operation Policies.
+- (x) In Report Settings for each report
+    Correct: Configuring Report Settings for each individual report applies settings at the report level, which takes precedence and allows differentiated customization per business unit.
+@domain: monitoring
+@difficulty: 2
+@priority: high
+@explain: Report settings can be configured for individual reports or for all generated reports, and they are applied depending on where they are configured; if settings are applied at both the global level (all reports) and the report level (when creating a new report), the report-level setting takes precedence. Global settings are reached by clicking Report Settings on the Reports dashboard, while report-level settings are reached by clicking Report Settings in the New Report wizard. Appearance configuration is divided into cover page settings (logo and background color) and content page settings (header color), with any of the 16 HTML-supported color names available. Differentiated per-business-unit customization therefore belongs in Report Settings for each report.
+
+<!-- a6q13 -->
+### Q
+
+An administrator needs to compare two VMs to see if one is resource constrained.
+Which two chart types can provide the administrator with this information? (Choose two)
+
+- (x) Entity Chart for each VM showing its CPU Ready %
+    Correct: Entity charts track one or more metrics for a single entity, so this focuses on each VM individually and can be used to compare the two VMs.
+- (x) Metric chart showing each VM's CPU Usage %
+    Correct: Metric charts track a single metric for one or more entities, so this shows CPU Usage % across both VMs being compared.
+- ( ) Metric chart showing cluster CPU Usage %
+    Incorrect: This is focused on cluster resource usage rather than the VMs being compared.
+- ( ) Entity chart for each VM's host showing Hypervisor CPU Usage %
+    Incorrect: This is focused on host resource usage rather than the VMs being compared.
+@domain: monitoring
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: Both Entity and Metric charts are excellent methods of getting and analyzing data relevant to a Nutanix cluster environment: Entity charts track one or more metrics for a single entity (a VM in this scenario), while Metric charts track a single metric for one or more entities. The two choices that satisfy the requirement of comparing the two VMs are the Metric chart showing each VM's CPU Usage % (shows CPU Usage % across both VMs being compared) and the Entity chart for each VM showing its CPU Ready % (focuses on each VM individually, usable to compare the two). The remaining choices focus on host and cluster resource usage, not the VMs, and are therefore incorrect.
+
+<!-- a6q14 -->
+### Q
+
+From Monday to Friday, a VM has a CPU consumption range between 20% and 40%. During the weekend, the range decreases to between 15% and 25%.
+In the last week after an update, VM CPU usage has spiked to 100% every 60-120 minutes.
+In which two locations should the administrator look to track this behavior? (Choose two)
+
+- ( ) In the VM details Alert tab.
+    Incorrect: Anomalies are recorded as events and appear in the behavioral anomaly event details screen and the VM details Metrics tab, not the Alert tab.
+- (x) In the Event dashboard.
+    Correct: Usage outside the predicted behavior band is flagged as an anomaly and recorded as an event.
+- (x) In the VM details Metrics tab.
+    Correct: Anomalies appear as outliers in the VM details Metrics tab.
+- ( ) In the Alerts dashboard.
+    Incorrect: Anomaly detection records outliers as events shown in the event details screen and the VM details Metrics tab, not the Alerts dashboard.
+@domain: monitoring
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: Anomaly Detection predicts a normal behavior band for various metrics based on historical data: 27 metrics are monitored daily for VMs, hosts, and clusters; data from the past 21 days is recorded and analyzed, a normal behavior band is established, and predictions for the next 2 days are formulated, with bands adjusted when time period or trend patterns are observed (such as low CPU on weekends or increasing CPU usage). The module measures usage every five minutes and compares it with predicted values; a value outside the band is flagged as an anomaly and recorded as an event. Anomalies appear as outliers in the behavioral anomaly event details screen and the VM details Metrics tab.
+
+<!-- a6q15 -->
+### Q
+
+An administrator has been asked to increase the number of processors for a VM because an application is not performing well. Currently, the VM has 1 vCPU with 2 vCores. Prism shows 50% CPU usage and 0 CPU Ready.
+Which action should be taken?
+
+- ( ) Do not add vCPUs because the cluster is already overcommitted.
+    Incorrect: CPU Ready Time is the percentage of time the VM was ready but could not get scheduled, and at 0 there is no sign of scheduling contention or overcommitment.
+- ( ) Add 1 vCPU with 2 vCores to ensure vNUMA support.
+    Incorrect: The metrics show the application is unable to access additional virtual CPUs, so the VM would gain no benefit from more processors.
+- (x) Do not add vCPUs because the application does not support SMP.
+    Correct: With only 50% CPU usage and no elevated CPU Ready, the application cannot access additional virtual CPUs, so increasing processors would provide no benefit.
+- ( ) Add 2 vCores to double VM computing power.
+    Incorrect: The application is unable to access additional virtual CPUs, so adding vCores would not improve performance.
+@domain: performance
+@difficulty: 3
+@priority: high
+@explain: The VM is not performing well despite showing only 50% CPU usage and no elevated CPU Ready metrics. The administrator can use these metrics to evaluate the VM: Hypervisor CPU Usage is the percent of CPU used by the hypervisor, and Hypervisor CPU Ready Time (%) is the percentage of time the virtual machine was ready but could not get scheduled to run. Together these metrics show a VM whose installed application is unable to access additional virtual CPUs and thus would gain no benefit from an increased processor count; therefore the administrator should not add vCPUs because the application does not support SMP (Symmetric Multi-Processing).
+
+<!-- a6q16 -->
+### Q
+
+Which Inefficient VM Profile type is used to identify a VM with Host I/O Stargate CPU usage > 85%?
+
+- ( ) Over-provisioned VM
+    Incorrect: An over-provisioned VM is over-sized and wastes resources which are not needed, identified by low CPU and memory usage over the past 21 days, not Stargate CPU usage.
+- (x) Bully
+    Correct: A bully VM consumes too many resources and causes other VMs to starve; one of its qualifying conditions is Host I/O Stargate CPU usage > 85% for over an hour.
+- ( ) Inactive VM
+    Incorrect: An inactive VM is either dead (powered off for at least 21 days) or zombie (minimal I/O and byte traffic per day), not defined by Stargate CPU usage.
+- ( ) Constrained VM
+    Incorrect: A constrained VM does not have enough resources for the demand, identified by high CPU or memory usage, CPU ready time, or memory swap rate, not Stargate CPU usage.
+@domain: performance
+@difficulty: 2
+@priority: high
+@explain: A bully VM consumes too many resources and causes other VMs to starve; it is flagged when it exhibits one or more of these conditions for over an hour: CPU ready time > 5%, memory swap rate > 0 Kbps, or Host I/O Stargate CPU usage > 85%. The other profiles do not use the Stargate CPU condition: a constrained VM lacks resources for demand (high CPU/memory usage, ready time, or swap rate over the past 21 days), an over-provisioned VM is the opposite, over-sized and wasting unneeded resources (low CPU and memory usage), and an inactive VM is either dead (powered off at least 21 days) or zombie (fewer than 30 I/Os and under 1000 bytes per day for 21 days).
+
+<!-- a6q17 -->
+### Q
+
+An administrator needs to configure an AHV cluster to be compliant with a corporate policy that all system logs are forwarded to a central log server for inspection and analysis.
+What two steps need to be taken? (Choose two)
+
+- (x) Determine which modules and log levels need to be forwarded.
+    Correct: This is a required configuration step, performed with the rsyslog-config add-module command specifying the module name and log level.
+- (x) Configure rsyslog-config via ncli.
+    Correct: The nCLI rsyslog-config command is how a Nutanix cluster is configured to send logs to a remote syslog server over TCP, UDP, or RELP.
+- ( ) Install the Splunk Agent for AHV.
+    Incorrect: Installing a Splunk Agent is not required to forward logs to a Syslog server.
+- ( ) Configure rsyslog forwarding via Prism Element.
+    Incorrect: Rsyslog forwarding cannot be configured within Prism Element; it can only be configured in Prism Central or in the CVM's ncli command mode.
+@domain: security
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: The nCLI rsyslog-config command sends logs from a Nutanix cluster to a remote syslog server, forwarded from a Controller VM over TCP or UDP (or RELP if rsyslog-relp is installed on the remote server). The flow: disable the remote server while configuring (rsyslog-config set-status enable=false), create the syslog server (rsyslog-config add-server with name, IP, port, protocol), determine which modules and log levels need to be forwarded (rsyslog-config add-module), then enable it (rsyslog-config set-status enable=true). A Splunk Agent is not required, and forwarding cannot be configured within Prism Element - only in Prism Central (one syslog server for all registered clusters) or per cluster via the CVM's ncli.
+
+<!-- a6q18 -->
+### Q
+
+Which service controls all I/O in the Nutanix cluster?
+
+- (x) Stargate
+    Correct: Stargate is the data I/O manager, responsible for all data management and I/O operations and the main interface from the hypervisor, running on every node to serve localized I/O.
+- ( ) Zookeeper
+    Incorrect: Zookeeper is the cluster configuration manager, storing all cluster configuration including hosts, IPs, and state, not the I/O service.
+- ( ) Curator
+    Incorrect: Curator handles MapReduce cluster management and cleanup, such as disk balancing and proactive scrubbing, not I/O operations.
+- ( ) Genesis
+    Incorrect: Genesis is the cluster component and service manager, responsible for service interactions (start/stop) and initial configuration, not I/O operations.
+@domain: architecture
+@difficulty: 1
+@priority: high
+@explain: Stargate is the data I/O manager: it is responsible for all data management and I/O operations and is the main interface from the hypervisor (via NFS, iSCSI, or SMB), running on every node to serve localized I/O. Curator handles MapReduce cluster management and cleanup (disk balancing, proactive scrubbing) under an elected Curator Leader, with full scans about every 6 hours and partial scans every hour. Genesis is the cluster component and service manager running on each node, requiring only Zookeeper to be up. Zookeeper is the cluster configuration manager storing hosts, IPs, and state, running on three nodes with an elected leader and accessed via the Zeus interface.
+
+<!-- a6q19 -->
+### Q
+
+Which service is responsible for running the Nutanix GUI interface?
+
+- ( ) Pithos
+    Incorrect: Pithos is the vDisk (DSF file) configuration manager, running on every node and built on top of Cassandra.
+- ( ) Zeus
+    Incorrect: Zeus is the library all other components use to access the cluster configuration, implemented using Apache Zookeeper.
+- (x) Prism
+    Correct: Prism is the management gateway for configuring and monitoring the Nutanix cluster, including Ncli, the HTML5 UI, and REST API.
+- ( ) Medusa
+    Incorrect: Medusa is the abstraction layer in front of the distributed database that holds metadata about where data and replicas are stored.
+@domain: architecture
+@difficulty: 1
+@priority: high
+@explain: Prism is the management gateway (UI and API) for components and administrators to configure and monitor the Nutanix cluster, including Ncli, the HTML5 UI, and REST API; it runs on every node in the cluster and uses an elected leader like all components. Pithos is the vDisk (DSF file) configuration manager, running on every node on top of Cassandra. Medusa is the Nutanix abstraction layer in front of the database that tracks where data and its replicas are stored, distributed across all nodes using a modified Apache Cassandra. Zeus is the library all other components use to access the cluster configuration (hosts, disks, storage containers, IPs, replication rules), currently implemented with Apache Zookeeper.
+
+<!-- a6q20 -->
+### Q
+
+An administrator has created custom alert policies in Prism Central that monitor CPU and Memory usage of guest VMs. The application owners of specific VMs should be notified by email when an alarm is triggered.
+What does the administrator need to configure?
+
+- (x) Create a rule to send an email to the application owner.
+    Correct: Prism Central allows configuring rules for who should receive email alerts and customizing the alert messages.
+- ( ) Configure the email settings within each VM category.
+    Incorrect: Configuring alert emails is separate from any configuration of VM categories.
+- ( ) Create a task to send an email to the application owner.
+    Incorrect: Alert email recipients are configured through rules in Prism Central, not through a task.
+- ( ) Configure the email settings within each specific alert policy.
+    Incorrect: Configuring alert emails is a separate action from configuring the specific alerts, so it is not completed within the alert policy.
+@domain: monitoring
+@difficulty: 2
+@priority: high
+@explain: Prism Central allows configuring rules for who should receive email alerts and customizing the alert messages. Configuring alert emails is a separate action from configuring the specific alerts, so it is not completed within the alert policy, and it is also separate from any configuration of VM categories. Prism Central alert emailing is not enabled by default - you must explicitly enable it and specify the recipients (Nutanix customer support and/or supplied addresses), and Prism Central requires an SMTP server to send the messages. These emails are in addition to any alert emails configured on individual clusters through Prism Element, so disable per-cluster customer notifications there if you want to avoid double emails for the same alert.
+
+<!-- a6q21 -->
+### Q
+
+An administrator has observed that memory usage for a Windows VM is reporting as 100% utilized in Prism, while the in-guest usage never reports above 30%.
+What action should the administrator take to resolve this issue?
+
+- ( ) Reboot the host where the VM is running
+    Incorrect: Prism's memory reporting depends on the balloon driver inside the guest; rebooting the host does not install the missing driver.
+- ( ) Reboot the VM
+    Incorrect: The mismatch is caused by a missing or outdated balloon driver, not VM state, so a reboot does not add the driver.
+- (x) Install the VirtIO Balloon driver
+    Correct: AOS relies on data from the in-guest balloon driver, part of the Nutanix VirtIO package, and Windows does not ship this driver with the OS.
+- ( ) Live Migrate the VM
+    Incorrect: Moving the VM to another host does not provide the in-guest balloon driver that Prism needs to report memory usage.
+@domain: vms
+@difficulty: 2
+@priority: high
+@explain: AOS reports guest VM memory usage using data provided by the balloon driver running inside the guest, which is part of the Nutanix VirtIO package. Linux VMs have this driver pre-installed in most cases, but Windows does not have it packaged with the OS. When the balloon driver is not installed, or the installed driver version is old, memory usage is not reported correctly in Prism, so installing the VirtIO Balloon driver resolves the discrepancy between the 100% reading in Prism and the 30% in-guest usage.
+
+<!-- a6q22 -->
+### Q
+
+A company initially purchased a single Nutanix AHV cluster for virtual desktops. They have configured the gold image to reside on the cluster to provision their desktops.
+After 6 months they have made an additional investment for 4 more clusters that are also dedicated to run virtual desktop workloads.
+In order for the administrator to be able to keep the gold image consistent across all clusters, what are the two items that the Nutanix administrator needs to implement? (Choose two)
+
+- (x) Create an Image Placement Policy in PC
+    Correct: The Image Placement Policy, created in Prism Central with the wizard, associates the image categories with the cluster categories to keep the gold image consistent across clusters.
+- ( ) Setup Leap OnPrem and deploy Protection\Recovery plans
+    Incorrect: Setting up Leap is not relevant to keeping a gold image consistent across clusters.
+- (x) Create a custom category and tag the cluster and image
+    Correct: Categories must first be created and associated with the respective cluster and image so the placement policy can link them together.
+- ( ) Install NGT on the gold image so it can replicate between clusters
+    Incorrect: Installing NGT is not relevant to this task.
+@domain: vms
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: Within Prism Central the administrator must first create categories for the cluster and image, then associate each category with its respective cluster and image, and finally create an Image Placement Policy using the Create Image Placement Policy wizard, associating the two categories together via the steps "Assign Images from the Following Categories" and "To The Clusters From The Following Categories". Installing NGT and setting up Leap are not relevant to this task.
+
+<!-- a6q23 -->
+### Q
+
+What are two supported values of a Encryption Storage Policy? (Choose two)
+
+- (x) Inherit from Cluster
+    Correct: Inherit from Cluster is one of the possible settings when enabling Encryption within a Storage Policy.
+- (x) Enabled
+    Correct: Enabled is one of the possible settings when enabling Encryption within a Storage Policy.
+- ( ) Self Encrypting Drives (SED) Encryption
+    Incorrect: Not a supported setting; the possible Encryption settings within a Storage Policy are Enabled and Inherit from Cluster.
+- ( ) Disabled
+    Incorrect: Not a supported setting; the possible Encryption settings within a Storage Policy are Enabled and Inherit from Cluster.
+@domain: security
+@difficulty: 1
+@multi: true
+@priority: high
+@explain: When enabling Encryption within a Storage Policy, the possible settings are Enabled and Inherit from Cluster; the other listed values are not supported settings for an Encryption Storage Policy.
+
+<!-- a6q24 -->
+### Q
+
+An administrator has created several storage containers, which are all associated with the same storage pool. Each container has different optimizations to support the VM workload.
+Which two actions can the administrator take to ensure that one container does not use all remaining storage space? (Choose two)
+
+- ( ) Enable Compression for each storage container
+    Incorrect: The stated way to keep one container from using all remaining space is to configure Reserved Capacity and Advertised Capacity for each container, not compression.
+- (x) Configure the Reserved Capacity for each storage container
+    Correct: Capacity reservation guarantees that a storage container has a minimum amount of space reserved that is unavailable to other storage containers.
+- ( ) Enable Deduplication for each storage container
+    Incorrect: The stated way to keep one container from using all remaining space is to configure Reserved Capacity and Advertised Capacity for each container, not deduplication.
+- (x) Configure the Advertised Capacity for each storage container
+    Correct: Configuring the Advertised Capacity for each container ensures one container does not take all remaining space; allocate extra room beyond projected VM size for data not yet garbage collected.
+@domain: storage
+@difficulty: 2
+@multi: true
+@priority: high
+@explain: By default each storage container has access to all of the unused storage in the storage pool, so with multiple containers one may take all the remaining space and leave others with none. To prevent this, configure the Advertised Capacity and the Reserved Capacity for each storage container; capacity reservation guarantees a container a minimum amount that is unavailable to other containers. Best practices: reserve capacity only if the pool has multiple containers, reserve no more than 90% of the pool space in total, and when setting an advertised capacity allocate extra space beyond the projected size of the VMs to allow for data not yet garbage collected (10% or more of the storage capacity in some cases).
+
+<!-- a6q25 -->
+### Q
+
+An administrator is setting up a new storage container which will host persistent (full clone) VDI desktop VMs.
+Which storage optimization feature should be enabled?
+
+- ( ) Flash Pinning
+    Incorrect: The stated recommendation for VDI workloads is to enable deduplication on the storage container, not this feature.
+- ( ) Redundancy Factor 1
+    Incorrect: The stated recommendation for VDI workloads is to enable deduplication on the storage container, not this feature.
+- ( ) Post-Process Compression
+    Incorrect: Nutanix recommends inline compression unless otherwise advised; the feature called out for VDI containers is deduplication.
+- (x) Deduplication
+    Correct: Nutanix recommends disabling deduplication for all workloads except VDI, enabling it on a separate storage container dedicated to VDI workloads.
+@domain: storage
+@difficulty: 2
+@priority: high
+@explain: Nutanix recommends enabling inline compression unless otherwise advised and disabling deduplication for all workloads except VDI. For mixed-workload Nutanix clusters, create a separate storage container for VDI workloads and enable deduplication on that storage container, so deduplication is the storage optimization feature to enable for a container hosting persistent full-clone VDI desktop VMs.
+

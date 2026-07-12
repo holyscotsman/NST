@@ -1,24 +1,24 @@
 {
-  "parsed": 233,
-  "live": 229,
+  "parsed": 258,
+  "live": 254,
   "held": 4,
-  "multiLive": 22,
-  "withOptionNotes": 229,
+  "multiLive": 32,
+  "withOptionNotes": 254,
   "byDomain": {
-    "security": 20,
-    "architecture": 23,
-    "lifecycle": 18,
-    "networking": 32,
-    "vms": 42,
-    "performance": 15,
-    "storage": 25,
+    "security": 23,
+    "architecture": 26,
+    "lifecycle": 20,
+    "networking": 35,
+    "vms": 44,
+    "performance": 17,
+    "storage": 31,
     "data-protection": 28,
-    "monitoring": 26
+    "monitoring": 30
   },
   "byDifficulty": {
-    "1": 18,
-    "2": 177,
-    "3": 34
+    "1": 21,
+    "2": 196,
+    "3": 37
   },
   "heldSummary": {
     "key-unverified": 3,

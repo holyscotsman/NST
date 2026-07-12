@@ -1110,6 +1110,13 @@
   Shell.prototype._dueCount = function () {
     try { return StarNix.core.mastery.dueList(StarNix.core.clock.now()).length; } catch (e) { return 0; }
   };
+  // (v0.172.0, Jason) within the due CAP, priority questions board first (stable order kept
+  // inside each group — most-overdue first within priority, then within the rest).
+  Shell.prototype._duePartition = function (qs, n) {
+    var hi = [], lo = [];
+    for (var i = 0; i < qs.length; i++) { if (qs[i] && qs[i].priority > 1) hi.push(qs[i]); else lo.push(qs[i]); }
+    return hi.concat(lo).slice(0, n);
+  };
   Shell.prototype._dueQuestions = function (n) {
     var core = StarNix.core, out = [];
     try {
@@ -1122,7 +1129,7 @@
       for (var i = 0; i < pool.length; i++) byId[pool[i].id] = pool[i];
       for (var d = 0; d < ids.length; d++) if (byId[ids[d]]) out.push(byId[ids[d]]);
     } catch (e) {}
-    return out.slice(0, n || 30);
+    return this._duePartition(out, n || 30);   // (v0.172.0, Jason) priority boards the capped queue first
   };
 
   Shell.prototype._weakestQuestions = function (n) {

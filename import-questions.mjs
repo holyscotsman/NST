@@ -74,6 +74,7 @@ function toQuestion(p){
   else q.correctIndex = (p.correct.length===1 ? p.correct[0] : -1);
   if (p.optNotes.some(n=>n && n.trim())) q.optionNotes = p.optNotes.map(n=>n.trim());
   if (m.image) q.image = m.image.trim();
+  if (m.priority) { var pv = m.priority.trim() === "high" ? 2 : (parseInt(m.priority, 10) || 0); if (pv > 1) q.priority = pv; }   // (v0.172.0, Jason) draw-weight boost
   if (m.tags) q.tags = m.tags.split(",").map(t=>t.trim()).filter(Boolean);
   if (m.briefing) q.briefing = m.briefing;
   if (m.eli5) q.deepExplain = m.eli5;

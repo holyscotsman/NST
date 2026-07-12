@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-A6-PACK — the practice-exam 25 (added v0.172.0).** Play any game for a few minutes:
+  the new practice-exam questions (LCM logs, maintenance-mode CLI, DSF features, balloon
+  driver, bully VMs, rsyslog...) should come up noticeably often — they're weighted ~2x.
+  Spot-check three against your source screenshots: the right answer must match exactly.
+  With a big due queue, the due chip's Study session should lead with these. WRONG: any key
+  disagreeing with the source doc, or the new questions rarely appearing.
+
 - **QA-KBB-READS — enemies you can read (added v0.171.0).** Play a few sections: round-1
   enemies should VARY between runs (not always steady 'flat'); from section 2, meet the
   Siphon (weak hits, "rips 4 shield" chip — confirm bracing the strike turn beats bracing
