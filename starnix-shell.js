@@ -499,8 +499,16 @@
         '<div class="sx-bridge-sub">The BCM shattered the MCI Station. Four operations stand between you and certification.</div>' +
         '<div class="sx-cards"></div>' +
       '</div>' +
+      '<div class="sx-bridge-right"><div class="sx-br-lbl">STATION SYSTEMS</div><div class="sx-br-grid"></div><div class="sx-br-list"></div><div class="sx-br-hint">Open the Codex \u25b8</div></div>' +
       '<div class="sx-bridge-dock"><span class="sx-dock-lbl">DAILY MISSIONS</span><div class="sx-daily"></div><div class="sx-dock-cta"></div></div>';
     this._renderRank(s.querySelector(".sx-rank"));
+    // (v0.145.0, V1.1 Menu#3) bridge status board: per-domain mastery on the previously-empty
+    // right side — the SAME _buildStatsSummary the Codex uses, restyled as subsystem readouts.
+    try {
+      this._buildStatsSummary(s.querySelector(".sx-br-grid"), s.querySelector(".sx-br-list"), { compact: true, maxDomains: 6 });
+      var brP = s.querySelector(".sx-bridge-right");
+      this._on(brP, "click", function () { try { StarNix.core.audio.sfx("click"); } catch (eB) {} self.showStats(); });
+    } catch (eBr) {}
     this._renderDaily(s.querySelector(".sx-daily"), { compact: true, head: false });   // (D2) the dock carries its own label
     var photoEl = s.querySelector(".sx-menu-photo");
     var menuBg = global.STARNIX_ASSETS && global.STARNIX_ASSETS.menuBg;
@@ -1659,7 +1667,16 @@
       ".sx-bridge-dock .sx-daily-row{border:0;background:none;padding:0 6px;font-size:12px;flex:none;}",
       ".sx-dock-continue{font-family:inherit;font-size:14px;font-weight:800;color:#04222a;background:var(--aqua);border:0;border-radius:10px;padding:11px 18px;cursor:pointer;box-shadow:0 0 22px rgba(31,221,233,.45);}",
       ".sx-dock-continue:hover{filter:brightness(1.08);}",
-      "@media (max-width:1000px){.sx-bridge-left{max-width:none;}}",
+      "@media (max-width:1000px){.sx-bridge-left{max-width:none;}.sx-bridge-right{display:none;}}",
+      ".sx-bridge-right{position:absolute;right:28px;top:150px;width:min(320px,25vw);z-index:3;background:rgba(10,10,20,.6);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;max-height:calc(100% - 320px);overflow-y:auto;}",
+      ".sx-bridge-right:hover{border-color:rgba(120,85,250,.6);}",
+      ".sx-br-lbl{font-size:10px;letter-spacing:.18em;color:var(--dim);margin-bottom:8px;}",
+      ".sx-br-grid{display:flex;gap:8px;margin-bottom:8px;}",
+      ".sx-br-grid .sx-stat{flex:1;padding:6px 8px;}",
+      ".sx-br-grid .sx-stat-val{font-size:17px;}",
+      ".sx-br-grid .sx-stat-label{font-size:9.5px;}",
+      ".sx-br-list .sx-dom-row{margin:5px 0;font-size:11.5px;}",
+      ".sx-br-hint{font-size:10.5px;letter-spacing:.1em;color:var(--dim);margin-top:8px;text-transform:uppercase;}",
       ".sx-reduced .sx-menu-photo.on,.sx-reduced .sx-title-photo.on{animation:none;transform:scale(1.04);}",
       ".sx-due-chip{border-color:var(--gold);color:var(--gold);}",
       ".sx-due-chip:hover{background:rgba(255,200,87,.12);}",

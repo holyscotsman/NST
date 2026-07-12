@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-MENU-BOARD — Station systems board (added v0.145.0).** On a desktop-width window the
+  menu's right side should show the translucent STATION SYSTEMS card: Mastered/Due/Accuracy
+  plus six weakest-first domain bars, clicking anywhere opens the Codex. Squeeze the window
+  under 1000px: the board disappears entirely (the 1280×800 must-fit rule). WRONG: the board
+  overlapping the mission strips or the daily dock at any width, or a scrollbar fighting the
+  page scroll.
+
 - **QA-CC-MILES — milestone + PB moments (added v0.144.0).** Fly CC past 25 km: an aqua
   "◈ 25 km" banner should pop with a sting and fade ~2 km later (frozen mid-fade if a question
   opens). With a previous best on record, "PB xx.x km" sits under the km readout; passing it

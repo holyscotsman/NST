@@ -156,6 +156,15 @@ async function runFrames(n = 6) {
         && w.STARNIX_QUESTIONS.questions.length === 229);   // the raw bank (pool() adds fixture seeds)
       ok("NIT#2: every bank question still carries optionNotes (indent-sensitive parse guard)",
         w.STARNIX_QUESTIONS.questions.filter((q) => q.optionNotes && q.optionNotes.some((nn) => nn && nn.length)).length === 229);
+      // (v0.145.0, V1.1 Menu#3) the bridge status board fills the dead right side
+      const brP = w.document.querySelector(".sx-bridge-right");
+      ok("Menu#3: the bridge shows the Station systems board (3 compact stats + 6 domain readouts)",
+        !!brP && brP.querySelectorAll(".sx-br-grid .sx-stat").length === 3 && brP.querySelectorAll(".sx-br-list .sx-dom-row").length === 6);
+      ok("Menu#3: desktop-only — the <=1000px rule hides the board (A1 must-fit lesson)",
+        /@media \(max-width:1000px\)\{\.sx-bridge-left\{max-width:none;\}\.sx-bridge-right\{display:none;\}\}/.test(w.document.documentElement.innerHTML));
+      brP.click(); await wait(10);
+      ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
+      shell.showMenu(); await wait(10);
     }
     // (v0.141.0, V1.1 Flow#2) the flight plan: every branch of the PURE planner + the card
     {
