@@ -3120,6 +3120,37 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // M10. Menu#10 (v0.199.0): dock reset countdown + the claimable badge
+  {
+    const realNow10 = SN.core.clock.now;
+    SN.core.clock.now = () => new Date("2026-07-05T21:30:00").getTime();   // 2h30m to local midnight
+    delete SN.core.profile.daily;
+    SN.daily.ensure(SN.core.profile);
+    SN.core.profile.daily.correct = 99; SN.core.profile.daily.byGame = { ARM: 99, KBB: 99, CC: 99, EXAM: 99 };
+    SN.core.profile.daily.bestStreak = 99; SN.core.profile.daily.exams = 99; SN.core.profile.daily.promotions = 99;
+    SN.core.profile.blitzDaily = { last: SN.core.profile.daily.date, streak: 1, best: 1, pts: 1, pct: 1 };
+    shell.showMenu();
+    {
+      const rst = w.document.querySelector(".sx-dock-reset");
+      const badge = w.document.querySelector(".sx-dock-claimbadge");
+      // expected countdown computed by the same local-midnight math the shell uses
+      const nowE = SN.core.clock.now(); const midE = new Date(nowE); midE.setHours(24, 0, 0, 0);
+      const remE = midE.getTime() - nowE;
+      const expTxt = "resets in " + Math.floor(remE / 3600000) + "h " + (Math.floor((remE % 3600000) / 60000) < 10 ? "0" : "") + Math.floor((remE % 3600000) / 60000) + "m";
+      ok("Menu#10: the dock shows the local-midnight reset countdown", !!rst && rst.textContent === expTxt);
+      ok("Menu#10: three done-but-unclaimed missions raise a gold 3-badge", !!badge && badge.textContent === "3");
+    }
+    SN.daily.claim(SN.core.profile, 0);
+    shell.showMenu();
+    ok("Menu#10: claiming one drops the badge to 2", (w.document.querySelector(".sx-dock-claimbadge") || {}).textContent === "2");
+    // hygiene
+    SN.core.profile.blitzDaily = null;
+    SN.core.clock.now = realNow10;
+    delete SN.core.profile.daily;
+    SN.daily.ensure(SN.core.profile);
+    shell.showMenu();
+  }
+
   // F9. Flow#9 (v0.195.0): first-run order ribbons + the 3-step bridge tour
   {
     const p9 = SN.core.profile;

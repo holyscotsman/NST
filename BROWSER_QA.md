@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-DOCK-CLOCK — the dailies say when (added v0.199.0).** On the bridge, the DAILY
+  MISSIONS label should read 'resets in Hh Mm' (sanity-check it against your actual local
+  midnight), and completing a mission without claiming must raise a gold count badge that
+  drops as you claim. WRONG: a countdown that disagrees with midnight by more than a minute,
+  a badge for already-claimed rows, or the label wrapping awkwardly at phone width.
+
 - **QA-BOOT-SPLASH — ship power-on (added v0.198.0).** Reload the deployed app (best on the
   real Apps Script URL where the parse is slow): instead of the dead grey line you should see
   the NX hex crest spinning over a rising iris-to-aqua bar with status lines actually

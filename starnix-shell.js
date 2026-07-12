@@ -667,6 +667,29 @@
       this._on(brP, "click", function () { try { StarNix.core.audio.sfx("click"); } catch (eB) {} self.showStats(); });
     } catch (eBr) {}
     this._renderDaily(s.querySelector(".sx-daily"), { compact: true, head: false });   // (D2) the dock carries its own label
+    // (v0.199.0, V1.1 Menu#10) the dock admits the clock is real: a local-midnight reset
+    // countdown + a gold badge counting done-but-unclaimed missions. Pure presentation over
+    // StarNix.daily state, recomputed on every rebuild — no timer.
+    try {
+      var dockLbl = s.querySelector(".sx-dock-lbl");
+      if (dockLbl) {
+        var nowMs10 = StarNix.core.clock.now();
+        var mid10 = new Date(nowMs10); mid10.setHours(24, 0, 0, 0);
+        var remMs10 = Math.max(0, mid10.getTime() - nowMs10);
+        var hh10 = Math.floor(remMs10 / 3600000), mm10 = Math.floor((remMs10 % 3600000) / 60000);
+        dockLbl.appendChild(el("span", "sx-dock-reset", "resets in " + hh10 + "h " + (mm10 < 10 ? "0" : "") + mm10 + "m"));
+        var unclaimed10 = 0;
+        for (var di10 = 0; di10 < 3; di10++) {
+          var st10 = StarNix.daily.state(prof0, di10);
+          if (st10 && st10.done && !st10.claimed) unclaimed10++;
+        }
+        if (unclaimed10 > 0) {
+          var badge10 = el("span", "sx-dock-claimbadge", String(unclaimed10));
+          badge10.title = unclaimed10 + " mission" + (unclaimed10 === 1 ? "" : "s") + " done \u2014 claim before the reset";
+          dockLbl.appendChild(badge10);
+        }
+      }
+    } catch (eDk) {}
     var photoEl = s.querySelector(".sx-menu-photo");
     var menuBg = global.STARNIX_ASSETS && global.STARNIX_ASSETS.menuBg;
     if (photoEl && menuBg) { photoEl.style.backgroundImage = 'url("' + menuBg + '")'; photoEl.classList.add("on"); }
@@ -2169,7 +2192,9 @@
       // background stays; the ARM campaign progress still reads on the ARM mission strip.
       // bottom dock
       ".sx-bridge-dock{position:relative;z-index:3;display:flex;align-items:center;gap:16px;margin:22px calc(28px + env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) calc(28px + env(safe-area-inset-left,0px));background:rgba(10,10,18,.72);border:1px solid #26263a;border-radius:14px;padding:12px 18px;backdrop-filter:blur(6px);}",
-      ".sx-dock-lbl{font-size:10.5px;letter-spacing:.18em;color:var(--dim);flex:none;}",
+      ".sx-dock-lbl{font-size:10.5px;letter-spacing:.18em;color:var(--dim);flex:none;display:flex;flex-direction:column;gap:3px;align-items:flex-start;}",
+      ".sx-dock-reset{font-size:10px;letter-spacing:.04em;color:var(--dim);text-transform:none;font-variant-numeric:tabular-nums;}",   /* (v0.199.0, Menu#10) */
+      ".sx-dock-claimbadge{font-size:10.5px;font-weight:800;color:#04222a;background:var(--gold);border-radius:999px;padding:1px 7px;letter-spacing:0;}",
       ".sx-bridge-dock .sx-daily{flex:1;margin:0;display:flex;flex-direction:row;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-start;}",
       ".sx-bridge-dock .sx-daily-row{border:0;background:none;padding:0 6px;font-size:12px;flex:none;}",
       ".sx-dock-continue{font-family:inherit;font-size:14px;font-weight:800;color:#04222a;background:var(--aqua);border:0;border-radius:10px;padding:11px 18px;cursor:pointer;box-shadow:0 0 22px rgba(31,221,233,.45);}",
