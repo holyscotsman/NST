@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.146.0";
+  var BUILD_VERSION = "0.147.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -1138,6 +1138,7 @@
       core.clock = clock;
       core.version = CORE_VERSION;
       core.seed = seed;
+      installErrorRing(core);   // (v0.147.0, V1.1 Backend#3) field errors land on the profile
       return core;
     });
   };
@@ -1244,6 +1245,56 @@
     return flightPlan(sig);
   }
   StarNix.plan = { rank: flightPlan, next: flightPlanFromCore };
+
+  /* Field error ring (v0.147.0, V1.1 Backend#3) — the v0.116 radar bug threw 60x/s in real
+   * browsers for five releases while jsdom's null-context early-return kept every harness
+   * green. These handlers catch that class in the FIELD: a capped ring on the profile turns
+   * "it felt weird yesterday" into a stack head. record() must never throw and never spam —
+   * a repeat of the newest message increments its count instead of burning ring slots. */
+  var ERROR_RING_CAP = 20;
+  function recordError(profile, e) {
+    try {
+      if (!profile) return null;
+      var ring = profile.errors || (profile.errors = []);
+      var msg = String((e && e.msg) || "unknown").slice(0, 200);
+      var last = ring.length ? ring[ring.length - 1] : null;
+      if (last && last.msg === msg) { last.n = (last.n | 0) + 1; last.ts = (e && e.ts) || clock.now(); return last; }
+      var entry = {
+        msg: msg,
+        stk: String((e && e.stk) || "").slice(0, 300),
+        scr: String((e && e.scr) || "").slice(0, 40),
+        build: BUILD_VERSION,
+        ts: (e && e.ts) || clock.now(),
+        n: 1
+      };
+      ring.push(entry);
+      if (ring.length > ERROR_RING_CAP) ring.splice(0, ring.length - ERROR_RING_CAP);
+      return entry;
+    } catch (eR) { return null; }
+  }
+  function installErrorRing(core) {
+    try {
+      if (!global.addEventListener || StarNix._errRingInstalled) return;
+      StarNix._errRingInstalled = true;
+      function scr() { try { return (StarNix._errScreen && StarNix._errScreen()) || ""; } catch (eS) { return ""; } }
+      function land(msg, stack) {
+        try {
+          recordError(core.profile, { msg: msg, stk: stack, scr: scr() });
+          if (core.persistence && core.persistence.save) core.persistence.save(core.profile);   // debounced
+        } catch (eL2) {}
+      }
+      global.addEventListener("error", function (ev) {
+        try { land((ev && ev.message) || "script error", ev && ev.error && ev.error.stack ? String(ev.error.stack).split("\n").slice(0, 3).join(" | ") : ""); } catch (eE) {}
+      });
+      global.addEventListener("unhandledrejection", function (ev) {
+        try {
+          var r = ev && ev.reason;
+          land("unhandledrejection: " + (r && r.message ? r.message : String(r)).slice(0, 160), r && r.stack ? String(r.stack).split("\n").slice(0, 3).join(" | ") : "");
+        } catch (eP) {}
+      });
+    } catch (eI) {}
+  }
+  StarNix.errors = { record: recordError, install: installErrorRing, CAP: ERROR_RING_CAP };
 
   /* Miss pile (v0.146.0, V1.1 NIT#3) — "the exact questions you got wrong", DERIVED from the
    * Leitner ledger instead of a second persisted store: every wrong bumps m.incorrect and

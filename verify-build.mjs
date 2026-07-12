@@ -990,7 +990,33 @@ async function runFrames(n = 6) {
   ok("FE#2: the Jukebox is HIDDEN from players (no dev mode)", !w.document.querySelector(".sx-jukebox"));
   ok("FE#2: Settings offers the Music style toggle without pausing a game",
     !!w.document.querySelector(".sx-panel .sx-genre-row"));
+  // (v0.147.0, V1.1 Backend#3) field error ring: a real window "error" event lands on the
+  // profile with build + screen stamped; repeats dedupe into a count; the ring caps at 20.
+  {
+    SN.core.profile.errors = [];
+    const preScr = shell.screen;
+    w.dispatchEvent(new w.ErrorEvent("error", { message: "boom: radar i2 is not defined", error: new w.Error("boom: radar i2 is not defined") }));
+    await wait(10);
+    const ring1 = SN.core.profile.errors;
+    ok("Backend#3: a window error lands in the profile ring with build + screen stamped",
+      ring1.length === 1 && /radar i2/.test(ring1[0].msg) && ring1[0].build === SN.BUILD && ring1[0].scr === preScr && ring1[0].n === 1);
+    w.dispatchEvent(new w.ErrorEvent("error", { message: "boom: radar i2 is not defined" }));
+    w.dispatchEvent(new w.ErrorEvent("error", { message: "boom: radar i2 is not defined" }));
+    ok("Backend#3: a 60x/s repeat DEDUPES into a count instead of burning ring slots",
+      ring1.length === 1 && ring1[0].n === 3);
+    for (let be = 0; be < 25; be++) w.dispatchEvent(new w.ErrorEvent("error", { message: "distinct error #" + be }));
+    ok("Backend#3: the ring caps at " + SN.errors.CAP + " (oldest evicted, newest kept)",
+      ring1.length === SN.errors.CAP && /#24$/.test(ring1[ring1.length - 1].msg) && !ring1.some((e) => /radar i2/.test(e.msg)));
+    SN.core.profile.errors = [{ msg: "probe error kept", stk: "at drawRadarOnly | at tick", scr: "game:ARM", build: SN.BUILD, ts: 1, n: 4 }];
+  }
+  ok("Backend#3: NO diagnostics panel for players (dev mode off)", !w.document.querySelector(".sx-diag"));
   w.STARNIX_DEV = true; shell.showSettings(); await wait(10);   // re-open with dev mode on
+  {
+    const diag = w.document.querySelector(".sx-diag");
+    ok("Backend#3: dev Settings shows Diagnostics — build label + the ring entry with its count",
+      !!diag && diag.querySelector(".sx-diag-build") && /probe error kept/.test(diag.textContent) && /\u00d74/.test(diag.textContent) && /game:ARM/.test(diag.textContent));
+    SN.core.profile.errors = [];
+  }
   const jbIds = SN.core.audio.trackIds ? SN.core.audio.trackIds() : [];
   ok("audio.trackIds() lists the full library (>= 43 tracks, got " + jbIds.length + ")", jbIds.length >= 43);
   const jbBtns = w.document.querySelectorAll(".sx-jukebox .sx-jb-btn");

@@ -113,6 +113,8 @@
    * boot
    * =================================================================== */
   Shell.prototype.boot = function (root, opts) {
+    var selfB = this;
+    StarNix._errScreen = function () { return selfB.screen || ""; };   // (v0.147.0, Backend#3)
     var self = this;
     this.root = (typeof root === "string") ? document.getElementById(root) : root;
     if (!this.root) throw new Error("boot: root element not found");
@@ -1212,6 +1214,30 @@
     paintGenre();
     grow.appendChild(gUp); grow.appendChild(gCh); host.appendChild(grow);
   };
+  // (v0.147.0, V1.1 Backend#3) dev diagnostics: build label, the field-error ring, and the
+  // telemetry tail — a playtest report becomes a stack head without DevTools.
+  Shell.prototype._buildDiagnostics = function (host) {
+    var core = StarNix.core;
+    host.appendChild(el("div", "sx-diag-build", StarNix.BUILD_LABEL || ("v" + (StarNix.BUILD || "?"))));
+    var ring = (core.profile && core.profile.errors) || [];
+    if (!ring.length) host.appendChild(el("div", "sx-diag-empty", "No field errors recorded."));
+    for (var i = ring.length - 1; i >= 0; i--) {
+      var er = ring[i];
+      var row = el("div", "sx-diag-err");
+      row.appendChild(el("div", "sx-diag-msg", er.msg + (er.n > 1 ? "  \u00d7" + er.n : "")));
+      row.appendChild(el("div", "sx-diag-meta", (er.build || "?") + " \u00b7 " + (er.scr || "?") + (er.stk ? " \u00b7 " + er.stk : "")));
+      host.appendChild(row);
+    }
+    var evs = [];
+    try { evs = core.telemetry.events().slice(-10); } catch (eT) {}
+    if (evs.length) {
+      host.appendChild(el("div", "sx-diag-sub", "Telemetry tail"));
+      for (var t = evs.length - 1; t >= 0; t--) {
+        var evD = evs[t];
+        host.appendChild(el("div", "sx-diag-ev", (evD.t || "?") + (evD.game ? " \u00b7 " + evD.game : "") + (evD.id ? " \u00b7 " + evD.id : "")));
+      }
+    }
+  };
   Shell.prototype._buildJukebox = function (host) {
     var self = this, audio = StarNix.core.audio;
     var ids = (audio.trackIds ? audio.trackIds() : []).slice();
@@ -1268,7 +1294,7 @@
       + '<div class="sx-seclabel">Display &amp; input</div><div class="sx-toggles"></div>'
       + '<div class="sx-seclabel">Ship trail</div><div class="sx-trails"></div>'
       + '<div class="sx-seclabel">Data</div><div class="sx-data"></div>'
-      + (shellDevMode() ? '<div class="sx-seclabel">Dev \u00b7 Jukebox</div><div class="sx-jukebox"></div>' : '')
+      + (shellDevMode() ? '<div class="sx-seclabel">Dev \u00b7 Jukebox</div><div class="sx-jukebox"></div><div class="sx-seclabel">Dev \u00b7 Diagnostics</div><div class="sx-diag"></div>' : '')
       + '<div class="sx-row"></div></div>';
     var sliderBox = s.querySelector(".sx-sliders");
     var box = s.querySelector(".sx-toggles");
@@ -1279,6 +1305,7 @@
     this._buildToggles(box);
     this._buildTrailPicker(s.querySelector(".sx-trails"));
     if (s.querySelector(".sx-jukebox")) this._buildJukebox(s.querySelector(".sx-jukebox"));   // (v0.79.0, JB1; FE#2: dev mode only)
+    if (s.querySelector(".sx-diag")) this._buildDiagnostics(s.querySelector(".sx-diag"));   // (v0.147.0, Backend#3)
 
     // ---- reset progress (two-tap confirm; persists a fresh profile, then reloads) ----
     var resetBtn = el("button", "sx-btn sx-btn-danger", "Reset all progress");
@@ -1721,6 +1748,14 @@
       ".sx-plan-label{font-size:13px;color:var(--text);flex:1;min-width:180px;}",
       ".sx-plan-cta{padding:6px 14px;font-size:12px;}",
       ".sx-exam-len-misses{border-color:rgba(255,107,91,.5);} .sx-exam-len-misses .t{color:var(--peach,#FF6B5B);}",
+      ".sx-diag{font-size:11.5px;color:var(--mid);max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px 10px;}",
+      ".sx-diag-build{color:var(--dim);letter-spacing:.08em;margin-bottom:6px;}",
+      ".sx-diag-err{border-left:3px solid var(--peach,#FF6B5B);padding-left:8px;margin:6px 0;}",
+      ".sx-diag-msg{color:var(--text);font-size:11.5px;word-break:break-all;}",
+      ".sx-diag-meta{color:var(--dim);font-size:10.5px;word-break:break-all;}",
+      ".sx-diag-sub{margin-top:8px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;font-size:10px;}",
+      ".sx-diag-ev{color:var(--mid);font-size:10.5px;}",
+      ".sx-diag-empty{color:var(--dim);}",
       ".sx-debrief{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,11,.62);}",
       ".sx-debrief-card{width:min(480px,92%);background:rgba(16,16,26,.97);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.6);}",
       ".sx-debrief-stats{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 6px;font-size:13px;color:var(--mid);}",

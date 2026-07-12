@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-DIAG — field errors + dev diagnostics (added v0.147.0).** In a REAL browser with `?dev`
+  in the URL: Settings should end with Dev · Jukebox and Dev · Diagnostics (build label, "No
+  field errors recorded." on a clean profile, last-10 telemetry tail). Then in the console run
+  `throw new Error("qa probe")` (or trigger any real error) and re-open Settings: the entry
+  appears with screen + stack head. Without ?dev: neither Dev section exists. WRONG: the ring
+  visibly growing from one repeating error, or diagnostics leaking to players.
+
 - **QA-REDRILL-TILE — the miss pile (added v0.146.0).** Miss a few questions anywhere (games
   or exams), then open Sit exam: a peach "↻ Redrill your misses" tile should list the count and
   launch Study mode on exactly those questions. Answer one of them correctly TWICE in a row
