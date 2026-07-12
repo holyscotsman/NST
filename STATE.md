@@ -103,7 +103,7 @@
 
 ## V1.1 IN PROGRESS — wave 1 (top item per area)
 
-Working VERSION_1_1.md as gated units. WAVE 1 COMPLETE (v0.128-135, top item per area). WAVE 2 IN FLIGHT: FE#2 (v0.136.0), Backend#2 (v0.137.0, 18 suites), Menu#2 due-chip promotion (v0.138.0), CC#1 answer-charged boost (v0.139.0 — boostCharge meter in CCSim; HUD gold Boost bar; checkpoint-safe; flat modulo gone), KBB#2 post-battle debrief (v0.140.0 — run.misses collected as shuffled-presentation TEXT in submitAnswer, capped 5, reset per battle; collapsible .kbb-debrief card on the section map; transient, not checkpointed). NEXT: Flow#2 flight plan, ARM#2 boss phases, NIT#2 quarantine holds.
+Working VERSION_1_1.md as gated units. WAVE 1 COMPLETE (v0.128-135, top item per area). WAVE 2 IN FLIGHT: FE#2 (v0.136.0), Backend#2 (v0.137.0, 18 suites), Menu#2 due-chip promotion (v0.138.0), CC#1 answer-charged boost (v0.139.0 — boostCharge meter in CCSim; HUD gold Boost bar; checkpoint-safe; flat modulo gone), KBB#2 post-battle debrief (v0.140.0 — run.misses text-collected in submitAnswer, capped 5, per battle; .kbb-debrief card on the map), Flow#2 flight plan (v0.141.0 — StarNix.plan.rank pure planner: due > undone daily > sim recency > weakest domain > clear; .sx-plan-card tops the dock, yields to the due chip). NEXT: ARM#2 boss phases, NIT#2 quarantine holds.
 NEXT: NIT#1 bank lint, Backend#1 save safety net, ARM#1 lost-core pool, CC#2 turns, KBB#1
 event deck, Flow#1 debrief, FE#1 focus.
 

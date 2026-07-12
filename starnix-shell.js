@@ -578,6 +578,31 @@
         dock0.insertBefore(dueBtn, dock0.firstChild);
       }
     }
+    // (v0.141.0, V1.1 Flow#2) Today's flight plan — ONE ranked "do this next" card at the
+    // top of the dock, from the pure core planner. When reviews are due, the due chip above
+    // already IS the plan's top action, so the card stays away (no duplicate gold CTA).
+    try {
+      if (!dueQs.length && StarNix.plan) {
+        var plan = StarNix.plan.next(StarNix.core, StarNix.core.clock.now());
+        if (plan && plan.kind !== "due") {
+          var pc = el("div", "sx-plan-card");
+          pc.appendChild(el("span", "sx-plan-eyebrow", "Today's flight plan"));
+          pc.appendChild(el("span", "sx-plan-label", plan.label));
+          if (plan.cta) {
+            var pBtn = el("button", "sx-btn sx-btn-iris sx-plan-cta", plan.cta);
+            this._on(pBtn, "click", function () {
+              try { StarNix.core.audio.sfx("click"); } catch (eS) {}
+              if (plan.action === "game" && plan.game && StarNix.getGame(plan.game)) self.enterGame(plan.game);
+              else if (plan.action === "sim") self.showExamSetup();
+              else self.showStats();
+            });
+            pc.appendChild(pBtn);
+          }
+          var dockP = s.querySelector(".sx-bridge-dock");
+          dockP.insertBefore(pc, dockP.firstChild);
+        }
+      }
+    } catch (ePl) {}
     topBtn("Stats / Codex", function () { self.showStats(); });
     topBtn("Settings", function () { self.showSettings(); });
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
@@ -1660,6 +1685,10 @@
       ".sx-data-row{display:flex;gap:10px;margin-bottom:10px;}",
       ".sx-data-json{width:100%;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--text);background:rgba(10,10,18,.8);border:1px solid var(--border);border-radius:10px;padding:10px;resize:vertical;}",
       ".sx-data-note{font-size:11.5px;color:var(--mid);margin:6px 0 10px;}",
+      ".sx-plan-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(120,85,250,.10);border:1px solid rgba(120,85,250,.45);border-radius:12px;padding:10px 14px;margin-bottom:10px;}",
+      ".sx-plan-eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#AC9BFD;white-space:nowrap;}",
+      ".sx-plan-label{font-size:13px;color:var(--text);flex:1;min-width:180px;}",
+      ".sx-plan-cta{padding:6px 14px;font-size:12px;}",
       ".sx-debrief{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,11,.62);}",
       ".sx-debrief-card{width:min(480px,92%);background:rgba(16,16,26,.97);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.6);}",
       ".sx-debrief-stats{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 6px;font-size:13px;color:var(--mid);}",

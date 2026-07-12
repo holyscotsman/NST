@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-FLIGHTPLAN — the bridge tells you what's next (added v0.141.0).** With NO reviews due,
+  the dock should open with an iris "Today's flight plan" card: an undone daily ("Daily: ... —
+  Launch KBB"), a stale/missing sim ("Run a sim"), or a weakest-domain drill ("Open Codex") —
+  and the CTA should actually route there. With reviews due, the gold due chip appears INSTEAD
+  (never both). All dailies claimed + fresh sim + strong domains = a quiet "All clear" line.
+  WRONG: two competing gold CTAs, or a card whose button goes somewhere other than its label.
+
 - **QA-KBB-DEBRIEF — the map recaps your misses (added v0.140.0).** Miss a question or two in
   a KBB battle, win it, cross the shop to the section map: a gold "Debrief · N missed" card sits
   between the header and the corridor — each miss shows the stem, the right answer in green, and

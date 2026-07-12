@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.140.0";
+  var BUILD_VERSION = "0.141.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -1203,6 +1203,47 @@
     state: dailyMissionState,
     claim: claimDaily
   };
+
+  /* Flight plan (v0.141.0, V1.1 Flow#2) — "what should I do right now?" as a PURE ranking
+   * over explicit signals, so the gate can pin every branch without live state. Order:
+   * due reviews > first undone daily > sim recency (none ever / >=7 days stale) > weakest
+   * domain (<80% mastered) > all clear. next() gathers the signals from a live core. */
+  function flightPlan(sig) {
+    sig = sig || {};
+    var due = sig.dueCount | 0;
+    if (due > 0) return { kind: "due", label: due + " review" + (due === 1 ? "" : "s") + " due \u2014 clear the queue first", cta: "Review \u25b8", action: "due" };
+    var ds = sig.daily || [];
+    for (var i = 0; i < ds.length; i++) {
+      var st = ds[i];
+      if (st && !st.done) {
+        var g = (st.mission && st.mission.game) || null;
+        return { kind: "daily", label: "Daily: " + (st.label || st.name || "mission"), cta: g ? "Launch " + g + " \u25b8" : "Go \u25b8", action: g ? "game" : "progress", game: g };
+      }
+    }
+    var DAY = 86400000, now = sig.now != null ? sig.now : clock.now();
+    if (!sig.lastSimAt) return { kind: "sim", label: "No exam sim on record \u2014 fly one to calibrate readiness", cta: "Run a sim \u25b8", action: "sim" };
+    var days = Math.floor((now - sig.lastSimAt) / DAY);
+    if (days >= 7) return { kind: "sim", label: "No sim in " + days + " days \u2014 time to re-calibrate", cta: "Run a sim \u25b8", action: "sim" };
+    var wk = sig.weakest;
+    if (wk && (wk.masteredPct || 0) < 0.8) return { kind: "domain", label: "Weakest domain: " + wk.domain + " (" + Math.round((wk.masteredPct || 0) * 100) + "% mastered) \u2014 drill it", cta: "Open Codex \u25b8", action: "progress", domain: wk.domain };
+    return { kind: "clear", label: "All clear \u2014 fly any mission for XP", cta: null, action: null };
+  }
+  function flightPlanFromCore(core, now) {
+    now = now != null ? now : clock.now();
+    var sig = { now: now, dueCount: 0, daily: [], lastSimAt: 0, weakest: null };
+    try { sig.dueCount = core.mastery.dueList(now).length; } catch (e1) {}
+    try {
+      ensureDaily(core.profile);
+      for (var i = 0; i < core.profile.daily.missions.length; i++) {
+        var st = dailyMissionState(core.profile, i);
+        if (st && !st.claimed) sig.daily.push(st);
+      }
+    } catch (e2) {}
+    try { var hist = core.profile.examHistory || []; for (var h = hist.length - 1; h >= 0; h--) { if (hist[h].mode === "sim") { sig.lastSimAt = hist[h].at || 0; break; } } } catch (e3) {}
+    try { var stx = core.questions.stats(); if (stx.domains && stx.domains[0]) sig.weakest = { domain: stx.domains[0].domain, masteredPct: stx.domains[0].masteredPct }; } catch (e4) {}
+    return flightPlan(sig);
+  }
+  StarNix.plan = { rank: flightPlan, next: flightPlanFromCore };
 
   /* ---- test/integration hooks (not part of the game-facing contract) - */
   StarNix._internal = {

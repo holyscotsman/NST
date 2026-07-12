@@ -144,6 +144,24 @@ async function runFrames(n = 6) {
     const photo = w.document.querySelector(".sx-menu-photo");
     ok("menu has a moving photo background wired to menuBg", !!photo && photo.classList.contains("on") && /menuBg|data:image\/(jpeg|png)/.test(photo.style.backgroundImage || ""));
     ok("menu shows the NX-SRC crew crest", !!w.document.querySelector(".sx-crest .sx-crest-x"));
+    // (v0.141.0, V1.1 Flow#2) the flight plan: every branch of the PURE planner + the card
+    {
+      const R = SN.plan.rank, NOWP = 1750000000000, DAYP = 86400000;
+      ok("Flow#2: due reviews outrank everything", R({ dueCount: 14 }).kind === "due" && /14 reviews due/.test(R({ dueCount: 14 }).label));
+      const pd = R({ dueCount: 0, daily: [{ done: true }, { done: false, label: "3 more KBB correct", mission: { game: "KBB" } }] });
+      ok("Flow#2: next rank = the first UNDONE daily, CTA launches its game", pd.kind === "daily" && pd.game === "KBB" && /Daily: 3 more KBB correct/.test(pd.label) && /Launch KBB/.test(pd.cta));
+      const ps = R({ dueCount: 0, daily: [{ done: true }], now: NOWP, lastSimAt: NOWP - 9 * DAYP });
+      ok("Flow#2: a 9-day-stale sim prompts a re-calibration sim", ps.kind === "sim" && /9 days/.test(ps.label));
+      ok("Flow#2: no sim on record prompts the FIRST sim", R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: 0 }).kind === "sim");
+      const pw = R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: NOWP - DAYP, weakest: { domain: "vms", masteredPct: 0.2 } });
+      ok("Flow#2: fresh sim -> weakest-domain drill (<80% mastered)", pw.kind === "domain" && /vms/.test(pw.label) && /20% mastered/.test(pw.label));
+      ok("Flow#2: nothing to do = all clear, NO CTA", R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: NOWP - DAYP, weakest: { domain: "vms", masteredPct: 0.95 } }).kind === "clear" && R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: NOWP - DAYP, weakest: { domain: "vms", masteredPct: 0.95 } }).cta === null);
+      const pcEl = w.document.querySelector(".sx-plan-card");
+      ok("Flow#2: the fresh-profile bridge shows the flight-plan card (an undone daily leads)",
+        !!pcEl && /Today's flight plan/.test(pcEl.textContent) && /Daily:/.test(pcEl.textContent));
+      const pInt = SN.plan.next(SN.core);
+      ok("Flow#2: plan.next reads the live core without throwing", !!pInt && typeof pInt.kind === "string" && typeof pInt.label === "string");
+    }
     // (v0.128.0, V1.1 Menu#1) Continue survives a reload: with in-memory lastGameId gone,
     // the dock CTA rebuilds from the PERSISTED profile.lastGame
     {
@@ -1389,6 +1407,8 @@ async function runFrames(n = 6) {
       // a full-width strip ABOVE the mission cards
       ok("Menu#2: a light due queue renders as the dock banner (not top-bar chrome)",
         chip.classList.contains("sx-due-dock") && !!chip.closest(".sx-bridge-dock"));
+      ok("Flow#2: with reviews due, the due chip IS the plan \u2014 no duplicate flight-plan card",
+        !w.document.querySelector(".sx-plan-card"));
       chip.click();
       ok("chip launches Study mode on exactly the due subset",
         shell.screen === "exam" && shell._exam._state.mode === "study" && shell._exam._state.order.length >= 3);
