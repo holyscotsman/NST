@@ -59,7 +59,8 @@
     var hi = clamp(2 + Math.floor((section - 1) / 2), 1, 3);
     if (hi < lo) hi = lo; return [lo, hi];
   }
-  var BOSS_MECHANICS = ['shielded', 'enrage', 'gated'];
+  var BOSS_MECHANICS = ['shielded', 'enrage', 'gated'];   // the teaching cycle (sections 1-3; the s3 Flagship stays 'gated')
+  var BOSS_MECHANICS_ALL = ['shielded', 'enrage', 'gated', 'splitter', 'leech', 'jammer'];   // (v0.162.0, V1.1 KBB#5) Deep Belt pool
   var ENEMY_PATTERNS = ['flat', 'ramp', 'alternating'];
 
   // ---- 3. Artifact catalog (data + hooks). modifyDamage channels:
@@ -312,7 +313,7 @@
   // ---- 4. Enemy / boss ----
   function enemyName(section, boss, mechanic) {
     if (boss) {
-      var label = mechanic === 'shielded' ? 'Bulwark' : (mechanic === 'enrage' ? 'Ravager' : 'Sentinel');
+      var label = mechanic === 'shielded' ? 'Bulwark' : (mechanic === 'enrage' ? 'Ravager' : (mechanic === 'gated' ? 'Sentinel' : (mechanic === 'splitter' ? 'Hydra' : (mechanic === 'leech' ? 'Siphon' : 'Scrambler'))));   // (KBB#5)
       return 'BCM ' + label + ' Mk ' + section;
     }
     var names = ['Skirmisher', 'Interceptor', 'Marauder', 'Lancer', 'Reaver', 'Stalker'];
@@ -329,7 +330,7 @@
     var mechanic = null, pattern = 'flat';
     if (boss) {
       hp = Math.round(hp * CONFIG.bossHpMult);
-      mechanic = BOSS_MECHANICS[(s - 1) % BOSS_MECHANICS.length];
+      mechanic = s <= 3 ? BOSS_MECHANICS[(s - 1) % BOSS_MECHANICS.length] : BOSS_MECHANICS_ALL[Math.floor(run.rng.next() * BOSS_MECHANICS_ALL.length)];   // (KBB#5) past depth 3, bosses stop rerunning section 1
       pattern = (mechanic === 'enrage') ? 'ramp' : 'flat';
     } else { pattern = ENEMY_PATTERNS[(r - 1) % ENEMY_PATTERNS.length]; }
     var step = Math.max(1, Math.round(intent * 0.4));
@@ -340,6 +341,7 @@
       boss: boss, flagship: flagship, mechanic: mechanic, hp: hp, maxHp: hp,
       intent: intent, baseIntent: intent, intentStep: step, pattern: pattern,
       intentToggle: false, shieldUp: false, locked: !!(boss && mechanic === 'gated'),
+      split: false, escortHp: 0, escortMax: 0, jamOn: false,   // (v0.162.0, KBB#5) splitter escort + jammer window
       rewardCoins: bossOrNormalCoins(s, r, boss)
     };
   }
@@ -428,9 +430,10 @@
   function computeDamage(run, answerMs) {
     var d = { flat: run.squad.basePower, mult: 1, post: 1 };
     var arts = run.squad.artifacts;
+    var jammed = !!(run.battle && run.battle.enemy && run.battle.enemy.jamOn);   // (v0.162.0, KBB#5) the Scrambler suppresses artifact damage hooks this turn
     for (var i = 0; i < arts.length; i++) {
       var h = arts[i].def.hooks.modifyDamage;
-      if (h) h(makeArtCtx(run, arts[i], { answerMs: answerMs }), d);
+      if (h && !jammed) h(makeArtCtx(run, arts[i], { answerMs: answerMs }), d);
     }
     var v = d.flat * d.mult * d.post;
     if (!isFinite(v) || isNaN(v) || v < 0) v = 0;
@@ -491,6 +494,7 @@
     b.question = q; b.reason = draw ? draw.reason : null; b.revealed = [];
     if (q) b.seenIds.push(q.id);
     b.enemy.shieldUp = b.enemy.boss && b.enemy.mechanic === 'shielded' && (b.attackIndex % 2 === 1);
+    b.enemy.jamOn = b.enemy.boss && b.enemy.mechanic === 'jammer' && (b.attackIndex % 2 === 1);   // (v0.162.0, KBB#5) same telegraphed parity as the shield
     fireSide(run, 'onQuestionShown', {});
     return { question: q, reason: b.reason, revealed: b.revealed.slice(), intent: currentIntent(run), shieldUp: b.enemy.shieldUp, locked: b.enemy.locked };
   }
@@ -499,6 +503,7 @@
   function finalizeLoss(run) {
     if (run.ctx.telemetry) run.ctx.telemetry.emit({ t: 'run_ended', game: 'KBB', result: 'loss', depth: depthLabel(run), score: scoreOf(run) });
   }
+  function enemyDown(e) { return e.hp <= 0 && !(e.escortHp > 0); }   // (v0.162.0, KBB#5) a splitter's escort must ALSO die
   function winBattle(run, res) {
     var b = run.battle; b.over = true; res.win = true;
     var coins = b.enemy.rewardCoins, arts = run.squad.artifacts;
@@ -562,7 +567,14 @@
         var blockedThisTurn = (b.enemy.boss && b.enemy.mechanic === 'shielded' && b.enemy.shieldUp) || b.enemy.locked;
         var dmg = blockedThisTurn ? 0 : computeDamage(run, answerMs);
         if (blockedThisTurn) res.blocked = true;
-        res.damage = dmg; b.enemy.hp -= dmg; b.lastDamage = dmg;
+        // (v0.162.0, KBB#5) splitter: once the escort detaches, it soaks the attacks until it dies
+        if (b.enemy.escortHp > 0) { b.enemy.escortHp = Math.max(0, b.enemy.escortHp - dmg); res.damage = dmg; b.lastDamage = dmg; }
+        else { res.damage = dmg; b.enemy.hp -= dmg; b.lastDamage = dmg; }
+        if (b.enemy.boss && b.enemy.mechanic === 'splitter' && !b.enemy.split && b.enemy.hp <= b.enemy.maxHp / 2) {
+          b.enemy.split = true;
+          b.enemy.escortMax = b.enemy.escortHp = Math.max(1, Math.round(b.enemy.maxHp * 0.35));
+          run.log.push(b.enemy.name + ': hull splits \u2014 an escort core detaches (' + b.enemy.escortHp + ' HP)');
+        }
         if (b.attackIndex === 0 && b.enemy.hp <= 0) b.oneShot = true;
       } else if (act === 'brace') {
         res.shieldGained = run.squad.block; b.lastDamage = 0;
@@ -578,6 +590,11 @@
       fireSide(run, 'onAttackResolved', { answerMs: answerMs });
     } else {
       b.wrongCount++; b.correctStreak = 0;
+      if (b.enemy.boss && b.enemy.mechanic === 'leech') {   // (v0.162.0, KBB#5) guessing FEEDS it — brace and think
+        var lh = Math.round(b.enemy.maxHp * 0.15);
+        var healedL = Math.min(b.enemy.maxHp, b.enemy.hp + lh) - b.enemy.hp;
+        if (healedL > 0) { b.enemy.hp += healedL; run.log.push(b.enemy.name + ' siphons your miss: +' + healedL + ' HP'); }
+      }
       // (v0.140.0, V1.1 KBB#2) debrief collection: capture the miss as TEXT now, while the
       // shuffled presentation is in hand — indexes would be meaningless by map time.
       if (run.misses && run.misses.length < 5) {
@@ -593,10 +610,10 @@
     }
     if (b.refundAttack) {
       b.refundAttack = false; res.refunded = true;
-      if (b.enemy.hp <= 0) return winBattle(run, res);
+      if (enemyDown(b.enemy)) return winBattle(run, res);
       b.question = null; return res;
     }
-    if (b.enemy.hp <= 0) return winBattle(run, res);
+    if (enemyDown(b.enemy)) return winBattle(run, res);
     b.attackIndex++;
     if (b.attackIndex >= b.maxAttacks) {
       res.loss = true; res.lossReason = 'finishing-blow';
@@ -873,7 +890,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     version: '0.2.0',
     CONFIG: CONFIG, ARTIFACTS: ARTIFACTS, ARTIFACTS_BY_ID: ARTIFACTS_BY_ID,
     Q5_GATED: Q5_GATED, CONSUMABLES: CONSUMABLES, CONSUMABLE_IDS: CONSUMABLE_IDS,
-    BOSS_MECHANICS: BOSS_MECHANICS, ENEMY_PATTERNS: ENEMY_PATTERNS,
+    BOSS_MECHANICS: BOSS_MECHANICS, BOSS_MECHANICS_ALL: BOSS_MECHANICS_ALL, ENEMY_PATTERNS: ENEMY_PATTERNS,
     makeRng: makeRng, sectionBand: sectionBand,
     createRun: createRun, startBattle: startBattle, startDungeon: startDungeon, drawQuestion: drawQuestion,
     submitAnswer: submitAnswer, computeDamage: computeDamage,
@@ -2138,6 +2155,9 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       if (b.over || e.hp <= 0) { icls += ' dead'; itxt = '\u2620 DESTROYED'; }   // (v0.98.0, K8) say what happened
       else if (e.locked) { icls += ' shield'; itxt = 'Immune \u00B7 lvl 3 Q'; }
       else if (e.shieldUp) { icls += ' shield'; itxt = 'Shield up'; }
+      else if (e.jamOn) { icls += ' shield'; itxt = 'Jamming \u00B7 artifacts offline'; }   // (v0.162.0, KBB#5)
+      else if (e.escortHp > 0) { icls += ' alert'; itxt = 'Escort \u2665 ' + e.escortHp; }
+      else if (e.boss && e.mechanic === 'leech') { itxt = (itxt ? itxt + ' \u00b7 ' : '') + 'siphons misses'; }
       else if (ci === 0) { icls += ' charge'; itxt = 'Charging'; }
       else { itxt = 'Incoming attack \u2694 ' + ci; alert = true; }
       if (alert) icls += ' alert';

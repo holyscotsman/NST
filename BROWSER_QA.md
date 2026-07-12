@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-KBB-MECH6 — the Deep Belt bosses (added v0.162.0).** Push past the Flagship into
+  section 4+: bosses should vary run to run — a HYDRA that splits at half health (watch for
+  the "Escort ♥ N" chip; the fight must not end until the escort dies), a SIPHON that
+  visibly heals when you miss, a SCRAMBLER whose "Jamming · artifacts offline" turns make
+  your artifact-boosted hits drop to base damage on alternating turns. WRONG: section 4's
+  boss always matching section 1's, or a jam turn that still gets artifact bonuses.
+
 - **QA-ARM-PENALTY — death has a fair price (added v0.161.0).** Build a lopsided loadout
   (say Engine 4, one point elsewhere), die twice: the loss should NOT always be Engine, and
   the Ship-destroyed panel must name the upgrade with its rebuy cost in coins. Also check the

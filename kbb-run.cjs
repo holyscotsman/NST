@@ -312,6 +312,63 @@ function newWindow() {
   ok(crossed && run2.misses.length === 0, 'starting the next battle clears the previous debrief');
 })();
 
+(function newMechanics() {
+  group('KBB#5: six boss mechanics — splitter / leech / jammer join, s4+ draws from the pool');
+  var V = newWindow(), K = V.KBB;
+  var right = function (q) { return q.multi ? q.correctIndices.slice() : q.correctIndex; };
+  var wrongA = function (q) { return q.multi ? [q.correctIndices[0]] : ((q.correctIndex + 1) % q.options.length); };
+  function bossRun(mech, seed) {
+    var run = K.createRun(H.makeCtx(K, { seed: seed }), { seed: seed });
+    run.section = 4; run.round = K.CONFIG.roundsPerSection - 1; run.phase = 'shop'; run.shop = null; K._test.buildShop(run);
+    K.leaveShop(run);
+    var e = run.battle.enemy;
+    e.mechanic = mech; e.locked = false; e.shieldUp = false;   // force the mechanic under test
+    if (mech !== 'enrage') e.pattern = 'flat';
+    return run;
+  }
+  // SELECTION: 1-3 teach in order (Flagship stays gated); 4+ draws all six across seeds
+  var selRun = K.createRun(H.makeCtx(K, { seed: SEED + 70 }), { seed: SEED + 70 });
+  selRun.round = K.CONFIG.roundsPerSection;
+  var m123 = [1, 2, 3].map(function (sx) { selRun.section = sx; return K.makeEnemy(selRun).mechanic; });
+  ok(m123.join(',') === 'shielded,enrage,gated', 'sections 1-3 keep the teaching cycle (Flagship stays gated)');
+  var seen = {};
+  for (var sd = 0; sd < 80; sd++) { selRun.section = 4 + (sd % 6); seen[K.makeEnemy(selRun).mechanic] = 1; }
+  ok(Object.keys(seen).length === 6, 'section 4+ draws from ALL SIX mechanics via run.rng (' + Object.keys(seen).sort().join('/') + ')');
+  // SPLITTER: crossing 50% detaches an escort that must ALSO die
+  var rs = bossRun('splitter', SEED + 71);
+  var es = rs.battle.enemy;
+  es.hp = Math.ceil(es.maxHp / 2) + 1;
+  var d1 = K.drawQuestion(rs); rs.squad.basePower = es.hp + 5;   // one clean overkill blow
+  K.submitAnswer(rs, right(d1.question), 900, 'attack');
+  ok(es.split === true && es.escortHp === Math.max(1, Math.round(es.maxHp * 0.35)) && rs.phase === 'battle',
+     'KBB#5 SPLITTER: the killing blow past 50% detaches an escort — the battle is NOT won yet');
+  var guardS = 0;
+  while (guardS++ < 12 && rs.phase === 'battle') {
+    var ds = K.drawQuestion(rs); if (!ds || !ds.question) break;
+    rs.squad.hp = rs.squad.maxHp; rs.battle.attackIndex = 0;     // stay alive/under cap: the ESCORT contract is under test
+    K.submitAnswer(rs, right(ds.question), 900, 'attack');
+  }
+  ok(rs.phase === 'shop' && es.escortHp === 0, 'KBB#5 SPLITTER: killing the escort finishes the fight (both bars must die)');
+  // LEECH: a wrong answer feeds it 15% maxHp (capped)
+  var rl = bossRun('leech', SEED + 72);
+  var el = rl.battle.enemy;
+  el.hp = Math.round(el.maxHp * 0.5);
+  var hp0 = el.hp, dl = K.drawQuestion(rl);
+  K.submitAnswer(rl, wrongA(dl.question), 3000, 'attack');
+  ok(el.hp === Math.min(el.maxHp, hp0 + Math.round(el.maxHp * 0.15)), 'KBB#5 LEECH: a miss feeds it +15% maxHp (' + hp0 + ' -> ' + el.hp + ')');
+  // JAMMER: odd turns suppress artifact damage hooks, telegraphed by drawQuestion parity
+  var rj = bossRun('jammer', SEED + 73);
+  var ej = rj.battle.enemy;
+  K.equipArtifact(rj, 'overclocked-core', true);                 // +4 flat modifyDamage
+  rj.battle.attackIndex = 0; K.drawQuestion(rj);
+  ok(ej.jamOn === false, 'KBB#5 JAMMER: even turns are clean (parity telegraph, like the shield)');
+  var dmgClean = K.computeDamage(rj, 8000);
+  rj.battle.attackIndex = 1; K.drawQuestion(rj);
+  ok(ej.jamOn === true, 'KBB#5 JAMMER: odd turns jam');
+  var dmgJam = K.computeDamage(rj, 8000);
+  ok(dmgJam === rj.squad.basePower && dmgClean > dmgJam, 'KBB#5 JAMMER: jammed turns strip artifact hooks to base power (' + dmgJam + ' vs ' + dmgClean + ')');
+})();
+
 (function flagshipArc() {
   group('KBB#3: the run has an arc — Flagship victory at section 3, then the endless Deep Belt');
   var V = newWindow(), K = V.KBB;
