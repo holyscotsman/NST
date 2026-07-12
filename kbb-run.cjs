@@ -857,6 +857,51 @@ function newWindow() {
   }
 })();
 
+/* ============ KBB#9 (v0.192.0): the gem is REAL — surge turns ============ */
+(function surge() {
+  group('KBB#9: 3-streak charges a SURGE; the enemy counter waits for the LAST action');
+  var V = newWindow(), K = V.KBB;
+  var right = function (q) { return q.multi ? q.correctIndices.slice() : q.correctIndex; };
+  var r = K.createRun(H.makeCtx(K, { seed: SEED + 94 }), { seed: SEED + 94 });
+  r.battle.enemy.maxHp = r.battle.enemy.hp = 500;               // keep it alive through the probe
+  ok(r.battle.energy === 1 && r.battle.maxEnergy === 1 && r.battle.surgeNext === false,
+     'a fresh battle opens at 1/1 energy, no surge');
+  K.submitAnswer(r, right(K.drawQuestion(r).question), 700, 'brace');
+  K.submitAnswer(r, right(K.drawQuestion(r).question), 700, 'brace');
+  ok(r.battle.surgeNext === false, 'two corrects: no surge yet');
+  K.submitAnswer(r, right(K.drawQuestion(r).question), 700, 'brace');
+  ok(r.battle.surgeNext === true, 'the 3-correct streak charges the surge');
+  var hpB = r.squad.hp, shB = r.squad.shield, aiB = r.battle.attackIndex;
+  var resS = K.submitAnswer(r, right(K.drawQuestion(r).question), 700, 'brace');
+  ok(resS.surgeOpen === true && r.battle.energy === 1 && r.battle.maxEnergy === 2,
+     'the charged correct opens a surge turn (2 energy, one spent)');
+  ok(r.squad.hp === hpB && r.squad.shield === shB + r.squad.block
+     && resS.enemyAttacked === false && r.battle.attackIndex === aiB,
+     'ORDERING: after the FIRST surge action the counter is HELD (brace intact, no hit, no window spent)');
+  var resT = K.surgeAction(r, 'attack');
+  ok(resT.surge === true && resT.damage > 0 && r.battle.energy === 0,
+     'the second action fires without a new question');
+  ok(resT.enemyAttacked === true && r.battle.attackIndex === aiB + 1,
+     'ORDERING: the counter fires EXACTLY once, after the last action; the whole surge costs ONE window slot');
+  ok(K.surgeAction(r, 'attack').error === 'no-surge', 'no energy left: a third action refuses');
+  // a miss spends the turn but never the charge
+  var r2 = K.createRun(H.makeCtx(K, { seed: SEED + 95 }), { seed: SEED + 95 });
+  r2.battle.enemy.maxHp = r2.battle.enemy.hp = 500; r2.squad.hp = r2.squad.maxHp = 200;
+  for (var c3 = 0; c3 < 3; c3++) K.submitAnswer(r2, right(K.drawQuestion(r2).question), 700, 'brace');
+  var q2 = K.drawQuestion(r2).question;
+  K.submitAnswer(r2, q2.multi ? [] : (q2.correctIndex + 1) % q2.options.length, 700, 'attack');
+  ok(r2.battle.surgeNext === true && r2.battle.energy === 0,
+     'a miss spends the turn but the charged surge WAITS for a correct');
+  // Twin Reactor: threshold 2
+  var r3 = K.createRun(H.makeCtx(K, { seed: SEED + 96 }), { seed: SEED + 96 });
+  r3.battle.enemy.maxHp = r3.battle.enemy.hp = 500;
+  K.equipArtifact(r3, 'twin-reactor');
+  K.submitAnswer(r3, right(K.drawQuestion(r3).question), 700, 'brace');
+  ok(r3.battle.surgeNext === false, 'Twin Reactor: one correct is still not enough');
+  K.submitAnswer(r3, right(K.drawQuestion(r3).question), 700, 'brace');
+  ok(r3.battle.surgeNext === true, 'Twin Reactor charges the surge at a 2-streak');
+})();
+
 /* ============ KBB#8 (v0.184.0): category resonance — themed pairs pay ============ */
 (function resonance() {
   group('KBB#8: a 2+ category pair pays its passive bonus (single-pass, same-seed deltas)');

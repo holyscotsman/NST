@@ -205,6 +205,8 @@
       description: '+1 coin on every correct answer.',
       hooks: { onCorrect: function (c) { c.api.addCoins(1); } } },
     /* UTILITY */
+    { id: 'twin-reactor', name: 'Twin Reactor', rarity: 'rare', category: 'utility',
+      description: 'Surge charges at a 2-correct streak instead of 3.', hooks: {} },   // (v0.192.0, V1.1 KBB#9)
     { id: 'witness-daemon', name: 'Witness Daemon', rarity: 'uncommon', category: 'utility',
       description: 'Reveal one wrong option on every question.',
       hooks: { onQuestionShown: function (c) { c.api.revealWrong(); } } },
@@ -508,6 +510,7 @@
       seenIds: [], question: null, reason: null, revealed: [],
       oneShot: false, retryUsed: false, coldTierUsed: false,
       refundAttack: false, skipEnemyCounter: false, overcharge: false,   // (v0.177.0, KBB#7)
+      energy: 1, maxEnergy: 1, surgeNext: false,                          // (v0.192.0, V1.1 KBB#9) the gem is REAL now
       lastDamage: 0, lastIncoming: 0, lastToHp: 0
     };
     run.phase = 'battle';
@@ -566,6 +569,34 @@
     run.phase = 'shop'; buildShop(run);
     return { ok: true };
   }
+  // (v0.192.0, V1.1 KBB#9) one action's resolution, shared by the answer path and the
+  // surge's second action. NO turn accounting here — finishTurn owns the tail.
+  function resolveAction(run, res, act, answerMs) {
+    var b = run.battle;
+    if (act === 'attack') {
+      var blockedThisTurn = (b.enemy.boss && b.enemy.mechanic === 'shielded' && b.enemy.shieldUp) || b.enemy.locked;
+      var dmg = blockedThisTurn ? 0 : computeDamage(run, answerMs);
+      if (blockedThisTurn) res.blocked = true;
+      // (v0.162.0, KBB#5) splitter: once the escort detaches, it soaks the attacks until it dies
+      if (b.enemy.escortHp > 0) { b.enemy.escortHp = Math.max(0, b.enemy.escortHp - dmg); res.damage = dmg; b.lastDamage = dmg; }
+      else { res.damage = dmg; b.enemy.hp -= dmg; b.lastDamage = dmg; }
+      if (b.enemy.boss && b.enemy.mechanic === 'splitter' && !b.enemy.split && b.enemy.hp <= b.enemy.maxHp / 2) {
+        b.enemy.split = true;
+        b.enemy.escortMax = b.enemy.escortHp = Math.max(1, Math.round(b.enemy.maxHp * 0.35));
+        run.log.push(b.enemy.name + ': hull splits \u2014 an escort core detaches (' + b.enemy.escortHp + ' HP)');
+      }
+      if (b.attackIndex === 0 && b.enemy.hp <= 0) b.oneShot = true;
+    } else if (act === 'brace') {
+      res.shieldGained = run.squad.block; b.lastDamage = 0;
+      run._api.addShield(res.shieldGained);
+      run.log.push((res.surge ? 'Surge brace' : 'Brace') + ': +' + res.shieldGained + ' shield');
+    } else {                                                    // repair
+      var hpBefore = run.squad.hp; b.lastDamage = 0;
+      run._api.heal(run.squad.healPower + (resonant(run, 'sustain') ? 1 : 0));   // (v0.184.0, KBB#8) sustain resonance
+      res.healed = run.squad.hp - hpBefore;
+      run.log.push((res.surge ? 'Surge repair' : 'Repair') + ': +' + res.healed + ' HP');
+    }
+  }
   function isMultiQ(q) { return !!(q && Array.isArray(q.correctIndices) && q.correctIndices.length); }
   function gradeAnswer(q, chosen) {
     if (isMultiQ(q)) {
@@ -595,33 +626,21 @@
       if (b.enemy.boss && b.enemy.mechanic === 'gated' && b.enemy.locked && q.difficulty >= CONFIG.gateDifficulty) {
         b.enemy.locked = false; run.log.push(b.enemy.name + ': core exposed');   // knowledge unlocks the core, whatever the action
       }
-      if (act === 'attack') {
-        var blockedThisTurn = (b.enemy.boss && b.enemy.mechanic === 'shielded' && b.enemy.shieldUp) || b.enemy.locked;
-        var dmg = blockedThisTurn ? 0 : computeDamage(run, answerMs);
-        if (blockedThisTurn) res.blocked = true;
-        // (v0.162.0, KBB#5) splitter: once the escort detaches, it soaks the attacks until it dies
-        if (b.enemy.escortHp > 0) { b.enemy.escortHp = Math.max(0, b.enemy.escortHp - dmg); res.damage = dmg; b.lastDamage = dmg; }
-        else { res.damage = dmg; b.enemy.hp -= dmg; b.lastDamage = dmg; }
-        if (b.enemy.boss && b.enemy.mechanic === 'splitter' && !b.enemy.split && b.enemy.hp <= b.enemy.maxHp / 2) {
-          b.enemy.split = true;
-          b.enemy.escortMax = b.enemy.escortHp = Math.max(1, Math.round(b.enemy.maxHp * 0.35));
-          run.log.push(b.enemy.name + ': hull splits \u2014 an escort core detaches (' + b.enemy.escortHp + ' HP)');
-        }
-        if (b.attackIndex === 0 && b.enemy.hp <= 0) b.oneShot = true;
-      } else if (act === 'brace') {
-        res.shieldGained = run.squad.block; b.lastDamage = 0;
-        run._api.addShield(res.shieldGained);
-        run.log.push('Brace: +' + res.shieldGained + ' shield');
-      } else {                                                    // repair
-        var hpBefore = run.squad.hp; b.lastDamage = 0;
-        run._api.heal(run.squad.healPower + (resonant(run, 'sustain') ? 1 : 0));   // (v0.184.0, KBB#8) sustain resonance
-        res.healed = run.squad.hp - hpBefore;
-        run.log.push('Repair: +' + res.healed + ' HP');
-      }
+      // (v0.192.0, V1.1 KBB#9) SURGE: a charged surge makes THIS correct answer worth two
+      // actions. The wrong path never gets here — answers stay the engine.
+      if (b.surgeNext) { b.surgeNext = false; b.maxEnergy = 2; b.energy = 2; run.log.push('\u26a1 SURGE \u2014 two actions this turn'); }
+      else { b.maxEnergy = 1; b.energy = 1; }
+      b.energy--;
+      resolveAction(run, res, act, answerMs);
       fireSide(run, 'onCorrect', { answerMs: answerMs });
       fireSide(run, 'onAttackResolved', { answerMs: answerMs });
+      var surgeThresh = hasArtifact(run, 'twin-reactor') ? 2 : 3;   // (KBB#9) Twin Reactor charges early
+      if (b.correctStreak >= surgeThresh && b.correctStreak % surgeThresh === 0 && !b.surgeNext) {
+        b.surgeNext = true; run.log.push('\u26a1 Surge charged \u2014 your next correct answer powers two actions');
+      }
     } else {
       b.wrongCount++; b.correctStreak = 0;
+      b.maxEnergy = b.maxEnergy || 1; b.energy = 0;   // (v0.192.0, KBB#9) a miss spends the turn (a charged surge WAITS for a correct)
       if (b.enemy.boss && b.enemy.mechanic === 'leech') {   // (v0.162.0, KBB#5) guessing FEEDS it — brace and think
         var lh = Math.round(b.enemy.maxHp * 0.15);
         var healedL = Math.min(b.enemy.maxHp, b.enemy.hp + lh) - b.enemy.hp;
@@ -640,6 +659,17 @@
       fireSide(run, 'onWrong', { answerMs: answerMs });
       fireSide(run, 'onAttackResolved', { answerMs: answerMs });
     }
+    // (v0.192.0, V1.1 KBB#9) mid-surge: hold the enemy's counter until the LAST action —
+    // the surge's whole point is brace THEN attack inside one enemy turn.
+    if (correct && b.energy > 0 && !b.refundAttack && !enemyDown(b.enemy)) {
+      b.question = null; res.surgeOpen = true; return res;
+    }
+    return finishTurn(run, res);
+  }
+  // (v0.192.0, V1.1 KBB#9) the turn tail — refund escape, win check, window accounting, the
+  // enemy counter, death check. Runs EXACTLY ONCE per turn, after the turn's FINAL action.
+  function finishTurn(run, res) {
+    var b = run.battle;
     if (b.refundAttack) {
       b.refundAttack = false; res.refunded = true;
       if (enemyDown(b.enemy)) return winBattle(run, res);
@@ -659,6 +689,19 @@
       if (run.squad.hp <= 0) { res.loss = true; res.lossReason = 'enemy-kill'; b.over = true; run.phase = 'lost'; finalizeLoss(run); return res; }
     }
     b.question = null; return res;
+  }
+  // (v0.192.0, V1.1 KBB#9) the surge's SECOND action: no new question — the earned energy
+  // powers it, then finishTurn releases the held enemy counter.
+  function surgeAction(run, action) {
+    var b = run.battle;
+    if (!b || b.over) return { error: 'no-active-battle' };
+    if (b.question || !(b.energy > 0)) return { error: 'no-surge' };
+    var act = (action === 'brace' || action === 'repair') ? action : 'attack';
+    var res = { correct: true, surge: true, action: act, damage: 0, blocked: false, shieldGained: 0, healed: 0, enemyHpBefore: b.enemy.hp, win: false, loss: false, lossReason: null, refunded: false, enemyAttacked: false, incoming: 0, coinsGained: 0 };
+    b.energy--;
+    resolveAction(run, res, act, 0);
+    fireSide(run, 'onAttackResolved', { answerMs: 0 });
+    return finishTurn(run, res);
   }
 
   // ---- Shop ----
@@ -937,7 +980,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     BOSS_MECHANICS: BOSS_MECHANICS, BOSS_MECHANICS_ALL: BOSS_MECHANICS_ALL, ENEMY_PATTERNS: ENEMY_PATTERNS,
     makeRng: makeRng, sectionBand: sectionBand,
     createRun: createRun, startBattle: startBattle, startDungeon: startDungeon, drawQuestion: drawQuestion,
-    submitAnswer: submitAnswer, computeDamage: computeDamage,
+    submitAnswer: submitAnswer, surgeAction: surgeAction, computeDamage: computeDamage,   // (v0.192.0, KBB#9)
     shopBuyArtifact: shopBuyArtifact, shopReplaceArtifact: shopReplaceArtifact,
     shopBuyConsumable: shopBuyConsumable, shopReroll: shopReroll,
     shopBuyBoost: shopBuyBoost, BOOSTS: BOOSTS, rarityWeightsFor: rarityWeightsFor,
@@ -1053,6 +1096,9 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-enemy .entext{text-align:left;min-width:0;flex:1;}');
     css.push('.kbb-enemy .ennm{font-weight:800;font-size:17px;color:' + P.gold + ';margin:1px 0 7px;overflow:hidden;text-overflow:ellipsis;}');
     css.push('.kbb-statline{display:flex;gap:12px;font-size:11px;color:' + P.dim + ';margin-top:7px;font-variant-numeric:tabular-nums;}');   /* (v0.187.0, FE#8) */
+    css.push('.kbb-surge{margin-top:9px;border:1.5px solid ' + P.gold + ';border-radius:10px;padding:8px 10px;background:rgba(255,200,87,.07);}');   /* (v0.192.0, KBB#9) */
+    css.push('.kbb-surge-lbl{color:' + P.gold + ';font-weight:800;font-size:12px;letter-spacing:.08em;margin-bottom:6px;}');
+    css.push('.kbb-surge-out{color:' + P.text + ';font-size:12.5px;font-weight:700;margin-top:7px;}');
     css.push('.kbb-statline b{color:' + P.text + ';font-weight:700;}');
     css.push('.kbb-intent{display:inline-block;font-size:13.5px;font-weight:800;padding:3px 9px;border-radius:8px;border:1px solid ' + P.peach + ';color:' + P.peach + ';white-space:nowrap;}');
     css.push('.kbb-intent.charge{border-color:' + P.gold + ';color:' + P.gold + ';}');
@@ -2362,7 +2408,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       var h = s.hand; if (!h) return; h.textContent = '';
       var b = s.run.battle;
       var gem = el(s.doc, 'div', 'kbb-gem');
-      gem.innerHTML = '<svg viewBox="0 0 60 66" aria-hidden="true"><polygon points="30,2 57,17 57,49 30,64 3,49 3,17" fill="none" stroke="' + PALETTE.aqua + '" stroke-width="2"/></svg><span class="gv">1/1</span><span class="gc">ENERGY</span>';
+      gem.innerHTML = '<svg viewBox="0 0 60 66" aria-hidden="true"><polygon points="30,2 57,17 57,49 30,64 3,49 3,17" fill="none" stroke="' + PALETTE.aqua + '" stroke-width="2"/></svg><span class="gv">' + (b && b.energy != null ? b.energy + '/' + b.maxEnergy : '1/1') + '</span><span class="gc">ENERGY</span>';   // (v0.192.0, KBB#9) engine truth
       s.gemVal = gem.querySelector('.gv');
       h.appendChild(gem);
       var fan = el(s.doc, 'div', 'kbb-fan'); s.handArts = fan;
@@ -2456,7 +2502,7 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
       if (s.paused) return;
       if (s.locked || s.run.phase !== 'battle') return;
       s.locked = true; hideTip(s);
-      if (s.gemVal) s.gemVal.textContent = '0/1';                       // (v0.113.0, D5) the turn's one play is spent
+      // (v0.192.0, KBB#9) the gem reads the ENGINE after grading (surge turns show 1/2 left)
       if (s.actRowEl && s.actRowEl.classList) s.actRowEl.classList.add('spent');   // (v0.127.0) the turn's play dims the move row
       if (s.playRs) s.playRs.textContent = 'RESOLVING\u2026';
       if (s.submitEl) s.submitEl.disabled = true;
@@ -2464,6 +2510,7 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
       var multi = isMultiQ(q);
       var ms = nowMs(s) - s.qShownAt;
       var res = submitAnswer(s.run, answer, ms, s.pendingAction || 'attack');
+      if (s.gemVal && s.run.battle) s.gemVal.textContent = s.run.battle.energy + '/' + s.run.battle.maxEnergy;
       if (!s.reduced) {
         var en = s.run.battle && s.run.battle.enemy;
         var ecol = en && en.boss ? PALETTE.gold : PALETTE.peach, esc = en && en.boss ? 2.3 : 1.9;
@@ -2582,11 +2629,41 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
           fb.appendChild(exEl);
         }
       }
-      var contLabel = (res.win || res.loss) ? 'See results \u25b8' : 'Continue \u25b8';
-      var cont = s.doc.createElement('button'); cont.className = 'kbb-cont'; cont.textContent = contLabel;
-      cont.onclick = function () { afterAnswer(s, res); };
-      fb.appendChild(cont);
-      try { cont.focus(); } catch (e) {}
+      if (res.surgeOpen) {
+        // (v0.192.0, V1.1 KBB#9) SURGE: the correct answer bought a SECOND action — pick it here
+        var sg = s.doc.createElement('div'); sg.className = 'kbb-surge';
+        sg.appendChild(el(s.doc, 'div', 'kbb-surge-lbl', '\u26a1 SURGE \u2014 one more action'));
+        var srow = s.doc.createElement('div'); srow.className = 'kbb-shoprow';
+        [['attack', '\u2694 Attack'], ['brace', '\ud83d\udee1 Brace'], ['repair', '\u271a Repair']].forEach(function (pairS) {
+          var sb = s.doc.createElement('button'); sb.className = 'kbb-btn kbb-surge-act'; sb.textContent = pairS[1];
+          sb.onclick = function () {
+            if (sg._used) return; sg._used = true;
+            var res2 = surgeAction(s.run, pairS[0]);
+            if (!res2 || res2.error) return;
+            var bs2 = srow.querySelectorAll('button'); for (var bi2 = 0; bi2 < bs2.length; bi2++) bs2[bi2].disabled = true;
+            if (s.gemVal && s.run.battle) s.gemVal.textContent = s.run.battle.energy + '/' + s.run.battle.maxEnergy;
+            sg.appendChild(el(s.doc, 'div', 'kbb-surge-out',
+              pairS[0] === 'attack' ? ('Surge attack: ' + res2.damage + ' damage') :
+              pairS[0] === 'brace' ? ('Surge brace: +' + res2.shieldGained + ' shield') :
+              ('Surge repair: +' + res2.healed + ' HP')));
+            var cont2 = s.doc.createElement('button'); cont2.className = 'kbb-cont';
+            cont2.textContent = (res2.win || res2.loss) ? 'See results \u25b8' : 'Continue \u25b8';
+            cont2.onclick = function () { afterAnswer(s, res2); };
+            sg.appendChild(cont2);
+            renderTop(s); renderEnemy(s); renderSquad(s); renderLog(s);
+            try { cont2.focus(); } catch (eF2) {}
+          };
+          srow.appendChild(sb);
+        });
+        sg.appendChild(srow);
+        fb.appendChild(sg);
+      } else {
+        var contLabel = (res.win || res.loss) ? 'See results \u25b8' : 'Continue \u25b8';
+        var cont = s.doc.createElement('button'); cont.className = 'kbb-cont'; cont.textContent = contLabel;
+        cont.onclick = function () { afterAnswer(s, res); };
+        fb.appendChild(cont);
+        try { cont.focus(); } catch (e) {}
+      }
       renderTop(s); renderEnemy(s); renderSquad(s); renderLog(s);
     }
     function afterAnswer(s, res) {

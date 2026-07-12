@@ -229,6 +229,15 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-KBB-SURGE — two actions on one answer (added v0.192.0).** In a KBB battle, get three
+  correct in a row: the log announces the charge, and your NEXT correct answer opens a gold
+  'SURGE — one more action' panel under the explanation with Attack/Brace/Repair buttons; the
+  ENERGY gem must read 1/2 at that moment and 0/2 after you pick. Crucially the enemy must NOT
+  counterattack between your two actions — brace first and the shield must still be intact
+  when your second action lands. With Twin Reactor equipped, the charge comes at two. WRONG:
+  a counter sneaking in mid-surge, the gem stuck at 1/1, or the surge panel offering a third
+  action.
+
 - **QA-DOMAIN-LENS — click the weak spot (added v0.190.0).** In the Codex, hover a heatmap
   tile: it should read as a button (aqua ring) and clicking it must open Study containing
   ONLY that domain (check the 'Question 1 of N' count and a few stems). In the Testing
