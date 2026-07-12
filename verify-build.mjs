@@ -586,7 +586,13 @@ async function runFrames(n = 6) {
         SN.core.profile.settings.reducedMotion = false; shell._applyMotion();
         ok("FE-motion: toggling off removes the attribute", !w.document.documentElement.hasAttribute("data-motion"));
         const css = w.document.documentElement.innerHTML;
-        ok("FE-motion: every media-only gap now has a [data-motion=reduced] twin (title drift / KBB strike / exam meter / CC banners)",
+        ok("FE#7: shell small-screen breakpoint + 44px touch targets + safe-area insets in the build",
+      html.includes("@media (max-width:600px){.sx-bridge-topright{flex-direction:column")
+      && (html.match(/env\(safe-area-inset-/g) || []).length >= 8
+      && html.includes(".sx-back{padding:7px 14px;font-size:13px;min-height:44px")
+      && html.includes(".sx-pausebtn{padding:7px 14px;font-size:13px;min-height:44px")
+      && html.includes("@media (pointer:coarse){.sx-daily-claim{min-height:44px"));
+    ok("FE-motion: every media-only gap now has a [data-motion=reduced] twin (title drift / KBB strike / exam meter / CC banners)",
           /\[data-motion=reduced\] \.sx-title-photo\.on/.test(css.replace(/\[data-motion=reduced\] \.sx-menu-photo\.on,/, ""))
           && /\[data-motion=reduced\] \.kbb-en-strike/.test(css)
           && /\[data-motion=reduced\] \.sx-exam-meter > i\{transition:none;\}/.test(css)

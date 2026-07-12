@@ -1874,7 +1874,7 @@
       "background:radial-gradient(130% 110% at 50% -10%,#15152a 0%,#0a0a16 55%,#050509 100%);",
       "color:var(--text);font-family:var(--font);}",
       ".sx-stage{position:absolute;inset:0;}",
-      ".sx-build-badge{position:absolute;right:8px;bottom:7px;z-index:9999;pointer-events:none;font-family:var(--font);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--dim);background:rgba(5,5,9,.55);border:1px solid var(--border);border-radius:6px;padding:2px 7px;opacity:.8;}",
+      ".sx-build-badge{position:absolute;right:calc(8px + env(safe-area-inset-right,0px));bottom:calc(7px + env(safe-area-inset-bottom,0px));z-index:9999;pointer-events:none;font-family:var(--font);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--dim);background:rgba(5,5,9,.55);border:1px solid var(--border);border-radius:6px;padding:2px 7px;opacity:.8;}",
       ".sx-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;}",
       ".sx-h1{font-size:46px;font-weight:800;margin:0;letter-spacing:.02em;color:var(--text);text-shadow:0 0 26px rgba(120,85,250,.6);}",
       ".sx-h2{font-size:22px;font-weight:700;margin:0 0 4px;}",
@@ -1917,7 +1917,7 @@
       ".sx-btn-ghost:hover{border-color:var(--iris);color:var(--text);}",
       ".sx-cine{padding:0;}.sx-cine-canvas{position:absolute;inset:0;width:100%;height:100%;}",
       ".sx-cap{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);max-width:620px;width:86%;font-size:16px;font-weight:600;color:#eef;text-shadow:0 0 12px #000,0 0 4px #000;pointer-events:none;line-height:1.4;}",
-      ".sx-skip{position:absolute;top:16px;right:16px;background:rgba(16,16,24,.7);border:1px solid var(--border);color:var(--mid);border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:600;cursor:pointer;}",
+      ".sx-skip{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));background:rgba(16,16,24,.7);border:1px solid var(--border);color:var(--mid);border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:600;cursor:pointer;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;}",
       ".sx-skip:hover{border-color:var(--aqua);color:var(--text);}",
       ".sx-menu{justify-content:flex-start;padding-top:40px;overflow-y:auto;padding-bottom:40px;}",   // (v0.60.0 P2·1, PLAYTEST A1) the progression head grew the menu past laptop folds — scroll, never clip
       ".sx-menu-photo,.sx-title-photo{position:absolute;inset:0;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:0;transition:opacity .8s ease;will-change:transform;}",
@@ -1966,13 +1966,17 @@
       // (v0.120.0, Jason) the shattered MCI-station vista was removed from the menu — the photo
       // background stays; the ARM campaign progress still reads on the ARM mission strip.
       // bottom dock
-      ".sx-bridge-dock{position:relative;z-index:3;display:flex;align-items:center;gap:16px;margin:22px 28px 20px;background:rgba(10,10,18,.72);border:1px solid #26263a;border-radius:14px;padding:12px 18px;backdrop-filter:blur(6px);}",
+      ".sx-bridge-dock{position:relative;z-index:3;display:flex;align-items:center;gap:16px;margin:22px calc(28px + env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) calc(28px + env(safe-area-inset-left,0px));background:rgba(10,10,18,.72);border:1px solid #26263a;border-radius:14px;padding:12px 18px;backdrop-filter:blur(6px);}",
       ".sx-dock-lbl{font-size:10.5px;letter-spacing:.18em;color:var(--dim);flex:none;}",
       ".sx-bridge-dock .sx-daily{flex:1;margin:0;display:flex;flex-direction:row;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-start;}",
       ".sx-bridge-dock .sx-daily-row{border:0;background:none;padding:0 6px;font-size:12px;flex:none;}",
       ".sx-dock-continue{font-family:inherit;font-size:14px;font-weight:800;color:#04222a;background:var(--aqua);border:0;border-radius:10px;padding:11px 18px;cursor:pointer;box-shadow:0 0 22px rgba(31,221,233,.45);}",
       ".sx-dock-continue:hover{filter:brightness(1.08);}",
       "@media (max-width:1000px){.sx-bridge-left{max-width:none;}.sx-bridge-right{display:none;}}",
+      /* (v0.182.0, V1.1 FE#7) phones: stack the top-right cluster, collapse the dock to a column,
+       * full-width CTA, 44px claim targets. Headless can't see layout — QA-SHELL-PHONE is the eyes. */
+      "@media (max-width:600px){.sx-bridge-topright{flex-direction:column;align-items:flex-end;gap:8px;}.sx-bridge-dock{flex-direction:column;align-items:stretch;gap:10px;margin:14px calc(12px + env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) calc(12px + env(safe-area-inset-left,0px));padding:12px;}.sx-bridge-dock .sx-daily{flex-direction:column;align-items:stretch;}.sx-bridge-dock .sx-daily-row{display:flex;align-items:center;justify-content:space-between;padding:6px 2px;}.sx-dock-cta,.sx-dock-continue{width:100%;}.sx-daily-claim{min-height:44px;padding:10px 14px;font-size:12px;}}",
+      "@media (pointer:coarse){.sx-daily-claim{min-height:44px;padding:10px 14px;font-size:12px;}}",
       ".sx-bridge-right{position:absolute;right:28px;top:150px;width:min(320px,25vw);z-index:3;background:rgba(10,10,20,.6);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;max-height:calc(100% - 320px);overflow-y:auto;}",
       ".sx-bridge-right:hover{border-color:rgba(120,85,250,.6);}",
       ".sx-br-lbl{font-size:10px;letter-spacing:.18em;color:var(--dim);margin-bottom:8px;}",
@@ -2119,11 +2123,11 @@
       ".sx-switch::after{content:'';position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--mid);transition:left .12s,background .12s;}",
       ".sx-switch.on{background:rgba(120,85,250,.35);border-color:var(--iris);}",
       ".sx-switch.on::after{left:23px;background:var(--iris300);}",
-      ".sx-gamebar{position:absolute;top:0;left:0;right:0;height:48px;display:flex;align-items:center;gap:12px;padding:0 12px;z-index:20;background:rgba(8,8,16,.6);border-bottom:1px solid var(--border);}",
+      ".sx-gamebar{position:absolute;top:0;left:0;right:0;height:calc(48px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;padding:env(safe-area-inset-top,0px) calc(12px + env(safe-area-inset-right,0px)) 0 calc(12px + env(safe-area-inset-left,0px));z-index:20;background:rgba(8,8,16,.6);border-bottom:1px solid var(--border);}",
       ".sx-gamebar-title{font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--mid);}",
-      ".sx-back{padding:7px 14px;font-size:13px;}",
+      ".sx-back{padding:7px 14px;font-size:13px;min-height:44px;display:inline-flex;align-items:center;}",   /* (v0.182.0, FE#7) 44px touch minimum */
       ".sx-game-root{position:absolute;top:48px;left:0;right:0;bottom:0;}",
-      ".sx-pausebtn{padding:7px 14px;font-size:13px;}",
+      ".sx-pausebtn{padding:7px 14px;font-size:13px;min-height:44px;display:inline-flex;align-items:center;}",
       ".sx-pause{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(120% 100% at 50% 0%,rgba(21,21,42,.86),rgba(5,5,9,.93));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}",
       ".sx-pause-card{display:flex;flex-direction:column;align-items:stretch;gap:11px;text-align:left;padding:24px 26px;border-radius:18px;background:rgba(13,13,24,.86);border:1px solid var(--border);box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 42px rgba(120,85,250,.18);width:min(380px,92vw);max-height:calc(100vh - 40px);overflow-y:auto;}",
       ".sx-genre-row{display:flex;align-items:center;gap:8px;}",

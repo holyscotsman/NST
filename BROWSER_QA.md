@@ -229,6 +229,15 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-SHELL-PHONE — the shell at phone width (added v0.182.0).** Narrow the window under
+  600px (or open on a phone): the bridge must stack — rank strip above the settings cluster
+  on the right, the daily dock as a single column with a full-width aqua Continue, each
+  mission row readable with its claim button a comfortable thumb target (44px). In a game,
+  Back and Pause must be easy taps inside the top bar. On a notched phone (or Chrome's
+  device toolbar with a notch preset), the top bar, dock, build badge, and cinematic Skip
+  must all sit clear of the notch/home-indicator. WRONG: a horizontal scrollbar, dock rows
+  wrapping raggedly, tiny claim chips, or UI under the notch.
+
 - **QA-CINE-FINALE — the finale is a mission select (added v0.181.0).** Watch the intro
   cinematic to the end (or replay it): the four mission lines must land one at a time,
   ~0.4s apart, each with a soft tick — game names tinted iris (Acropolis), aqua (Chasm),

@@ -143,7 +143,7 @@ Hyperdrive/cargo = **ARM** (sectors + cores), not CC — pending Jason's confirm
 
 ## §6 — Previously-tracked / meta (don't lose these)
 
-- [ ] 👁 **#15 touch + small-screen audit** (Part 3 close-out).
+- [ ] 👁 **#15 touch + small-screen audit** (Part 3 close-out). *(v0.182.0, V1.1 FE#7: the SHELL half is closed — 600px breakpoint, 44px back/pause/skip/claim targets, safe-area insets on gamebar/dock/badge/skip. The per-game audit remains open.)*
 - [ ] 🔒❓ **Multi-select content:** author the ~12 deferred multi items + adjudicate the 3 contradictory keys (boot+data / Production container / Q48). Folds into D1.
 - [ ] **Part 4 meta:** cross-run meta-progression/unlocks; audio event layer (boss stinger triggers on bosses); shell/menu polish; **Playwright** real-browser coverage (catches WebGL/layout/audio jsdom can't); robustness/perf hardening (mobile FPS/memory, error boundaries).
 
