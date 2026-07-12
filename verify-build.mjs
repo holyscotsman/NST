@@ -144,6 +144,19 @@ async function runFrames(n = 6) {
     const photo = w.document.querySelector(".sx-menu-photo");
     ok("menu has a moving photo background wired to menuBg", !!photo && photo.classList.contains("on") && /menuBg|data:image\/(jpeg|png)/.test(photo.style.backgroundImage || ""));
     ok("menu shows the NX-SRC crew crest", !!w.document.querySelector(".sx-crest .sx-crest-x"));
+    // (v0.143.0, V1.1 NIT#2) the quarantine pile resolved: three authored questions were dead
+    // to an invisible U+2028 in their @explain lines ("empty explanation" was a parser artifact)
+    {
+      const poolN = SN.core.questions.pool();
+      const hasStem = (frag) => poolN.some((q) => q.stem.indexOf(frag) >= 0);
+      ok("NIT#2: the three U+2028 casualties are LIVE again (a1q59/a1q60/a2q55)",
+        hasStem("Auto Detect for Reserve Capacity") && hasStem("establishing synchronous replication between them") && hasStem("application data is completely missing"));
+      ok("NIT#2: a1q52 stays HELD (option-note contradicts the key — Jason's call), bank at 229",
+        !hasStem("evaluating Nutanix DR to protect some business-critical")
+        && w.STARNIX_QUESTIONS.questions.length === 229);   // the raw bank (pool() adds fixture seeds)
+      ok("NIT#2: every bank question still carries optionNotes (indent-sensitive parse guard)",
+        w.STARNIX_QUESTIONS.questions.filter((q) => q.optionNotes && q.optionNotes.some((nn) => nn && nn.length)).length === 229);
+    }
     // (v0.141.0, V1.1 Flow#2) the flight plan: every branch of the PURE planner + the card
     {
       const R = SN.plan.rank, NOWP = 1750000000000, DAYP = 86400000;

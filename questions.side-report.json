@@ -1,28 +1,28 @@
 {
   "parsed": 233,
-  "live": 226,
-  "held": 7,
-  "multiLive": 20,
-  "withOptionNotes": 226,
+  "live": 229,
+  "held": 4,
+  "multiLive": 22,
+  "withOptionNotes": 229,
   "byDomain": {
     "security": 20,
     "architecture": 23,
     "lifecycle": 18,
     "networking": 32,
     "vms": 42,
-    "performance": 14,
+    "performance": 15,
     "storage": 25,
-    "data-protection": 26,
+    "data-protection": 28,
     "monitoring": 26
   },
   "byDifficulty": {
     "1": 18,
-    "2": 176,
-    "3": 32
+    "2": 177,
+    "3": 34
   },
   "heldSummary": {
     "key-unverified": 3,
-    "schema": 4
+    "content": 1
   },
   "heldItems": [
     {
@@ -38,22 +38,7 @@
     {
       "src": "a1q52",
       "stem": "A company is evaluating Nutanix DR to protect some business-crit",
-      "reason": "schema: empty explanation"
-    },
-    {
-      "src": "a1q59",
-      "stem": "Within Intelligent Operations, Capacity Configurations have been",
-      "reason": "schema: empty explanation"
-    },
-    {
-      "src": "a1q60",
-      "stem": "An administrator has deployed two Nutanix clusters and is now es",
-      "reason": "schema: empty explanation"
-    },
-    {
-      "src": "a2q55",
-      "stem": "An administrator is protecting an application and its data store",
-      "reason": "schema: empty explanation"
+      "reason": "content: option-2 note contradicts the key (claims the incorrect option meets the stem's criteria) — needs Jason's wording ruling"
     },
     {
       "src": "a3q7",

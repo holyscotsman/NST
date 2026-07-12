@@ -21,6 +21,10 @@ const REVIEW_HOLD = {
   a1q13: "key-unverified: Metro+Witness, medium confidence, portal table gated (review_notes.md)",
   a1q27: "key-unverified: App-Discovery prereqs not verifiable from open sources (review_notes.md)",
   a3q7:  "key-unverified: CAC failure reads as two valid answers, CRL vs OCSP (review_notes.md)",
+  // (v0.143.0, NIT#2) the old hold reason ("empty explanation") was a parser artifact — the real
+  // problem is CONTENT: the option-2 note praises the wrong option with the stem's exact success
+  // criteria ("provides the highest resiliency and lowest RPO" ... marked Incorrect). Jason's call.
+  a1q52: "content: option-2 note contradicts the key (claims the incorrect option meets the stem's criteria) — needs Jason's wording ruling",
 };
 
 function normStem(s){ return String(s||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim(); }
@@ -99,7 +103,10 @@ function schemaErrs(q){
 }
 
 // ---- run ----------------------------------------------------------------------
-const parsed = parse(readFileSync(new URL("./"+SRC, import.meta.url), "utf8"));
+// (v0.143.0, V1.1 NIT#2) normalize invisible Unicode line/paragraph separators to spaces.
+// Four authored @explain blocks carried U+2028 from a paste; the line-based parser read them
+// as "empty explanation" and silently killed the questions. Never again.
+const parsed = parse(readFileSync(new URL("./"+SRC, import.meta.url), "utf8").replace(/[\u2028\u2029]+/g, " "));
 const all = parsed.map(toQuestion);
 
 // exhibit images actually present on disk (keyed by filename stem, any extension).

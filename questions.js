@@ -1169,6 +1169,51 @@ window.STARNIX_QUESTIONS = {
       ]
     },
     {
+      "id": "mci-performance-o26c",
+      "cert": "NCP-MCI",
+      "domain": "performance",
+      "difficulty": 2,
+      "stem": "Within Intelligent Operations, Capacity Configurations have been set to Auto Detect for Reserve Capacity For Failure. For an RF2 cluster with 10 nodes, what effect does this have on Capacity Runway?",
+      "options": [
+        "Reserves 10% of CPU, memory and storage to account for a single node failure.",
+        "Reserves RAM and CPU from the fastest node to account for a single node failure.",
+        "Reserves CPU, RAM and storage from the largest node to account for a single node failure.",
+        "Reserves storage and memory from the largest node to account for a single node failure."
+      ],
+      "explanation": "For an RF2 cluster, “Auto Detect” dynamically calculates and reserves the amount of capacity required to absorb the failure of the single largest node — across all three dimensions: CPU, memory, and storage. This keeps the cluster protected and ensures Capacity Runway calculations accurately reflect the true usable capacity after accounting for node failure tolerance.",
+      "correctIndex": 2,
+      "optionNotes": [
+        "Incorrect: The system doesn’t reserve a flat percentage; instead, it reserves capacity equal to the impact of losing the largest node in the cluster.",
+        "Incorrect: Nutanix doesn’t consider “fastest” node in terms of CPU clock speed or performance. The calculation is based on capacity, not performance.",
+        "Correct: When Capacity Configurations > Reserve Capacity For Failure is set to Auto Detect, Nutanix Intelligent Operations automatically reserves enough CPU, RAM, and storage to handle the failure of the largest node in the cluster. This ensures that, in an RF2 cluster, a single node failure can be tolerated without impacting workload availability.",
+        "Incorrect: This option ignores CPU, which is also included in the reservation calculation. Nutanix reserves all three: CPU, memory, and storage."
+      ]
+    },
+    {
+      "id": "mci-data-protection-fvym",
+      "cert": "NCP-MCI",
+      "domain": "data-protection",
+      "difficulty": 3,
+      "stem": "An administrator has deployed two Nutanix clusters and is now establishing synchronous replication between them. However, the replication is failing immediately. Which two responses show the reason and corrective action an administrator can take to resolve the issue? (Choose two.)",
+      "options": [
+        "If the primary and the recovery clusters are on the same subnet, open the ports manually for communication.",
+        "If the primary and the recovery clusters are in different subnets, open the ports manually for communication.",
+        "Use the command modify firewall to open the ports on eth1 interface.",
+        "Use the command modify firewall to open the ports on eth0 interface."
+      ],
+      "explanation": "Synchronous (and asynchronous) replication between clusters in different subnets requires: 1) ports manually opened for communication between the two clusters (for replication, Stargate, etc.). 2) Proper routing and open firewall ports on the external interface (eth0). The modify_firewall command is used on eth0, because that’s the interface for external CVM-to-CVM communication across clusters. When clusters are on the same subnet, this configuration is not needed, since local traffic on br0 is already allowed by default.",
+      "correctIndices": [
+        1,
+        3
+      ],
+      "optionNotes": [
+        "Incorrect: When both clusters are on the same subnet, CVM communication typically uses the internal bridge (br0 or eth0), and required ports are already open by default; manual firewall modification is not necessary.",
+        "Correct: When clusters are in different subnets, firewall ports must be manually opened for communication between the two clusters (for replication, Stargate, etc.).",
+        "Incorrect: The eth1 interface is used for the internal backplane network (192.168.5.x) between CVMs and hypervisors, not for external replication traffic.",
+        "Correct: Replication traffic between clusters in different subnets travels via eth0 (the external data network). To enable communication, the firewall on eth0 must be modified to open required ports (e.g., 2009, 2020, etc.)."
+      ]
+    },
+    {
       "id": "mci-storage-ddyu",
       "cert": "NCP-MCI",
       "domain": "storage",
@@ -2328,6 +2373,30 @@ window.STARNIX_QUESTIONS = {
         "Incorrect: These log files are not mentioned in the provided context in relation to Life Cycle Management precheck failures for Network Interface Card firmware upgrades, making them less suitable choices for troubleshooting this specific issue."
       ],
       "image": "a2q54"
+    },
+    {
+      "id": "mci-data-protection-x75r",
+      "cert": "NCP-MCI",
+      "domain": "data-protection",
+      "difficulty": 3,
+      "stem": "An administrator is protecting an application and its data stored on Volume Groups using protection domains. During failover tests, all application VMs are restored successfully, however, the application data is completely missing. In which two ways can the protection domain configuration be adjusted to avoid this issue in the future? (Choose two.)",
+      "options": [
+        "Place Volume Groups in a separate Protection Domain.",
+        "Select the Auto protect related entities checkbox.",
+        "Use application consistent snapshots.",
+        "Manually add Volume Groups to Protected Entities."
+      ],
+      "explanation": "To avoid application data loss after restoring application VMs during failover tests, ensure the Volume Groups (VGs) containing the application data are included in the protection domain. There are two ways to achieve this: Select \"Auto protect related entities\": This automatically includes VGs associated with the protected VMs in the protection domain, ensuring their data is replicated. Manually add VGs to protected entities: This gives explicit control, guaranteeing the necessary VGs are protected even if \"Auto protect related entities\" is not enabled. This is useful for complex environments.",
+      "correctIndices": [
+        1,
+        3
+      ],
+      "optionNotes": [
+        "Incorrect: Separate protection domains can ensure data protection.",
+        "Correct : This option ensures that any entities related to the protected VMs, including VGs, are automatically included in the protection domain. This prevents accidental exclusion of the VGs from protection and ensures their data is also replicated during failover.",
+        "Incorrect: Application consistent snapshots can ensure data protection.",
+        "Correct: If \"Auto protect related entities\" isn't used, explicitly adding the VGs to the protected entities list within the protection domain configuration guarantees they are included in the protection and recovery process. This provides direct control over which VGs are protected, especially useful in complex environments."
+      ]
     },
     {
       "id": "mci-architecture-99yk",

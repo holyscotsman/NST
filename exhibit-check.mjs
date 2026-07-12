@@ -3,6 +3,8 @@
  *      INCLUDES them only with allowImages; pool() (the exam path) always sees them.
  *  (B) every LIVE @image question has an inlined data:image URI in window.STARNIX_EXHIBITS
  *      — so no live exhibit question can render blank / be unanswerable.
+ *  (C) (v0.143.0, NIT#2) the inverse: every INLINED exhibit is referenced by a live question
+ *      — orphan files on disk (a4q50) must not ship dead base64.
  * Each property carries a negative control. Run: node exhibit-check.mjs
  */
 import fs from "fs";
@@ -41,6 +43,13 @@ ok("STARNIX_EXHIBITS present with entries", Object.keys(EXH).length > 0);
 ok("every inlined exhibit is a data:image/* URI", badURI.length === 0);
 ok("every LIVE @image question has an inlined exhibit (integrity)", missing.length === 0);
 ok("[neg] a non-existent exhibit key is absent from the map", !EXH["__nope__"]);
+
+// ---- (C) no orphans: inlined keys \u2286 live-referenced keys ----
+const refIds = new Set(liveImg.map(q => q.image));
+const orphans = Object.keys(EXH).filter(k => !refIds.has(k));
+ok("NIT#2: every INLINED exhibit is referenced by a live question (no dead base64)", orphans.length === 0);
+ok("NIT#2: the a4q50 orphan file stays on disk but no longer ships",
+  !EXH["a4q50"] && fs.existsSync(new URL("./exhibit-images/a4q50.png", import.meta.url)));
 
 console.log(fails ? ("EXHIBIT CHECK: " + fails + " FAILED") : "EXHIBIT CHECK: ALL GREEN");
 process.exit(fails ? 1 : 0);

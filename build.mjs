@@ -38,13 +38,23 @@ const blocks = modules.map(([file, name]) =>
 const EXHIBIT_MIME = { png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif", webp:"image/webp", svg:"image/svg+xml" };
 function exhibitBlock() {
   const map = {};
+  // (v0.143.0, V1.1 NIT#2) reference-driven: inline ONLY images a live question cites. Orphan
+  // files (a4q50.png shipped ~50 KB of dead base64 while its question block sat commented out)
+  // stay on disk for later revival but never enter the deploy. Fails open if the bank is absent.
+  let refs = null;
+  try {
+    const qsrc = readFileSync(new URL("./questions.js", import.meta.url), "utf8");
+    refs = new Set([...qsrc.matchAll(/"image":\s*"([^"]+)"/g)].map((m) => m[1]));
+  } catch (e) { refs = null; }
   try {
     for (const f of readdirSync(new URL("./exhibit-images/", import.meta.url))) {
       const ext = (f.split(".").pop() || "").toLowerCase();
       const mime = EXHIBIT_MIME[ext];
       if (!mime) continue;
+      const key = f.replace(/\.[^.]+$/, "");
+      if (refs && !refs.has(key)) continue;
       const b64 = readFileSync(new URL("./exhibit-images/" + f, import.meta.url)).toString("base64");
-      map[f.replace(/\.[^.]+$/, "")] = "data:" + mime + ";base64," + b64;
+      map[key] = "data:" + mime + ";base64," + b64;
     }
   } catch (e) { /* no dir -> empty map */ }
   const n = Object.keys(map).length;

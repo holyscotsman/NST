@@ -910,7 +910,7 @@ What configuration will meet the company's requirements?
     Correct: Metro Availability provides high resiliency and low RPO.
 @domain: data-protection
 @difficulty: 2
-@explain: Metro Availability offers the lowest RPO (zero) and highest resiliency: Metro Availability, leveraging synchronous replication, ensures zero data loss and near-zero RTO in a failover scenario. This is the best option for business-critical applications requiring continuous availability. Since the company has two sites, placing Prism Central on each site provides management redundancy.  Protection Domains can also be used as part of this Configuration: Setting up Protection Domains within the Metro Availability configuration enhances disaster recovery capabilities, providing options for granular VM protection and orchestration for less critical applications. These would likely be configured with NearSync replication within the same Prism Central instance.  Other options are suboptimal: the single-site NearSync configuration and the synchronous-replication Protection Policy are not ideal because NearSync and synchronous replication alone don't offer the automatic failover and near-zero RTO provided by Metro Availability. The Prism Central Disaster Recovery + Metro AHV configuration is incorrect because the company has two active clusters (one in each site); it would imply a dedicated DR site, which the question does not support.
+@explain: Metro Availability offers the lowest RPO (zero) and highest resiliency: Metro Availability, leveraging synchronous replication, ensures zero data loss and near-zero RTO in a failover scenario. This is the best option for business-critical applications requiring continuous availability. Since the company has two sites, placing Prism Central on each site provides management redundancy. Protection Domains can also be used as part of this Configuration: Setting up Protection Domains within the Metro Availability configuration enhances disaster recovery capabilities, providing options for granular VM protection and orchestration for less critical applications. These would likely be configured with NearSync replication within the same Prism Central instance. Other options are suboptimal: the single-site NearSync configuration and the synchronous-replication Protection Policy are not ideal because NearSync and synchronous replication alone don't offer the automatic failover and near-zero RTO provided by Metro Availability. The Prism Central Disaster Recovery + Metro AHV configuration is incorrect because the company has two active clusters (one in each site); it would imply a dedicated DR site, which the question does not support.
 
 <!-- a1q53 -->
 ### Q
@@ -1049,7 +1049,7 @@ For an RF2 cluster with 10 nodes, what effect does this have on Capacity Runway?
     Incorrect: This option ignores CPU, which is also included in the reservation calculation. Nutanix reserves all three: CPU, memory, and storage.
 @domain: performance
 @difficulty: 2
-@explain: For an RF2 cluster, “Auto Detect” dynamically calculates and reserves the amount of capacity required to absorb the failure of the single largest node — across all three dimensions: CPU, memory, and storage. This keeps the cluster protected and ensures Capacity Runway calculations accurately reflect the true usable capacity after accounting for node failure tolerance.
+@explain: For an RF2 cluster, “Auto Detect” dynamically calculates and reserves the amount of capacity required to absorb the failure of the single largest node — across all three dimensions: CPU, memory, and storage. This keeps the cluster protected and ensures Capacity Runway calculations accurately reflect the true usable capacity after accounting for node failure tolerance.
 
 <!-- a1q60 -->
 ### Q
@@ -1068,7 +1068,7 @@ Which two responses show the reason and corrective action an administrator can t
 @domain: data-protection
 @difficulty: 3
 @multi: true
-@explain: Synchronous (and asynchronous) replication between clusters in different subnets requires: 1 1- Manually opened for communication between the two clusters (for replication, Stargate, etc.). 2 2- Proper routing and open firewall ports on the external interface (eth0).  The modify_firewall command is used on eth0, because that’s the interface for external CVM-to-CVM communication across clusters.  When clusters are on the same subnet, this configuration is not needed, since local traffic on br0 is already allowed by default.
+@explain: Synchronous (and asynchronous) replication between clusters in different subnets requires: 1) ports manually opened for communication between the two clusters (for replication, Stargate, etc.). 2) Proper routing and open firewall ports on the external interface (eth0). The modify_firewall command is used on eth0, because that’s the interface for external CVM-to-CVM communication across clusters. When clusters are on the same subnet, this configuration is not needed, since local traffic on br0 is already allowed by default.
 
 <!-- a2q1  corrected -->
 ### Q
@@ -2053,7 +2053,7 @@ In which two ways can the protection domain configuration be adjusted to avoid t
 @domain: data-protection
 @difficulty: 3
 @multi: true
-@explain: To avoid application data loss after restoring application VMs during failover tests, ensure the Volume Groups (VGs) containing the application data are included in the protection domain. There are two ways to achieve this:  Select "Auto protect related entities": This automatically includes VGs associated with the protected VMs in the protection domain, ensuring their data is replicated.  Manually add VGs to protected entities: This gives explicit control, guaranteeing the necessary VGs are protected even if "Auto protect related entities" is not enabled. This is useful for complex environments.
+@explain: To avoid application data loss after restoring application VMs during failover tests, ensure the Volume Groups (VGs) containing the application data are included in the protection domain. There are two ways to achieve this: Select "Auto protect related entities": This automatically includes VGs associated with the protected VMs in the protection domain, ensuring their data is replicated. Manually add VGs to protected entities: This gives explicit control, guaranteeing the necessary VGs are protected even if "Auto protect related entities" is not enabled. This is useful for complex environments.
 
 <!-- a2q56 -->
 ### Q
