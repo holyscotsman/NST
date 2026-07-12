@@ -1062,6 +1062,16 @@
         lens.appendChild(rd);
       }
     } catch (eRz0) {}
+    // (v0.203.0, V1.1 NIT#10) drill exactly what you wrote about
+    try {
+      var notedQs = core.questions.pool().filter(function (qN) { return !!((core.profile.notes || {})[qN.id]); });
+      if (notedQs.length) {
+        var nb10 = el("button", "sx-exam-len sx-exam-len-noted");
+        nb10.innerHTML = '<span class="t">\u270e Noted questions</span><span class="s">' + notedQs.length + ' with your own memos \u00b7 drill exactly what you wrote about</span>';
+        this._on(nb10, "click", function () { self._examMode = "study"; self.showExam(null, { questions: notedQs, mode: "study" }); });
+        lens.appendChild(nb10);
+      }
+    } catch (eN10) {}
     // (v0.190.0, V1.1 NIT#8) the domain lens — 'study just storage' is one tap from the
     // Testing station too, closing the loop the readiness composite opens.
     try {
@@ -1148,6 +1158,19 @@
           try { if (core.persistence && core.persistence.update) core.persistence.update(function (p) { if (blob) p.examResume = blob; else delete p.examResume; }); } catch (eDr) {}
         },
         onComplete: function (sum) { self._recordExam(sum); },
+        // (v0.203.0, V1.1 NIT#10) per-question memos — the learner's own words on the profile
+        notes: {
+          get: function (qid) { try { return (core.profile.notes || {})[qid] || ""; } catch (eNg) { return ""; } },
+          set: function (qid, text) {
+            try {
+              core.persistence.update(function (p) {
+                var ns = p.notes || (p.notes = {});
+                var tN = String(text || "").trim().slice(0, 500);
+                if (tN) ns[qid] = tN; else delete ns[qid];
+              });
+            } catch (eNs) {}
+          }
+        },
         onRedrill: function (qs) { self.showExam(null, { questions: qs, mode: "study" }); },   // (v0.87.0, L2)
         onExit: function () { self.showMenu(); },
         onRetry: function () { self.showExam(count, opts); }

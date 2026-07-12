@@ -182,6 +182,11 @@
       ".sx-exam-confirm{display:block;margin:14px auto 0;border:0;border-radius:11px;padding:12px 30px;font:700 14px Montserrat,Arial,sans-serif;cursor:pointer;background:linear-gradient(90deg," + P.iris + "," + P.aqua + ");color:#fff;opacity:.35;pointer-events:none;}",
       ".sx-exam-confirm.on{opacity:1;pointer-events:auto;}",
       ".sx-exam-fb{margin-top:16px;padding:14px 16px;border-radius:12px;background:rgba(20,20,29,.85);border:1px solid rgba(255,255,255,.12);}",
+      ".sx-exam-note{margin-top:12px;border-top:1px dashed rgba(255,255,255,.14);padding-top:10px;}",   /* (v0.203.0, NIT#10) */
+      ".sx-note-lbl{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:" + P.dim + ";margin-bottom:4px;}",
+      ".sx-note-txt{font-size:13px;line-height:1.5;color:#cfe9d8;white-space:pre-wrap;margin-bottom:8px;}",
+      ".sx-note-ta{width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;background:rgba(10,10,18,.8);color:#F2F2F7;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:8px;margin:6px 0;}",
+      ".sx-note-rv{font-size:12px;color:#cfe9d8;margin-top:5px;}",
       ".sx-exam-fb .v{font-weight:800;font-size:14px;margin-bottom:6px;}",
       ".sx-exam-fb .v.ok{color:" + P.mantis + ";} .sx-exam-fb .v.bad{color:" + P.peach + ";}",
       ".sx-exam-fb .ex{font-size:14px;line-height:1.55;color:" + P.text + ";}",
@@ -311,6 +316,7 @@
     var rng = (typeof rngIn === "function") ? rngIn : ((rngIn && typeof rngIn.next === "function") ? rngIn.next : Math.random);
     var audio = opts.audio || null;
     var mastery = opts.mastery || null;
+    var notes = opts.notes || null;   // (v0.203.0, V1.1 NIT#10) {get(qid), set(qid, text)} — the learner's own memos
     var onExit = typeof opts.onExit === "function" ? opts.onExit : function () {};
     var reducedMotion = !!opts.reducedMotion;
     var mode = (opts.mode === "study" || opts.mode === "sim") ? opts.mode : "blitz";
@@ -647,6 +653,42 @@
         }
       }
       fb.innerHTML = h;
+      // (v0.203.0, V1.1 NIT#10) 'why I missed this' — externalizing the confusion is the
+      // best-evidenced retention move after a miss. The learner's OWN words, labeled as such;
+      // zero learning-integrity exposure (authored content untouched).
+      if (notes) {
+        var nb = el("div", "sx-exam-note");
+        var prevN = notes.get(q.id) || "";
+        var prevEl = el("div", "sx-note-prev");
+        function showPrev(txtN, lbl) {
+          prevEl.innerHTML = '<span class="sx-note-lbl">' + lbl + '</span>';
+          var pt = el("div", "sx-note-txt"); pt.textContent = txtN; prevEl.appendChild(pt);
+          prevEl.style.display = "";
+        }
+        if (prevN) showPrev(prevN, "Your note from last time \u00b7 your words, not doctrine:");
+        else prevEl.style.display = "none";
+        nb.appendChild(prevEl);
+        var ta = el("textarea", "sx-note-ta"); ta.maxLength = 500; ta.rows = 3;
+        ta.placeholder = "Why did this one bite? Saved to this question (max 500 chars).";
+        ta.style.display = "none"; ta.value = prevN;
+        var tog = el("button", "sx-exam-btn ghost sx-note-toggle", prevN ? "\u270e Edit your note" : "\u270e Add a note");
+        tog.type = "button";
+        var sv = el("button", "sx-exam-btn primary sx-note-save", "Save note"); sv.type = "button"; sv.style.display = "none";
+        on(tog, "click", function () {
+          var openT = ta.style.display !== "none";
+          ta.style.display = openT ? "none" : "block"; sv.style.display = ta.style.display;
+          if (!openT) { try { ta.focus(); } catch (eF) {} }
+        });
+        on(sv, "click", function () {
+          notes.set(q.id, ta.value);
+          var t2 = String(ta.value || "").trim().slice(0, 500);
+          if (t2) { showPrev(t2, "Your note \u00b7 saved:"); tog.textContent = "\u270e Edit your note"; }
+          else { prevEl.style.display = "none"; tog.textContent = "\u270e Add a note"; }
+          ta.style.display = "none"; sv.style.display = "none";
+        });
+        nb.appendChild(tog); nb.appendChild(ta); nb.appendChild(sv);
+        fb.appendChild(nb);
+      }
       var nav = el("div", "sx-exam-nav");
       var pv = el("button", "sx-exam-btn ghost", "&larr; Previous"); pv.type = "button"; pv.disabled = (idx === 0);
       var isLastAnswered = (idx === S.results.length - 1);
@@ -877,6 +919,8 @@
               var s4 = '<div class="q">' + (r4.correct ? '\u2713 ' : '\u2717 ') + esc(q4.stem) + "</div>";
               s4 += '<div class="a">' + esc(cs4.map(function (ci4) { return q4.options[ci4]; }).join(" \u00b7 ")) + "</div>";
               if (q4.explanation) s4 += capExplainHTML(q4.explanation);
+              var nt4 = notes && notes.get ? (notes.get(q4.id) || "") : "";
+              if (nt4) s4 += '<div class="sx-note-rv"><b>Your note:</b> ' + esc(nt4) + '</div>';   // (NIT#10)
               item4.innerHTML = s4;
               rvAll.appendChild(item4);
             });

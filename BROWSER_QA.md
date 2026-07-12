@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-NOTES — your own words come back (added v0.203.0).** Miss a Study question, tap
+  '✎ Add a note', write why it bit you, save. Meet the question again (any mode's graded
+  view): your note must lead the feedback, clearly labeled as YOURS. The Testing station
+  should offer 'Noted questions (N)'; the sim end-screen reviews show notes read-only.
+  Long paste: silently trimmed to 500. Clearing the text and saving removes the note (and
+  the tile count drops). WRONG: notes leaking into un-graded views, a note shown as if it
+  were authored doctrine, or the textarea fighting phone keyboards.
+
 - **QA-CC-OVERTAKE — the chase pays (added v0.202.0).** Run CC past 53 km (a boost helps):
   just after the biome shift settles, one BCM straggler should visibly fall back through the
   fog — growing, wobbling, trailing sparks — and sweep past you as 'SQUADRON: 4 REMAIN'

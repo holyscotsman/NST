@@ -3122,6 +3122,40 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // N10. NIT#10 (v0.203.0): 'why I missed this' memos
+  {
+    const qN10 = SN.core.questions.pool().find(q => !q.correctIndices && !q.image);
+    if (SN.core.profile.notes) delete SN.core.profile.notes[qN10.id];
+    shell._examMode = "study";
+    shell.showExam(null, { questions: [qN10], mode: "study" });
+    await wait(20);
+    w.document.querySelector(".sx-exam-opt").click(); await wait(10);
+    { const cf10 = w.document.querySelector(".sx-exam-confirm"); if (cf10) { cf10.click(); await wait(10); } }
+    ok("N10: the graded view offers 'Add a note' (the learner's own words)",
+      !!w.document.querySelector(".sx-note-toggle") && !w.document.querySelector(".sx-note-prev:not([style*='none'])"));
+    w.document.querySelector(".sx-note-toggle").click();
+    w.document.querySelector(".sx-note-ta").value = "x".repeat(600);
+    w.document.querySelector(".sx-note-save").click(); await wait(10);
+    ok("N10: saving persists to profile.notes, hard-capped at 500 chars",
+      ((SN.core.profile.notes || {})[qN10.id] || "").length === 500);
+    shell.showMenu(); await wait(10);
+    shell.showExam(null, { questions: [qN10], mode: "study" }); await wait(20);
+    w.document.querySelector(".sx-exam-opt").click(); await wait(10);
+    { const cf11 = w.document.querySelector(".sx-exam-confirm"); if (cf11) { cf11.click(); await wait(10); } }
+    ok("N10: the note comes back when the question reappears ('from last time')",
+      /Your note from last time/.test((w.document.querySelector(".sx-note-prev") || {}).textContent || ""));
+    shell.showMenu(); await wait(10);
+    shell.showExamSetup();
+    const ntile10 = [...w.document.querySelectorAll(".sx-exam-len")].find(t => /Noted questions/.test(t.textContent));
+    ok("N10: the setup rail drills exactly what you wrote about (1 noted)",
+      !!ntile10 && /1 with your own memos/.test(ntile10.textContent));
+    ntile10.dispatchEvent(new w.Event("click", { bubbles: true })); await wait(20);
+    ok("N10: the noted drill scopes to the annotated set", SN.shell.screen === "exam"
+      && / of 1$/.test((w.document.querySelector(".sx-exam-prog") || {}).textContent || ""));
+    shell.showMenu(); await wait(10);
+    delete SN.core.profile.notes[qN10.id];
+  }
+
   // M10. Menu#10 (v0.199.0): dock reset countdown + the claimable badge
   {
     const realNow10 = SN.core.clock.now;
