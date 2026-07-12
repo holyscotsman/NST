@@ -190,6 +190,7 @@
     var sectorLost = [];              // collect-fails this attempt (commit on home)
     var lostPool = [];                // (v0.131.0, V1.1 ARM#1) run-level resurfacing pool — lost cores COME BACK
     var reducedMotion = false, extraTime = false, musicOn = true, sfxOn = true, highContrast = false;
+    var smoothDiff = true;   // (v0.155.0, V1.1 ARM#4) per-sector difficulty blend (02 s3D shape toggle; OFF = classic tier steps)
     var shieldRegenDelay = 4, shieldRegenRate = 18;   // (v0.93.0, A8) Shield Cell upgrades these
     var runSeq = 0;   // (v0.91.0) per-mount run counter: "Fly again"/sector replays draw fresh questions
 
@@ -344,6 +345,7 @@
       COL = paletteFrom(THEME, highContrast);
       TRAIL = SET.shipTrailColor || COL.aqua;      // (v0.57.0 unit 7) mastery cosmetic: shell-resolved hex, falls back to the stock aqua
       reducedMotion = !!SET.reducedMotion; extraTime = !!SET.extraTime;
+      smoothDiff = SET.armSmoothDiff !== false;   // (v0.155.0, ARM#4) default ON
       // (v0.106.0, G2) Resume: restore the checkpoint and open at that sector's briefing
       if (ctx.resumeData && ctx.resumeData.sector) {
         var rz = ctx.resumeData;
@@ -935,6 +937,22 @@
     // T1 mixes in ORBITERS (aqua diamond, circles at standoff, quicker trigger), T2 adds
     // LANCERS (peach chevron, no gun: 0.6s telegraph then a ramming dash). Sectors 9-12 were
     // just spongier copies of sector 1's one enemy — now the belt escalates in KIND.
+    // (v0.155.0, V1.1 ARM#4) the difficulty CLIFFS smoothed: tier HP arrives as a spawn-
+    // population MIX (entry sector 40% new tier, next 70%, then 100%) and shot damage lerps
+    // 10 -> 18 across all 12 sectors (max +1/sector; the old tables jumped +4 at 5 and 9).
+    // smoothDiff OFF = the classic hard steps (02 s3D difficulty-shape toggle).
+    function enemyHpFor(sec) {
+      var t = tierOf(sec);
+      if (!smoothDiff || t === 0) return ENEMY_HP_BY_TIER[t];
+      var entry = t === 1 ? 5 : 9;
+      var p = sec === entry ? 0.4 : (sec === entry + 1 ? 0.7 : 1);
+      return runRng.next() < p ? ENEMY_HP_BY_TIER[t] : ENEMY_HP_BY_TIER[t - 1];
+    }
+    function shotDmgFor(sec) {
+      if (!smoothDiff) return ENEMY_SHOT_DMG_BY_TIER[tierOf(sec)];
+      var lo = ENEMY_SHOT_DMG_BY_TIER[0], hi = ENEMY_SHOT_DMG_BY_TIER[2];
+      return Math.round(lo + (Math.min(SECTORS, Math.max(1, sec)) - 1) * (hi - lo) / (SECTORS - 1));
+    }
     function rollEnemyType() {
       var t = tierOf(sector);
       if (t === 0) return null;
@@ -947,17 +965,17 @@
       var ang = runRng.next() * TAU, d = rnd(W * 0.55, W * 0.9);
       var x = clamp(ship.x + Math.cos(ang) * d, 60, MAP_W - 60);
       var y = clamp(ship.y + Math.sin(ang) * d, 60, MAP_H - 60);
-      enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 });
+      enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: enemyHpFor(sector), type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 });
     }
     function spawnGuardians(core, n) {
-      for (var i = 0; i < n; i++) { var a = i / n * TAU; enemies.push({ x: core.x + Math.cos(a) * 70, y: core.y + Math.sin(a) * 70, vx: 0, vy: 0, r: 13, coreId: core.idx, shootCD: rnd(1, 2), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 }); }
+      for (var i = 0; i < n; i++) { var a = i / n * TAU; enemies.push({ x: core.x + Math.cos(a) * 70, y: core.y + Math.sin(a) * 70, vx: 0, vy: 0, r: 13, coreId: core.idx, shootCD: rnd(1, 2), hp: enemyHpFor(sector), type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 }); }
     }
     function spawnWave(n) {
       for (var k = 0; k < n; k++) {
         if (countEnemies(null) >= 10) break;
         var p = null, tr = 0;
         do { p = { x: rnd(80, MAP_W - 80), y: rnd(80, MAP_H - 80) }; tr++; } while (dist2(p.x, p.y, ship.x, ship.y) < 560 && tr < 40);
-        enemies.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.6), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 });
+        enemies.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.6), hp: enemyHpFor(sector), type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 });
       }
     }
     // S3: full-collection escape gauntlet — a ring of enemies around the ship. Far enough + slow enough to be escapable, not a wall.
@@ -967,7 +985,7 @@
         var d = rnd(W * 0.55, W * 0.95);                           // outside the immediate threat radius
         var x = clamp(ship.x + Math.cos(ang) * d, 60, MAP_W - 60);
         var y = clamp(ship.y + Math.sin(ang) * d, 60, MAP_H - 60);
-        enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: "panic", shootCD: rnd(1.8, 3.2), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: null, orb: 1, lstate: 0, lt: 0, lang: 0 });   // panic swarm stays chasers (drama)
+        enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: "panic", shootCD: rnd(1.8, 3.2), hp: enemyHpFor(sector), type: null, orb: 1, lstate: 0, lt: 0, lang: 0 });   // panic swarm stays chasers (drama)
       }
     }
     function panicCount() { var n = 0; for (var i = 0; i < enemies.length; i++) if (enemies[i].coreId === "panic") n++; return n; }
@@ -1341,7 +1359,7 @@
     function spawnEscortDrone(side) {   // (v0.142.0, ARM#2) B2/B4: drones launch from the flanks
       var s = bossSpriteWH(), BA0 = bossArena();
       var x = clamp(boss.x + side * s.dw * 0.45, BA0.l + 20, BA0.l + BA0.w - 20);
-      enemies.push({ x: x, y: boss.y + s.dh * 0.35, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: null, orb: 1, lstate: 0, lt: 0, lang: 0 });   // escorts stay chasers (the arena is narrow)
+      enemies.push({ x: x, y: boss.y + s.dh * 0.35, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: enemyHpFor(sector), type: null, orb: 1, lstate: 0, lt: 0, lang: 0 });   // escorts stay chasers (the arena is narrow)
     }
     function updateBoss(dt) {
       if (!boss) return;
@@ -2159,6 +2177,7 @@
       panel.appendChild(toggleRow("Sound effects", sfxOn, function (v) { sfxOn = v; try { AUD.setSfx(v); } catch (e) {} persistSetting("sfx", v); }));
       panel.appendChild(toggleRow("Reduced motion", reducedMotion, function (v) { reducedMotion = v; persistSetting("reducedMotion", v); }));
       panel.appendChild(toggleRow("Extra time", extraTime, function (v) { extraTime = v; persistSetting("extraTime", v); }));
+      panel.appendChild(toggleRow("Smooth difficulty", smoothDiff, function (v) { smoothDiff = v; persistSetting("armSmoothDiff", v); }));   // (v0.155.0, ARM#4 / 02 s3D)
       if (devMode()) {   // (cleanup) dev tools only in dev mode (STARNIX_DEV / ?dev) — no longer shipped to players
         panel.appendChild(mk("div", "arm-eyebrow e-peach", "\u2699 Dev tools"));
         var devrow = mk("div", "arm-btnrow");
@@ -2352,7 +2371,7 @@
       }
       // enemy ram + enemy bullets
       for (i = enemies.length - 1; i >= 0; i--) { var er = enemies[i]; if (dist2(er.x, er.y, ship.x, ship.y) < er.r + R) { burst(er.x, er.y, COL.peach, 12); var ram = er.type === 'lancer' ? 26 : 18; enemies[i] = enemies[enemies.length - 1]; enemies.pop(); if (invuln <= 0) damage(ram); } }   // (v0.148.0, ARM#3) the lancer's whole threat is its hull
-      for (i = 0; i < ebullets.length; i++) { var xb = ebullets[i]; if (!xb.active) continue; if (dist2(xb.x, xb.y, ship.x, ship.y) < R + 3) { xb.active = false; if (invuln <= 0) damage(ENEMY_SHOT_DMG_BY_TIER[tierOf(sector)]); } }
+      for (i = 0; i < ebullets.length; i++) { var xb = ebullets[i]; if (!xb.active) continue; if (dist2(xb.x, xb.y, ship.x, ship.y) < R + 3) { xb.active = false; if (invuln <= 0) damage(shotDmgFor(sector)); } }   // (v0.155.0, ARM#4) lerped, no cliff
 
       updateParticles(dt);
       checkCombatCleared();
@@ -3103,6 +3122,9 @@
         isBossSector: function (sec) { return isBossSector(sec); },
         nextSector: function () { nextSector(); },
         rollTypes: function (n, sec) { var keep = sector; if (sec) sector = sec; var out = []; for (var i = 0; i < (n || 100); i++) out.push(rollEnemyType()); sector = keep; return out; },   // (v0.148.0, ARM#3)
+        hpMix: function (n, sec) { var keep = sector; if (sec) sector = sec; var out = {}; for (var i = 0; i < (n || 300); i++) { var h = enemyHpFor(sector); out[h] = (out[h] || 0) + 1; } sector = keep; return out; },   // (v0.155.0, ARM#4)
+        shotDmg: function (sec) { return shotDmgFor(sec); },
+        setSmoothDiff: function (v) { smoothDiff = !!v; },
         spawnTyped: function (ty, x, y) { enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: 9, hp: 99, type: ty, orb: 1, lstate: 0, lt: 0, lang: 0 }); return enemies.length - 1; },
         enemyInfo: function () { return enemies.map(function (e) { return { type: e.type || 'chaser', x: e.x, y: e.y, lstate: e.lstate, d: dist2(e.x, e.y, ship.x, ship.y) }; }); },
         cargo: function () { return held.length; },

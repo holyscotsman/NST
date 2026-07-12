@@ -2139,7 +2139,10 @@ async function runFrames(n = 6) {
 
     // evaluate(): one-shot unlock + XP award + list-order cascade into commander
     {
-      const p = { xp: 3290, rankSeen: 0, totals: { questionsSeen: 1 }, mastery: {}, streaks: {}, streaksBest: {}, achievements: {}, bests: {}, settings: {} };
+      // domain-sweep is the ONE def that reads LIVE stats() — pre-unlock it so this synthetic
+      // cascade probe is hermetic (it flaked whenever earlier timing-sensitive drives happened
+      // to touch all nine domains). Its own pins cover it above.
+      const p = { xp: 3290, rankSeen: 0, totals: { questionsSeen: 1 }, mastery: {}, streaks: {}, streaksBest: {}, achievements: { "domain-sweep": 1 }, bests: {}, settings: {} };
       const newly = A.evaluate(p);
       ok("evaluate: first-contact (+25) pushes 3290 over 3300 -> commander cascades in the SAME pass",
         newly.length === 2 && newly[0].id === "first-contact" && newly[1].id === "commander"

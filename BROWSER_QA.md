@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-ARM-SMOOTH — no more sector-5 wall (added v0.155.0).** Play sectors 4 through 6: the
+  jump should feel gradual — some tougher ships mixed in at 5, most by 6 — and enemy shots
+  should sting slightly more each sector rather than suddenly. Settings → "Smooth difficulty"
+  OFF: the old cliff returns (sector 5 all-tough, +4 shot damage). WRONG: sector 5 feeling
+  identical to 4, or the toggle doing nothing.
+
 - **QA-CC-SFX — the Chasm's own voice (added v0.154.0, EARS).** Fly CC with sound on: gates
   should WHOOSH-and-chime (not click), the boost should ignite with a rising ramp, the corner
   warning should BARK twice like an alarm (with the banner — eyes-free players must hear it),

@@ -392,6 +392,27 @@ var detSector3 = null;   // captured for the determinism probe against window 2
     T.step(1 / 60);
     ok(shC0 - T.puzzleInfo().shields === 18, 'ARM#3 RAM control: a chaser ram stays 18');
   })();
+  // (v0.155.0, V1.1 ARM#4) the tier cliffs are smoothed — and the 02 s3D shape toggle exists
+  (function () {
+    var dmg = []; for (var ds = 1; ds <= 12; ds++) dmg.push(T.shotDmg(ds));
+    var mono = true, maxStep = 0;
+    for (var dm = 1; dm < dmg.length; dm++) { if (dmg[dm] < dmg[dm - 1]) mono = false; maxStep = Math.max(maxStep, dmg[dm] - dmg[dm - 1]); }
+    ok(dmg[0] === 10 && dmg[11] === 18 && mono && maxStep <= 1,
+       'ARM#4: shot damage LERPS 10 -> 18 with max +1/sector (was +4 at the tier walls): ' + dmg.join(','));
+    var m4 = T.hpMix(300, 4), m5 = T.hpMix(300, 5), m6 = T.hpMix(300, 6), m7 = T.hpMix(300, 7), m9 = T.hpMix(300, 9);
+    ok(!m4[2] && (m4[1] === 300), 'ARM#4: sector 4 spawns pure tier-0 HP (onboarding tail untouched)');
+    var f5 = (m5[2] || 0) / 300;
+    ok(f5 > 0.25 && f5 < 0.55 && (m5[1] || 0) > 0, 'ARM#4: sector 5 MIXES ~40% 2-HP into the population (' + Math.round(f5 * 100) + '%)');
+    var f6 = (m6[2] || 0) / 300;
+    ok(f6 > 0.55 && f6 < 0.85 && (m6[1] || 0) > 0, 'ARM#4: sector 6 deepens to ~70% (' + Math.round(f6 * 100) + '%)');
+    ok((m7[2] || 0) === 300, 'ARM#4: sector 7 is fully tier-1 HP');
+    ok((m9[3] || 0) > 0 && (m9[2] || 0) > 0 && !m9[1], 'ARM#4: sector 9 mixes 2-HP and 3-HP (the second cliff smoothed too)');
+    T.setSmoothDiff(false);
+    ok(T.shotDmg(4) === 10 && T.shotDmg(5) === 14 && T.hpMix(80, 5)[2] === 80,
+       'ARM#4: the 02 s3D shape toggle OFF restores the classic hard steps');
+    T.setSmoothDiff(true);
+    ok(/toggleRow\("Smooth difficulty", smoothDiff/.test(H.ARM_SRC), 'ARM#4: the toggle is a real Settings row, persisted as armSmoothDiff');
+  })();
   // (v0.96.0, A6) economy + cadence sources
   ok(/sec % 3 === 0/.test(H.ARM_SRC) && /MAX_TIER = 8/.test(H.ARM_SRC)
      && /baseCost = \{ engine: 120, maneuver: 110, capacitor: 130, shieldCell: 130, rapid: 140 \}/.test(H.ARM_SRC)
