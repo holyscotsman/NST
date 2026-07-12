@@ -3122,6 +3122,26 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // B10. Backend#10 (v0.205.0): the Math.random allowlist — 01 §13 determinism, statically
+  // enforced. Any NEW Math.random line in any module goes red here; the allowed lines are
+  // comments, documented cosmetic-only effects (ARM debris/shake, KBB backdrop), and the
+  // exam module's rng-argument default. Gameplay randomness rides ctx.rng, always.
+  {
+    const fsMod = await import("node:fs");
+    const RAND_ALLOW = { "starnix-core.js": 1, "starnix-shell.js": 0, "audio.js": 2, "arm.js": 4, "cc.js": 0, "kbb.js": 5, "exam.js": 2, "questions.js": 0, "assets.js": 0 };
+    const drift = [];
+    for (const fRA in RAND_ALLOW) {
+      const srcRA = fsMod.readFileSync(new URL("./" + fRA, import.meta.url), "utf8");
+      const nRA = srcRA.split("\n").filter((l) => l.indexOf("Math.random") >= 0).length;
+      if (nRA !== RAND_ALLOW[fRA]) drift.push(fRA + ": " + nRA + " (allowed " + RAND_ALLOW[fRA] + ")");
+    }
+    ok("B10: Math.random stays on the allowlist (new call sites in gameplay paths go red)" + (drift.length ? " — DRIFT: " + drift.join(", ") : ""),
+      drift.length === 0);
+    ok("B10: the opt-in perf budget harness is wired into the gate",
+      fsMod.readFileSync(new URL("./package.json", import.meta.url), "utf8").includes("node perf-smoke.mjs")
+      && fsMod.readFileSync(new URL("./perf-smoke.mjs", import.meta.url), "utf8").includes('process.env.PERF !== "1"'));
+  }
+
   // F10. Flow#10 (v0.204.0): the certification finale — an actual ending
   {
     const pF = SN.core.profile;
