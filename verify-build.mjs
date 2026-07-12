@@ -165,6 +165,22 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.150.0, V1.1 FE) reduced motion unified on ONE attribute: <html data-motion>
+      {
+        SN.core.profile.settings.reducedMotion = true; shell._applyMotion();
+        ok("FE-motion: the in-app toggle stamps data-motion=reduced on <html>",
+          w.document.documentElement.getAttribute("data-motion") === "reduced");
+        SN.core.profile.settings.reducedMotion = false; shell._applyMotion();
+        ok("FE-motion: toggling off removes the attribute", !w.document.documentElement.hasAttribute("data-motion"));
+        const css = w.document.documentElement.innerHTML;
+        ok("FE-motion: every media-only gap now has a [data-motion=reduced] twin (title drift / KBB strike / exam meter / CC banners)",
+          /\[data-motion=reduced\] \.sx-title-photo\.on/.test(css.replace(/\[data-motion=reduced\] \.sx-menu-photo\.on,/, ""))
+          && /\[data-motion=reduced\] \.kbb-en-strike/.test(css)
+          && /\[data-motion=reduced\] \.sx-exam-meter > i\{transition:none;\}/.test(css)
+          && /\[data-motion=reduced\] \.cc-turn-banner\{animation:none;\}/.test(css)
+          && /\[data-motion=reduced\] \.cc-mile-banner/.test(css)
+          && /\[data-motion=reduced\] \.cc-boost-ovr/.test(css));
+      }
     }
     // (v0.141.0, V1.1 Flow#2) the flight plan: every branch of the PURE planner + the card
     {

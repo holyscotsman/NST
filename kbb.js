@@ -959,6 +959,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-en-strike{animation:kbbStrike .55s ease-out;}');
     css.push('@keyframes kbbStrike{0%{box-shadow:0 0 0 0 rgba(255,107,91,.0);}18%{box-shadow:0 0 0 3px rgba(255,107,91,.85),0 0 22px rgba(255,107,91,.5);}100%{box-shadow:0 0 0 0 rgba(255,107,91,0);}}');
     css.push('@media (prefers-reduced-motion: reduce){.kbb-en-strike,.kbb-statline .final{animation:none;}}');
+    css.push('[data-motion=reduced] .kbb-en-strike,[data-motion=reduced] .kbb-statline .final{animation:none;}');   // (v0.150.0, FE) in-app toggle twin
     css.push('.kbb-enemy{grid-area:stage;justify-self:end;align-self:start;width:288px;margin:8px;min-width:0;z-index:6;background:rgba(14,14,24,.82);border:1px solid ' + P.border + ';border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:12px;justify-content:space-between;}');
     css.push('.kbb-enemy .entext{text-align:left;min-width:0;flex:1;}');
     css.push('.kbb-enemy .ennm{font-weight:800;font-size:17px;color:' + P.gold + ';margin:1px 0 7px;overflow:hidden;text-overflow:ellipsis;}');

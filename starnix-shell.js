@@ -134,6 +134,7 @@
     this._wireAudioUnlock();
     return StarNix.initCore(opts || {}).then(function () {
       self._applyContrast();        // #12: apply saved high-contrast preference on load
+      self._applyMotion();          // (v0.150.0) reduced-motion attribute on load
       // v0.53.0 unit 3: achievement unlock toasts. Registered once at boot; fires from the
       // core evaluator wherever the unlock happens — the toast overlays the stage, so it
       // shows mid-game too. Reward styling (gold), no animation beyond the toast itself.
@@ -152,6 +153,19 @@
   /* High-contrast / low-vision mode (#12). The HC palette lives in the theme CSS
    * (core themeCSS) keyed on <html data-contrast="high">; this just flips the attribute
    * from the persisted `colorblind` setting. Stored key stays `colorblind` for profile compat. */
+  // (v0.150.0, V1.1 FE reduced-motion) ONE switchboard for the in-app toggle: data-motion on
+  // <html>, so any module's CSS can twin its prefers-reduced-motion rule with
+  // [data-motion="reduced"] and honor BOTH the OS query and the in-app setting. New rules use
+  // this; the existing sx-reduced/arm-reduce/kbb-reduced class plumbing stays (green + pinned).
+  Shell.prototype._applyMotion = function () {
+    try {
+      var p = StarNix.core && StarNix.core.profile;
+      var on = !!(p && p.settings && p.settings.reducedMotion);
+      var doc = (this.root && this.root.ownerDocument) || document;
+      if (on) doc.documentElement.setAttribute("data-motion", "reduced");
+      else doc.documentElement.removeAttribute("data-motion");
+    } catch (e) {}
+  };
   Shell.prototype._applyContrast = function () {
     try {
       var p = StarNix.core && StarNix.core.profile;
@@ -902,7 +916,7 @@
   Shell.prototype._buildToggles = function (container) {
     var self = this, core = StarNix.core, settings = core.profile.settings;
     var TOGGLES = [
-      { key: "reducedMotion", label: "Reduced motion" },
+      { key: "reducedMotion", label: "Reduced motion", apply: function () { self._applyMotion(); } },
       { key: "extraTime", label: "Extra time on timed questions" },
       { key: "colorblind", label: "High contrast", apply: function () { self._applyContrast(); } }
     ];
@@ -1663,6 +1677,7 @@
       ".sx-title>.sx-wordmark-img,.sx-title>.sx-h1,.sx-title>.sx-sub,.sx-title>.sx-row{position:relative;z-index:2;}",
       "@keyframes sx-bg-drift{from{transform:scale(1.08) translate3d(-1.6%,-1.1%,0);}to{transform:scale(1.16) translate3d(1.6%,1.1%,0);}}",
       "@media (prefers-reduced-motion: reduce){.sx-menu-photo.on,.sx-title-photo.on{animation:none;transform:scale(1.04);}}",
+      "[data-motion=reduced] .sx-menu-photo.on,[data-motion=reduced] .sx-title-photo.on{animation:none;transform:scale(1.04);}",
       ".sx-menu-bg{position:absolute;inset:0;z-index:1;pointer-events:none;background-repeat:repeat;background-position:center;opacity:.10;}",
       ".sx-menu-head,.sx-cards,.sx-menu-foot{position:relative;z-index:2;}",
       ".sx-menu-head,.sx-cards,.sx-menu-foot{position:relative;z-index:1;}",
@@ -1859,6 +1874,7 @@
       ".sx-rank-up{animation:sxRankPulse 1.6s ease-out 3;}",
       "@keyframes sxRankPulse{0%{filter:brightness(1);}30%{filter:brightness(1.7);}100%{filter:brightness(1);}}",
       "@media (prefers-reduced-motion: reduce){.sx-rank-up{animation:none;}}",
+      "[data-motion=reduced] .sx-rank-up{animation:none;}",
       ".sx-toast-gold{border-color:var(--gold);color:#ffedc2;}",
       // Achievements panel (v0.53.0 unit 3) — Progress screen grid; locked = dim, unlocked = gold edge.
       ".sx-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;text-align:left;margin:4px 0 10px;}",

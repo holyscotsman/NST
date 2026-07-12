@@ -3254,6 +3254,7 @@
       ".arm-action.huge{width:104px;height:104px;font-size:16px;animation:armHugePulse 1s ease-in-out infinite;}",
       ".arm-reduce .arm-action.huge{animation:none;box-shadow:0 0 30px rgba(31,221,233,.6);}",
       "@media (prefers-reduced-motion:reduce){.arm-action.huge{animation:none;}}",
+      "[data-motion=reduced] .arm-action.huge{animation:none;box-shadow:0 0 30px rgba(31,221,233,.6);}",
       ".arm-action.huge:active{transform:scale(1.04);}",
       ".arm-comms{position:absolute;left:50%;transform:translateX(-50%);bottom:12%;z-index:12;display:none;width:min(560px,94%);background:linear-gradient(#23233a,#15151f);border:1px solid #3a3a55;border-radius:18px;padding:12px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.7);}",
       ".arm-comms-inner-screen{}",

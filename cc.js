@@ -2640,16 +2640,19 @@
     '.cc-turn-banner{position:absolute;top:38%;left:50%;transform:translateX(-50%);display:none;font-size:26px;font-weight:800;letter-spacing:.22em;color:#FFC857;text-shadow:0 0 18px rgba(255,200,87,.8);pointer-events:none;z-index:12;animation:ccTurnFlash 0.4s step-end infinite;}' +
     '@keyframes ccTurnFlash{0%{opacity:1;}50%{opacity:.45;}}' +
     '@media (prefers-reduced-motion: reduce){.cc-turn-banner{animation:none;}}' +
+    '[data-motion=reduced] .cc-turn-banner{animation:none;}' +
     '.cc-pb{font-size:11px;letter-spacing:.1em;color:#9a9aad;margin-top:-2px;}' +
     '.cc-pb.beat{color:#FFC857;text-shadow:0 0 10px rgba(255,200,87,.7);}' +
     '.cc-mile-banner{position:absolute;top:30%;left:50%;transform:translateX(-50%);display:none;font-size:22px;font-weight:800;letter-spacing:.16em;color:#1FDDE9;text-shadow:0 0 16px rgba(31,221,233,.8);pointer-events:none;z-index:12;animation:ccMilePop .5s ease-out;}' +
     '.cc-mile-banner.on{display:block;}' +
     '@keyframes ccMilePop{0%{transform:translateX(-50%) scale(.7);opacity:0;}100%{transform:translateX(-50%) scale(1);opacity:1;}}' +
     '@media (prefers-reduced-motion: reduce){.cc-mile-banner{animation:none;}}' +
+    '[data-motion=reduced] .cc-mile-banner{animation:none;}' +
     '.cc-boost-ovr{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;z-index:7;background:radial-gradient(ellipse at center, rgba(31,221,233,.06) 30%, rgba(31,221,233,.18) 100%);backdrop-filter:blur(1.5px);}' +
     '.cc-boost-ovr span{font-size:34px;font-weight:800;letter-spacing:.3em;color:#1FDDE9;text-shadow:0 0 24px rgba(31,221,233,.8);animation:ccBoostPulse 0.5s ease-in-out infinite alternate;}' +
     '@keyframes ccBoostPulse{from{opacity:.75;}to{opacity:1;}}' +
     '@media (prefers-reduced-motion: reduce){.cc-boost-ovr{backdrop-filter:none;}.cc-boost-ovr span{animation:none;}}' +
+    '[data-motion=reduced] .cc-boost-ovr{backdrop-filter:none;}[data-motion=reduced] .cc-boost-ovr span{animation:none;}' +
     '.cc-howto-loadout{margin:8px 0 2px;padding:6px 9px;border:1px solid rgba(255,200,87,.35);border-radius:8px;font-size:12px;color:#FFC857;background:rgba(255,200,87,.07);}' +
     '.cc-howto-h{font-size:21px;font-weight:800;color:#F2F2F7;margin-bottom:14px;}' +
     '.cc-howto-list{display:flex;flex-direction:column;gap:11px;margin-bottom:18px;}' +

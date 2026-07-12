@@ -106,6 +106,7 @@
       ".sx-exam-combo.pulse{animation:sxComboPulse .45s ease-out 1;}",
       "@keyframes sxComboPulse{0%{transform:scale(1);}40%{transform:scale(1.25);}100%{transform:scale(1);}}",
       "@media (prefers-reduced-motion: reduce){.sx-exam-combo.pulse{animation:none;}}",
+      "[data-motion=reduced] .sx-exam-combo.pulse{animation:none;}",
       ".sx-exam-more{margin-top:8px;}",
       ".sx-exam-more summary{cursor:pointer;color:" + P.aqua + ";font-size:12.5px;font-weight:600;}",
       ".sx-exam-more div{margin-top:6px;}",
@@ -180,6 +181,7 @@
       ".sx-exam-rvrow .tag{font-size:11px;font-weight:800;} .sx-exam-rvrow .tag.blank{color:" + P.peach + ";} .sx-exam-rvrow .tag.done{color:" + P.mantis + ";} .sx-exam-rvrow .tag.flag{color:" + P.gold + ";margin-left:6px;}",
       ".sx-exam-kbd{font-size:11px;color:" + P.dim + ";text-align:center;margin-top:10px;letter-spacing:.04em;}",
       "@media (prefers-reduced-motion: reduce){.sx-exam-meter > i{transition:none;}}",
+      "[data-motion=reduced] .sx-exam-meter > i{transition:none;}",
       // ---- (v0.115.0, D7) the Testing station: Study + Sim only; Blitz keeps its arcade skin.
       // Flat #101018, surfaces #14141d, borders #2c2c3a; the clock is the only motion.
       ".sx-exam.station{background:#101018;}",
