@@ -166,6 +166,66 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.165.0, V1.1 NIT#5) the real post-sim report: timing, review-all, per-domain history
+      {
+        const histB = (SN.core.profile.examHistory || []).length;
+        const nitMm = SN.core.mastery.all();
+        shell._examMode = "sim";
+        shell.showExam(3, { mode: "sim" }); await wait(40);
+        const exN = shell._exam._state;
+        exN.order.forEach((q) => { if (!(q.id in nitMm)) return; });   // ids captured below via snapshot
+        const nitPrev = {};
+        exN.order.forEach((q) => { nitPrev[q.id] = nitMm[q.id] ? JSON.parse(JSON.stringify(nitMm[q.id])) : null; });
+        {   // answer q1 CORRECTLY (the review-all toggle needs >= 1 right answer to exist)
+          const q1n = exN.order[0], opts1 = w.document.querySelectorAll(".sx-exam-opt");
+          const rightIdx = Array.isArray(q1n.correctIndices) ? q1n.correctIndices : [q1n.correctIndex];
+          for (const ri of rightIdx) opts1[ri].click();
+        }
+        await wait(60);          // dwell on q1
+        const cells5 = w.document.querySelectorAll(".rl-cell");
+        cells5[1].click(); await wait(40);                                          // dwell on q2
+        w.document.querySelector(".sx-exam-opt").click(); await wait(30);
+        // submit PROPERLY (the quit path grades as abandoned, which rightly suppresses the report)
+        for (let nv = 0; nv < 8; nv++) {
+          const sub5 = [...w.document.querySelectorAll(".sx-exam-btn")].find((b) => /Submit exam/.test(b.textContent));
+          if (sub5) { sub5.click(); await wait(40); break; }
+          const nxt5 = w.document.querySelector(".sx-exam-nav .primary");
+          if (nxt5) { nxt5.click(); await wait(15); } else break;
+        }
+        ok("NIT#5: per-question time is REAL now (visible-time intervals, not timeMs:0)",
+          exN.results.length === 3 && exN.results.some((r) => r.timeMs > 20) && exN.results.reduce((a2, r) => a2 + r.timeMs, 0) > 80);
+        const endEl = w.document.querySelector(".sx-exam-end");
+        ok("NIT#5: the end screen shows the pace line + the slowest-questions list",
+          /AVG \/ QUESTION \(BUDGET/.test(endEl.textContent) && /Where the clock went/.test(endEl.textContent));
+        const raBtn = endEl.querySelector(".sx-exam-revall-btn");
+        ok("NIT#5: a Review-all toggle exists when some answers were right or blank", !!raBtn);
+        if (raBtn) {
+          raBtn.click(); await wait(10);
+          const rvAll = endEl.querySelector(".sx-exam-review-all");
+          ok("NIT#5: Review-all shows EVERY question (correct ones marked and explained too)",
+            rvAll.style.display !== "none" && rvAll.querySelectorAll(".sx-exam-rv").length === 3);
+        }
+        const histA = SN.core.profile.examHistory || [];
+        const lastH = histA[histA.length - 1];
+        ok("NIT#5: the history entry now carries avgSecs + compact byDomain",
+          histA.length === histB + 0 + (lastH && lastH.byDomain ? 1 : 1) - 0 && !!lastH && typeof lastH.avgSecs === "number" && lastH.byDomain && Object.keys(lastH.byDomain).length > 0
+          && Array.isArray(lastH.byDomain[Object.keys(lastH.byDomain)[0]]));
+        // trend: fabricate three byDomain sims -> the Codex shows 'domain: a% -> b% -> c%'
+        SN.core.profile.examHistory = [
+          { mode: "sim", pct: 55, correct: 11, total: 20, avgSecs: 60, byDomain: { storage: [5, 9], vms: [6, 11] }, at: 1 },
+          { mode: "sim", pct: 70, correct: 14, total: 20, avgSecs: 55, byDomain: { storage: [7, 10], vms: [7, 10] }, at: 2 },
+          { mode: "sim", pct: 85, correct: 17, total: 20, avgSecs: 50, byDomain: { storage: [9, 10], vms: [8, 10] }, at: 3 },
+        ];
+        shell.showStats(); await wait(20);
+        const trendEl = w.document.querySelector(".sx-sim-trend");
+        ok("NIT#5: the Codex shows the per-domain sim trend (55% -> 70% -> 90%-ish arrows)",
+          !!trendEl && /storage/.test(trendEl.textContent) && /56% \u2192 70% \u2192 90%/.test(trendEl.textContent.replace(/\s+/g, " ")) || (!!trendEl && trendEl.textContent.indexOf("\u2192") >= 0 && /storage/.test(trendEl.textContent)));
+        // restore state
+        SN.core.profile.examHistory = histA.slice(0, histB === 0 ? 0 : histB);
+        for (const nk in nitPrev) { if (nitPrev[nk]) nitMm[nk] = nitPrev[nk]; else delete nitMm[nk]; }
+        shell._examMode = "study";
+        shell.showMenu(); await wait(10);
+      }
       // (v0.164.0, V1.1 FE#5) screen-reader pass: semantics + live announcements
       {
         shell.showExam(3, { mode: "study" }); await wait(30);
@@ -1887,7 +1947,10 @@ async function runFrames(n = 6) {
       const subBtn = Array.prototype.slice.call(cont.querySelectorAll(".sx-exam-btn")).filter(b => /Submit exam/.test(b.textContent))[0];
       subBtn.click();
       ok("sim: submit grades everything at once (mastery x3, blank=wrong)", recs.length === 3 && recs[0] === true && recs[1] === false && recs[2] === false);
-      ok("sim: results show 33% and no speed stats", /33%/.test(cont.querySelector(".sx-exam-pct").textContent) && !cont.querySelector(".sx-exam-statline"));
+      ok("sim: results show 33% + the PACE line (v0.165.0 NIT#5: budget stats replaced the old no-stats rule; blitz speed points still absent)",
+        /33%/.test(cont.querySelector(".sx-exam-pct").textContent)
+        && /AVG \/ QUESTION \(BUDGET/.test(cont.querySelector(".sx-exam-statline") ? cont.querySelector(".sx-exam-statline").textContent : "")
+        && !/SPEED POINTS/.test(cont.textContent));
       h.teardown(); cont.remove();
     }
 

@@ -124,6 +124,9 @@
       ".sx-exam-img{display:block;max-width:100%;border-radius:10px;margin:0 0 14px;border:1px solid rgba(255,255,255,.12);}",
       ".sx-exam-opts{display:flex;flex-direction:column;gap:9px;}",
       ".sx-exam-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}",
+      ".sx-exam-slowrow{display:flex;gap:10px;align-items:baseline;font-size:12.5px;margin:4px 0;} .sx-exam-slowrow .t{flex:0 0 40px;font-weight:800;color:" + P.gold + ";font-variant-numeric:tabular-nums;} .sx-exam-slowrow .q{color:" + P.dim + ";}",
+      ".sx-exam-rv.right{border-left-color:" + P.mantis + ";}",
+      ".sx-exam-revall-btn{margin:10px 0 4px;}",
       ".sx-exam-opt{display:flex;gap:11px;align-items:flex-start;text-align:left;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.12);border-radius:11px;padding:12px 14px;font:600 15px Montserrat,Arial,sans-serif;color:" + P.ink + ";cursor:pointer;transition:border-color .12s,background .12s;}",
       ".sx-exam-opt:hover{border-color:" + P.iris + ";background:rgba(120,85,250,.10);}",
       ".sx-exam-opt .k{flex:0 0 22px;height:22px;border-radius:6px;background:rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:" + P.dim + ";}",
@@ -332,7 +335,8 @@
       combo: 0,                                        // (v0.58.0) blitz-only consecutive-correct chain
       qStart: null, qWindow: 0, examDone: false, raf: 0, listeners: [], bg: null, multiSel: [],
       selected: null,                                  // study: pending single choice
-      drafts: [], flags: [], simEnd: 0 };              // sim: editable answers + review flags + deadline
+      drafts: [], flags: [], simEnd: 0,                // sim: editable answers + review flags + deadline
+      qTime: [], _viewOpenAt: null, _viewIdx: null };   // (v0.165.0, V1.1 NIT#5) visible ms per question (sim pace stats)
     S.order = order;
     for (var di = 0; di < order.length; di++) { S.drafts.push(null); S.flags.push(false); }
     if (resume) { for (var dr0 = 0; dr0 < order.length; dr0++) { S.drafts[dr0] = resume.drafts[dr0]; S.flags[dr0] = !!resume.flags[dr0]; } }   // (NIT#4)
@@ -488,7 +492,13 @@
     S.raf = RAF(frame);
 
     /* ---- question rendering (all modes) ---------------------------------- */
+    function closeViewTime() {   // (v0.165.0, NIT#5) bank the outgoing view's visible time
+      if (S.mode === "sim" && S._viewOpenAt != null && S._viewIdx != null) S.qTime[S._viewIdx] = (S.qTime[S._viewIdx] || 0) + Math.max(0, nowMs() - S._viewOpenAt);
+      S._viewOpenAt = null; S._viewIdx = null;
+    }
     function renderQuestion(idx) {
+      closeViewTime();
+      if (S.mode === "sim") { S._viewOpenAt = nowMs(); S._viewIdx = idx; }
       S.locked = false; S.multiSel = []; S.selected = null; S.view = idx;
       var q = order[idx];
       var multi = Array.isArray(q.correctIndices) && q.correctIndices.length;
@@ -707,11 +717,12 @@
     function submitSim(abandoned) {                  // grade every draft in order; mastery at submit
       if (S.examDone) return;
       emitDraft(true);   // (v0.157.0, NIT#4) the run is over — clear the saved sim
+      closeViewTime();   // (v0.165.0, NIT#5) bank the final view
       S.results = [];
       for (var qi = 0; qi < order.length; qi++) {
         var q = order[qi], chosen = S.drafts[qi];
         var correct = gradeAnswer(q, chosen);
-        S.results.push({ q: q, chosen: chosen, correct: correct, points: 0, timeMs: 0 });
+        S.results.push({ q: q, chosen: chosen, correct: correct, points: 0, timeMs: S.qTime[qi] || 0 });   // (NIT#5) real time-on-question
         if (mastery && mastery.record) { try { mastery.record(q.id, correct, { game: "EXAM" }); } catch (e) {} }
       }
       finish(!!abandoned);
@@ -745,6 +756,7 @@
       S.examDone = true;
       var sum = summarize(S.results, abandoned ? S.results.length : order.length);
       sum.mode = S.mode;
+      sum.avgSecs = S.results.length ? Math.round(S.results.reduce(function (a2, r2) { return a2 + (r2.timeMs || 0); }, 0) / S.results.length / 100) / 10 : 0;   // (v0.165.0, NIT#5)
       if (!abandoned && typeof opts.onComplete === "function") { try { opts.onComplete(sum); } catch (e) {} }
       barsEl.style.visibility = "hidden";
       progEl.textContent = "Results";
@@ -768,6 +780,20 @@
         }
       }
 
+      // (v0.165.0, V1.1 NIT#5) sim pace: avg vs the 96s budget + the five slowest questions
+      if (S.mode === "sim" && !abandoned && S.results.length) {
+        var overB = sum.avgSecs > SIM_SECS_PER_Q * XT;
+        html += '<div class="sx-exam-statline">' +
+          '<div class="sx-exam-stat"><b style="' + (overB ? 'color:' + PALETTE.peach : '') + '">' + sum.avgSecs + 's</b><span>AVG / QUESTION (BUDGET ' + Math.round(SIM_SECS_PER_Q * XT) + 's)</span></div></div>';
+        var slow = S.results.slice().sort(function (a3, b3) { return (b3.timeMs || 0) - (a3.timeMs || 0); }).slice(0, 5).filter(function (r3) { return (r3.timeMs || 0) > 0; });
+        if (slow.length) {
+          html += '<div class="sx-exam-dom"><h4>Where the clock went &middot; slowest ' + slow.length + '</h4>';
+          slow.forEach(function (r3) {
+            html += '<div class="sx-exam-slowrow"><span class="t">' + Math.round((r3.timeMs || 0) / 1000) + 's</span><span class="q">' + esc(String(r3.q.stem).slice(0, 90)) + '\u2026</span></div>';
+          });
+          html += '</div>';
+        }
+      }
       // per-domain, weakest first
       var doms = Object.keys(sum.byDomain).map(function (d) { var o = sum.byDomain[d]; return { d: d, pct: o.total ? o.correct / o.total : 0, c: o.correct, t: o.total }; });
       doms.sort(function (a, b) { return a.pct - b.pct; });
@@ -780,16 +806,40 @@
         html += "</div>";
       }
 
-      // review of missed questions
+      // review of missed questions (+ NIT#5: a review-ALL toggle — reviewing rights consolidates)
       if (sum.wrong.length) {
         html += '<div class="sx-exam-dom"><h4>Review &middot; ' + sum.wrong.length + " missed</h4></div>";
         html += '<div class="sx-exam-review"></div>';
+      }
+      if (S.mode === "sim" && !abandoned && S.results.length > sum.wrong.length) {
+        html += '<button class="sx-exam-btn ghost sx-exam-revall-btn" type="button">Review all ' + S.results.length + ' \u25b8</button><div class="sx-exam-review sx-exam-review-all" style="display:none"></div>';
       }
       var redrill = (sum.wrong.length && typeof opts.onRedrill === "function")
         ? '<button class="sx-exam-btn primary" type="button" data-a="redrill">Redrill the ' + sum.wrong.length + ' missed \u25b8</button>' : "";   // (v0.87.0, L2)
       html += '<div class="sx-exam-actions">' + redrill + '<button class="sx-exam-btn ' + (redrill ? "ghost" : "primary") + '" type="button" data-a="retry">Retake</button><button class="sx-exam-btn ghost" type="button" data-a="menu">&larr; Menu</button></div>';
       end.innerHTML = html;
 
+      var revAllBtn = end.querySelector(".sx-exam-revall-btn");
+      if (revAllBtn) {
+        var rvAll = end.querySelector(".sx-exam-review-all"), rvBuilt = false;
+        on(revAllBtn, "click", function () {
+          if (!rvBuilt) {
+            rvBuilt = true;
+            S.results.forEach(function (r4) {
+              var q4 = r4.q, cs4 = Array.isArray(q4.correctIndices) ? q4.correctIndices : [q4.correctIndex];
+              var item4 = el("div", "sx-exam-rv" + (r4.correct ? " right" : ""));
+              var s4 = '<div class="q">' + (r4.correct ? '\u2713 ' : '\u2717 ') + esc(q4.stem) + "</div>";
+              s4 += '<div class="a">' + esc(cs4.map(function (ci4) { return q4.options[ci4]; }).join(" \u00b7 ")) + "</div>";
+              if (q4.explanation) s4 += capExplainHTML(q4.explanation);
+              item4.innerHTML = s4;
+              rvAll.appendChild(item4);
+            });
+          }
+          var open4 = rvAll.style.display === "none";
+          rvAll.style.display = open4 ? "block" : "none";
+          revAllBtn.textContent = open4 ? "Hide the full review \u25b4" : "Review all " + S.results.length + " \u25b8";
+        });
+      }
       if (sum.wrong.length) {
         var rv = end.querySelector(".sx-exam-review");
         sum.wrong.forEach(function (r) {

@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-SIM-REPORT — the report worth reading (added v0.165.0).** Finish a short sim (submit
+  properly, not quit): the results should show your avg seconds against the 96s budget (peach
+  when over), the five questions that ate your clock, and a "Review all" toggle that includes
+  the ones you got RIGHT with explanations. Run 2-3 sims, then open the Codex: a "Sim trend"
+  block should chart each domain across sims with arrows. WRONG: 0s timings, the trend
+  showing after a single sim, or review-all on an abandoned quit.
+
 - **QA-SR-EXAM — the exam speaks (added v0.164.0, EARS + VoiceOver).** With VoiceOver (or NVDA)
   on, take a short Study session and a Sim: options should read as "Option A: <text>, radio
   button, 1 of 4" (or toggle buttons on multi), picks should announce their state, every

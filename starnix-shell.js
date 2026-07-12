@@ -953,7 +953,9 @@
       try {
         var coreH = StarNix.core;
         var hist = coreH.profile.examHistory = coreH.profile.examHistory || [];
-        hist.push({ mode: "sim", pct: sum.pct || 0, correct: sum.correct || 0, total: sum.total || 0, at: (coreH.clock && coreH.clock.now ? coreH.clock.now() : Date.now()) });
+        var bdC = {};   // (v0.165.0, V1.1 NIT#5) compact per-domain history: {domain: [correct, total]}
+        try { for (var bk in sum.byDomain) if (Object.prototype.hasOwnProperty.call(sum.byDomain, bk)) bdC[bk] = [sum.byDomain[bk].correct | 0, sum.byDomain[bk].total | 0]; } catch (eBd) {}
+        hist.push({ mode: "sim", pct: sum.pct || 0, correct: sum.correct || 0, total: sum.total || 0, avgSecs: sum.avgSecs || 0, byDomain: bdC, at: (coreH.clock && coreH.clock.now ? coreH.clock.now() : Date.now()) });
         if (hist.length > 20) hist.splice(0, hist.length - 20);
         if (coreH.persistence && coreH.persistence.save) coreH.persistence.save(coreH.profile);
       } catch (eH) {}
@@ -1197,6 +1199,28 @@
         box.appendChild(tile);
       }
     })(s.querySelector(".sx-heatmap"));
+    // (v0.165.0, V1.1 NIT#5) per-domain SIM trend — 'storage: 55% -> 70% -> 85%' beats one
+    // opaque percentage. Needs >= 2 sims that recorded byDomain.
+    try {
+      var histT = (core.profile.examHistory || []).filter(function (h) { return h.mode === "sim" && h.byDomain; }).slice(-3);
+      if (histT.length >= 2) {
+        var trendBox = el("div", "sx-sim-trend");
+        trendBox.appendChild(el("div", "sx-dom-head", "Sim trend \u00b7 last " + histT.length + " sims"));
+        var domsT = {};
+        histT.forEach(function (h) { for (var dk in h.byDomain) if (Object.prototype.hasOwnProperty.call(h.byDomain, dk)) domsT[dk] = 1; });
+        Object.keys(domsT).sort().forEach(function (dk) {
+          var line = histT.map(function (h) {
+            var e2 = h.byDomain[dk];
+            return e2 && e2[1] ? Math.round(100 * e2[0] / e2[1]) + "%" : "\u2013";
+          }).join(" \u2192 ");
+          var rowT = el("div", "sx-sim-trend-row");
+          rowT.appendChild(el("span", "n", dk));
+          rowT.appendChild(el("span", "v", line));
+          trendBox.appendChild(rowT);
+        });
+        s.querySelector(".sx-heatmap").parentNode.insertBefore(trendBox, s.querySelector(".sx-heatmap").nextSibling);
+      }
+    } catch (eTr) {}
 
     // ---- daily missions row (v0.56.0 unit 6): full rows; the section label above titles it (A3) ----
     this._renderDaily(s.querySelector(".sx-daily"), { head: false });
@@ -1907,6 +1931,8 @@
       ".sx-diag-ev{color:var(--mid);font-size:10.5px;}",
       ".sx-diag-empty{color:var(--dim);}",
       ".sx-streak-chip{font-size:12px;font-weight:700;color:#FF9857;background:rgba(255,152,87,.12);border:1px solid rgba(255,152,87,.45);border-radius:999px;padding:2px 10px;}",
+      ".sx-sim-trend{margin-top:12px;}",
+      ".sx-sim-trend-row{display:flex;gap:10px;font-size:12.5px;margin:4px 0;} .sx-sim-trend-row .n{flex:0 0 130px;color:var(--mid);} .sx-sim-trend-row .v{color:var(--text);font-variant-numeric:tabular-nums;}",
       ".sx-debrief{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,11,.62);}",
       ".sx-debrief-card{width:min(480px,92%);background:rgba(16,16,26,.97);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.6);}",
       ".sx-debrief-stats{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 6px;font-size:13px;color:var(--mid);}",
