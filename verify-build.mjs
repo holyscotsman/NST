@@ -3018,6 +3018,51 @@ async function runFrames(n = 6) {
     }
   }
 
+  // B8. Backend#8 (v0.191.0): tuning knobs + the (quarantine-honoring) domain-weight seam
+  console.log("\nB8. Backend#8 tuning (pinned defaults / live apply + reset / dev-gated set / domain-weight seam)");
+  {
+    const TU = SN.tuning, core = SN.core;
+    ok("B8: DEFAULTS pinned — Leitner intervals, selection weights, mastered bucket, timer table",
+      !!TU && TU.DEFAULTS.intervals.join(",") === "0,30000,120000,600000,3600000,21600000,86400000,259200000,604800000"
+      && TU.DEFAULTS.w.due === 6 && TU.DEFAULTS.w["new"] === 3 && TU.DEFAULTS.w.reinforce === 1 && TU.DEFAULTS.w.epsilon === 0.12
+      && TU.DEFAULTS.masteredBucket === 4
+      && TU.DEFAULTS.timer.BASE === 6 && TU.DEFAULTS.timer.MAX === 45 && TU.DEFAULTS.timer.EXTRA_FACTOR === 1.6);
+    ok("B8: the live config boots AT defaults", JSON.stringify(TU.current()) === JSON.stringify(TU.DEFAULTS));
+    // live apply: the timer table is consulted at call time
+    const qT8 = core.questions.pool()[0];
+    const t0 = core.questions.timerSeconds(qT8, {});
+    TU.apply({ timer: { MIN: 44, MAX: 44 } });
+    ok("B8: apply() bites immediately — a clamped timer window pins every question to 44s",
+      core.questions.timerSeconds(qT8, {}) === 44 && t0 !== 44);
+    TU.reset();
+    ok("B8: reset() restores the pinned defaults", core.questions.timerSeconds(qT8, {}) === t0
+      && JSON.stringify(TU.current()) === JSON.stringify(TU.DEFAULTS));
+    // dev gating
+    ok("B8: set() refuses outside dev mode", TU.set({ masteredBucket: 2 }).ok === false && TU.current().masteredBucket === 4);
+    w.STARNIX_DEV = true;
+    const setR = TU.set({ masteredBucket: 2 });
+    ok("B8: dev-mode set() applies AND persists profile.tuning",
+      setR.ok === true && TU.current().masteredBucket === 2 && core.profile.tuning && core.profile.tuning.masteredBucket === 2);
+    TU.reset(); delete w.STARNIX_DEV;
+    ok("B8: reset clears the persisted override", !core.profile.tuning && TU.current().masteredBucket === 4);
+    ok("B8: the boot hook re-applies a persisted override (source)", html.includes("if (profile.tuning) { try { applyTuning(profile.tuning); }"));
+    // the domain-weight seam: inert by default, decisive when set, quarantine-honoring
+    {
+      const dom0 = core.questions.stats().domains.find(dd => dd.total >= 5).domain;
+      const wts = {}; wts[dom0] = 1e6;
+      core.questions.setDomainWeights(wts);
+      const seen8 = [], ex8 = [];
+      for (let d8 = 0; d8 < 5; d8++) {
+        const r8 = core.questions.next({ excludeIds: ex8 });
+        if (!r8 || !r8.question) break;
+        seen8.push(r8.question.domain); ex8.push(r8.question.id);
+      }
+      core.questions.setDomainWeights(null);
+      ok("B8: the domain-weight seam is decisive when set (5 of 5 draws from the boosted domain) and null = uniform (Flow#5 quarantine holds)",
+        seen8.length === 5 && seen8.every(dn => dn === dom0));
+    }
+  }
+
   // NIT#8 (v0.190.0): domain-targeted study — clickable heatmap tiles + the setup domain lens
   {
     const st8 = SN.core.questions.stats();

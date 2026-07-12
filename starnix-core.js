@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.190.0";
+  var BUILD_VERSION = "0.191.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -670,6 +670,44 @@
   // to read (stem + options), single vs multi, and difficulty — "quick but learnable." An authored
   // numeric q.timer overrides the computed base. opts.extraTime (accessibility) extends the result.
   var TIMER = { BASE: 6, PER_WORD: 0.30, PER_OPTION: 1.0, DIFF_STEP: 2.5, MULTI_BONUS: 6, MIN: 12, MAX: 45, EXTRA_FACTOR: 1.6 };
+  /* (v0.191.0, V1.1 Backend#8) tuning knobs: every scheduler/timer experiment was a code
+   * edit + version bump. DEFAULTS are pinned by the gate; dev-mode overrides persist on
+   * profile.tuning for A/B feel testing and apply at boot. Learning-integrity boundary:
+   * these tune PACING only — answer keys and mastery accounting are untouchable. */
+  var TUNING_DEFAULTS = Object.freeze({
+    intervals: INTERVALS.slice(),
+    w: { due: W.due, "new": W["new"], reinforce: W.reinforce, epsilon: W.epsilon },
+    masteredBucket: MASTERED_BUCKET,
+    timer: Object.assign({}, TIMER)
+  });
+  function isDevEnv() {
+    try { if (global.STARNIX_DEV) return true; } catch (e0) {}
+    try { return /[?&]dev\b/.test((global.location && global.location.search) || ""); } catch (e1) {}
+    return false;
+  }
+  function applyTuning(t) {
+    if (!t || typeof t !== "object") return false;
+    var okT = false;
+    if (Array.isArray(t.intervals) && t.intervals.length === INTERVALS.length
+        && t.intervals.every(function (v) { return typeof v === "number" && v >= 0; })) {
+      for (var iT = 0; iT < INTERVALS.length; iT++) INTERVALS[iT] = t.intervals[iT];
+      okT = true;
+    }
+    if (t.w && typeof t.w === "object") {
+      ["due", "new", "reinforce", "epsilon"].forEach(function (kT) {
+        if (typeof t.w[kT] === "number" && t.w[kT] >= 0) { W[kT] = t.w[kT]; okT = true; }
+      });
+    }
+    if (typeof t.masteredBucket === "number" && t.masteredBucket >= 1 && t.masteredBucket <= MAX_BUCKET) {
+      MASTERED_BUCKET = t.masteredBucket; okT = true;
+    }
+    if (t.timer && typeof t.timer === "object") {
+      for (var kT2 in TIMER) {
+        if (Object.prototype.hasOwnProperty.call(t.timer, kT2) && typeof t.timer[kT2] === "number" && t.timer[kT2] > 0) { TIMER[kT2] = t.timer[kT2]; okT = true; }
+      }
+    }
+    return okT;
+  }
   function wordCount(s) { return s ? String(s).split(/\s+/).filter(Boolean).length : 0; }
   function questionTimerSeconds(q, opts) {
     opts = opts || {};
@@ -695,16 +733,20 @@
     var byIdMap = {};
     for (var i = 0; i < all.length; i++) byIdMap[all[i].id] = all[i];
 
+    // (v0.191.0, V1.1 Backend#8) optional per-domain draw multipliers. Stays NULL (uniform)
+    // until Jason ratifies blueprint weights — the Flow#5 quarantine holds; this is the seam.
+    var domainW = null;
+    function dwOf(q) { return (domainW && typeof domainW[q.domain] === "number" && domainW[q.domain] > 0) ? domainW[q.domain] : 1; }
     function classify(q, now) {
       // (v0.172.0, Jason) q.priority (>1) multiplies the draw weight in EVERY state — priority
       // questions surface more often as new, come back harder when due, and reinforce more,
       // so they are asked and mastered ahead of the rest of the bank.
       var pw = (q.priority > 1) ? q.priority : 1;
       var m = mastery && mastery.get ? mastery.get(q.id) : undefined;
-      if (!m || m.seen === 0) return { reason: "new", weight: (W["new"] + W.epsilon) * pw };
+      if (!m || m.seen === 0) return { reason: "new", weight: (W["new"] + W.epsilon) * pw * dwOf(q) };
       var due = (m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0)) <= now;
-      if (due) return { reason: "review-due", weight: (W.due + W.epsilon) * pw };
-      return { reason: "reinforce", weight: (W.reinforce + W.epsilon) * pw };
+      if (due) return { reason: "review-due", weight: (W.due + W.epsilon) * pw * dwOf(q) };
+      return { reason: "reinforce", weight: (W.reinforce + W.epsilon) * pw * dwOf(q) };
     }
 
     // Build candidate list honoring domain/band/exclusions, relaxing if empty.
@@ -800,7 +842,8 @@
         return { overall: finish(overall), domains: domains };
       },
       count: function () { return all.length; },
-      timerSeconds: function (q, opts) { return questionTimerSeconds(q, opts); }
+      timerSeconds: function (q, opts) { return questionTimerSeconds(q, opts); },
+      setDomainWeights: function (wts) { domainW = (wts && typeof wts === "object") ? wts : null; }   // (v0.191.0, Backend#8)
     };
   }
 
@@ -1171,6 +1214,7 @@
 
     var persistence = opts.persistence || makeLocalStorageProvider({ storage: opts.storage });
     return persistence.load().then(function (profile) {
+      if (profile.tuning) { try { applyTuning(profile.tuning); } catch (eT0) {} }   // (v0.191.0, Backend#8)
       var telemetry = opts.telemetry || makeTelemetry({ sink: opts.telemetrySink });
       var mastery = makeMasteryStore(profile, {
         onChange: function () { persistence.save(profile); },
@@ -1286,6 +1330,28 @@
 
   /* Commander-rank XP surface (v0.52.0 unit 2) — pure/deterministic; the shell renders from it.
    * Games never call this directly; XP flows through the existing seams only. */
+  /* (v0.191.0, V1.1 Backend#8) tuning surface — DEFAULTS gate-pinned; set() is dev-only. */
+  StarNix.tuning = {
+    DEFAULTS: TUNING_DEFAULTS,
+    current: function () {
+      return { intervals: INTERVALS.slice(),
+        w: { due: W.due, "new": W["new"], reinforce: W.reinforce, epsilon: W.epsilon },
+        masteredBucket: MASTERED_BUCKET, timer: Object.assign({}, TIMER) };
+    },
+    apply: applyTuning,
+    set: function (t) {
+      if (!isDevEnv()) return { ok: false, reason: "dev-only" };
+      if (!applyTuning(t)) return { ok: false, reason: "invalid" };
+      try { var cT = StarNix.core; cT.profile.tuning = JSON.parse(JSON.stringify(t)); cT.persistence.save(cT.profile); } catch (eSv) {}
+      return { ok: true };
+    },
+    reset: function () {
+      applyTuning(TUNING_DEFAULTS);
+      try { var cR = StarNix.core; if (cR.profile && cR.profile.tuning) { delete cR.profile.tuning; cR.persistence.save(cR.profile); } } catch (eRs) {}
+      return { ok: true };
+    }
+  };
+
   StarNix.xp = {
     AWARDS: XP_AWARDS, RANKS: RANKS, rankFor: rankFor,
     REWARDS: RANK_REWARDS, perks: rankPerks, rewardsAt: rankRewardsAt,   // (v0.179.0, V1.1 Flow#7)
