@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-FINALE — the ending (added v0.204.0).** With the station at 60/60 and two sims at
+  80%+, the next bridge visit must open the relight beat — the station art warming as twelve
+  gold sections come online — then the certificate: your rank, the 60/60, your sim scores,
+  today's date, and the 'go sit the real NCP-MCI' line. It plays ONCE; afterwards the Codex
+  readiness box offers 'View your certificate'. Reduced motion goes straight to the
+  certificate. WRONG: the finale re-firing on later visits, a certificate with stale
+  numbers, or the beat hanging without its Skip.
+
 - **QA-NOTES — your own words come back (added v0.203.0).** Miss a Study question, tap
   '✎ Add a note', write why it bit you, save. Meet the question again (any mode's graded
   view): your note must lead the feedback, clearly labeled as YOURS. The Testing station

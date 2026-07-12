@@ -590,6 +590,80 @@
     this.showMenu();
   };
 
+  /* (v0.204.0, V1.1 Flow#10) the certification finale — an actual ENDING. A station-relight
+   * canvas beat (armStation re-lit segment by segment, the intro cinematic's own art), then
+   * the certificate: rank, sims, mastery, date. profile.certified latches on first entry so
+   * it fires exactly once and replays from the Codex forever. Honesty note included: this is
+   * the study milestone, not the NCP-MCI itself. */
+  Shell.prototype.showFinale = function (optsF) {
+    this._clearScreen();
+    this.screen = "finale";
+    var self = this, core = StarNix.core, prof = core.profile;
+    var replay = !!(optsF && optsF.replay);
+    if (!replay && !prof.certified) {
+      prof.certified = (core.clock && core.clock.now) ? core.clock.now() : Date.now();
+      try { core.persistence.update(function (p) { p.certified = prof.certified; }); } catch (eCf) {}
+    }
+    var reduced = !!(prof.settings && prof.settings.reducedMotion);
+    var s = el("div", "sx-screen sx-finale");
+    this.stage.appendChild(s);
+    var certAt = prof.certified || ((core.clock && core.clock.now) ? core.clock.now() : Date.now());
+    function showCert() {
+      s.textContent = "";
+      var card = el("div", "sx-cert");
+      card.appendChild(el("div", "sx-eyebrow", "NX-SRC \u00b7 CERTIFICATION OF STATION SERVICE"));
+      card.appendChild(el("h2", "sx-h2", "The MCI Station shines again"));
+      var rk = StarNix.xp.rankFor(prof.xp || 0);
+      card.appendChild(el("div", "sx-cert-rank", "\u2726 " + rk.name + " \u00b7 " + (prof.xp || 0).toLocaleString() + " XP"));
+      var stF = null; try { stF = core.questions.stats(); } catch (eSt) {}
+      var ovF = (stF && stF.overall) || { masteredPct: 0, total: 0 };
+      card.appendChild(el("div", "sx-cert-line", "Station 60/60 modules \u00b7 " + Math.round((ovF.masteredPct || 0) * 100) + "% of the bank mastered (" + (ovF.total || 0) + " questions)"));
+      var simsF = [];
+      try { simsF = (prof.examHistory || []).filter(function (hF) { return hF.mode === "sim"; }).slice(-3).map(function (hF) { return (hF.pct || 0) + "%"; }); } catch (eSm) {}
+      if (simsF.length) card.appendChild(el("div", "sx-cert-line", "Recent exam sims: " + simsF.join(" \u00b7 ")));
+      card.appendChild(el("div", "sx-cert-date", "Certified aboard the bridge \u00b7 " + StarNix.daily.dayKey(certAt)));
+      card.appendChild(el("div", "sx-cert-note", "This is your STUDY milestone \u2014 the readiness composite says you are ready for the real NCP-MCI. Go sit it."));
+      var rowF = el("div", "sx-row");
+      var back = el("button", "sx-btn sx-btn-iris", "Return to the bridge \u25b8");
+      self._on(back, "click", function () { self.showMenu(); });
+      rowF.appendChild(back); card.appendChild(rowF);
+      s.appendChild(card);
+      self._focusScreen(s);
+    }
+    if (reduced) { showCert(); return; }
+    // the relight beat: the intro's own station art, lit segment by segment in gold
+    var cv = el("canvas", "sx-finale-cv"); cv.width = 640; cv.height = 400;
+    var cap = el("div", "sx-cap", "Every module answers. The station relights.");
+    var skip = el("button", "sx-skip", "Skip \u25b6");
+    s.appendChild(cv); s.appendChild(cap); s.appendChild(skip);
+    this._on(skip, "click", function () { self._cancelRaf(); showCert(); });
+    var g2 = null; try { g2 = cv.getContext && cv.getContext("2d"); } catch (eG2) {}
+    if (!g2) { showCert(); return; }                     // headless: straight to the certificate
+    var img = null;
+    try { var srcF = global.STARNIX_ASSETS && global.STARNIX_ASSETS.armStation; if (srcF && global.Image) { img = new global.Image(); img.src = srcF; } } catch (eIm) {}
+    var t0F = (global.performance && global.performance.now) ? global.performance.now() : Date.now();
+    var DUR = 6.0;
+    var frame = function () {
+      var tF = (((global.performance && global.performance.now) ? global.performance.now() : Date.now()) - t0F) / 1000;
+      var kF = Math.min(1, tF / DUR);
+      g2.fillStyle = "#07070e"; g2.fillRect(0, 0, cv.width, cv.height);
+      var sw2 = 300, sx2 = (cv.width - sw2) / 2, sy2 = (cv.height - sw2) / 2;
+      if (img && img.complete && img.naturalWidth) { g2.globalAlpha = 0.35 + 0.65 * kF; g2.drawImage(img, sx2, sy2, sw2, sw2); g2.globalAlpha = 1; }
+      else { g2.strokeStyle = "#34344a"; g2.strokeRect(sx2, sy2, sw2, sw2); }
+      var lit = Math.floor(kF * 12 + 0.0001);
+      for (var sg = 0; sg < 12; sg++) {
+        g2.fillStyle = sg < lit ? "rgba(255,200,87,.5)" : "rgba(4,4,12,.75)";
+        g2.fillRect(sx2 + sg * (sw2 / 12), sy2, sw2 / 12 - 1, sw2);
+      }
+      g2.fillStyle = "#FFC857"; g2.font = "700 14px Montserrat, sans-serif"; g2.textAlign = "center";
+      g2.fillText(lit + " / 12 SECTIONS ONLINE", cv.width / 2, sy2 + sw2 + 34);
+      if (kF >= 1) { self._raf = 0; showCert(); return; }
+      self._raf = global.requestAnimationFrame(frame);
+    };
+    try { core.audio.playTrack("menu"); core.audio.sfx("correct"); } catch (eAu) {}
+    this._raf = global.requestAnimationFrame(frame);
+  };
+
   /* =================================================================== *
    * main menu
    * =================================================================== */
@@ -605,6 +679,15 @@
     var prof0 = StarNix.core.profile || {};
     if (prof0.settings && prof0.settings.reducedMotion) s.className += " sx-reduced";   // (v0.116.0, R1) the in-app toggle, not just the OS query
     var stationN = Math.max(0, Math.min(60, prof0.station | 0));   // (v0.186.0, Flow#8) the persistent mastery-fed meter
+    // (v0.204.0, V1.1 Flow#10) the Leitner grind gets a DESTINATION: station rebuilt AND
+    // readiness sustained (two sims >= 80) fires the one-shot certification finale.
+    try {
+      if (!prof0.certified) {
+        var sims80 = 0;
+        (prof0.examHistory || []).forEach(function (hC) { if (hC.mode === "sim" && (hC.pct || 0) >= 80) sims80++; });
+        if (stationN >= 60 && sims80 >= 2) { this.showFinale(); return; }
+      }
+    } catch (eFin) {}
     var bestCC = (prof0.bests && prof0.bests.CC) | 0;
     var bestKBBv = (prof0.bests && prof0.bests.KBB) | 0;
     var bestKBB = bestKBBv ? (Math.floor(bestKBBv / 100) + "-" + (bestKBBv % 100)) : "\u2014";
@@ -1558,6 +1641,14 @@
       if (cnt) cnt.textContent = got + " / " + list.length;
     })(s.querySelector(".sx-ach"));
 
+    // (v0.204.0, V1.1 Flow#10) the certificate replays from here, forever
+    try {
+      if (core.profile.certified) {
+        var certBtn = el("button", "sx-btn sx-btn-primary sx-cert-replay", "\u2726 View your certificate \u25b8");
+        this._on(certBtn, "click", function () { self.showFinale({ replay: true }); });
+        s.querySelector(".sx-ready").appendChild(certBtn);
+      }
+    } catch (eCr10) {}
     // ---- rank rewards (v0.179.0, V1.1 Flow#7): what each rank pays — earned vs ahead ----
     (function buildRewards(box) {
       if (!box || !StarNix.xp.REWARDS) return;
@@ -2287,6 +2378,15 @@
       ".sx-tour-txt{font-size:13px;line-height:1.5;color:var(--text);margin-bottom:10px;}",
       ".sx-tour-row{display:flex;gap:8px;}",
       ".sx-tour-hi{outline:2px solid var(--aqua);outline-offset:3px;border-radius:10px;box-shadow:0 0 24px rgba(31,221,233,.35);}",
+      /* (v0.204.0, V1.1 Flow#10) the finale + certificate */
+      ".sx-finale{display:flex;align-items:center;justify-content:center;background:#07070e;position:relative;}",
+      ".sx-finale-cv{max-width:92%;max-height:70%;}",
+      ".sx-cert{width:min(560px,92%);background:rgba(13,13,24,.96);border:1.5px solid var(--gold);border-radius:18px;padding:30px 34px;text-align:center;box-shadow:0 0 70px rgba(255,200,87,.25);}",
+      ".sx-cert-rank{font-size:19px;font-weight:800;color:var(--gold);margin:12px 0 8px;letter-spacing:.04em;}",
+      ".sx-cert-line{font-size:13.5px;color:var(--text);margin:5px 0;font-variant-numeric:tabular-nums;}",
+      ".sx-cert-date{font-size:12px;color:var(--mid);margin:12px 0 4px;letter-spacing:.08em;text-transform:uppercase;}",
+      ".sx-cert-note{font-size:13px;color:var(--aqua);margin:14px 0 18px;line-height:1.5;}",
+      ".sx-cert-replay{margin-top:10px;}",
       ".sx-reward{display:flex;gap:10px;align-items:baseline;border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:4px 0;opacity:.5;}",
       ".sx-reward.got{opacity:1;border-color:rgba(255,200,87,.5);}",
       ".sx-reward-rank{color:var(--gold);font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}",

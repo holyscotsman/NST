@@ -3122,6 +3122,48 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // F10. Flow#10 (v0.204.0): the certification finale — an actual ending
+  {
+    const pF = SN.core.profile;
+    const saveF = { st: pF.station, cert: pF.certified, hist: JSON.stringify(pF.examHistory || []) };
+    // guard: one condition alone never fires
+    pF.certified = 0; pF.station = 60;
+    pF.examHistory = [{ mode: "sim", pct: 85, total: 75 }];
+    shell.showMenu();
+    ok("F10: station alone (one 80+ sim) does NOT end the game", SN.shell.screen === "menu");
+    pF.station = 59;
+    pF.examHistory = [{ mode: "sim", pct: 85, total: 75 }, { mode: "sim", pct: 82, total: 75 }];
+    shell.showMenu();
+    ok("F10: readiness alone (station 59) does NOT end the game", SN.shell.screen === "menu");
+    // both conditions -> the finale fires ONCE and latches
+    pF.station = 60;
+    shell.showMenu();
+    ok("F10: station 60 + two 80+ sims fires the finale and latches profile.certified",
+      SN.shell.screen === "finale" && pF.certified > 0);
+    // the relight beat is RAF-driven (jsdom+node-canvas gives a real 2D ctx) — Skip lands the cert
+    { const skF = w.document.querySelector(".sx-finale .sx-skip"); if (skF) skF.click(); }
+    {
+      const cert = w.document.querySelector(".sx-cert");
+      const ct = (cert && cert.textContent) || "";
+      ok("F10: the certificate carries rank, 60/60, both sims, and the date",
+        !!cert && /XP/.test(ct) && /60\/60/.test(ct) && /85%/.test(ct) && /82%/.test(ct) && /Certified aboard/.test(ct));
+      ok("F10: the honesty line is present — this is the STUDY milestone, not the NCP-MCI",
+        /real NCP-MCI/.test((w.document.querySelector(".sx-cert-note") || {}).textContent || "")
+        && /Go sit it/.test(ct));
+    }
+    shell.showMenu();
+    ok("F10: certified -> the bridge stays the bridge (one-shot, latched)", SN.shell.screen === "menu");
+    shell.showStats();
+    const rp = w.document.querySelector(".sx-cert-replay");
+    ok("F10: the Codex offers the certificate replay", !!rp);
+    rp.dispatchEvent(new w.Event("click", { bubbles: true }));
+    ok("F10: replay reopens the finale without re-latching a new date",
+      SN.shell.screen === "finale" && pF.certified > 0);
+    // hygiene
+    pF.station = saveF.st; pF.certified = saveF.cert; pF.examHistory = JSON.parse(saveF.hist);
+    shell.showMenu();
+  }
+
   // N10. NIT#10 (v0.203.0): 'why I missed this' memos
   {
     const qN10 = SN.core.questions.pool().find(q => !q.correctIndices && !q.image);
