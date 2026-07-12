@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-DOMAIN-LENS — click the weak spot (added v0.190.0).** In the Codex, hover a heatmap
+  tile: it should read as a button (aqua ring) and clicking it must open Study containing
+  ONLY that domain (check the 'Question 1 of N' count and a few stems). In the Testing
+  station, the 'Study one domain' chip row shows every domain with its mastery % — a chip
+  launches the same scoped session. WRONG: a tile that navigates to the exam full-bank, a
+  chip row crowding the mode buttons on a narrow window, or chips for empty domains.
+
 - **QA-ARM-LOG — the ship's log (added v0.189.0).** Mid-sector, open ⚙ Menu: below the
   toggles sits 'Ship's log · sector n' — five CRT entries with topic tags and status chips.
   Collect a core, reopen: its chip flips to green INSTALLED; lose one: peach LOST, and its

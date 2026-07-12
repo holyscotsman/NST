@@ -3018,6 +3018,34 @@ async function runFrames(n = 6) {
     }
   }
 
+  // NIT#8 (v0.190.0): domain-targeted study — clickable heatmap tiles + the setup domain lens
+  {
+    const st8 = SN.core.questions.stats();
+    const dom8 = st8.domains.find(dd => dd.total > 0);
+    const n8 = SN.core.questions.pool().filter(q => q.domain === dom8.domain).length;
+    shell.showStats();
+    const tile8 = [...w.document.querySelectorAll("button.sx-heat")].find(t => t.textContent.indexOf(dom8.domain) >= 0);
+    ok("NIT#8: heatmap tiles are launch buttons (one per domain)",
+      w.document.querySelectorAll("button.sx-heat").length === st8.domains.length && !!tile8);
+    tile8.dispatchEvent(new w.Event("click", { bubbles: true }));
+    await wait(30);
+    ok("NIT#8: clicking a tile lands in Study scoped to EXACTLY that domain's questions",
+      SN.shell.screen === "exam"
+      && new RegExp("of " + n8 + "$").test((w.document.querySelector(".sx-exam-prog") || {}).textContent || ""));
+    shell.showMenu(); await wait(20);
+    shell.showExamSetup();
+    const chips8 = w.document.querySelectorAll(".sx-domlens-chip");
+    ok("NIT#8: the Testing station carries the domain lens (one chip per populated domain)",
+      chips8.length === st8.domains.filter(dd => dd.total > 0).length
+      && !!w.document.querySelector(".sx-domlens-head"));
+    [...chips8].find(c => c.textContent.indexOf(dom8.domain) >= 0).dispatchEvent(new w.Event("click", { bubbles: true }));
+    await wait(30);
+    ok("NIT#8: a lens chip launches the same scoped Study",
+      SN.shell.screen === "exam"
+      && new RegExp("of " + n8 + "$").test((w.document.querySelector(".sx-exam-prog") || {}).textContent || ""));
+    shell.showMenu(); await wait(20);
+  }
+
   // CC#8 (v0.185.0): the shelf buff boards a FRESH launch through the real mount, then empties
   {
     SN.core.profile.ccShelf = "overshield";

@@ -960,6 +960,29 @@
         lens.appendChild(rd);
       }
     } catch (eRz0) {}
+    // (v0.190.0, V1.1 NIT#8) the domain lens — 'study just storage' is one tap from the
+    // Testing station too, closing the loop the readiness composite opens.
+    try {
+      var domStats = (core.questions.stats().domains || []).filter(function (dd) { return dd.total > 0; });
+      if (domStats.length) {
+        lens.appendChild(el("div", "sx-domlens-head", "Study one domain"));
+        var dRow = el("div", "sx-domlens-row");
+        domStats.forEach(function (dd) {
+          var chip = el("button", "sx-domlens-chip");
+          chip.type = "button";
+          chip.textContent = dd.domain + " \u00b7 " + (dd.seen === 0 ? "new" : Math.round((dd.masteredPct || 0) * 100) + "%");
+          chip.title = dd.total + " question" + (dd.total === 1 ? "" : "s") + " \u00b7 launches Study on just " + dd.domain;
+          self._on(chip, "click", function () {
+            var qsL = core.questions.pool().filter(function (qL) { return qL.domain === dd.domain; });
+            if (!qsL.length) return;
+            self._examMode = "study";
+            self.showExam(null, { questions: qsL, mode: "study" });
+          });
+          dRow.appendChild(chip);
+        });
+        lens.appendChild(dRow);
+      }
+    } catch (eDl) {}
     // (v0.146.0, V1.1 NIT#3) redrill EXACTLY what you've gotten wrong — the end-screen redrill
     // evaporates when you walk away; this tile serves the persistent pile (Leitner-derived,
     // cleared per-question by two consecutive corrects on any surface).
@@ -1313,11 +1336,24 @@
       for (var i = 0; i < doms.length; i++) {
         var d = doms[i], pct = Math.round((d.masteredPct || 0) * 100);
         var tier = d.seen === 0 ? "t0" : pct >= 70 ? "t4" : pct >= 45 ? "t3" : pct >= 20 ? "t2" : "t1";
-        var tile = el("div", "sx-heat " + tier);
+        // (v0.190.0, V1.1 NIT#8) diagnose -> drill on the SAME screen: every tile launches
+        // Study scoped to exactly its domain's questions.
+        var tile = el("button", "sx-heat " + tier);
+        tile.type = "button";
         tile.innerHTML = '<div class="sx-heat-dom">' + d.domain + '</div>'
           + '<div class="sx-heat-pct">' + (d.seen === 0 ? "new" : pct + "%") + "</div>"
           + (d.due ? '<div class="sx-heat-due">' + d.due + " due</div>" : "");
-        tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen";
+        tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen \u00b7 click to study this domain";
+        tile.setAttribute("aria-label", "Study " + d.domain + " \u2014 " + d.total + " questions");
+        (function (domName) {
+          self._on(tile, "click", function () {
+            var qsD = core.questions.pool().filter(function (qD) { return qD.domain === domName; });
+            if (!qsD.length) return;
+            try { core.audio.sfx("click"); } catch (eSf) {}
+            self._examMode = "study";
+            self.showExam(null, { questions: qsD, mode: "study" });
+          });
+        })(d.domain);
         box.appendChild(tile);
       }
     })(s.querySelector(".sx-heatmap"));
@@ -2145,6 +2181,12 @@
       ".sx-heat{min-width:96px;flex:1 1 96px;max-width:150px;padding:9px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.10);text-align:left;}",
       ".sx-heat-dom{font-size:11px;color:var(--fg);opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
       ".sx-heat-pct{font-size:17px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;}",
+      "button.sx-heat{font-family:inherit;cursor:pointer;color:inherit;}",   /* (v0.190.0, NIT#8) tiles launch */
+      "button.sx-heat:hover,button.sx-heat:focus-visible{border-color:var(--aqua);box-shadow:0 0 14px rgba(31,221,233,.25);}",
+      ".sx-domlens-head{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:4px 0 0;}",
+      ".sx-domlens-row{display:flex;flex-wrap:wrap;gap:7px;}",
+      ".sx-domlens-chip{font-family:inherit;font-size:12px;font-weight:700;color:var(--mid);background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:999px;padding:6px 12px;cursor:pointer;transition:border-color .12s,color .12s;}",
+      ".sx-domlens-chip:hover,.sx-domlens-chip:focus-visible{border-color:var(--aqua);color:var(--text);}",
       ".sx-heat-due{font-size:10px;color:var(--gold);margin-top:1px;}",
       ".sx-heat.t0{background:rgba(255,255,255,0.03);color:var(--mid);}",
       ".sx-heat.t1{background:rgba(255,107,91,0.14);border-color:rgba(255,107,91,0.35);border-style:dotted;} .sx-heat.t1 .sx-heat-pct{color:var(--peach);}",
