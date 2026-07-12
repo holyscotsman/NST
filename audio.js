@@ -1043,6 +1043,59 @@
       var mt2g = AC.createGain(); mt2g.gain.setValueAtTime(0.0001, t); mt2g.gain.linearRampToValueAtTime(0.09, t + 0.06); mt2g.gain.exponentialRampToValueAtTime(0.0001, t + md);
       mt2.connect(mt2g); mt2g.connect(sfxBus); mt2.start(t); mt2.stop(t + md); return;
     }
+    // (v0.154.0, V1.1 CC#4) Chasm Chase's own vocabulary — five events that borrowed generics
+    // (or had NO sound at all: boost, turn warning). Same synth style as the v0.121 missile.
+    if (type === "ccgate") {                      // gate WHOOSH-and-freeze: air brakes, then a soft chime as the world stops
+      var ggn = AC.createBufferSource(); ggn.buffer = noiseBuf;
+      var ggf = AC.createBiquadFilter(); ggf.type = "bandpass"; ggf.Q.value = 1.4;
+      ggf.frequency.setValueAtTime(2200, t); ggf.frequency.exponentialRampToValueAtTime(280, t + 0.32);
+      var ggg = AC.createGain(); ggg.gain.setValueAtTime(0.0001, t); ggg.gain.linearRampToValueAtTime(0.3, t + 0.03); ggg.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+      ggn.connect(ggf); ggf.connect(ggg); ggg.connect(sfxBus); ggn.start(t); ggn.stop(t + 0.36);
+      var ggc = AC.createOscillator(); ggc.type = "sine"; ggc.frequency.setValueAtTime(880, t + 0.24);
+      var ggcg = AC.createGain(); ggcg.gain.setValueAtTime(0.0001, t + 0.24); ggcg.gain.linearRampToValueAtTime(0.16, t + 0.27); ggcg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      ggc.connect(ggcg); ggcg.connect(sfxBus); ggc.start(t + 0.24); ggc.stop(t + 0.52); return;
+    }
+    if (type === "ccboost") {                     // ignition RAMP: swelling saw + rising air
+      var cbo = AC.createOscillator(); cbo.type = "sawtooth";
+      cbo.frequency.setValueAtTime(120, t); cbo.frequency.exponentialRampToValueAtTime(640, t + 0.5);
+      var cbg = AC.createGain(); cbg.gain.setValueAtTime(0.0001, t); cbg.gain.linearRampToValueAtTime(0.26, t + 0.34); cbg.gain.exponentialRampToValueAtTime(0.0001, t + 0.62);
+      cbo.connect(cbg); cbg.connect(sfxBus); cbo.start(t); cbo.stop(t + 0.64);
+      var cbn = AC.createBufferSource(); cbn.buffer = noiseBuf;
+      var cbf = AC.createBiquadFilter(); cbf.type = "bandpass"; cbf.Q.value = 0.9;
+      cbf.frequency.setValueAtTime(400, t); cbf.frequency.exponentialRampToValueAtTime(3200, t + 0.55);
+      var cbng = AC.createGain(); cbng.gain.setValueAtTime(0.0001, t); cbng.gain.linearRampToValueAtTime(0.2, t + 0.3); cbng.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+      cbn.connect(cbf); cbf.connect(cbng); cbng.connect(sfxBus); cbn.start(t); cbn.stop(t + 0.62); return;
+    }
+    if (type === "ccklaxon") {                    // turn-warning KLAXON: two two-tone barks (the banner finally has an audio channel)
+      for (var ck = 0; ck < 2; ck++) {
+        var ckt = t + ck * 0.21;
+        var cko = AC.createOscillator(); cko.type = "square";
+        cko.frequency.setValueAtTime(620, ckt); cko.frequency.setValueAtTime(470, ckt + 0.1);
+        var ckg = AC.createGain(); ckg.gain.setValueAtTime(0.0001, ckt); ckg.gain.linearRampToValueAtTime(0.16, ckt + 0.015); ckg.gain.setValueAtTime(0.16, ckt + 0.17); ckg.gain.exponentialRampToValueAtTime(0.0001, ckt + 0.2);
+        cko.connect(ckg); ckg.connect(sfxBus); cko.start(ckt); cko.stop(ckt + 0.21);
+      }
+      return;
+    }
+    if (type === "cccrunch") {                    // wall-clip CRUNCH: low thud + gritty noise burst
+      var crn = AC.createBufferSource(); crn.buffer = noiseBuf;
+      var crf = AC.createBiquadFilter(); crf.type = "lowpass"; crf.frequency.value = 520;
+      var crg = AC.createGain(); crg.gain.setValueAtTime(0.42, t); crg.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+      crn.connect(crf); crf.connect(crg); crg.connect(sfxBus); crn.start(t); crn.stop(t + 0.24);
+      var crt = AC.createOscillator(); crt.type = "sine";
+      crt.frequency.setValueAtTime(95, t); crt.frequency.exponentialRampToValueAtTime(38, t + 0.16);
+      var crtg = AC.createGain(); crtg.gain.setValueAtTime(0.34, t); crtg.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+      crt.connect(crtg); crtg.connect(sfxBus); crt.start(t); crt.stop(t + 0.22); return;
+    }
+    if (type === "ccmile") {                      // milestone STING: quick ascending triad
+      var mns = [523.25, 659.25, 783.99];
+      for (var cm = 0; cm < 3; cm++) {
+        var cmt = t + cm * 0.09;
+        var cmo = AC.createOscillator(); cmo.type = "sine"; cmo.frequency.setValueAtTime(mns[cm], cmt);
+        var cmg = AC.createGain(); cmg.gain.setValueAtTime(0.0001, cmt); cmg.gain.linearRampToValueAtTime(0.18, cmt + 0.02); cmg.gain.exponentialRampToValueAtTime(0.0001, cmt + 0.3);
+        cmo.connect(cmg); cmg.connect(sfxBus); cmo.start(cmt); cmo.stop(cmt + 0.32);
+      }
+      return;
+    }
     if (type === "laserfire" || type === "laserhit") {   // BZZZT + boom; "laserhit" punches a bigger, deeper boom
       var loud = (type === "laserhit"), bd = 0.42;
       var bz = AC.createOscillator(); bz.type = "square"; bz.frequency.setValueAtTime(190, t); bz.frequency.linearRampToValueAtTime(115, t + bd);

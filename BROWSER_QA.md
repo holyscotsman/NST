@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CC-SFX — the Chasm's own voice (added v0.154.0, EARS).** Fly CC with sound on: gates
+  should WHOOSH-and-chime (not click), the boost should ignite with a rising ramp, the corner
+  warning should BARK twice like an alarm (with the banner — eyes-free players must hear it),
+  wall clips and crashes should CRUNCH low, and the 25 km / NEW RECORD moments should sting
+  with a quick rising triad. Report any that sound thin, harsh, or too loud vs the rest.
+  WRONG: a gate that still clicks, or a silent boost.
+
 - **QA-STREAK — the study-day flame (added v0.153.0).** Answer anything today, come back
   tomorrow and answer again: a 🔥 "2-day streak" chip appears beside the rank name; the first
   daily claim that day pays a visibly larger toast (+kicker). Skip a full day: the chip is

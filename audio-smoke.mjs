@@ -282,7 +282,7 @@ console.log("\nLead melody (catchiness pass):");
 }
 
 console.log("\nSFX:");
-for (const s of ["fire", "laser", "missile", "lasercharge", "laserfire", "collect", "correct", "wrong", "click", "hit", "explode", "hyperdrive", "warp", "solve", "count1", "count2", "count3", "totally-unknown"]) {
+for (const s of ["fire", "laser", "missile", "lasercharge", "laserfire", "collect", "correct", "wrong", "click", "hit", "explode", "hyperdrive", "warp", "solve", "count1", "count2", "count3", "ccgate", "ccboost", "ccklaxon", "cccrunch", "ccmile", "totally-unknown"]) {
   let e = null; try { A.sfx(s); } catch (ex) { e = ex; } ok('sfx "' + s + '" plays clean', !e); if (e) errs.push(e);
 }
 
@@ -297,6 +297,11 @@ for (const s of ["fire", "laser", "missile", "lasercharge", "laserfire", "collec
   }
   const nMissile = nodeCount("missile"), nUnknown = nodeCount("totally-unknown");
   ok("sfx 'missile' is a real, richer defined sound than the generic fallback (more synth nodes)", nMissile >= 3 && nMissile > nUnknown);
+  // (v0.154.0, V1.1 CC#4) each CC sound is REAL and DISTINCT, not an alias of the fallback
+  for (const cs of ["ccgate", "ccboost", "ccklaxon", "cccrunch", "ccmile"]) {
+    const nCs = nodeCount(cs);
+    ok("CC#4: sfx '" + cs + "' is a defined multi-node sound (" + nCs + " nodes)", nCs >= 2 && nCs > nUnknown);
+  }
 }
 
 console.log("\nMix controls:");

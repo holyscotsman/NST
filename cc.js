@@ -506,6 +506,7 @@
       this.iframe = this.cfg.COLLIDE_IFRAME; this.hitFlash = this.cfg.HIT_FLASH;
       return;
     }
+    this._emit && this._emit('crash');   // (v0.154.0, CC#4) the crunch — turnfail clips ride this too
     this.shields -= this.cfg.COLLISION_SHIELD_COST;
     this.iframe = this.cfg.COLLIDE_IFRAME;     // shield-loss grace: blocks chained hits for this window
     this.hitFlash = this.cfg.HIT_FLASH;        // sharp damage flash (view); distinct from the protected glow
@@ -1948,10 +1949,17 @@
       }
 
       // sfx hook
+      // (v0.154.0, V1.1 CC#4) CC's own vocabulary — no more borrowed generics, and the
+      // previously SILENT events (boost ignition, turn warning) finally speak. The klaxon
+      // doubles the flashing banner: the corner warning is no longer sight-only.
       sim._emit = function (name) {
         if (!ctx.audio || !ctx.audio.sfx) return;
         if (name === 'coin') ctx.audio.sfx('collect');
-        else if (name === 'gatePassed') ctx.audio.sfx('click');
+        else if (name === 'gatePassed') ctx.audio.sfx('ccgate');
+        else if (name === 'boost') ctx.audio.sfx('ccboost');
+        else if (name === 'turnwarn') ctx.audio.sfx('ccklaxon');
+        else if (name === 'crash') ctx.audio.sfx('cccrunch');
+        else if (name === 'turnauto') ctx.audio.sfx('click');
         else if (name === 'powerup') ctx.audio.sfx('correct');
         else if (name === 'gameover') ctx.audio.sfx('explode');
       };
@@ -2225,7 +2233,7 @@
           el.mileBanner.textContent = '\u25c8 ' + (sim.lastMilestone / 1000) + ' km \u2014 deeper into the chasm';
           el.mileBanner.classList.add('on');
           mileHideAt = sim.scoreDistance + 2200;
-          try { ctx.audio && ctx.audio.sfx && ctx.audio.sfx('correct'); } catch (eMi) {}
+          try { ctx.audio && ctx.audio.sfx && ctx.audio.sfx('ccmile'); } catch (eMi) {}
         }
         if (pbBest > 0 && !pbBeaten && sim.scoreDistance > pbBest) {
           pbBeaten = true;
@@ -2233,7 +2241,7 @@
           el.mileBanner.textContent = '\u2605 NEW RECORD \u2014 past ' + (pbBest / 1000).toFixed(1) + ' km';
           el.mileBanner.classList.add('on');
           mileHideAt = sim.scoreDistance + 2600;
-          try { ctx.audio && ctx.audio.sfx && ctx.audio.sfx('collect'); } catch (ePb) {}
+          try { ctx.audio && ctx.audio.sfx && ctx.audio.sfx('ccmile'); } catch (ePb) {}
         }
         if (mileHideAt && sim.scoreDistance > mileHideAt) { el.mileBanner.classList.remove('on'); mileHideAt = 0; }
         var bc = sim.boostActive ? -1 : sim.boostCharge;                // (CC#1) meter: -1 = riding
