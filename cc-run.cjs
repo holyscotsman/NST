@@ -481,6 +481,59 @@ function runToQuestion(sim, maxSecs, pinShields) {
      'magnet buys once then reports maxed');
 })();
 
+/* ============ 4f) CC#7: NEW POWER-GATE BUFFS — overshield / scholar / double-down ============ */
+(function cc7Buffs() {
+  group('CC#7: overshield eats one crash, scholar stretches the next window, double-down raises the stakes');
+  ok(E.POWER_KINDS.length === 8
+     && ['overshield', 'scholar', 'doubledown'].every(function (k) { return E.POWER_KINDS.indexOf(k) >= 0; }),
+     'the power-gate pool holds 8 kinds — the three new buffs are drawable');
+  // OVERSHIELD: a 6th pip that absorbs exactly ONE crash, whole
+  var sim = mkSim(SEED + 50);
+  ok(sim.overshield === 0 && sim.scholarNext === false && sim.doubleNext === false,
+     'a fresh run starts with none of the one-shots');
+  sim._grantBuff('overshield');
+  ok(sim.overshield === 1, 'the overshield pip arms');
+  sim.shields = 3; sim.iframe = 0; sim._onCrash();
+  ok(sim.shields === 3 && sim.overshield === 0 && sim.iframe >= CFG.COLLIDE_IFRAME - 0.01,
+     'the first crash is eaten whole — shields untouched, pip spent, grace still granted');
+  sim.iframe = 0; sim._onCrash();
+  ok(sim.shields === 3 - CFG.COLLISION_SHIELD_COST, 'the second crash bites as normal (the pip is strictly one-shot)');
+  // SCHOLAR: the NEXT gate's window +50% on top of the v0.126 base, then spent
+  var s2 = mkSim(SEED + 51);
+  s2._grantBuff('scholar');
+  ok(s2.scholarNext === true, 'scholar arms for the next gate');
+  ok(runToQuestion(s2, 90, CFG.SHIELDS_MAX), 'the scholar gate arrives');
+  ok(s2.pending.limitS === 45 && s2.scholarNext === false,
+     'scholar window: 20s base x1.5 (v0.126) x1.5 (scholar) = 45s, then spent');
+  s2.answer(s2.pending.question.correctIndex); s2.resumeAfterQuestion();
+  ok(runToQuestion(s2, 90, CFG.SHIELDS_MAX) && s2.pending.limitS === 30,
+     'the gate after reverts to the stock 30s window');
+  // DOUBLE-DOWN: the next gate carries the raised stakes — +2 on correct (capped), -3 on wrong
+  var s3 = mkSim(SEED + 52);
+  s3._grantBuff('doubledown');
+  ok(s3.doubleNext === true, 'double-down arms');
+  ok(runToQuestion(s3, 90, CFG.SHIELDS_MAX), 'the staked gate arrives');
+  var rW = s3.answer((s3.pending.question.correctIndex + 1) % 4);
+  ok(rW.correct === false && rW.shieldDelta === -3 && s3.shields === CFG.SHIELDS_MAX - 3 && s3.doubleNext === false,
+     'a doubled-down miss costs 3 shields, then the stake is spent');
+  s3.resumeAfterQuestion();
+  ok(runToQuestion(s3, 90, CFG.SHIELDS_MAX)
+     && s3.answer((s3.pending.question.correctIndex + 1) % 4).shieldDelta === -2,
+     'the very next miss is back to the stock -2 (no lingering stake)');
+  s3.resumeAfterQuestion();
+  s3._grantBuff('doubledown');
+  ok(runToQuestion(s3, 90, CFG.SHIELDS_MAX - 2), 'a second staked gate arrives at 3 pips');
+  var rC = s3.answer(s3.pending.question.correctIndex);
+  ok(rC.correct === true && rC.shieldDelta === 2 && s3.shields === CFG.SHIELDS_MAX,
+     'a doubled-down correct restores 2 shields (3 -> 5)');
+  s3.resumeAfterQuestion();
+  s3._grantBuff('doubledown');
+  ok(runToQuestion(s3, 90, CFG.SHIELDS_MAX - 1), 'a third staked gate arrives one pip short of full');
+  var rCap = s3.answer(s3.pending.question.correctIndex);
+  ok(rCap.shieldDelta === 1 && s3.shields === CFG.SHIELDS_MAX,
+     'the +2 respects SHIELDS_MAX — one pip short heals exactly 1');
+})();
+
 (function firstGate() {
   group('FIRST GATE: earlier first question, then the normal cadence (v0.126.0, Jason)');
   var s9 = mkSim(SEED + 9);

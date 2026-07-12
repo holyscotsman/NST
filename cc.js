@@ -146,8 +146,10 @@
   var OB_NARROW = 0, OB_LOWROCK = 1, OB_ARCH = 2, OB_SWEEP = 3, OB_ROCKFALL = 4;   // (v0.160.0, CC#5)
   var SIDE_LEFT = 0, SIDE_RIGHT = 1;   // OB_NARROW.side -> which outer lane it seals (left=lane0, right=lane2)
   var BUFF_MAGNET = 'magnet', BUFF_INVINCIBLE = 'invincible', BUFF_SHIELDPLUS = 'shieldPlus',
-      BUFF_COINX2 = 'coinX2', BUFF_SLOWMO = 'slowmo';
-  var POWER_KINDS = [BUFF_MAGNET, BUFF_INVINCIBLE, BUFF_SHIELDPLUS, BUFF_COINX2, BUFF_SLOWMO];
+      BUFF_COINX2 = 'coinX2', BUFF_SLOWMO = 'slowmo',
+      BUFF_OVERSHIELD = 'overshield', BUFF_SCHOLAR = 'scholar', BUFF_DOUBLEDOWN = 'doubledown';   // (v0.178.0, V1.1 CC#7)
+  var POWER_KINDS = [BUFF_MAGNET, BUFF_INVINCIBLE, BUFF_SHIELDPLUS, BUFF_COINX2, BUFF_SLOWMO,
+      BUFF_OVERSHIELD, BUFF_SCHOLAR, BUFF_DOUBLEDOWN];
 
   // Phases
   var PHASE_RUN = 'RUN', PHASE_QUESTION = 'QUESTION', PHASE_EXPLAIN = 'EXPLAIN', PHASE_OVER = 'OVER';
@@ -233,6 +235,7 @@
 
     // Buff timers (fixed object — no per-frame alloc)
     this.buffs = { magnet: 0, invincible: 0, coinX2: 0, slowmo: 0 };
+    this.overshield = 0; this.scholarNext = false; this.doubleNext = false;   // (v0.178.0, CC#7)
 
     this.reset();
   }
@@ -247,6 +250,7 @@
     p.lane = 1; p.x = 0; p.fromX = 0; p.targetX = 0; p.laneT = 1;
     p.jumpT = 0; p.jumping = false; p.jumpHeld = false; p.jumpHang = 0; p.duckT = 0; p.ducking = false; p.y = 0; p.topY = cfg.PLAYER_H;
     this.buffs.magnet = 0; this.buffs.invincible = 0; this.buffs.coinX2 = 0; this.buffs.slowmo = 0;
+    this.overshield = 0; this.scholarNext = false; this.doubleNext = false;   // (v0.178.0, CC#7)
 
     this.phase = PHASE_RUN;
     this.shields = cfg.SHIELDS_START + (this._up ? this._up.hull : 0);   // (J9) hull tiers
@@ -518,6 +522,11 @@
       return;
     }
     this._emit && this._emit('crash');   // (v0.154.0, CC#4) the crunch — turnfail clips ride this too
+    if (this.overshield > 0) {           // (v0.178.0, CC#7) the extra pip eats ONE hit, whole
+      this.overshield = 0;
+      this.iframe = this.cfg.COLLIDE_IFRAME; this.hitFlash = this.cfg.HIT_FLASH;
+      return;
+    }
     this.shields -= this.cfg.COLLISION_SHIELD_COST;
     this.iframe = this.cfg.COLLIDE_IFRAME;     // shield-loss grace: blocks chained hits for this window
     this.hitFlash = this.cfg.HIT_FLASH;        // sharp damage flash (view); distinct from the protected glow
@@ -595,6 +604,7 @@
       }
     } catch (e) {}
     limitS = limitS * 1.5;   // (v0.126.0, Jason playtest) extend the question window 1.5x for now
+    if (this.scholarNext) { limitS = limitS * 1.5; this.scholarNext = false; }   // (v0.178.0, CC#7) SCHOLAR: +50% on this one, then spent
     this.pending = { question: q, power: c.power, kind: c.kind, startedMs: this._nowMs, limitS: limitS, remainS: limitS };
     this.lastResult = null;
     this.phase = PHASE_QUESTION;    // PAUSE
@@ -635,14 +645,17 @@
     var cfg = this.cfg;
     var delta = 0;
 
+    var dd = this.doubleNext; this.doubleNext = false;   // (v0.178.0, CC#7) DOUBLE-DOWN: this gate carries the raised stakes
     if (correct) {
-      if (this.shields < cfg.SHIELDS_MAX) { this.shields++; delta = 1; }
+      if (dd) { delta = Math.min(2, cfg.SHIELDS_MAX - this.shields); this.shields += delta; }   // +2, capped
+      else if (this.shields < cfg.SHIELDS_MAX) { this.shields++; delta = 1; }
       // (v0.139.0, V1.1 CC#1) the run's biggest reward is EARNED now: each correct gate answer
       // charges the boost meter; a full meter arms the ride (fires on resume, as before).
       this.boostCharge++;
       if (this.boostCharge >= cfg.GATES_PER_BOOST) { this.boostCharge = 0; this._boostPending = true; }
     } else {
-      this.shields -= 2; delta = -2;            // 04 task 4: a wrong gate answer costs 2 shields
+      if (dd) { this.shields -= 3; delta = -3; }            // (CC#7) you doubled down and missed
+      else { this.shields -= 2; delta = -2; }               // 04 task 4: a wrong gate answer costs 2 shields
       this.boostCharge = Math.floor(this.boostCharge / 2);   // (CC#1) a miss drains half the charge
     }
 
@@ -703,6 +716,9 @@
     else if (kind === BUFF_INVINCIBLE) b.invincible = cfg.BUFF_INVINCIBLE;
     else if (kind === BUFF_COINX2) b.coinX2 = cfg.BUFF_COINX2;
     else if (kind === BUFF_SLOWMO) b.slowmo = cfg.BUFF_SLOWMO;
+    else if (kind === BUFF_OVERSHIELD) this.overshield = 1;                    // (v0.178.0, CC#7) a 6th pip: absorbs ONE crash
+    else if (kind === BUFF_SCHOLAR) this.scholarNext = true;                   // (CC#7) next gate's window +50% — luck spent on learning room
+    else if (kind === BUFF_DOUBLEDOWN) this.doubleNext = true;                 // (CC#7) next gate: +2 on correct, -3 on wrong
     if (this.ctx.telemetry && typeof this.ctx.telemetry.emit === 'function') {
       this.ctx.telemetry.emit({ t: 'powerup', game: 'CC', kind: kind });
     }
@@ -2338,7 +2354,7 @@
         }
         var cl = sim.coinScore | 0;
         if (el.cells && cl !== hudCache.cells) { hudCache.cells = cl; el.cells.textContent = '\u2b21 ' + cl; }   // (J9)
-        var bk = buffStr(sim.buffs);
+        var bk = buffStr(sim.buffs, sim);   // (v0.178.0, CC#7)
         if (bk !== hudCache.buffs) { hudCache.buffs = bk; el.buffs.textContent = bk; }
       }
 
@@ -2622,12 +2638,17 @@
   function flashKey(k) { if (!k) return; k.classList.add('hit'); setTimeout(function () { k.classList.remove('hit'); }, 90); }
   function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
   function row(k, v) { return '<div class="cc-row"><span>' + k + '</span><b>' + v + '</b></div>'; }
-  function buffStr(b) {
+  function buffStr(b, sim2) {
     var s = '';
     if (b.magnet > 0) s += '🧲' + Math.ceil(b.magnet) + ' ';
     if (b.invincible > 0) s += '★' + Math.ceil(b.invincible) + ' ';
     if (b.coinX2 > 0) s += '×2 ' + Math.ceil(b.coinX2) + ' ';
     if (b.slowmo > 0) s += '⏱' + Math.ceil(b.slowmo) + ' ';
+    if (sim2) {   // (v0.178.0, CC#7) the one-shot buffs
+      if (sim2.overshield > 0) s += '⛨+1 ';
+      if (sim2.scholarNext) s += '📖next ';
+      if (sim2.doubleNext) s += '⚖next ';
+    }
     return s.trim();
   }
 
