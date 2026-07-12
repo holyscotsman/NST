@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-STATION-VISTA — the station re-lights (added v0.186.0).** On the bridge, the right
+  column now opens with the MCI Station vista: the station art with dark unbuilt segments and
+  lit gold-tinted ones matching the ARM strip's 'Station n/60'. Master more cards (any game or
+  exam) and revisit: the count and lit segments must only ever GROW — never shrink after a bad
+  study day. The n/60 stamp sits bottom-right of the vista. WRONG: a vista that ignores
+  non-ARM play, a meter that drops, or the canvas overflowing its column on a narrow window.
+
 - **QA-CC-GARAGE2 — the deeper garage + shelf (added v0.185.0).** Die in CC with a banked
   wallet: the Garage now lists SIX upgrades (corner thrusters + focus capacitor new) with
   tier counters, and below them a gold 'SHELF · one-run buffs' section with three cheap

@@ -584,7 +584,7 @@
     var s = el("div", "sx-screen sx-menu sx-bridge");
     var prof0 = StarNix.core.profile || {};
     if (prof0.settings && prof0.settings.reducedMotion) s.className += " sx-reduced";   // (v0.116.0, R1) the in-app toggle, not just the OS query
-    var stationN = (prof0.saves && prof0.saves.ARM && prof0.saves.ARM.stationBuild) | 0;
+    var stationN = Math.max(0, Math.min(60, prof0.station | 0));   // (v0.186.0, Flow#8) the persistent mastery-fed meter
     var bestCC = (prof0.bests && prof0.bests.CC) | 0;
     var bestKBBv = (prof0.bests && prof0.bests.KBB) | 0;
     var bestKBB = bestKBBv ? (Math.floor(bestKBBv / 100) + "-" + (bestKBBv % 100)) : "\u2014";
@@ -608,6 +608,41 @@
     // right side — the SAME _buildStatsSummary the Codex uses, restyled as subsystem readouts.
     try {
       this._buildStatsSummary(s.querySelector(".sx-br-grid"), s.querySelector(".sx-br-list"), { compact: true, maxDomains: 6 });
+      // (v0.186.0, V1.1 Flow#8) the vista: the MCI Station re-lights section by section as the
+      // bank gets mastered — the campaign fiction, fed by EVERY surface, visible every boot.
+      (function vista() {
+        var host = s.querySelector(".sx-bridge-right");
+        if (!host) return;
+        var segs = 12, lit = Math.max(0, Math.min(segs, Math.round(stationN / 60 * segs)));
+        var cv = el("canvas", "sx-station-vista");
+        cv.width = 232; cv.height = 96;
+        cv.setAttribute("data-lit", String(lit));
+        cv.title = "MCI Station \u2014 " + stationN + "/60 modules re-lit by mastery";
+        host.insertBefore(cv, host.firstChild);
+        var g2d = null;
+        try { g2d = cv.getContext && cv.getContext("2d"); } catch (eG) {}
+        if (!g2d) return;                             // headless: structure only, per harness convention
+        function paint(imEl) {
+          g2d.clearRect(0, 0, cv.width, cv.height);
+          if (imEl) { try { g2d.drawImage(imEl, 8, 4, cv.width - 16, cv.height - 8); } catch (eDI) {} }
+          else { g2d.strokeStyle = "#34344a"; g2d.strokeRect(10, 12, cv.width - 20, cv.height - 24); }
+          var w2 = (cv.width - 16) / segs;
+          for (var si = 0; si < segs; si++) {
+            var x0 = 8 + si * w2;
+            if (si >= lit) { g2d.fillStyle = "rgba(4,4,12,.88)"; g2d.fillRect(x0, 0, w2 + 1, cv.height); }
+            else { g2d.fillStyle = "rgba(255,200,87,.10)"; g2d.fillRect(x0, 0, w2, cv.height); }
+          }
+          g2d.fillStyle = "#FFC857"; g2d.font = "700 10px Montserrat, sans-serif";
+          g2d.fillText(stationN + "/60", cv.width - 44, cv.height - 8);
+        }
+        var art = global.STARNIX_ASSETS && global.STARNIX_ASSETS.armStation;
+        if (art && global.Image) {
+          var im = new global.Image();
+          im.onload = function () { paint(im); };
+          im.src = art;
+          paint(null);                                 // frame now; art lands async
+        } else paint(null);
+      })();
       var brP = s.querySelector(".sx-bridge-right");
       this._on(brP, "click", function () { try { StarNix.core.audio.sfx("click"); } catch (eB) {} self.showStats(); });
     } catch (eBr) {}
@@ -1994,6 +2029,7 @@
       ".sx-bridge-right:hover{border-color:rgba(120,85,250,.6);}",
       ".sx-br-lbl{font-size:10px;letter-spacing:.18em;color:var(--dim);margin-bottom:8px;}",
       ".sx-br-grid{display:flex;gap:8px;margin-bottom:8px;}",
+      ".sx-station-vista{width:100%;height:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:#07070e;display:block;}",   /* (v0.186.0, Flow#8) */
       ".sx-br-grid .sx-stat{flex:1;padding:6px 8px;}",
       ".sx-br-grid .sx-stat-val{font-size:17px;}",
       ".sx-br-grid .sx-stat-label{font-size:9.5px;}",

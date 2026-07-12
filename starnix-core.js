@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.185.0";
+  var BUILD_VERSION = "0.186.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -235,6 +235,18 @@
         }
         if (opts.onAnswer) {
           try { opts.onAnswer({ t: "answer", qid: id, game: g, correct: !!correct, latencyMs: lat, timerPct: tpc, reason: (ctx && ctx.reason) || "answered" }); } catch (eTA) {}
+        }
+        // (v0.186.0, V1.1 Flow#8) the station-rebuild fantasy is PERSISTENT: every surface's
+        // mastery feeds ONE 60-module meter, latched like trailsUnlocked — decay never
+        // un-builds a module. Recomputed only when a bucket actually moved.
+        if (m.bucket !== prevBucket) {
+          var mcS = 0; for (var mkS in map) { if (map[mkS] && map[mkS].bucket >= MASTERED_BUCKET) mcS++; }
+          var poolNS = 0;
+          try { poolNS = StarNix.core.questions ? StarNix.core.questions.pool().length : 0; } catch (ePS) {}
+          if (poolNS > 0) {
+            var stNS = Math.min(60, Math.floor(mcS / poolNS * 60));
+            if (stNS > (profile.station | 0)) profile.station = stNS;
+          }
         }
         // Daily missions (v0.56.0 unit 6): per-day counters off the same choke point.
         var dd = ensureDaily(profile);
@@ -830,6 +842,7 @@
       achievements: {},      // unlocked achievement id -> unlock timestamp
       trailsUnlocked: {},    // (v0.65.0) cosmetic latches: trail id -> earn timestamp (earned forever)
       qstats: {},            // (v0.183.0, V1.1 Backend#7) per-question pace aggregates: id -> {n, lat(EMA ms), pct(EMA of window used)}
+      station: 0,            // (v0.186.0, V1.1 Flow#8) MCI Station modules re-lit (0-60) — mastery-fed, latched forever
       settings: defaultSettings(),
       updatedAt: clock.now()
     };
@@ -852,6 +865,7 @@
     if (!p.achievements || typeof p.achievements !== "object") p.achievements = {};
     if (!p.trailsUnlocked || typeof p.trailsUnlocked !== "object") p.trailsUnlocked = {};
     if (!p.qstats || typeof p.qstats !== "object") p.qstats = {};       // (v0.183.0, Backend#7)
+    if (typeof p.station !== "number" || !(p.station >= 0)) p.station = 0;   // (v0.186.0, Flow#8)
     if (typeof p.streakDays !== "number") p.streakDays = 0;            // (v0.153.0, Flow#4)
     if (typeof p.streakDaysBest !== "number") p.streakDaysBest = 0;
     p.settings = Object.assign({}, def.settings, p.settings || {});

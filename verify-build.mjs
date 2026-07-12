@@ -3016,6 +3016,51 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
+  // V8f. Flow#8 (v0.186.0): the persistent station meter — mastery-fed, latched forever
+  console.log("\nV8f. Flow#8 persistent station (choke-point feed / latch / bridge strip + vista)");
+  {
+    const core = SN.core;
+    const pool = core.questions.pool();
+    const snapV8 = JSON.stringify({ st: core.profile.station | 0, xp: core.profile.xp, rankSeen: core.profile.rankSeen,
+      totals: core.profile.totals, daily: core.profile.daily || null, streaks: core.profile.streaks,
+      streaksBest: core.profile.streaksBest, ach: core.profile.achievements });
+    const qV8 = pool.find(q => !core.profile.mastery[q.id] || core.profile.mastery[q.id].bucket < 4);
+    const mSnap = core.profile.mastery[qV8.id] ? JSON.stringify(core.profile.mastery[qV8.id]) : null;
+    // stage the card one rung below mastered, long overdue, then promote it through the REAL choke point
+    core.profile.mastery[qV8.id] = { id: qV8.id, seen: 3, correct: 3, incorrect: 0, streak: 3, bucket: 3, lastSeen: 1 };
+    let m0 = 0; for (const k in core.profile.mastery) if (core.profile.mastery[k].bucket >= 4) m0++;
+    core.profile.station = 0;                                  // sharp: the promotion alone must set it
+    core.mastery.record(qV8.id, true, { game: "PROBE" });
+    const expSt = Math.min(60, Math.floor((m0 + 1) / pool.length * 60));
+    ok("Flow#8: a promotion into mastered advances the station meter (floor(mastered/bank*60))",
+      core.profile.mastery[qV8.id].bucket === 4 && core.profile.station === expSt);
+    // the latch: pre-set the meter HIGH — one demotion recomputes low, and only the latch holds 59
+    core.profile.station = 59;
+    core.mastery.record(qV8.id, false, { game: "PROBE" });
+    ok("Flow#8: the latch holds — mastery decay never un-builds a module",
+      core.profile.mastery[qV8.id].bucket === 3 && core.profile.station === 59);
+    // bridge: the ARM strip stat + the vista read the PROFILE meter
+    core.profile.station = 33;
+    shell.showMenu();
+    {
+      const vista = w.document.querySelector(".sx-station-vista");
+      const armStat = [...w.document.querySelectorAll(".sx-strip")].map(n => n.textContent).find(t => /Station/.test(t)) || "";
+      ok("Flow#8: the bridge strip reads the persistent meter (33/60) and the vista lights 7 of 12 segments",
+        /33\/60/.test(armStat) && !!vista && vista.getAttribute("data-lit") === "7");
+    }
+    ok("Flow#8: migrate-repair defaults the meter (source)", html.includes('p.station = 0;   // (v0.186.0, Flow#8)'));
+    // hygiene
+    {
+      const sv = JSON.parse(snapV8);
+      core.profile.station = sv.st; core.profile.xp = sv.xp; core.profile.rankSeen = sv.rankSeen;
+      core.profile.totals = sv.totals; if (sv.daily) core.profile.daily = sv.daily;
+      core.profile.streaks = sv.streaks; core.profile.streaksBest = sv.streaksBest; core.profile.achievements = sv.ach;
+      if (mSnap) core.profile.mastery[qV8.id] = JSON.parse(mSnap); else delete core.profile.mastery[qV8.id];
+      delete core.profile.qstats[qV8.id];
+      shell.showMenu();
+    }
+  }
+
   // J9 (v0.73.0): the CC Garage — module-side source pins (the engine behavior is cc-run's 38)
   console.log("\nJ9. CC Garage source pins (banking + HUD + panel ship in the build)");
   {
