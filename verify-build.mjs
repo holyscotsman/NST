@@ -166,6 +166,17 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.159.0, V1.1 Menu#5) the Disruptor beam carries ARM's full layered treatment
+      {
+        const srcW = w.document.documentElement.innerHTML;
+        const wb = srcW.slice(srcW.indexOf("function drawWarBeam"), srcW.indexOf("function drawWarBeam") + 4200);
+        ok("Menu#5: the cinematic beam is ARM's layered fire moment (charge gradient + dashed aim + glow/core strokes + impact flash), reduced keeps the flat line",
+          wb.indexOf("createRadialGradient(noseX, wsy, 0, noseX, wsy") >= 0
+          && wb.indexOf("setLineDash([6, 8])") >= 0
+          && wb.indexOf('strokeStyle = "rgba(255,238,228,0.9)"') >= 0
+          && wb.indexOf("impact flash at the station") >= 0
+          && wb.indexOf("ctx.lineWidth = 3; ctx.globalAlpha = 0.9;") >= 0);   // the reduced-motion flat line survives
+      }
       // (v0.158.0, V1.1 Backend#5) zero runtime CDNs: both dependencies vendored + sha-pinned
       {
         const headHtml = w.document.documentElement.innerHTML;

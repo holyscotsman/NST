@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CINE-BEAM — the Disruptor fire moment (added v0.159.0).** Watch the cinematic's beam
+  beat (~3.4s-6.4s): the warship's nose should GLOW and swell for a full second with a faint
+  marching dashed line aimed at the station, then a thick peach beam with a white-hot core
+  lands with a white flash at the hull. EARS: the charge whine should span the whole 1s
+  build-up (report if it dies early — audio.js lasercharge tail), the fire crack lands on the
+  beam. Reduced motion: the old plain dot + thin line. WRONG: the beam firing with no charge
+  build-up, or the flash washing out the shatter that follows.
+
 - **QA-OFFLINE — no CDNs left (added v0.158.0).** Load the deployed app with DevTools →
   Network → "Block request domain" on cdnjs.cloudflare.com, fonts.googleapis.com and
   fonts.gstatic.com (or just go offline after first paint): CC's 3D chasm and KBB's 3D combat

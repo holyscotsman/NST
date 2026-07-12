@@ -343,13 +343,49 @@
       var wsx = lerp(W + 90, cx + 160 * scale, enter), wsy = cy, sc = scale * 1.1, noseX = wsx - 30 * sc;
       var shake = (bk >= 2.0 && !reduced) ? (rng.next() - 0.5) * 6 : 0;
       drawStation(1, shake, shake * 0.6);
-      if (bk >= 1.0) { var ch = clamp((bk - 1.0) / 1.0, 0, 1); ctx.save(); ctx.fillStyle = "#FF6B5B"; if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 18; } ctx.beginPath(); ctx.arc(noseX, wsy, 3 + ch * 8, 0, 6.283); ctx.fill(); ctx.restore(); ctx.shadowBlur = 0; }
+      if (bk >= 1.0) {   // (v0.159.0, V1.1 Menu#5) ARM's layered charge: radial glow + dashed aim line
+        var ch = clamp((bk - 1.0) / 1.0, 0, 1);
+        if (!reduced) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          var crR = (4 + ch * 16) * scale;
+          var cgR = ctx.createRadialGradient(noseX, wsy, 0, noseX, wsy, crR * 2.2);
+          if (cgR && cgR.addColorStop) {
+            cgR.addColorStop(0, "rgba(255,107,91," + (0.5 + 0.4 * ch) + ")"); cgR.addColorStop(1, "rgba(255,107,91,0)");
+            ctx.fillStyle = cgR; ctx.beginPath(); ctx.arc(noseX, wsy, crR * 2.2, 0, 6.283); ctx.fill();
+          }
+          if (ctx.setLineDash) {
+            ctx.strokeStyle = "rgba(255,107,91," + (0.25 + 0.35 * ch) + ")"; ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 8]); ctx.lineDashOffset = -T * 40;
+            ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke(); ctx.setLineDash([]);
+          }
+          ctx.restore();
+        } else {
+          ctx.save(); ctx.fillStyle = "#FF6B5B"; ctx.beginPath(); ctx.arc(noseX, wsy, 3 + ch * 8, 0, 6.283); ctx.fill(); ctx.restore();
+        }
+        ctx.shadowBlur = 0;
+      }
       if (bk >= 2.0) {
         var fk = clamp((bk - 2.0) / 1.0, 0, 1);
-        ctx.save(); ctx.strokeStyle = "#FF6B5B"; if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 20; }
-        ctx.lineWidth = reduced ? 3 : (3 + Math.sin(T * 40) * 2 + fk * 3); ctx.globalAlpha = 0.9;
-        ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke(); ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
-        if (!reduced) { ctx.fillStyle = "rgba(255,107,91," + (0.05 + fk * 0.12) + ")"; ctx.fillRect(0, 0, W, H); }
+        if (!reduced) {   // (v0.159.0, Menu#5) the layered fire moment: glow stroke + white core + impact flash
+          ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 22;
+          ctx.strokeStyle = "rgba(255,107,91,0.85)"; ctx.lineWidth = (7 + 12 * (1 - fk * 0.5)) * scale;
+          ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke();
+          ctx.strokeStyle = "rgba(255,238,228,0.9)"; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke();
+          if (fk < 0.25) {   // impact flash at the station the instant the beam lands
+            var ifR = (30 + fk * 260) * scale;
+            var ig = ctx.createRadialGradient(cx, cy, 0, cx, cy, ifR);
+            if (ig && ig.addColorStop) {
+              ig.addColorStop(0, "rgba(255,255,255," + (0.7 * (1 - fk / 0.25)) + ")"); ig.addColorStop(1, "rgba(255,107,91,0)");
+              ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(cx, cy, ifR, 0, 6.283); ctx.fill();
+            }
+          }
+          ctx.restore(); ctx.shadowBlur = 0;
+          ctx.fillStyle = "rgba(255,107,91," + (0.05 + fk * 0.12) + ")"; ctx.fillRect(0, 0, W, H);
+        } else {
+          ctx.save(); ctx.strokeStyle = "#FF6B5B"; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
+          ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke(); ctx.restore(); ctx.globalAlpha = 1;
+        }
       }
       ctx.save(); ctx.translate(wsx, wsy);
       if (warshipA && warshipA.ready) {   // (v0.124.0) the real BCM warship
