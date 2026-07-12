@@ -7,11 +7,23 @@
  *   5. cc     — registers CC (reads window.THREE; graceful fallback if absent)
  *   6. kbb    — registers KBB (Kuiper Belt Battle)
  *   7. boot   — StarNix.boot(#app)
- * Three.js (UMD global) is loaded from CDN in <head> for CC.
+ * Three.js (UMD global) is VENDORED (vendor/three-r128.min.js) and inlined — zero runtime
+ * CDN dependencies (v0.158.0, V1.1 Backend#5). Montserrat ships as an inlined variable-font
+ * subset (vendor/montserrat.css). Both are sha256-pinned: a drifted vendor file FAILS the build.
  */
 import { readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 
-const THREE_CDN = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+const THREE_SHA = "9274bbcec8d96168626c732b5d31c775aa8cfb7eaa0599bec0c175908a2c1ce2";   // three.js r128 (cdnjs copy, vendored 2026-07-11)
+const FONT_SHA = "ec10c02708feb2fb7f960556652b732d529e30bf14c5dd59e790aacd65f5d5c7";    // Montserrat latin variable subset (OFL)
+function vendored(rel, sha, label) {
+  const buf = readFileSync(new URL(rel, import.meta.url));
+  const got = createHash("sha256").update(buf).digest("hex");
+  if (got !== sha) { console.error("BUILD FAIL: " + label + " drifted (sha256 " + got + " != pinned " + sha + ")"); process.exit(1); }
+  return buf.toString("utf8");
+}
+const threeSrc = vendored("./vendor/three-r128.min.js", THREE_SHA, "vendor/three-r128.min.js");
+const fontCss = vendored("./vendor/montserrat.css", FONT_SHA, "vendor/montserrat.css");
 
 const modules = [
   ["starnix-core.js", "core"],
@@ -97,11 +109,10 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <title>StarNix — Starlight Rescue Crew</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" />
-<!-- Three.js (UMD global window.THREE) for the Chasm Chase 3D renderer -->
-<script src="${THREE_CDN}"></script>
+<style>/* ===== Montserrat, vendored (no fonts CDN) ===== */
+${fontCss}</style>
+<!-- Three.js r128 (UMD global window.THREE), VENDORED — no runtime CDN -->
+<script>${threeSrc}</script>
 <style>
   html, body { margin: 0; height: 100%; background: #07070e; color: #F2F2F7;
     font-family: 'Montserrat', Arial, sans-serif; overflow: hidden; }

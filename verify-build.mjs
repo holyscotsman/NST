@@ -1,7 +1,8 @@
 /* Headless verification of the assembled index.html (with real kbb.js).
  *
- * jsdom runs the INLINE scripts but not the external Three CDN, so window.THREE
- * stays undefined -> exercises CC's graceful "3D not loaded" fallback.
+ * (v0.158.0, Backend#5) Three.js r128 is VENDORED + inlined, so jsdom now EXECUTES it and
+ * window.THREE is defined; CC's fallback still exercises because jsdom has no WebGL context
+ * (CCView construction throws -> caught -> "3D unavailable").
  * A mock 2D canvas context is provided (jsdom's getContext returns null), so the
  * 2D games (ARM, KBB) actually run their draw loops. The rAF polyfill catches
  * any error thrown inside a frame, so we can assert each game's animation loop
@@ -165,6 +166,17 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.158.0, V1.1 Backend#5) zero runtime CDNs: both dependencies vendored + sha-pinned
+      {
+        const headHtml = w.document.documentElement.innerHTML;
+        ok("Backend#5: NO runtime CDN references survive in the build (cdnjs / googleapis / gstatic)",
+          !/cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(headHtml));
+        ok("Backend#5: Three.js r128 is INLINED and executes (window.THREE defined, r128)",
+          !!w.THREE && w.THREE.REVISION === "128");
+        ok("Backend#5: Montserrat ships as an inlined variable @font-face (wght 400-800, OFL note kept)",
+          /@font-face\{font-family:"Montserrat";font-style:normal;font-weight:400 800/.test(headHtml)
+          && /OFL licensed/.test(headHtml));
+      }
       // (v0.153.0, V1.1 Flow#4) study-day streak: banks at rollover, extends live, dies on a gap
       {
         const P = { daily: null };

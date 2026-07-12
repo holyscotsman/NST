@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-OFFLINE — no CDNs left (added v0.158.0).** Load the deployed app with DevTools →
+  Network → "Block request domain" on cdnjs.cloudflare.com, fonts.googleapis.com and
+  fonts.gstatic.com (or just go offline after first paint): CC's 3D chasm and KBB's 3D combat
+  must still run, and every screen must render in Montserrat (compare a heading against a
+  system-font page — it should NOT look like Arial). WRONG: any network request to those
+  domains at all.
+
 - **QA-SIM-RESUME — the sim survives a closed tab (added v0.157.0).** Start a Standard sim,
   answer a handful, flag one, note the clock, close the tab entirely. Reopen -> Testing
   station: an aqua "⏸ Resume your sim" tile shows your exact progress and remaining time;

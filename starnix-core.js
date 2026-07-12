@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.157.0";
+  var BUILD_VERSION = "0.158.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -901,7 +901,7 @@
       iris: "#8b6bff", iris300: "#c4b8ff", iris600: "#6D40E6",
       aqua: "#3DE7F2", mantis: "#A6EE3C", peach: "#FF8473", gold: "#FFD479", white: "#FFFFFF"
     },
-    font: "'Montserrat', Arial, sans-serif",
+    font: "'Montserrat', system-ui, Arial, sans-serif",   // (v0.158.0) vendored face first, real fallbacks behind it
     // color meaning (07 §1) — always pair with a shape/icon; never color alone.
     meaning: { friendly: "iris", energy: "aqua", success: "mantis", danger: "peach", reward: "gold" }
   };
@@ -930,13 +930,11 @@
   function injectTheme(doc) {
     if (!doc || !doc.head) return;
     if (doc.getElementById("starnix-theme")) return;
-    var fontLink = doc.createElement("link");
-    fontLink.rel = "stylesheet";
-    fontLink.href = "https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap";
+    // (v0.158.0, V1.1 Backend#5) Montserrat is vendored into the build's <head> — the old
+    // runtime Google-Fonts link is gone (it was the second, hidden CDN dependency).
     var st = doc.createElement("style");
     st.id = "starnix-theme";
     st.textContent = themeCSS();
-    doc.head.appendChild(fontLink);
     doc.head.appendChild(st);
   }
 

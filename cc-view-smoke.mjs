@@ -1,4 +1,5 @@
-/* cc-view-smoke.mjs — constructs CCView against a minimal mock of THREE (r128 surface)
+/* cc-view-smoke.mjs — constructs CCView against a minimal mock of THREE (r128 surface;
+ * r128 is VENDORED into the build since v0.158.0 — keep this mock in lockstep if it moves)
  * and drives the full render path. The jsdom build verifier never reaches CCView (no WebGL
  * context -> CC falls back), so runtime errors in the 3D view code are otherwise invisible.
  * This proves CCView builds, renders many frames over a live sim, runs the intro camera,
