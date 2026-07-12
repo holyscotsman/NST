@@ -157,6 +157,14 @@ async function runFrames(n = 6) {
         && w.STARNIX_QUESTIONS.questions.length === 255);   // the raw bank (pool() adds fixture seeds)
       ok("NIT#2: every bank question still carries optionNotes (indent-sensitive parse guard)",
         w.STARNIX_QUESTIONS.questions.filter((q) => q.optionNotes && q.optionNotes.some((nn) => nn && nn.length)).length === 255);
+      // (v0.175.0, V1.1 CC#6) the squeeze long-wall + entry cue, source-pinned (canvas look is QA's)
+      {
+        const srcSq = w.document.documentElement.innerHTML;
+        ok("CC#6: stretched squeeze instances scale z x6.5 to bridge the row gap, and the module cues CANYON NARROWS with a side call",
+          srcSq.indexOf("setPosScaleZ(sm, sp, sq, ss, 0, 0, -o.z, 6.5)") >= 0
+          && srcSq.indexOf("CANYON NARROWS") >= 0
+          && srcSq.indexOf("this._emit && this._emit('squeeze')") >= 0);
+      }
       // (v0.173.0, Jason) the e1 interchange bank: canonical versions supersede classic dups
       {
         const e1 = w.STARNIX_QUESTIONS.questions.filter((q) => q.briefing && q.tags);

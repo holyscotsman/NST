@@ -363,6 +363,33 @@ function runToQuestion(sim, maxSecs, pinShields) {
   ok(classic > rocks + chains * 2, 'CC#5: the classic mix still forms the base');
 })();
 
+/* ============ 4e) CC#6: THE SQUEEZE READS AS ONE WALL ============ */
+(function squeezeWall() {
+  group('CC#6: squeeze stretches — one-shot entry cue + chained long-wall instances');
+  var sim = mkSim(SEED + 50);
+  var squeezes = 0;
+  sim._emit = function (n) { if (n === 'squeeze') squeezes++; };
+  var sawStretch = false, sawPlain = false, stretchSide = null, mixedSide = false;
+  for (var f = 0; f < 60 * 100; f++) {
+    sim.shields = 9;
+    if (sim.phase === 'QUESTION') { sim.answer(null, { timedOut: true }); sim.resumeAfterQuestion(); }
+    sim.step(1 / 60);
+    var items = sim.obstacles.items;
+    for (var i = 0; i < items.length; i++) {
+      var o = items[i]; if (!o.active || o.type !== 0 /* OB_NARROW */) continue;
+      if (o.stretch) {
+        sawStretch = true;
+        if (stretchSide === null) stretchSide = o.side; else if (o.side !== stretchSide && !mixedSide) mixedSide = true;
+      } else sawPlain = true;
+    }
+    if (squeezes >= 2 && sawStretch && sawPlain) break;
+  }
+  ok(squeezes >= 1, 'CC#6: the squeeze fires its one-shot entry cue (' + squeezes + ' squeeze(s) in the drive)');
+  ok(sawStretch, 'CC#6: squeeze rows carry the stretch flag (the view chains them into one wall)');
+  ok(sawPlain, 'CC#6: ordinary narrows stay UNstretched (discrete bulges outside squeezes)');
+  ok(squeezes < 40, 'CC#6: the cue is per-STRETCH, not per-row (' + squeezes + ' emits over ~100s)');
+})();
+
 /* ============ 5) CRASH + I-FRAMES + DETERMINISM ============ */
 (function crashDet() {
   group('CRASH + DETERMINISM: shield cost, chained-hit grace, same-seed identity');

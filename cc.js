@@ -746,6 +746,7 @@
         this._squeezeSide = this.rng.next() < 0.5 ? SIDE_LEFT : SIDE_RIGHT;
         this._squeezeUntil = this._nextRowAt + 1000 + this.rng.next() * 1000;
         this._nextSqueezeAt = this._squeezeUntil + 1500 + this.rng.next() * 1000;
+        this._emit && this._emit('squeeze');   // (v0.175.0, CC#6) one-shot entry cue per stretch
       }
       if (!this._nearGateZone(this._nextRowAt)) {
         // (C7) Boost Mode + 5s after: nothing but occasional SIDE walls (never the center lane)
@@ -775,7 +776,7 @@
     // (v0.102.0, C9) inside a squeeze stretch: the wall holds ONE side the whole time —
     // no new wall obstacles, no ducks; only the persistent side wall, sometimes + a jump.
     if (this.distance + zAhead < this._squeezeUntil) {
-      this._spawnNarrow(this._squeezeSide, zAhead);
+      this._spawnNarrow(this._squeezeSide, zAhead, 1);   // (CC#6) stretched — the wall reads continuous
       if (r < 0.35) this._spawnLowRock(1, zAhead);              // jump obstacles allowed, NO ducking
       this._rowOpenLane = (this._squeezeSide === SIDE_LEFT) ? 2 : 0;
       return;
@@ -849,8 +850,9 @@
     if (inner) inner.span = 0;
   };
 
-  CCSim.prototype._spawnNarrow = function (side, zAhead) {
-    this._placeObstacle(OB_NARROW, side === SIDE_LEFT ? 0 : 2, side, zAhead);
+  CCSim.prototype._spawnNarrow = function (side, zAhead, stretch) {
+    var o = this._placeObstacle(OB_NARROW, side === SIDE_LEFT ? 0 : 2, side, zAhead);
+    if (o && stretch) o.stretch = 1;   // (v0.175.0, CC#6) squeeze rows chain into one continuous promontory
   };
   CCSim.prototype._spawnLowRock = function (lane, zAhead) { this._placeObstacle(OB_LOWROCK, lane, 0, zAhead); }; // lane retained for call-compat; the wall is full-width (lane-independent)
   CCSim.prototype._spawnSweep = function (zAhead) {   // (v0.56.0) phase from the run rng -> deterministic per seed
@@ -877,7 +879,7 @@
     var o = this.obstacles.acquire();
     if (!o) return null;                             // sized to never happen; harness asserts pooling
     o.type = type; o.lane = lane; o.side = side; o.span = 1;   // span = render width in lanes (2 = wall-extend deep bulge; 0 = collision-only)
-    o.x = (lane - 1) * this.cfg.LANE_W; o.z = zAhead; o.z0 = zAhead; o.tested = false; o.sweepPhase = 0;   // z0: spawn distance (rockfall's fall clock)
+    o.x = (lane - 1) * this.cfg.LANE_W; o.z = zAhead; o.z0 = zAhead; o.tested = false; o.sweepPhase = 0; o.stretch = 0;   // z0: rockfall's fall clock; stretch: squeeze long-wall (v0.175.0, CC#6)
     return o;
   };
 
@@ -1619,7 +1621,8 @@
       if (o.active && o.z < cfg.DRAW_DIST && o.z > cfg.CULL_BEHIND) {
         if (o.type === OB_NARROW) {
           if (o.span === 0) continue;                                  // collision-only centre of a wall-extend (the deep bulge covers it)
-          setPos(sm, sp, sq, ss, 0, 0, -o.z);                          // bulge geometry carries x/y; translate in z only
+          if (o.stretch) setPosScaleZ(sm, sp, sq, ss, 0, 0, -o.z, 6.5);   // (CC#6) 12m bulge x6.5 bridges the row gap — one continuous promontory
+          else setPos(sm, sp, sq, ss, 0, 0, -o.z);                     // bulge geometry carries x/y; translate in z only
           if (o.span === 2) {                                          // wall-extend: deep 2-lane bulge
             if (o.side === SIDE_LEFT) this.iNarrowDeepL.setMatrixAt(dL++, sm); else this.iNarrowDeepR.setMatrixAt(dR++, sm);
           } else {
@@ -1953,6 +1956,9 @@
   function setPos(m, p, q, s, x, y, z) {
     p.set(x, y, z); q.set(0, 0, 0, 1); s.set(1, 1, 1); m.compose(p, q, s);
   }
+  function setPosScaleZ(m, p, q, s, x, y, z, sz) {   // (v0.175.0, CC#6) the squeeze long-wall
+    p.set(x, y, z); q.set(0, 0, 0, 1); s.set(1, 1, sz); m.compose(p, q, s);
+  }
   function setPosRot(m, p, q, s, x, y, z, ry, THREE) {
     p.set(x, y, z); q.setFromAxisAngle(AXIS_Y(THREE), ry); s.set(1, 1, 1); m.compose(p, q, s);
   }
@@ -2018,6 +2024,15 @@
         else if (name === 'turnwarn') ctx.audio.sfx('ccklaxon');
         else if (name === 'crash') ctx.audio.sfx('cccrunch');
         else if (name === 'turnauto') ctx.audio.sfx('click');
+        else if (name === 'squeeze') {   // (v0.175.0, CC#6) CANYON NARROWS entry cue
+          try {
+            var kside = sim._squeezeSide === 0 ? 'RIGHT' : 'LEFT';
+            el.mileBanner.textContent = '\u26A0 CANYON NARROWS \u00b7 keep ' + kside;
+            el.mileBanner.classList.add('on');
+            mileHideAt = sim.scoreDistance + 2600;
+            ctx.audio.sfx('lasercharge');
+          } catch (eSq) {}
+        }
         else if (name === 'powerup') ctx.audio.sfx('correct');
         else if (name === 'gameover') ctx.audio.sfx('explode');
       };

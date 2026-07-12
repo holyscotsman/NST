@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CC-SQUEEZE — the canyon actually narrows (added v0.175.0).** Fly CC into a squeeze
+  stretch (~every 2-4 km): a "⚠ CANYON NARROWS · keep RIGHT/LEFT" banner + rising sting at
+  entry, then the sealed side must read as ONE continuous rock wall for the whole 1-2 km —
+  no gaps between bulges that look flyable. Ordinary single narrows elsewhere stay discrete
+  rocks. Reduced motion: banner static. WRONG: visible seams/gaps in the long wall, z-fighting
+  where stretched instances overlap, or the cue firing on every row of the stretch.
+
 - **QA-E1-BANK — the canonical exam-1 set (added v0.173.0).** Play ARM until Vega briefs one
   of the e1 questions (cluster lockdown, LCM logs, balloon driver...): the briefing should be
   the new commander dialogue, and it must point at the RIGHT answer. In the Testing station,
