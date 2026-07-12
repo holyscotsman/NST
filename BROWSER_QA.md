@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-ARM-ARCHETYPES — orbiters + lancers (added v0.148.0).** Fly sector 5+: some enemies
+  should be aqua DIAMONDS that circle you at range and shoot more often (never ramming), and
+  from sector 9: long peach CHEVRONS that stop dead, flash a white charge ring for ~half a
+  second, then dash in a straight line — no bullets from them, but the hit stings harder.
+  Sectors 1-4: the old chasers only. Colorblind check: the three types must read by SHAPE
+  alone. Reduced motion: the charge ring is static, not pulsing. WRONG: an orbiter face-hugging
+  the ship, or a dash that tracks you mid-flight (it must commit to the locked line).
+
 - **QA-DIAG — field errors + dev diagnostics (added v0.147.0).** In a REAL browser with `?dev`
   in the URL: Settings should end with Dev · Jukebox and Dev · Diagnostics (build label, "No
   field errors recorded." on a clean profile, last-10 telemetry tail). Then in the console run

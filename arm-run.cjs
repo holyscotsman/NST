@@ -336,6 +336,62 @@ var detSector3 = null;   // captured for the determinism probe against window 2
     var bi4b = T.bossInfo();
     ok(bi4b && bi4b.enraged === true, 'ARM#2 B4: three broken ports trip the ENRAGE (faster weave + tighter cadence)');
   })();
+  // (v0.148.0, V1.1 ARM#3) two archetypes, tier-gated — the belt escalates in KIND, not just HP
+  (function () {
+    var t0 = T.rollTypes(200, 1), t1 = T.rollTypes(200, 6), t2 = T.rollTypes(200, 10);
+    var has = function (arr, ty) { return arr.indexOf(ty) >= 0; };
+    ok(!has(t0, 'orbiter') && !has(t0, 'lancer'), 'ARM#3 T0 (sector 1): chasers ONLY — onboarding untouched');
+    ok(has(t1, 'orbiter') && !has(t1, 'lancer'), 'ARM#3 T1 (sector 6): orbiters mix in, no lancers yet');
+    ok(has(t2, 'orbiter') && has(t2, 'lancer'), 'ARM#3 T2 (sector 10): both archetypes fly');
+    var chasers2 = t2.filter(function (x) { return x === null; }).length;
+    ok(chasers2 >= 60, 'ARM#3 T2: chasers still form the base of the mix (' + chasers2 + '/200)');
+    // ORBITER: settles into the ~240px standoff band instead of ramming
+    T.setupBossSector(3);
+    for (var bi = 0; bi < 80; bi++) { T.refillShields(); T.step(1 / 60); }   // burn spawn invuln
+    T.spawnTyped('orbiter', 640, 60);
+    for (var os = 0; os < 60 * 8; os++) { T.refillShields(); T.step(1 / 60); }
+    var oInfo = T.enemyInfo().filter(function (e) { return e.type === 'orbiter'; })[0];
+    ok(!!oInfo && oInfo.d > 140 && oInfo.d < 400, 'ARM#3 ORBITER: holds the standoff band after 8s (d=' + (oInfo ? Math.round(oInfo.d) : '?') + '), never rams');
+    ok(/e\.shootCD = rnd\(1\.0, 1\.8\);/.test(H.ARM_SRC), 'ARM#3 ORBITER: quicker trigger source-pinned (1.0-1.8s vs 1.6-2.8)');
+    // LANCER: 0.6s DEAD-STOP telegraph, then a dash on the locked line
+    T.setupBossSector(3);
+    for (var bj = 0; bj < 80; bj++) { T.refillShields(); T.step(1 / 60); }
+    T.shipTo(640, 520);
+    T.spawnTyped('lancer', 760, 520);
+    var sawTele = false, teleFrozen = true, sawDash = false, dashStep = 0, px = 0, py = 0, prevState = 0;
+    for (var ls = 0; ls < 60 * 10; ls++) {
+      T.refillShields(); T.step(1 / 60);
+      var li = T.enemyInfo().filter(function (e) { return e.type === 'lancer'; })[0];
+      if (!li) break;   // rammed the ship and popped — fine, the phases were observed
+      if (li.lstate === 1) {
+        if (sawTele && prevState === 1 && (Math.abs(li.x - px) > 0.01 || Math.abs(li.y - py) > 0.01)) teleFrozen = false;
+        sawTele = true;
+      }
+      if (li.lstate === 2) {
+        if (sawDash && prevState === 2) dashStep = Math.max(dashStep, Math.abs(li.x - px) + Math.abs(li.y - py));
+        sawDash = true;
+      }
+      prevState = li.lstate; px = li.x; py = li.y;
+    }
+    ok(sawTele && teleFrozen, 'ARM#3 LANCER: telegraphs with a DEAD STOP (position frozen through the 0.6s)');
+    ok(sawDash && dashStep > 4, 'ARM#3 LANCER: then dashes the locked line (' + dashStep.toFixed(1) + 'px/frame ~ 340px/s)');
+    var lz = H.ARM_SRC.indexOf("e.type === 'lancer'");
+    ok(lz > 0 && H.ARM_SRC.slice(lz, lz + 1400).indexOf('spawnEBullet') < 0, 'ARM#3 LANCER: NO gun — its update branch never spawns a bullet');
+    // RAM: the lancer hull costs 26, a chaser stays 18
+    T.setupBossSector(3);
+    for (var bk = 0; bk < 90; bk++) { T.refillShields(); T.step(1 / 60); }
+    T.shipTo(640, 520); T.refillShields();
+    var shL0 = T.puzzleInfo().shields;
+    T.spawnTyped('lancer', 640, 520);
+    T.step(1 / 60);
+    ok(shL0 - T.puzzleInfo().shields === 26, 'ARM#3 RAM: a lancer hull hit costs 26 (' + shL0 + ' -> ' + T.puzzleInfo().shields + ')');
+    for (var iv = 0; iv < 70; iv++) T.step(1 / 60);   // burn the post-hit invuln
+    T.shipTo(640, 520); T.refillShields();
+    var shC0 = T.puzzleInfo().shields;
+    T.spawnTyped(null, 640, 520);
+    T.step(1 / 60);
+    ok(shC0 - T.puzzleInfo().shields === 18, 'ARM#3 RAM control: a chaser ram stays 18');
+  })();
   // (v0.96.0, A6) economy + cadence sources
   ok(/sec % 3 === 0/.test(H.ARM_SRC) && /MAX_TIER = 8/.test(H.ARM_SRC)
      && /baseCost = \{ engine: 120, maneuver: 110, capacitor: 130, shieldCell: 130, rapid: 140 \}/.test(H.ARM_SRC)

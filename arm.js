@@ -931,22 +931,33 @@
       for (var i = 0; i < cores.length; i++) if (dist2(x, y, cores[i].x, cores[i].y) < d) return true;
       return false;
     }
+    // (v0.148.0, V1.1 ARM#3) tier-gated archetypes: T0 chasers only (onboarding unchanged),
+    // T1 mixes in ORBITERS (aqua diamond, circles at standoff, quicker trigger), T2 adds
+    // LANCERS (peach chevron, no gun: 0.6s telegraph then a ramming dash). Sectors 9-12 were
+    // just spongier copies of sector 1's one enemy — now the belt escalates in KIND.
+    function rollEnemyType() {
+      var t = tierOf(sector);
+      if (t === 0) return null;
+      var r = runRng.next();
+      if (t === 1) return r < 0.35 ? 'orbiter' : null;
+      return r < 0.30 ? 'orbiter' : (r < 0.55 ? 'lancer' : null);
+    }
     function spawnRoamer() {
       if (countEnemies(null) >= 8) return;
       var ang = runRng.next() * TAU, d = rnd(W * 0.55, W * 0.9);
       var x = clamp(ship.x + Math.cos(ang) * d, 60, MAP_W - 60);
       var y = clamp(ship.y + Math.sin(ang) * d, 60, MAP_H - 60);
-      enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: ENEMY_HP_BY_TIER[tierOf(sector)] });
+      enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 });
     }
     function spawnGuardians(core, n) {
-      for (var i = 0; i < n; i++) { var a = i / n * TAU; enemies.push({ x: core.x + Math.cos(a) * 70, y: core.y + Math.sin(a) * 70, vx: 0, vy: 0, r: 13, coreId: core.idx, shootCD: rnd(1, 2), hp: ENEMY_HP_BY_TIER[tierOf(sector)] }); }
+      for (var i = 0; i < n; i++) { var a = i / n * TAU; enemies.push({ x: core.x + Math.cos(a) * 70, y: core.y + Math.sin(a) * 70, vx: 0, vy: 0, r: 13, coreId: core.idx, shootCD: rnd(1, 2), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 }); }
     }
     function spawnWave(n) {
       for (var k = 0; k < n; k++) {
         if (countEnemies(null) >= 10) break;
         var p = null, tr = 0;
         do { p = { x: rnd(80, MAP_W - 80), y: rnd(80, MAP_H - 80) }; tr++; } while (dist2(p.x, p.y, ship.x, ship.y) < 560 && tr < 40);
-        enemies.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.6), hp: ENEMY_HP_BY_TIER[tierOf(sector)] });
+        enemies.push({ x: p.x, y: p.y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.6), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: rollEnemyType(), orb: runRng.next() < 0.5 ? 1 : -1, lstate: 0, lt: 0, lang: 0 });
       }
     }
     // S3: full-collection escape gauntlet — a ring of enemies around the ship. Far enough + slow enough to be escapable, not a wall.
@@ -956,7 +967,7 @@
         var d = rnd(W * 0.55, W * 0.95);                           // outside the immediate threat radius
         var x = clamp(ship.x + Math.cos(ang) * d, 60, MAP_W - 60);
         var y = clamp(ship.y + Math.sin(ang) * d, 60, MAP_H - 60);
-        enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: "panic", shootCD: rnd(1.8, 3.2), hp: ENEMY_HP_BY_TIER[tierOf(sector)] });
+        enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: "panic", shootCD: rnd(1.8, 3.2), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: null, orb: 1, lstate: 0, lt: 0, lang: 0 });   // panic swarm stays chasers (drama)
       }
     }
     function panicCount() { var n = 0; for (var i = 0; i < enemies.length; i++) if (enemies[i].coreId === "panic") n++; return n; }
@@ -1330,7 +1341,7 @@
     function spawnEscortDrone(side) {   // (v0.142.0, ARM#2) B2/B4: drones launch from the flanks
       var s = bossSpriteWH(), BA0 = bossArena();
       var x = clamp(boss.x + side * s.dw * 0.45, BA0.l + 20, BA0.l + BA0.w - 20);
-      enemies.push({ x: x, y: boss.y + s.dh * 0.35, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: ENEMY_HP_BY_TIER[tierOf(sector)] });
+      enemies.push({ x: x, y: boss.y + s.dh * 0.35, vx: 0, vy: 0, r: 13, coreId: null, shootCD: rnd(1.2, 2.4), hp: ENEMY_HP_BY_TIER[tierOf(sector)], type: null, orb: 1, lstate: 0, lt: 0, lang: 0 });   // escorts stay chasers (the arena is narrow)
     }
     function updateBoss(dt) {
       if (!boss) return;
@@ -2231,12 +2242,46 @@
       var i, j;
       for (i = 0; i < enemies.length; i++) {
         var e = enemies[i]; var a = Math.atan2(ship.y - e.y, ship.x - e.x); var sp = 72;
-        e.vx += Math.cos(a) * 130 * dt; e.vy += Math.sin(a) * 130 * dt;
-        var v = Math.sqrt(e.vx * e.vx + e.vy * e.vy); if (v > sp) { e.vx = e.vx / v * sp; e.vy = e.vy / v * sp; }
-        e.x += e.vx * dt; e.y += e.vy * dt; e.shootCD -= dt;
-        if (e.shootCD <= 0 && dist2(e.x, e.y, ship.x, ship.y) < 620) {
-          e.shootCD = rnd(1.6, 2.8); var ang = Math.atan2(ship.y - e.y, ship.x - e.x);
-          spawnEBullet(e.x, e.y, Math.cos(ang) * 250, Math.sin(ang) * 250, 2.6); sfx("laser");
+        if (e.type === 'orbiter') {
+          // (v0.148.0, ARM#3) hold a ~240px standoff and strafe around it; quicker trigger
+          var dd = dist2(e.x, e.y, ship.x, ship.y);
+          var rad = (dd > 300) ? 1 : (dd < 190 ? -1 : 0);                 // in: too far / out: too close
+          var tang = a + Math.PI / 2 * e.orb;                             // strafe direction
+          e.vx += (Math.cos(a) * rad * 150 + Math.cos(tang) * 110) * dt;
+          e.vy += (Math.sin(a) * rad * 150 + Math.sin(tang) * 110) * dt;
+          sp = 105;
+          var vo = Math.sqrt(e.vx * e.vx + e.vy * e.vy); if (vo > sp) { e.vx = e.vx / vo * sp; e.vy = e.vy / vo * sp; }
+          e.x += e.vx * dt; e.y += e.vy * dt; e.shootCD -= dt;
+          if (e.shootCD <= 0 && dd < 620) {
+            e.shootCD = rnd(1.0, 1.8);                                    // faster cadence than a chaser
+            spawnEBullet(e.x, e.y, Math.cos(a) * 250, Math.sin(a) * 250, 2.6); sfx("laser");
+          }
+        } else if (e.type === 'lancer') {
+          // (v0.148.0, ARM#3) no gun. Approach -> 0.6s telegraph (dead stop) -> ramming dash.
+          if (e.lstate === 0) {                                           // approach (or post-dash cooldown)
+            e.lt -= dt;
+            e.vx += Math.cos(a) * 130 * dt; e.vy += Math.sin(a) * 130 * dt;
+            sp = 90;
+            var vl = Math.sqrt(e.vx * e.vx + e.vy * e.vy); if (vl > sp) { e.vx = e.vx / vl * sp; e.vy = e.vy / vl * sp; }
+            e.x += e.vx * dt; e.y += e.vy * dt;
+            if (e.lt <= 0 && dist2(e.x, e.y, ship.x, ship.y) < 260) { e.lstate = 1; e.lt = 0.6; e.vx = 0; e.vy = 0; }
+          } else if (e.lstate === 1) {                                    // telegraph: locked, flashing
+            e.lt -= dt;
+            e.lang = a;                                                   // tracks until the last instant
+            if (e.lt <= 0) { e.lstate = 2; e.lt = 0.55; sfx("laser"); }
+          } else {                                                        // dash on the locked line
+            e.lt -= dt;
+            e.x += Math.cos(e.lang) * 340 * dt; e.y += Math.sin(e.lang) * 340 * dt;
+            if (e.lt <= 0) { e.lstate = 0; e.lt = 1.2; }
+          }
+        } else {
+          e.vx += Math.cos(a) * 130 * dt; e.vy += Math.sin(a) * 130 * dt;
+          var v = Math.sqrt(e.vx * e.vx + e.vy * e.vy); if (v > sp) { e.vx = e.vx / v * sp; e.vy = e.vy / v * sp; }
+          e.x += e.vx * dt; e.y += e.vy * dt; e.shootCD -= dt;
+          if (e.shootCD <= 0 && dist2(e.x, e.y, ship.x, ship.y) < 620) {
+            e.shootCD = rnd(1.6, 2.8); var ang = Math.atan2(ship.y - e.y, ship.x - e.x);
+            spawnEBullet(e.x, e.y, Math.cos(ang) * 250, Math.sin(ang) * 250, 2.6); sfx("laser");
+          }
         }
       }
       for (i = 0; i < bullets.length; i++) { var b = bullets[i]; if (!b.active) continue; b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt; if (b.life <= 0 || b.x < 0 || b.x > MAP_W || b.y < 0 || b.y > MAP_H) b.active = false; }
@@ -2306,7 +2351,7 @@
         }
       }
       // enemy ram + enemy bullets
-      for (i = enemies.length - 1; i >= 0; i--) { var er = enemies[i]; if (dist2(er.x, er.y, ship.x, ship.y) < er.r + R) { burst(er.x, er.y, COL.peach, 12); enemies[i] = enemies[enemies.length - 1]; enemies.pop(); if (invuln <= 0) damage(18); } }
+      for (i = enemies.length - 1; i >= 0; i--) { var er = enemies[i]; if (dist2(er.x, er.y, ship.x, ship.y) < er.r + R) { burst(er.x, er.y, COL.peach, 12); var ram = er.type === 'lancer' ? 26 : 18; enemies[i] = enemies[enemies.length - 1]; enemies.pop(); if (invuln <= 0) damage(ram); } }   // (v0.148.0, ARM#3) the lancer's whole threat is its hull
       for (i = 0; i < ebullets.length; i++) { var xb = ebullets[i]; if (!xb.active) continue; if (dist2(xb.x, xb.y, ship.x, ship.y) < R + 3) { xb.active = false; if (invuln <= 0) damage(ENEMY_SHOT_DMG_BY_TIER[tierOf(sector)]); } }
 
       updateParticles(dt);
@@ -2430,6 +2475,23 @@
     }
     function drawEnemy(e) {
       c2d.save(); c2d.translate(e.x, e.y); var a = Math.atan2(ship.y - e.y, ship.x - e.x); c2d.rotate(a);
+      if (e.type === 'orbiter') {                       // (v0.148.0, ARM#3) aqua RING-DIAMOND — shape+color double-coded
+        c2d.shadowBlur = 12; c2d.shadowColor = COL.aqua; c2d.fillStyle = "#0e2a30"; c2d.strokeStyle = COL.aqua; c2d.lineWidth = 1.6;
+        c2d.beginPath(); c2d.moveTo(12, 0); c2d.lineTo(0, -9); c2d.lineTo(-12, 0); c2d.lineTo(0, 9); c2d.closePath(); c2d.fill(); c2d.stroke();
+        c2d.beginPath(); c2d.arc(0, 0, 5.5, 0, TAU); c2d.stroke();
+        c2d.restore(); c2d.shadowBlur = 0; return;
+      }
+      if (e.type === 'lancer') {                        // (v0.148.0, ARM#3) long peach CHEVRON; telegraph = white charge ring
+        c2d.shadowBlur = 12; c2d.shadowColor = COL.peach; c2d.fillStyle = "#2a1616"; c2d.strokeStyle = COL.peach; c2d.lineWidth = 1.6;
+        c2d.beginPath(); c2d.moveTo(17, 0); c2d.lineTo(-9, -7); c2d.lineTo(-3, 0); c2d.lineTo(-9, 7); c2d.closePath(); c2d.fill(); c2d.stroke();
+        if (e.lstate === 1) {
+          var kT = 1 - Math.max(0, e.lt) / 0.6;
+          c2d.strokeStyle = "#fff"; c2d.shadowColor = "#fff"; c2d.globalAlpha = reducedMotion ? 0.85 : (0.4 + 0.6 * kT);
+          c2d.beginPath(); c2d.arc(0, 0, reducedMotion ? 12 : (6 + 10 * kT), 0, TAU); c2d.stroke();
+          c2d.globalAlpha = 1;
+        }
+        c2d.restore(); c2d.shadowBlur = 0; return;
+      }
       if (spriteReady(SPR.enemy)) { drawSprite(SPR.enemy, 30); c2d.restore(); c2d.shadowBlur = 0; return; }   // S3: asset enemy; vector below is the fallback
       c2d.shadowBlur = 12; c2d.shadowColor = COL.peach; c2d.fillStyle = "#2a1620"; c2d.strokeStyle = COL.peach; c2d.lineWidth = 1.6;
       c2d.beginPath(); c2d.moveTo(13, 0); c2d.lineTo(-6, -12); c2d.lineTo(-12, -5); c2d.lineTo(-7, 0); c2d.lineTo(-12, 5); c2d.lineTo(-6, 12); c2d.closePath(); c2d.fill(); c2d.stroke();
@@ -3040,6 +3102,9 @@
         tierOf: function (sec) { return tierOf(sec); },
         isBossSector: function (sec) { return isBossSector(sec); },
         nextSector: function () { nextSector(); },
+        rollTypes: function (n, sec) { var keep = sector; if (sec) sector = sec; var out = []; for (var i = 0; i < (n || 100); i++) out.push(rollEnemyType()); sector = keep; return out; },   // (v0.148.0, ARM#3)
+        spawnTyped: function (ty, x, y) { enemies.push({ x: x, y: y, vx: 0, vy: 0, r: 13, coreId: null, shootCD: 9, hp: 99, type: ty, orb: 1, lstate: 0, lt: 0, lang: 0 }); return enemies.length - 1; },
+        enemyInfo: function () { return enemies.map(function (e) { return { type: e.type || 'chaser', x: e.x, y: e.y, lstate: e.lstate, d: dist2(e.x, e.y, ship.x, ship.y) }; }); },
         cargo: function () { return held.length; },
         coins: function () { return coins; },
         charges: function () { return charges; },
