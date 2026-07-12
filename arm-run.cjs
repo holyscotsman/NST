@@ -613,6 +613,34 @@ var detSector3 = null;   // captured for the determinism probe against window 2
   V3.mod.unmount();
 })();
 
+/* ============ ARM#7 (v0.180.0): the D4 CRT typing reveal, designed around the A5 race ============ */
+(function typeReveal() {
+  group('ARM#7: typing reveal — commsMsg holds full text instantly, the layer types, skip completes');
+  var V5 = newWindow(), ctx5 = H.makeCtx({ seed: SEED + 88 });
+  V5.mod.mount(V5.root, ctx5);
+  var T5 = V5.root.__armTest;
+  T5.endBriefingIntro();
+  ok(T5.state() === 'BRIEF' && T5.typeProbe().active === false && T5.briefText().length > 0,
+     'TESTMODE default: instant reveal, no typing session — every existing drive untouched');
+  T5.typeForce(true);
+  pickBrief(T5, /go ahead|understand|repeat/i);   // a fresh setBriefMsg under force
+  var p1 = T5.typeProbe();
+  ok(p1.active === true && p1.total > 0 && p1.shown < p1.total, 'forced: a typing session opens mid-reveal');
+  ok(T5.briefText().length > 0 && p1.optsWait === true && p1.layerOn === true,
+     'A5-safe: the FULL text is already in commsMsg while the layer types and the options wait');
+  var guard = 0; while (T5.typeProbe().active && guard++ < 8000) T5.flushLater();
+  var p2 = T5.typeProbe();
+  ok(p2.active === false && p2.shown === p2.total && p2.optsWait === false && p2.layerOn === false,
+     'the chain types to completion: layer folds away, options enable');
+  pickBrief(T5, /go ahead|understand|repeat/i);
+  ok(T5.typeProbe().active === true, 'the next screen opens a fresh session');
+  T5.typeSkip();
+  var p3 = T5.typeProbe();
+  ok(p3.active === false && p3.optsWait === false && T5.state() === 'BRIEF',
+     'skip (any click / console key routes here) completes instantly and enables the options');
+  V5.mod.unmount();
+})();
+
 /* ============ Flow#7 (v0.179.0): the Lieutenant perk = a free Shield Cell level ============ */
 (function rankPerk() {
   group('Flow#7: ctx.perks.armShieldCell boots a fresh run at Shield Cell level 1');

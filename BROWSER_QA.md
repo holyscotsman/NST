@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-ARM-TYPING — the CRT type-out (added v0.180.0).** Start an ARM briefing: Vega's words
+  must TYPE onto the console (~34ms/char, blinking block caret) with the option buttons dimmed
+  until the line completes. Click anywhere in the bezel — the full message must snap in and the
+  options light up; keys 1/2/3 mid-type must skip, NOT pick. Reduced motion: text appears
+  instantly, no caret animation. WRONG: options clickable mid-type, a key selecting an answer
+  you haven't seen, text that re-types on Repeat without first landing whole, or layout jumping
+  after the type-out settles.
+
 - **QA-RANK-REWARDS — promotions that pay (added v0.179.0).** On a profile at Pilot (800+ XP)
   the menu rank strip must wear a small gold `⬡` crest chip beside the rank name (tooltip
   names it). Codex → 'Rank rewards': 4 rows, earned ones bright gold-bordered, future ones

@@ -1245,6 +1245,26 @@ async function runFrames(n = 6) {
     }
     ok("enemy panel telegraphs its strike (kbb-en-strike fires within 6 turns)", struck);
   }
+  // (v0.180.0) hermetic: the strike probe can short-circuit with NO further render when the
+  // strike class lingers (its removal rides the next fresh-question render, and the path there
+  // varies with wall-clock answerMs -> crit damage). The music pin only needs ONE full render
+  // after the flag clear -- drive continues/answers explicitly until the swap is observed.
+  {
+    let rendered = calls.lastIndexOf("track:kbb") > calls.indexOf("track:boss");
+    for (let extra = 0; extra < 8 && !rendered; extra++) {
+      const c4 = w.document.querySelector(".kbb-cont:not(.kbb-submit)") || Array.from(w.document.querySelectorAll(".kbb-btn")).find(b => /continue|next|onward/i.test(b.textContent || ""));
+      if (c4) { c4.dispatchEvent(new w.Event("click", { bubbles: true })); }
+      else {
+        const op4 = w.document.querySelector(".kbb-opt:not(:disabled)");
+        if (!op4) break;
+        op4.dispatchEvent(new w.Event("click", { bubbles: true }));
+        const sub4 = w.document.querySelector(".kbb-submit");
+        if (sub4 && !sub4.disabled) sub4.dispatchEvent(new w.Event("click", { bubbles: true }));
+      }
+      await runFrames(4);
+      rendered = calls.lastIndexOf("track:kbb") > calls.indexOf("track:boss");
+    }
+  }
   {
     const bi = calls.indexOf("track:boss"), ki = calls.lastIndexOf("track:kbb");
     ok("music returns to 'kbb' after the boss flag clears (v0.50.0)", bi >= 0 && ki > bi);

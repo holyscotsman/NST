@@ -158,6 +158,11 @@
     var wrap, cv, c2d, banner, gear, stats, steer, action, comms, overlay, panel, toast;
     var sSector, sStation, sCargo, sCoins, sTier, mShield, mCharge;
     var commsPort, commsName, commsMsg, commsSubj, commsDots, commsOpts, commsReplay, commsSig, commsScan, brfScene;
+    // (v0.180.0, V1.1 ARM#7) the deferred D4 CRT typing reveal — VISUAL ONLY. commsMsg always
+    // holds the FULL text (the A5 pin and briefText() read final text instantly); a sibling
+    // layer types the same words at ~34ms/char. TESTMODE and reduced motion render instantly.
+    var typeLayer = null, typeForced = false, TYPE_MS = 34;
+    var typing = { active: false, shown: 0, total: 0, text: "", timer: -1 };
     var introBar, introCap, introSkipBtn;
     var bannerText = "";
 
@@ -577,6 +582,8 @@
       top.appendChild(commsPort); top.appendChild(who); top.appendChild(commsSig); comms.appendChild(top);
       commsSubj = mk("div", "arm-comms-subj", ""); comms.appendChild(commsSubj);
       commsMsg = mk("div", "arm-comms-msg"); comms.appendChild(commsMsg);
+      typeLayer = mk("div", "arm-comms-type"); comms.appendChild(typeLayer);   // (v0.180.0, ARM#7)
+      on(comms, "click", function () { if (typing.active && !paused) skipReveal(); });   // any click in the bezel skips
       var ctl = mk("div", "arm-comms-ctl");
       commsDots = mk("div", "arm-comms-dots"); ctl.appendChild(commsDots);
       commsReplay = btn("arm-comms-replay", "\u21BB intro", function () { ensureAudio(); sfx("click"); playIntro(showBriefing); });
@@ -605,6 +612,7 @@
         if (state !== "BRIEF" || paused) return;   // (v0.116.0, R1) console keys freeze under the pause overlay
         var kn = eK.key === "1" ? 0 : eK.key === "2" ? 1 : eK.key === "3" ? 2 : -1;
         if (kn < 0) return;
+        if (typing.active) { eK.preventDefault(); skipReveal(); return; }   // (v0.180.0, ARM#7) first key completes the reveal
         var btns = commsOpts ? commsOpts.querySelectorAll("button") : [];
         if (btns[kn]) { eK.preventDefault(); btns[kn].click(); }
       });
@@ -893,7 +901,49 @@
         var capV = capWords(parts || "", 120);     // (J7) Vega never exceeds 120 words (Jason v0.75.0)
         commsMsg.textContent = capV.rest ? (capV.s + "\u2026") : capV.s;
       }
+      startTypeReveal();   // (v0.180.0, ARM#7) full text is already in place — this is purely visual
     }
+    // (v0.180.0, V1.1 ARM#7) the reveal machinery. Timers ride later() (pause-aware, cleared on
+    // unmount, flushable via the flushLater seam) so the harness can step a forced session.
+    function gateOpts(waiting) {
+      if (!commsOpts) return;
+      commsOpts.classList.toggle("wait", !!waiting);
+      var bs = commsOpts.querySelectorAll("button");
+      for (var gi = 0; gi < bs.length; gi++) bs[gi].disabled = !!waiting;
+    }
+    function startTypeReveal() {
+      if (typing.timer !== -1) { win.clearTimeout(typing.timer); timers.delete(typing.timer); typing.timer = -1; }
+      typing.active = false;
+      if (!typeLayer || !commsMsg) return;
+      if (reducedMotion || (TESTMODE && !typeForced)) { finishReveal(); return; }   // instant: no timers, no gating
+      var chunks = [];
+      if (commsMsg.children && commsMsg.children.length) {
+        for (var ci = 0; ci < commsMsg.children.length; ci++) chunks.push(commsMsg.children[ci].textContent);
+      } else chunks.push(commsMsg.textContent || "");
+      typing.text = chunks.join("\n\n");
+      typing.total = typing.text.length; typing.shown = 0;
+      if (!typing.total) { finishReveal(); return; }
+      typing.active = true;
+      commsMsg.classList.add("arm-msg-ink");
+      typeLayer.style.display = "block"; typeLayer.textContent = "";
+      gateOpts(true);
+      typeStep();
+    }
+    function typeStep() {
+      if (!typing.active) return;
+      typing.shown++;
+      typeLayer.textContent = typing.text.slice(0, typing.shown);
+      if (typing.shown >= typing.total) { finishReveal(); return; }
+      typing.timer = later(typeStep, TYPE_MS);
+    }
+    function finishReveal() {
+      if (typing.timer !== -1) { win.clearTimeout(typing.timer); timers.delete(typing.timer); typing.timer = -1; }
+      typing.active = false; typing.shown = typing.total;
+      if (typeLayer) { typeLayer.style.display = "none"; typeLayer.textContent = ""; }
+      if (commsMsg) commsMsg.classList.remove("arm-msg-ink");
+      gateOpts(false);
+    }
+    function skipReveal() { if (typing.active) finishReveal(); }
     function buildSectorWorld() {
       shakeAmt = 0;   // (v0.69.0, J1) fresh world = zero inherited shake (the post-boss leak's other half)
       // reset core runtime (keep drawn questions); rebuild ambient field.
@@ -1204,6 +1254,7 @@
           commsOpts.appendChild(btn("arm-comms-opt" + (o.primary ? " pri" : ""), o.label, function () { ensureAudio(); sfx("click"); o.fn(); }));
         })(arr[i]);
       }
+      if (typing.active) gateOpts(true);   // (v0.180.0, ARM#7) options enable on reveal-complete or skip
     }
     function briefAdvanceCore() { briefCore++; briefMode = "TEACH"; briefRepeat = 0; renderComms(); }
     function renderComms() {
@@ -3269,6 +3320,9 @@
         flushLater: function () { var fired = 0; timers.forEach(function (rec, id) { win.clearTimeout(id); }); var fns = []; timers.forEach(function (rec) { fns.push(rec.fn); }); timers.clear(); for (var i = 0; i < fns.length; i++) { try { fns[i](); fired++; } catch (eF) {} } return fired; },
         upgradeLvl: function (k) { return lvl[k]; },                 // (v0.179.0, Flow#7)
         regenDelay: function () { return shieldRegenDelay; },
+        typeProbe: function () { return { active: typing.active, shown: typing.shown, total: typing.total, forced: typeForced, layerOn: !!(typeLayer && typeLayer.style.display === "block"), optsWait: !!(commsOpts && commsOpts.classList.contains("wait")) }; },   // (v0.180.0, ARM#7)
+        typeForce: function (onF) { typeForced = !!onF; },
+        typeSkip: function () { skipReveal(); },
         hpMix: function (n, sec) { var keep = sector; if (sec) sector = sec; var out = {}; for (var i = 0; i < (n || 300); i++) { var h = enemyHpFor(sector); out[h] = (out[h] || 0) + 1; } sector = keep; return out; },   // (v0.155.0, ARM#4)
         shotDmg: function (sec) { return shotDmgFor(sec); },
         setSmoothDiff: function (v) { smoothDiff = !!v; },
@@ -3521,6 +3575,12 @@
       ".arm-comms-why{margin-top:9px;font-size:14px;line-height:1.62;color:#c5c5d4;}",
       ".arm-comms-opts{display:flex;flex-direction:column;gap:8px;margin-top:14px;}",
       ".arm-comms-opt{width:100%;text-align:left;border:1px solid #34344a;border-radius:10px;background:linear-gradient(#1d1d2c,#131320);color:" + C.text + ";font-family:inherit;font-weight:600;font-size:14px;padding:11px 14px;cursor:pointer;transition:border-color .15s,background .15s;position:relative;box-shadow:inset 0 1px 0 rgba(255,255,255,.1), 0 3px 0 #0a0a12;}",
+      ".arm-comms-type{display:none;white-space:pre-wrap;font-size:14px;line-height:1.6;color:#9ff0f7;text-shadow:0 0 6px rgba(31,221,233,.35);}",   /* (v0.180.0, ARM#7) */
+      ".arm-comms-type::after{content:'\u258e';color:" + C.aqua + ";animation:armCaret 1s steps(1) infinite;}",
+      "@keyframes armCaret{50%{opacity:0;}}",
+      "[data-motion=\"reduced\"] .arm-comms-type::after{animation:none;}",
+      ".arm-comms-msg.arm-msg-ink{display:none;}",
+      ".arm-comms-opts.wait .arm-comms-opt{opacity:.35;cursor:default;}",
       ".arm-comms-opt::after{content:'';position:absolute;left:12px;right:12px;bottom:5px;height:2px;border-radius:2px;background:#26263a;}",
       ".arm-comms-opt.pri{background:linear-gradient(#0e3a42,#092830);border-color:" + C.aqua + ";color:#9ff0f7;box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 3px 0 #04181d;}",
       ".arm-comms-opt.pri::after{background:" + C.aqua + ";box-shadow:0 0 8px rgba(31,221,233,.6);}",
