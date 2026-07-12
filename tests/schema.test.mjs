@@ -21,6 +21,10 @@ test('the shipped bank is structurally valid', async () => {
   assert.ok(res.summary.byDiff.medium >= 10);
   assert.ok(res.summary.byDiff.hard >= 9);
   assert.ok(res.summary.byDiff.extreme >= 1);
+  // The owner's priority practice-exam set ships and is flagged for mastery-first.
+  const priority = QUESTIONS.filter((q) => q.priority);
+  assert.equal(priority.length, 25, 'the 25 priority questions are present');
+  assert.ok(priority.every((q) => q.priority === true && typeof q.explanation === 'string'));
 });
 
 // --- negative controls: each malformed question MUST be rejected ---
@@ -45,6 +49,13 @@ test('negative control: bad id format is rejected', () => {
 });
 test('negative control: impossible flag on non-extreme is rejected', () => {
   assert.equal(validateQuestion({ ...good, impossible: true }).ok, false);
+});
+test('a question may carry a boolean priority flag', () => {
+  assert.equal(validateQuestion({ ...good, priority: true }).ok, true);
+  assert.equal(validateQuestion({ ...good, priority: false }).ok, true);
+});
+test('negative control: non-boolean priority is rejected', () => {
+  assert.equal(validateQuestion({ ...good, priority: 'yes' }).ok, false); // NEGATIVE CONTROL
 });
 test('negative control: duplicate ids across a bank are rejected', () => {
   const res = validateBank([good, { ...good }]);

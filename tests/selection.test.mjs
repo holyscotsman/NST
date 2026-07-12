@@ -87,6 +87,28 @@ test('mastery mode reproduces exactly with the same injected rng + mastery', () 
   assert.deepEqual(a.map((q) => q.id), b.map((q) => q.id), 'same rng + mastery -> same run');
 });
 
+test('mastery mode surfaces priority questions first; seeded mode ignores priority', () => {
+  // 15 medium questions, the first 5 flagged priority ("master these first").
+  const bank = makeBank({ easy: 15, medium: 15, hard: 15, extreme: 5, impossible: 2 });
+  let tagged = 0;
+  for (const q of bank) { if (q.authoredDifficulty === 'medium' && tagged < 5) { q.priority = true; tagged += 1; } }
+  const prioIds = new Set(bank.filter((q) => q.priority).map((q) => q.id));
+  const prioCount = (set) => set.filter((q) => prioIds.has(q.id)).length;
+
+  const N = 60;
+  let masterySum = 0, seededSum = 0;
+  for (let i = 0; i < N; i++) {
+    masterySum += prioCount(buildSet({ bank, mode: 'mastery', mastery: emptyMastery(), setIndex: i, reachedFinalBefore: true }));
+    seededSum += prioCount(buildSet({ bank, mode: 'seeded', seed: `S${i}`, setIndex: 0, reachedFinalBefore: true }));
+  }
+  const mMean = masterySum / N, sMean = seededSum / N;
+  // Mastery selection floods the run with the 5 priority questions (of 5).
+  assert.ok(mMean >= 4.3, `mastery should surface almost all priority questions each run (got ${mMean.toFixed(2)})`);
+  // NEGATIVE CONTROL: seeded selection is priority-blind, so it picks them only at
+  // the base rate (~5 * 10/15 ≈ 3.3) — clearly fewer than mastery mode.
+  assert.ok(mMean > sMean + 0.6, `mastery (${mMean.toFixed(2)}) must beat priority-blind seeded (${sMean.toFixed(2)})`);
+});
+
 test('SetManager keeps a disjoint current/next and Steve reads the upcoming run', () => {
   // Big enough to build two fully-disjoint back-to-back runs (needs >= 60).
   const bank = makeBank({ easy: 25, medium: 25, hard: 25, extreme: 8, impossible: 2 });

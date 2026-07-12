@@ -28,6 +28,9 @@ export function validateQuestion(q, seenIds) {
   if (q.reviewStatus && !REVIEW_STATUSES.includes(q.reviewStatus)) push(`bad reviewStatus: ${q.reviewStatus}`);
   if (typeof q.impossible !== 'undefined' && typeof q.impossible !== 'boolean') push('impossible must be boolean');
   if (q.impossible && q.authoredDifficulty !== 'extreme') push('impossible questions must be authoredDifficulty=extreme');
+  // Priority questions are surfaced first by mastery selection until graduated
+  // (a "learn these first" set). Purely a selection hint — never affects grading.
+  if (typeof q.priority !== 'undefined' && typeof q.priority !== 'boolean') push('priority must be boolean');
 
   // Options
   if (!Array.isArray(q.options) || q.options.length < 4 || q.options.length > 6) {

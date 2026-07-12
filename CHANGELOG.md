@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — priority questions (owner practice-exam set, mastered first)
+
+- **25 owner-authored practice-exam questions added as the priority set.** The
+  owner supplied their own Nutanix NCP-MCI questions (keys + explanations); they
+  are merged into the bank (now 182) ahead of the existing content, as the
+  source the player should master first.
+- **New `priority` flag drives "mastered first."** Mastery-driven selection gives
+  a not-yet-graduated priority question a large weight boost, so runs are flooded
+  with the priority set until each item graduates out of the mastery ladder — then
+  the boost drops away and it behaves like any mastered question. A fresh player's
+  very first run is ~half priority questions; they taper as they're mastered.
+  Seeded (shareable) runs are priority-blind, so seeds stay reproducible.
+- **Field + pipeline:** `priority` is an optional boolean in the schema and a
+  `Priority: yes` field in the Markdown format. The importer grew a `--merge`
+  mode that adds a parsed set ahead of the existing `questions.js` (idempotent by
+  id, validates the combined bank) instead of regenerating from one source — used
+  to add the set without disturbing the other 157. Source of record:
+  `docs/priority-question-bank.md`.
+- **Integrity:** keys/explanations are owner-authored (§4); `priority` is a
+  selection hint only and never affects grading. Domain/difficulty tags for the
+  set are an ingestion classification, flagged for owner confirmation
+  (`FLAGS.md §1`).
+
 ## Unreleased — title music toggle + in-app dev menu
 
 - **Music toggle on the title screen** — a 🔊/🔇 button in the title footer mutes

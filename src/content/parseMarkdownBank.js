@@ -147,6 +147,9 @@ function buildQuestion(block, counters) {
   if (extra.reference) q.reference = extra.reference;
   if (extra.tags && extra.tags.length) q.tags = extra.tags;
   if (truthy(meta.impossible)) q.impossible = true;
+  // "Priority: yes" marks a question the player should master first — mastery
+  // selection strongly prefers it until it graduates. Selection hint only.
+  if (truthy(meta.priority)) q.priority = true;
 
   // image: bare filename resolves into the images dir; a path/URL is kept as-is
   // so the schema can reject anything non-local.

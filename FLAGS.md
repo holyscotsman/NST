@@ -3,18 +3,25 @@
 Things the autonomous loop **cannot** decide. Nothing here blocks a playable
 ship, but each wants a human before it's "done" per `CLAUDE.md`.
 
-## 1. Question bank — being replaced with owner-authored content
-- **Status:** the owner is supplying their **own** question bank (some items
-  with images), to replace the current 157 AI-drafted questions. The ingestion
-  path is built: author in Markdown per `docs/QUESTION_AUTHORING.md`, then
-  `npm run import:questions <file.md>` regenerates `src/content/questions.js`
-  (schema-validated; won't ship a broken key). Owner questions import as
-  `reviewStatus:"human-reviewed"`.
-- **What's left:** the owner uploads the Markdown (+ image files); the current
-  AI-drafted bank stands in until then. Once imported, this flag is cleared —
-  the bank becomes human-authored, which is what §4/§7 require.
+## 1. Question bank — owner content arriving; 25 priority questions merged
+- **Status:** the owner has supplied **25 of their own questions** (a Nutanix
+  practice-exam set). These are merged into the bank as the **priority** set
+  (`priority:true`, ids `NPX-*`, `reviewStatus:"human-reviewed"`), source of
+  record in `docs/priority-question-bank.md`, merged via
+  `node scripts/import-questions.mjs docs/priority-question-bank.md --merge`.
+  Mastery-driven runs surface them first until the player graduates them
+  (see `docs/CONTENT_QA_REPORT.md` / CHANGELOG). The keys and explanations are
+  **owner-authored**, so the §4/§7 key-review concern is satisfied for these 25.
+- **Owner confirmation still wanted (these 25):** the **domain and difficulty
+  tags** were assigned by ingestion classification, not the owner (they slot
+  each question into a tier). Confirm or re-tag: 3 easy / 13 medium / 9 hard,
+  across the domains printed by the importer. Difficulty values are
+  human-authored content per §7 — this is the only outstanding item for the set.
+- **What's left overall:** the remaining **157 questions are still AI-drafted**
+  pending review; the owner can keep supplying Markdown to replace/extend them
+  (the same `--merge` path adds a set without disturbing the rest).
 - **Note:** the **runtime never uses AI to grade** — correctness is decided
-  solely by the stored authored key, before and after the swap.
+  solely by the stored authored key.
 
 ## 2. Host dialogue — intro cinematic, welcome lines, quips (authored content)
 - **What:** the first-run cinematic (`src/shell/ui/cinematic.js`) contains host

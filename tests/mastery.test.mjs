@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyMastery, record, effectiveTier, getRecord, isGraduated, domainProgress } from '../src/core/mastery.js';
+import { emptyMastery, record, effectiveTier, getRecord, isGraduated, domainProgress, selectionWeight } from '../src/core/mastery.js';
 import { MASTERY } from '../src/core/config.js';
 
 const hard = { id: 'AHV-H-001', authoredDifficulty: 'hard' };
@@ -82,6 +82,30 @@ test('domainProgress ranks proven-weak domains first and counts graduations', ()
   assert.ok(rows[0].score < 0.5, 'failing domain scores low');
   // NEGATIVE CONTROL: the mastered domain must NOT rank as weakest.
   assert.notEqual(rows[0].domain, 'storage');
+});
+
+test('priority questions outweigh peers in selection until they graduate', () => {
+  const prio = { id: 'NPX-M-001', authoredDifficulty: 'medium', priority: true };
+  const peer = { id: 'STOR-M-001', authoredDifficulty: 'medium' }; // same tier, no priority
+  const m = emptyMastery();
+  // Untouched: identical base weight, but the priority flag boosts it hard.
+  const wPrio = selectionWeight(m, prio, 0);
+  const wPeer = selectionWeight(m, peer, 0);
+  assert.ok(wPrio > wPeer * 5, `priority (${wPrio}) should dwarf its peer (${wPeer})`);
+
+  // NEGATIVE CONTROL: the non-priority peer gets no boost.
+  const m2 = emptyMastery();
+  assert.equal(selectionWeight(m2, { ...peer }, 0), selectionWeight(m2, { ...peer, priority: false }, 0));
+
+  // NEGATIVE CONTROL: once the player masters (graduates) the priority question,
+  // the boost drops away — a mastered priority item behaves like any other.
+  const m3 = emptyMastery();
+  for (let i = 0; i < 10; i++) record(m3, prio.id, { correct: true, authoredDifficulty: 'medium' });
+  assert.equal(isGraduated(m3, prio.id), true);
+  const gradPrio = selectionWeight(m3, prio, 0);
+  const gradPeerBox = { id: 'STOR-M-002', authoredDifficulty: 'medium' };
+  for (let i = 0; i < 10; i++) record(m3, gradPeerBox.id, { correct: true, authoredDifficulty: 'medium' });
+  assert.equal(gradPrio, selectionWeight(m3, gradPeerBox, 0), 'graduated priority = graduated peer'); // NEGATIVE CONTROL
 });
 
 test('domainProgress gives unseen questions zero credit', () => {

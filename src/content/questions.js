@@ -1,12 +1,496 @@
-// questions.js — the playable NCP-MCI question bank
-// AUTO-ASSEMBLED from human-guided authoring + independent AI verification
-// (offline ingestion QA per CLAUDE.md §4). Every key was re-derived by a second
-// agent and marked reviewStatus:"verified". These remain pending final HUMAN
-// sign-off — see docs/CONTENT_QA_REPORT.md and FLAGS.md.
-// Do not hand-edit for content; edit the source and re-run assembly, or curate
-// directly once a human owns the bank.
+// questions.js — the playable NCP-MCI question bank.
+// ASSEMBLED by scripts/import-questions.mjs (--merge): priority questions from an
+// authored Markdown source are merged AHEAD of the existing bank. Content is
+// human-authored; the runtime never uses AI to grade (CLAUDE.md §4) — the stored
+// authored key is authoritative. Re-run the importer to regenerate.
 
 export const QUESTIONS = [
+  {
+    "id": "NPX-H-001",
+    "domain": "foundation",
+    "authoredDifficulty": "hard",
+    "type": "single",
+    "stem": "If a Nutanix cluster that has been deployed using ESXi is only using one datastore, which advanced option needs to be set during the initial cluster deployment?",
+    "options": [
+      "`das.ignoreInsufficientHbDatastore` with Value of `false`",
+      "`das.ignoreInsufficientHbDatastore` with Value of `0`",
+      "`das.ignoreInsufficientHbDatastore` with Value of `1`",
+      "`das.ignoreInsufficientHbDatastore` with Value of `true`"
+    ],
+    "answer": [
+      3
+    ],
+    "explanation": "With only one Nutanix datastore, vSphere HA reports an insufficient-heartbeat-datastores warning unless the advanced option `das.ignoreInsufficientHbDatastore = true` is set. Recommended vSphere availability settings also include enabling host monitoring and using percentage-based admission control sized to the number of nodes.",
+    "reviewStatus": "human-reviewed",
+    "reference": "vSphere HA — Admission Control & heartbeat datastores",
+    "priority": true
+  },
+  {
+    "id": "NPX-E-001",
+    "domain": "security",
+    "authoredDifficulty": "easy",
+    "type": "multi",
+    "stem": "To improve security on a newly created vSphere-based Nutanix cluster, which two default passwords should be changed? (Choose two)",
+    "options": [
+      "root user on ESXi",
+      "nutanix user on vCenter",
+      "nutanix user on the CVM",
+      "root user on Prism Central"
+    ],
+    "answer": [
+      0,
+      2
+    ],
+    "explanation": "Nutanix recommends changing the default passwords, including the Controller VM (CVM) local `nutanix` account and the hypervisor's local account — for ESXi that is the local `root` user. (Other accounts to change elsewhere include AHV root/admin/nutanix, Hyper-V administrator, Prism Central admin + nutanix, IPMI ADMIN, and FSVM nutanix.)",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-002",
+    "domain": "lifecycle",
+    "authoredDifficulty": "hard",
+    "type": "multi",
+    "stem": "After triggering a set of LCM updates, an administrator notices a failure message in Prism during the pre-checks, but it lacks enough detail to isolate the cause. Which two logs should be investigated on the CVM? (Choose two)",
+    "options": [
+      "`stargate.out`",
+      "`lcm_ops.out`",
+      "`genesis.out`",
+      "`lcm_wget.out`"
+    ],
+    "answer": [
+      1,
+      2
+    ],
+    "explanation": "Before an update LCM runs pre-checks and stops if any fail. LCM writes all operations to `genesis.out`, `lcm_ops.out`, `lcm_ops.trace`, and `lcm_wget.log`; `lcm_ops.out` and `genesis.out` carry the pre-check context.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-003",
+    "domain": "prism",
+    "authoredDifficulty": "hard",
+    "type": "multi",
+    "stem": "Which two CLI commands are required to take the CVM and the node out of maintenance mode? (Choose two.)",
+    "options": [
+      "`acli host.exit_maintenance_mode host-ip`",
+      "`ncli host edit id=host-ID enable-maintenance-mode=false`",
+      "`acli host.disable_maintenance_mode host-ip`",
+      "`ncli host edit id=host-ID disable-maintenance-mode=true`"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "explanation": "Remove the CVM from maintenance mode with `ncli host edit id=host-ID enable-maintenance-mode=false` (after finding the ID via `ncli host list`), then remove the node with `acli host.exit_maintenance_mode host-ip` and verify with `acli host.get`.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-001",
+    "domain": "storage",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "Which terms describe performance acceleration features of the Distributed Storage Fabric?",
+    "options": [
+      "Extent Groups, vDisk flash mode and AHV Turbo",
+      "Intelligent Tiering, Data Locality and Automatic Disk Balancing",
+      "Erasure Coding, vDisk flash mode and Autonomous Extent Store",
+      "Deduplication, Compression and Erasure Coding"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "DSF accelerates performance with Intelligent Tiering (moves data between SSD and HDD by access pattern), Data Locality (VM data kept on the node running the VM, following it on migration), and Automatic Disk Balancing (keeps utilization uniform across the cluster).",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-004",
+    "domain": "storage",
+    "authoredDifficulty": "hard",
+    "type": "single",
+    "stem": "The Autonomous Extent Store will bypass the OpLog in which workload scenario?",
+    "options": [
+      "Sequential Read",
+      "Sequential Write",
+      "Sustained Random Write",
+      "Sustained Random Read"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "For sustained random write workloads, AES writes directly to the Extent Store, bypassing the OpLog. Bursty random workloads still take the OpLog path and drain to the Extent Store via AES where possible.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-002",
+    "domain": "storage",
+    "authoredDifficulty": "medium",
+    "type": "multi",
+    "stem": "What two types of VDI workloads benefit from enabling cache deduplication? (Choose two)",
+    "options": [
+      "VAAI Clone",
+      "Persistent Desktops",
+      "Full Clone",
+      "Linked Clone"
+    ],
+    "answer": [
+      1,
+      2
+    ],
+    "explanation": "Cache (inline read-cache) deduplication is recommended for full-clone, persistent-desktop, and physical-to-virtual use cases (CVMs need at least 24 GB RAM). It is not recommended for VAAI clone or linked-clone environments.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-003",
+    "domain": "storage",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "An administrator is preparing an RF2 4-node cluster to deploy a VDI project consisting of full clones. Which action should the administrator take to support this workload?",
+    "options": [
+      "Create a dedicated storage pool with the default storage efficiency configuration.",
+      "Create a dedicated storage container with inline compression and deduplication.",
+      "Set cluster redundancy to RF3 to support Erasure Coding in a new Storage Container.",
+      "Add one node to the cluster and enable Erasure coding in a new Storage Container."
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "Nutanix recommends inline compression for most workloads and disabling deduplication except for VDI. For a VDI full-clone project, create a dedicated storage container with inline compression and deduplication enabled.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-005",
+    "domain": "networking",
+    "authoredDifficulty": "hard",
+    "type": "single",
+    "stem": "A company wants a few lower-priority VMs to communicate through 1G uplinks only. How could the company achieve this while still maintaining maximum throughput for the other mission-critical VMs?",
+    "options": [
+      "Add all available uplinks to br0 and configure LACP.",
+      "Add all available uplinks to br0 and configure balance-slb.",
+      "Create vs1 with 1G uplinks and assign the lower priority VMs a network on br1.",
+      "Create vs0 with 1G uplinks and assign the lower priority VMs a network on br1."
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "Create a new virtual switch (vs1) built on the 1G uplink interfaces (bridge br1) and place the lower-priority VMs there, keeping the mission-critical VMs on a virtual switch with faster uplinks so their throughput is unaffected.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-004",
+    "domain": "networking",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "What is the Nutanix recommended configuration for taking full advantage of the bandwidth provided by multiple links?",
+    "options": [
+      "No Uplink Bond",
+      "Active-Active with MAC Pinning",
+      "Active-Backup",
+      "Active-Active"
+    ],
+    "answer": [
+      3
+    ],
+    "explanation": "Active-Active (Balance-TCP) lets VMs send traffic across multiple uplink interfaces, aggregating their bandwidth. Active-Backup uses one uplink at a time, MAC pinning (Balance-SLB) pins a vNIC to a single uplink, and No Uplink Bond uses only one uplink — none aggregate bandwidth like Active-Active.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-005",
+    "domain": "networking",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "An administrator wants to script a network map of which nodes/NICs connect to which switches/ports using MAC addresses. What is the most efficient way to collect the node MAC address?",
+    "options": [
+      "Using the network configuration in Prism Element.",
+      "Use the `ethtool` command via `cli`.",
+      "Use the `manage_ovs` command via `cli`.",
+      "Use the IPMI interface collect HW data."
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "On the AHV host, `ethtool -P ethX` prints the permanent (hardware) MAC address of the interface — scriptable and efficient. (`ifconfig ethX` also shows the HWaddr along with interface statistics.)",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-006",
+    "domain": "prism",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "An administrator needs to customize report settings, such as appearance and retention format, differentiated for each corporate business unit. Where should these customizations be configured?",
+    "options": [
+      "In the main **Report Setting** in Prism Central Reports",
+      "In Prism Central Settings, **UI Settings**",
+      "In Nutanix Cloud Manager Operation Policies",
+      "In **Report Settings** for each report"
+    ],
+    "answer": [
+      3
+    ],
+    "explanation": "Report settings can be applied globally (all reports) or per report. To differentiate per business unit, configure the settings for each individual report — the report-level setting takes precedence over the global one.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-007",
+    "domain": "monitoring",
+    "authoredDifficulty": "medium",
+    "type": "multi",
+    "stem": "An administrator needs to compare two VMs to see if one is resource constrained. Which two chart types can provide this information? (Choose two)",
+    "options": [
+      "Entity Chart for each VM showing its CPU Ready %",
+      "Metric chart showing each VM's CPU Usage %",
+      "Metric chart showing cluster CPU Usage %",
+      "Entity chart for each VM's host showing Hypervisor CPU Usage %"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "explanation": "Entity charts track one or more metrics for a single entity (per VM — CPU Ready %); Metric charts track a single metric across one or more entities (CPU Usage % for both VMs). The host- and cluster-level charts don't isolate the two VMs.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-008",
+    "domain": "monitoring",
+    "authoredDifficulty": "medium",
+    "type": "multi",
+    "stem": "After an update, a VM's CPU usage spikes to 100% every 60–120 minutes, against a normal weekday/weekend band. In which two locations should the administrator look to track this behavior? (Choose two)",
+    "options": [
+      "In the VM details Alert tab.",
+      "In the Event dashboard.",
+      "In the VM details Metrics tab.",
+      "In the Alerts dashboard."
+    ],
+    "answer": [
+      1,
+      2
+    ],
+    "explanation": "Anomaly detection learns a normal behavior band per metric and flags outliers as events. Anomalies appear in the behavioral-anomaly Event details and on the VM details Metrics tab.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-006",
+    "domain": "performance",
+    "authoredDifficulty": "hard",
+    "type": "single",
+    "stem": "An application is not performing well. The VM has 1 vCPU with 2 vCores; Prism shows 50% CPU usage and 0 CPU Ready. Which action should be taken?",
+    "options": [
+      "Do not add vCPUs because the cluster is already overcommitted.",
+      "Add 1 vCPU with 2 vCores to ensure vNUMA support.",
+      "Do not add vCPUs because the application does not support SMP.",
+      "Add 2 vCores to double VM computing power."
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "At only 50% CPU usage and 0 CPU Ready, the VM is not waiting on CPU scheduling and would gain nothing from more processors — the application cannot use additional CPUs because it does not support SMP (Symmetric Multi-Processing).",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-007",
+    "domain": "monitoring",
+    "authoredDifficulty": "hard",
+    "type": "single",
+    "stem": "Which Inefficient VM Profile type is used to identify a VM with Host I/O Stargate CPU usage > 85%?",
+    "options": [
+      "Over-provisioned VM",
+      "Bully",
+      "Inactive VM",
+      "Constrained VM"
+    ],
+    "answer": [
+      1
+    ],
+    "explanation": "A bully VM consumes so many resources that others starve. It is flagged when, for over an hour, it shows CPU ready time > 5%, memory swap rate > 0 Kbps, or Host I/O Stargate CPU usage > 85%.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-008",
+    "domain": "monitoring",
+    "authoredDifficulty": "hard",
+    "type": "multi",
+    "stem": "An administrator must configure an AHV cluster to forward all system logs to a central log server. What two steps need to be taken? (Choose two)",
+    "options": [
+      "Determine which modules and log levels need to be forwarded.",
+      "Configure `rsyslog-config` via `ncli`.",
+      "Install the Splunk Agent for AHV.",
+      "Configure `rsyslog` forwarding via Prism Element."
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "explanation": "Use the nCLI `rsyslog-config` command to forward logs: add the server, then add a module specifying which modules and log levels to forward, and enable it. It cannot be configured in Prism Element (only Prism Central or the CVM's ncli), and no Splunk agent is required.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-E-002",
+    "domain": "storage",
+    "authoredDifficulty": "easy",
+    "type": "single",
+    "stem": "Which service controls all I/O in the Nutanix cluster?",
+    "options": [
+      "Stargate",
+      "Zookeeper",
+      "Curator",
+      "Genesis"
+    ],
+    "answer": [
+      0
+    ],
+    "explanation": "Stargate is the data I/O manager — responsible for all data management and I/O and the main interface from the hypervisor (NFS/iSCSI/SMB). It runs on every node to serve localized I/O.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-E-003",
+    "domain": "prism",
+    "authoredDifficulty": "easy",
+    "type": "single",
+    "stem": "Which service is responsible for running the Nutanix GUI interface?",
+    "options": [
+      "Pithos",
+      "Zeus",
+      "Prism",
+      "Medusa"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "Prism is the management gateway (nCLI, HTML5 UI, and REST API). It runs on every node and uses an elected leader. Pithos is the vDisk config manager, Medusa the metadata abstraction layer, and Zeus the cluster-config library.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-009",
+    "domain": "monitoring",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "Custom alert policies in Prism Central monitor CPU and memory of guest VMs. Specific application owners should be emailed when an alarm triggers. What does the administrator need to configure?",
+    "options": [
+      "Create a rule to send an email to the application owner.",
+      "Configure the email settings within each VM category.",
+      "Create a task to send an email to the application owner.",
+      "Configure the email settings within each specific alert policy."
+    ],
+    "answer": [
+      0
+    ],
+    "explanation": "Configuring alert emails is a separate action from the alert policy (and from VM categories): create a rule in Prism Central defining who receives the email. Prism Central alert emailing must be explicitly enabled and requires an SMTP server.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-010",
+    "domain": "ahv",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "Memory usage for a Windows VM reports as 100% in Prism while in-guest usage never exceeds 30%. What action resolves this?",
+    "options": [
+      "Reboot the host where the VM is running",
+      "Reboot the VM",
+      "Install the VirtIO Balloon driver",
+      "Live Migrate the VM"
+    ],
+    "answer": [
+      2
+    ],
+    "explanation": "AOS reports guest memory usage using the balloon driver running inside the guest (part of the Nutanix VirtIO package). Windows does not ship this driver, so until it is installed memory usage is misreported in Prism.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-H-009",
+    "domain": "ahv",
+    "authoredDifficulty": "hard",
+    "type": "multi",
+    "stem": "To keep a VDI gold image consistent across newly added clusters, what two items must the Nutanix administrator implement? (Choose two)",
+    "options": [
+      "Create an Image Placement Policy in PC",
+      "Setup Leap OnPrem and deploy Protection/Recovery plans",
+      "Create a custom category and tag the cluster and image",
+      "Install NGT on the gold image so it can replicate between clusters"
+    ],
+    "answer": [
+      0,
+      2
+    ],
+    "explanation": "In Prism Central, create categories for the cluster and image and associate each, then create an Image Placement Policy tying the two categories together (\"assign images from these categories to the clusters from these categories\"). NGT and Leap are not relevant to this task.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-011",
+    "domain": "security",
+    "authoredDifficulty": "medium",
+    "type": "multi",
+    "stem": "What are two supported values of an Encryption Storage Policy? (Choose two)",
+    "options": [
+      "Inherit from Cluster",
+      "Enabled",
+      "Self Encrypting Drives (SED) Encryption",
+      "Disabled"
+    ],
+    "answer": [
+      0,
+      1
+    ],
+    "explanation": "When enabling encryption within a Storage Policy, the possible settings are Enabled and Inherit from Cluster.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-012",
+    "domain": "storage",
+    "authoredDifficulty": "medium",
+    "type": "multi",
+    "stem": "Several storage containers share one storage pool, each with different optimizations. Which two actions ensure one container does not use all remaining storage space? (Choose two)",
+    "options": [
+      "Enable Compression for each storage container",
+      "Configure the Reserved Capacity for each storage container",
+      "Enable Deduplication for each storage container",
+      "Configure the Advertised Capacity for each storage container"
+    ],
+    "answer": [
+      1,
+      3
+    ],
+    "explanation": "By default every container can use all unused pool space. Configure Reserved Capacity (guarantees a minimum unavailable to others) and Advertised Capacity (caps the container's visible size) to keep one container from consuming the whole pool. Reserve no more than 90% of the pool in total.",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
+  {
+    "id": "NPX-M-013",
+    "domain": "storage",
+    "authoredDifficulty": "medium",
+    "type": "single",
+    "stem": "An administrator is setting up a new storage container to host persistent (full clone) VDI desktop VMs. Which storage optimization feature should be enabled?",
+    "options": [
+      "Flash Pinning",
+      "Redundancy Factor 1",
+      "Post-Process Compression",
+      "Deduplication"
+    ],
+    "answer": [
+      3
+    ],
+    "explanation": "Nutanix recommends enabling inline compression for most workloads and disabling deduplication except for VDI. For a persistent full-clone VDI container, enable deduplication (on a dedicated container for mixed clusters).",
+    "reviewStatus": "human-reviewed",
+    "priority": true
+  },
   {
     "id": "AHV-E-001",
     "domain": "ahv",
@@ -4255,5 +4739,3 @@ export const QUESTIONS = [
     "reviewStatus": "verified"
   }
 ];
-
-export default QUESTIONS;

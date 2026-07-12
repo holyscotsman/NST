@@ -86,6 +86,15 @@ test('lifeline / tags / impossible fields land on the object with the right type
   assert.deepEqual(q.tags, ['rf', 'replication']);
 });
 
+test('a Priority field marks the question, and its absence leaves it unset', () => {
+  const md = `## Q\n- **Domain:** storage\n- **Difficulty:** medium\n- **Priority:** yes\n\n**Question:** A stem long enough to validate here?\n${opts4}${withExpl}`;
+  const { questions } = parseMarkdownBank(md);
+  assert.equal(questions[0].priority, true);
+  // NEGATIVE CONTROL: no Priority field -> the flag is absent (not false-y noise).
+  const plain = `## Q\n- **Domain:** storage\n- **Difficulty:** medium\n\n**Question:** A stem long enough to validate here?\n${opts4}${withExpl}`;
+  assert.equal('priority' in parseMarkdownBank(plain).questions[0], false);
+});
+
 test('multi-line stem and explanation fold with single spaces', () => {
   const md = `## Q\n- **Domain:** ahv\n- **Difficulty:** easy\n\n**Question:** This stem\nspans two lines.\n${opts4}\n\n**Explanation:** This reason\nalso spans lines.`;
   const { questions } = parseMarkdownBank(md);

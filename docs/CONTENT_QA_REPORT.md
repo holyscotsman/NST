@@ -18,6 +18,17 @@ required by CLAUDE.md §4.
 ## Fixes applied
 - none
 
+## Priority set (owner-supplied, merged ahead of the bank)
+- **25 owner-authored questions** (`priority:true`, ids `NPX-*`), source
+  `docs/priority-question-bank.md`. Keys and explanations are the owner's, so
+  these are `reviewStatus:"human-reviewed"` — not AI-derived.
+- **By difficulty:** easy 3, medium 13, hard 9. Structurally validated by the
+  same schema the game uses at boot; merged with `import-questions.mjs --merge`
+  (bank total now 182).
+- **Machine QA only did structure here** (the keys are the owner's, not
+  re-derived). Outstanding human item: confirm the **domain/difficulty tags**,
+  which were assigned during ingestion, not by the owner (`FLAGS.md §1`).
+
 ## Quarantined (not shipped)
 - STOR-X-001: Duplicate niche fact (Curator scan cadence) — kept PERF-X-001
 - FDN-X-001: Duplicate niche fact (192.168.5.254 internal address) — kept AHV-X-001

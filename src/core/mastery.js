@@ -94,6 +94,11 @@ export function domainProgress(bank, state) {
   return rows;
 }
 
+// How strongly a not-yet-mastered priority question outweighs a normal one in
+// mastery selection. Large enough that runs are dominated by the priority set
+// until each item graduates, without making it an absolute lock (variety stays).
+export const PRIORITY_WEIGHT_BOOST = 10;
+
 // Selection weight: prefer weaker (lower box) and less-recently-seen items.
 // Higher weight = more likely to be chosen for a run.
 export function selectionWeight(state, q, currentRun) {
@@ -103,5 +108,10 @@ export function selectionWeight(state, q, currentRun) {
   // weight never goes negative (which would make an item unselectable).
   const staleness = rec ? Math.max(0, Math.min(6, currentRun - rec.lastRun)) : 6;
   // Weakness dominates; staleness is a gentle nudge; +1 keeps everything eligible.
-  return (MASTERY.MAX_BOX - box) * 2 + staleness + 1;
+  const base = (MASTERY.MAX_BOX - box) * 2 + staleness + 1;
+  // Priority questions ("master these first") get a big multiplier UNTIL the
+  // player graduates them. Once graduated the boost drops away, so mastered
+  // priority items behave like any other mastered question (rarely resurfaced).
+  if (q.priority && !isGraduated(state, q.id)) return base * PRIORITY_WEIGHT_BOOST;
+  return base;
 }

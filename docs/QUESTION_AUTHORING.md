@@ -51,6 +51,7 @@ one node failure.
 | **Caption** | optional | A visible caption under the image. |
 | **Type** | optional | `single` or `multi`. If omitted, it's inferred from how many `[x]` you mark. |
 | **Impossible** | optional | `true` on an `extreme` question marks it as the genuinely-obscure "first final" (the loss reveals the real answer). |
+| **Priority** | optional | `yes` marks a "master this first" question. Mastery-driven runs strongly prefer priority questions until you graduate them, so a flagged set gets drilled ahead of the rest of the bank. Selection hint only — it never affects grading. |
 | **ID** | optional | Leave blank — IDs auto-generate per domain/difficulty. |
 
 ### Multi-answer example
@@ -96,6 +97,16 @@ the reason), and writes `src/content/questions.js` — but **only if everything
 validates** and there are enough questions for a full run
 (**≥ 10 easy, 10 medium, 9 hard, 1 extreme**). Add `--force` to write just the
 valid ones while you're still building the bank.
+
+To **add** a set to the existing bank instead of regenerating from scratch, pass
+`--merge`. The parsed questions are placed ahead of what's already in
+`questions.js`, replacing any that share an `id` (so re-running is safe) and
+keeping the rest. This is how the priority practice-exam set was added without
+disturbing the main bank:
+
+```bash
+node scripts/import-questions.mjs docs/priority-question-bank.md --merge
+```
 
 You don't have to run it yourself — upload the Markdown (and images) and I'll
 run the import, show you the report, and ship the new bank.

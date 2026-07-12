@@ -52,6 +52,17 @@ audio-resume hardening, pause menu, mastery dashboard removed).
   Settings "Reset progress" hardened to a true first-time reset. Steve
   opener/closer flavour flagged in `FLAGS.md §2`; visuals in `BROWSER_QA.md`.
 
+### Priority questions (owner practice-exam set)
+- 25 owner-authored questions merged as the priority set (`priority:true`, ids
+  `NPX-*`, `reviewStatus:"human-reviewed"`); source `docs/priority-question-bank.md`,
+  merged via `import-questions.mjs … --merge` (bank now 182). `priority` boolean
+  added to schema + `Priority:` markdown field; `selectionWeight` boosts a
+  not-yet-graduated priority question (`PRIORITY_WEIGHT_BOOST`) so mastery runs
+  are flooded with the set until graduated (seeded runs stay priority-blind).
+  Domain/difficulty tags are ingestion classification — pending owner confirm
+  (`FLAGS.md §1`). Tests: schema/parser/mastery/selection/importer, all with
+  negative controls.
+
 ### In-app Dev menu (playtesting)
 - Enable via Settings "🛠 Developer tools" toggle (persists; `?dev=1` still a
   shortcut). Adds coins (+1k/+10k) in Settings and the pause menu; "Start run at
