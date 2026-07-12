@@ -472,15 +472,15 @@ function runToQuestion(sim, maxSecs, pinShields) {
   // purchase math (pure, profile-level)
   var prof = { ccCells: 125, ccUpgrades: {} };   // (v0.101.0, C12) value-1 economy
   var st = CC.garage.state(prof);
-  ok(st.length === 4 && st.map(function (i) { return i.price; }).join(',') === '50,75,60,100',
-     'catalog prices pinned: hull 50 / boost 75 / magnet 60 / plating 100 (C12)');
+  ok(st.length === 6 && st.map(function (i) { return i.price; }).join(',') === '50,75,60,100,90,120',
+     'catalog pinned: hull 50 / boost 75 / magnet 60 / plating 100 / corner thrusters 90 / focus 120 (C12 + CC#8)');
   var b1 = CC.garage.buy(prof, 'hull');
   ok(b1.ok && prof.ccCells === 75 && prof.ccUpgrades.hull === 1, 'buying hull T1 debits 50 and records the tier');
   ok(CC.garage.state(prof)[0].price === 120 && CC.garage.buy(prof, 'hull').ok === false,
      'hull T2 costs 120 — and 75 cells cannot afford it (no debt, no free tiers)');
   var b3 = CC.garage.buy(prof, 'magnet');
   ok(b3.ok && prof.ccCells === 15 && CC.garage.buy(prof, 'magnet').ok === false,
-     'magnet buys once then reports maxed');
+     'magnet T1 debits 60 — and 15 cells cannot reach the new T2 (110)');
 })();
 
 /* ============ 4f) CC#7: NEW POWER-GATE BUFFS — overshield / scholar / double-down ============ */
@@ -534,6 +534,61 @@ function runToQuestion(sim, maxSecs, pinShields) {
   var rCap = s3.answer(s3.pending.question.correctIndex);
   ok(rCap.shieldDelta === 1 && s3.shields === CFG.SHIELDS_MAX,
      'the +2 respects SHIELDS_MAX — one pip short heals exactly 1');
+})();
+
+/* ============ 4g) CC#8: GARAGE 2.0 — deeper tiers, two new fits, the shelf ============ */
+(function garage2() {
+  group('CC#8: Garage 2.0 — tier 2s, corner thrusters, focus capacitor, the one-run shelf');
+  var FULL = 75 + 140 + 60 + 110 + 100 + 180 + 90 + 120;   // everything except hull
+  var p2 = { ccCells: 2000, ccUpgrades: {} };
+  ['boost', 'boost', 'magnet', 'magnet', 'plating', 'plating', 'cornerthr', 'focus'].forEach(function (id) { CC.garage.buy(p2, id); });
+  ok(CC.garage.state(p2).every(function (it) { return it.id === 'hull' ? it.tier === 0 : it.tier === it.max; })
+     && p2.ccCells === 2000 - FULL,
+     'tier-2 boost/magnet/plating + both new fits buy clean (non-hull full build sinks ' + FULL + ' cells)');
+  // plating level 2: two free crashes, the third bites
+  var sP = mkSim(SEED + 55); sP.applyUpgrades({ plating: 2 });
+  sP.shields = 4; sP.iframe = 0;
+  sP._onCrash(); sP._onCrash();
+  ok(sP.shields === 4 && sP._platingLeft === 0, 'plating T2: TWO crashes eaten whole');
+  sP._onCrash();
+  ok(sP.shields === 3, 'the third crash bites as normal');
+  // focus capacitor: +25% window on top of the v0.126 base
+  var sF = mkSim(SEED + 56); sF.applyUpgrades({ focus: 1 });
+  ok(runToQuestion(sF, 90, CFG.SHIELDS_MAX) && sF.pending.limitS === 37.5,
+     'focus capacitor: 20s x1.5 (v0.126) x1.25 = 37.5s window');
+  // corner thrusters: the MOVE warning spawns 1.5s earlier
+  var sC = mkSim(SEED + 57); sC.applyUpgrades({ cornerthr: 1 });
+  var sN = mkSim(SEED + 57);
+  sC._nextGateScore = 1e9; sN._nextGateScore = 1e9;         // keep gates out of the probe
+  var lead = CFG.SCORE_SPEED * (CFG.TURN_WARN_S + 0.75);    // inside the widened lead, outside the stock one
+  sC.scoreDistance = sC._nextTurnScore - lead; sN.scoreDistance = sN._nextTurnScore - lead;
+  sC.shields = CFG.SHIELDS_MAX; sN.shields = CFG.SHIELDS_MAX;
+  sC.step(1 / 60); sN.step(1 / 60);
+  ok(!!sC.turnPending && !sN.turnPending, 'corner thrusters: the warning is up 1.5s before the stock lead');
+  // magnet tier 2 reach: a cell parked at 0.5R pulls only at T2 (advance frozen: adv=0)
+  var sM1 = mkSim(SEED + 58); sM1.applyUpgrades({ magnet: 1 });
+  var sM2 = mkSim(SEED + 58); sM2.applyUpgrades({ magnet: 2 });
+  function probePull(s5) {
+    var cm = s5.coins.acquire(); cm.lane = 0; cm.x = -CFG.LANE_W; cm.y = 0.6; cm.z = CFG.MAGNET_RANGE * 0.5; cm.tested = false; cm.collected = false;
+    var dx0 = Math.abs(cm.x - s5.player.x);
+    for (var m2 = 0; m2 < 12; m2++) s5._advanceCoins(0, 1 / 60);
+    return cm.collected || Math.abs(cm.x - s5.player.x) < dx0 - 1e-6;
+  }
+  ok(!probePull(sM1) && probePull(sM2), 'magnet T2 reaches a cell at 0.5R that T1 cannot touch');
+  // boost tier 2 doubles the T1 bonus
+  var sB2 = mkSim(SEED + 59); sB2.applyUpgrades({ boost: 2 });
+  ok(Math.abs(sB2._up.boostKm - CFG.BOOST_KM) < 1e-9, 'boost T2: two half-BOOST_KM tiers = +100%');
+  // the shelf: pure purchase math — one slot, priced, no debt
+  var pS = { ccCells: 60, ccUpgrades: {} };
+  var shSt = CC.garage.shelf.state(pS);
+  ok(shSt.length === 3 && shSt.map(function (s6) { return s6.price; }).join(',') === '25,25,15',
+     'shelf catalog pinned: overshield 25 / scholar 25 / magnet surge 15');
+  var sb1 = CC.garage.shelf.buy(pS, 'overshield');
+  ok(sb1.ok && pS.ccCells === 35 && pS.ccShelf === 'overshield', 'buying loads the slot and debits');
+  ok(CC.garage.shelf.buy(pS, 'scholar').ok === false && CC.garage.shelf.state(pS)[1].canBuy === false,
+     'ONE slot: a loaded shelf refuses a second buff');
+  pS.ccShelf = null; pS.ccCells = 10;
+  ok(CC.garage.shelf.buy(pS, 'scholar').ok === false, '10 cells cannot afford the 25-cell charge (no debt)');
 })();
 
 (function firstGate() {

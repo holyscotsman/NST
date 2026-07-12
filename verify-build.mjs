@@ -1819,9 +1819,10 @@ async function runFrames(n = 6) {
       // still only passes via a REAL Embark click writing the checkpoint.
       for (let wtry = 0; wtry < 6 && !(SN.core.profile.saves && SN.core.profile.saves.KBB); wtry++) {
         if (wtry > 0) console.log("  (checkpoint write-path drive: retry " + wtry + ")");
-        { // late-appearing overlays swallow clicks: clear them every attempt, not just once
-          const skL = [...w.document.querySelectorAll(".kbb-skip")].find(n => /skip/i.test(n.textContent || "")); if (skL) { skL.click(); await wait(40); }
-          const htL = w.document.querySelector(".kbb-ht-skip"); if (htL) { htL.click(); await wait(40); }
+        { // late-appearing overlays swallow clicks: clear ALL of them every attempt, unfiltered
+          const ovls = [...w.document.querySelectorAll(".kbb-skip, .kbb-ht-skip")];
+          for (const ov of ovls) { ov.click(); }
+          if (ovls.length) await wait(60);
         }
         const stW = w.KBB._test.state();
         if (!stW || !stW.run) break;
@@ -1840,6 +1841,19 @@ async function runFrames(n = 6) {
           if (cAny) cAny.click(); else break;
         }
         await wait(60);
+      }
+      // diagnostic: if the chain came up dry, dump the state so a flake self-documents
+      if (!(SN.core.profile.saves && SN.core.profile.saves.KBB)) {
+        try {
+          const stD = w.KBB._test.state();
+          console.log("  DIAG checkpoint-drive: phase=" + (stD && stD.run && stD.run.phase)
+            + " battleOver=" + (stD && stD.run && stD.run.battle ? stD.run.battle.over : "no-battle")
+            + " q=" + !!(stD && stD.run && stD.run.battle && stD.run.battle.question)
+            + " btns=[" + [...w.document.querySelectorAll(".kbb-btn,.kbb-cont,.kbb-submit")].map(n => (n.className.split(" ")[0] + ":" + (n.textContent || "").slice(0, 18))).join("|") + "]"
+            + " skips=[" + [...w.document.querySelectorAll(".kbb-skip,.kbb-ht-skip")].map(n => n.className + ":" + (n.textContent || "").slice(0, 14)).join("|") + "]"
+            + " opts=" + w.document.querySelectorAll(".kbb-opt").length
+            + " section=" + (stD && stD.run && stD.run.section));
+        } catch (eDg) { console.log("  DIAG checkpoint-drive: state unreadable — " + eDg.message); }
       }
       ok("KBB between-battles exit (map Embark) checkpoints to the LIVE profile synchronously",
         !!(SN.core.profile.saves && SN.core.profile.saves.KBB && SN.core.profile.saves.KBB.section >= 1));
@@ -2986,6 +3000,20 @@ async function runFrames(n = 6) {
       delete core.profile.qstats[qA.id]; delete core.profile.qstats[qB.id];
       shell.showMenu();
     }
+  }
+
+  // CC#8 (v0.185.0): the shelf buff boards a FRESH launch through the real mount, then empties
+  {
+    SN.core.profile.ccShelf = "overshield";
+    delete SN.core.profile.saves;
+    SN.core.persistence.save(SN.core.profile); SN.core.persistence.flush();   // the mount load() reads STORAGE
+    shell.enterGame("CC");
+    await wait(30);
+    const simSh = SN.getGame("CC")._sim();
+    ok("CC#8: the shelf overshield boards the fresh run and the slot empties",
+      !!simSh && simSh.overshield === 1 && !SN.core.profile.ccShelf);
+    shell.exitGame();
+    shell.showMenu();
   }
 
   // J9 (v0.73.0): the CC Garage — module-side source pins (the engine behavior is cc-run's 38)

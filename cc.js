@@ -254,7 +254,7 @@
 
     this.phase = PHASE_RUN;
     this.shields = cfg.SHIELDS_START + (this._up ? this._up.hull : 0);   // (J9) hull tiers
-    this._platingLeft = (this._up && this._up.plating) ? 1 : 0;          // (J9) once per run
+    this._platingLeft = (this._up && this._up.plating) | 0;              // (J9; v0.185.0 CC#8: level = free crashes per run)
     this.distance = 0;
     this.scoreDistance = 0;          // 04 task 7: dramatized distance (km HUD + 10km gate cadence), decoupled from world-scroll
     this.scoreSpeed = cfg.SCORE_SPEED;
@@ -342,7 +342,7 @@
     }
     // (v0.104.0, C4) turn lifecycle: warn TURN_WARN_S ahead (never during a boost ride),
     // then require the matching lane the instant the threshold crosses. Miss = wall clip.
-    if (!this.turnPending && !this.boostActive && this.scoreDistance >= this._nextTurnScore - cfg.SCORE_SPEED * cfg.TURN_WARN_S) {
+    if (!this.turnPending && !this.boostActive && this.scoreDistance >= this._nextTurnScore - cfg.SCORE_SPEED * (cfg.TURN_WARN_S + ((this._up && this._up.corner) ? 1.5 : 0))) {   // (v0.185.0, CC#8) Corner thrusters widen the lead
       if (this.scoreDistance >= this._nextTurnScore) {
         // a boost overran this corner — boost is autopilot, the turn is flown for you
         this._nextTurnScore += cfg.TURN_KM * 1000;
@@ -506,13 +506,15 @@
     u = u || {};
     this._up = {
       hull: Math.max(0, Math.min(2, u.hull | 0)),
-      boostKm: u.boost ? this.cfg.BOOST_KM * 0.5 : 0,
-      magnet: !!u.magnet,
-      plating: !!u.plating
+      boostKm: this.cfg.BOOST_KM * 0.5 * Math.max(0, Math.min(2, u.boost | 0)),   // (v0.185.0, CC#8) +50% per tier
+      magnet: Math.max(0, Math.min(2, u.magnet | 0)),                              // (CC#8) tier 2 pulls from further out
+      plating: Math.max(0, Math.min(2, u.plating | 0)),                            // (CC#8) free crashes per run = tier
+      corner: Math.max(0, Math.min(1, u.cornerthr | 0)),                           // (CC#8) +1.5s turn warning lead
+      focus: Math.max(0, Math.min(1, u.focus | 0))                                 // (CC#8) +25% question window
     };
     if (this.phase === 'RUN' && this.distance < 1 && !this._resumed) {           // fresh run: apply immediately
       this.shields = this.cfg.SHIELDS_START + this._up.hull;
-      this._platingLeft = this._up.plating ? 1 : 0;
+      this._platingLeft = this._up.plating;
     }
   };
   CCSim.prototype._onCrash = function () {
@@ -535,7 +537,7 @@
 
   CCSim.prototype._advanceCoins = function (adv, dt) {
     var cfg = this.cfg, p = this.player, items = this.coins.items, n = items.length, i;
-    var magnetR = this.buffs.magnet > 0 ? cfg.MAGNET_RANGE : ((this._up && this._up.magnet) ? cfg.MAGNET_RANGE * 0.4 : 0);   // (J9) passive Garage magnet
+    var magnetR = this.buffs.magnet > 0 ? cfg.MAGNET_RANGE : ((this._up && this._up.magnet) ? cfg.MAGNET_RANGE * (this._up.magnet >= 2 ? 0.65 : 0.4) : 0);   // (J9 passive; v0.185.0 CC#8: tier 2 reaches 0.65R)
     var magnet = magnetR > 0;
     var mult = this.buffs.coinX2 > 0 ? 2 : 1;
     for (i = 0; i < n; i++) {
@@ -605,6 +607,7 @@
     } catch (e) {}
     limitS = limitS * 1.5;   // (v0.126.0, Jason playtest) extend the question window 1.5x for now
     if (this.scholarNext) { limitS = limitS * 1.5; this.scholarNext = false; }   // (v0.178.0, CC#7) SCHOLAR: +50% on this one, then spent
+    if (this._up && this._up.focus) limitS = limitS * 1.25;                       // (v0.185.0, CC#8) Focus capacitor: the learning-support fit
     this.pending = { question: q, power: c.power, kind: c.kind, startedMs: this._nowMs, limitS: limitS, remainS: limitS };
     this.lastResult = null;
     this.phase = PHASE_QUESTION;    // PAUSE
@@ -2023,6 +2026,16 @@
             pbBest = (prof.bests && prof.bests.CC) | 0;
             if (el.pb && pbBest > 0) el.pb.textContent = 'PB ' + (pbBest / 1000).toFixed(1) + ' km';
             if (prof.ccUpgrades) sim.applyUpgrades(prof.ccUpgrades);
+            // (v0.185.0, V1.1 CC#8) the shelf buff boards a FRESH launch, then the slot empties.
+            // update() mutates the LIVE profile (load() hands out storage clones — the v0.108 G4 lesson).
+            if (prof.ccShelf && !sim._resumed) {
+              try { sim._grantBuff(prof.ccShelf); } catch (eSh) {}
+              prof.ccShelf = null;
+              try {
+                if (ctx.persistence.update) ctx.persistence.update(function (lp) { lp.ccShelf = null; });
+                else if (ctx.persistence.save) ctx.persistence.save(prof);
+              } catch (eSh2) {}
+            }
             if (prof.settings.music != null && ctx.audio) ctx.audio.setMusic && ctx.audio.setMusic(!!prof.settings.music);
             if (prof.settings.sfx != null && ctx.audio) ctx.audio.setSfx && ctx.audio.setSfx(!!prof.settings.sfx);
             if (view) view.reducedMotion = settings.reducedMotion;
@@ -2302,6 +2315,38 @@
             rowEl.appendChild(done);
           }
           el.garagePanel.appendChild(rowEl);
+        });
+        // (v0.185.0, V1.1 CC#8) the SHELF — cheap, repeatable one-run buffs (the infinite sink)
+        var shHead = document.createElement('div'); shHead.className = 'cc-gar-shelf-head';
+        shHead.textContent = 'SHELF \u00b7 one-run buffs';
+        el.garagePanel.appendChild(shHead);
+        shelfState(p).forEach(function (sh) {
+          var shRow = document.createElement('div'); shRow.className = 'cc-gar-row cc-shelf-row' + (sh.canBuy ? '' : ' locked');
+          var shBody = document.createElement('div'); shBody.className = 'cc-gar-body';
+          var shNm = document.createElement('div'); shNm.className = 'cc-gar-name';
+          shNm.textContent = sh.name + (sh.held ? ' \u00b7 LOADED' : '');
+          var shDs = document.createElement('div'); shDs.className = 'cc-gar-desc'; shDs.textContent = sh.desc;
+          shBody.appendChild(shNm); shBody.appendChild(shDs); shRow.appendChild(shBody);
+          if (sh.held) {
+            var ld = document.createElement('span'); ld.className = 'cc-gar-max'; ld.textContent = '\u2713 loaded';
+            shRow.appendChild(ld);
+          } else {
+            var shBuy = document.createElement('button'); shBuy.className = 'cc-btn cc-gar-buy';
+            shBuy.textContent = '\u2b21 ' + sh.price;
+            shBuy.disabled = !sh.canBuy;
+            shBuy.addEventListener('click', function () {
+              var rSh = shelfBuy(garageProfile, sh.id);
+              if (rSh.ok) {
+                try {   // write the LIVE profile, not the mount-time clone (v0.108 G4 lesson)
+                  if (ctx.persistence && ctx.persistence.update) ctx.persistence.update(function (lp) { lp.ccCells = garageProfile.ccCells; lp.ccShelf = garageProfile.ccShelf; });
+                  else if (ctx.persistence && ctx.persistence.save) ctx.persistence.save(garageProfile);
+                } catch (eShB) {}
+                renderGarage();
+              }
+            });
+            shRow.appendChild(shBuy);
+          }
+          el.garagePanel.appendChild(shRow);
         });
       }
 
@@ -2720,6 +2765,7 @@
     '.cc-ovr-cells{margin:6px 0 2px;color:#1FDDE9;font-size:14px;font-weight:700;}' +
     '.cc-garage{margin:10px 0 4px;text-align:left;display:flex;flex-direction:column;gap:7px;}' +
     '.cc-gar-bal{color:#1FDDE9;font-weight:800;font-size:14px;margin-bottom:2px;}' +
+    '.cc-gar-shelf-head{color:#FFC857;font-weight:800;font-size:10.5px;letter-spacing:.14em;margin:10px 0 2px;}' +   /* (v0.185.0, CC#8) */
     '.cc-gar-row{display:flex;align-items:center;gap:10px;border:1px solid #34344a;border-radius:10px;padding:8px 10px;background:rgba(10,10,18,.55);}' +
     '.cc-gar-row.locked{opacity:.55;}' +
     '.cc-gar-body{flex:1;min-width:0;}' +
@@ -2773,10 +2819,37 @@
     // (v0.101.0, C12, Jason) value-1 coins + prices tuned a notch ABOVE the /10 line so a
     // full build takes several runs — no more buying everything at once.
     { id: 'hull',    name: 'Reinforced hull',   desc: '+1 starting shield per tier.',          tiers: [50, 120] },
-    { id: 'boost',   name: 'Overcharged boost', desc: 'Boost covers +50% distance.',           tiers: [75] },
-    { id: 'magnet',  name: 'Cell magnet',       desc: 'Cells drift toward you, always.',       tiers: [60] },
-    { id: 'plating', name: 'Ablative plating',  desc: 'First crash each run costs no shield.', tiers: [100] }
+    { id: 'boost',   name: 'Overcharged boost', desc: 'Boost covers +50% distance per tier.',  tiers: [75, 140] },   // (v0.185.0, V1.1 CC#8) tier 2s
+    { id: 'magnet',  name: 'Cell magnet',       desc: 'Cells drift toward you; tier 2 reaches further.', tiers: [60, 110] },
+    { id: 'plating', name: 'Ablative plating',  desc: 'Free crashes per run equal to the tier.', tiers: [100, 180] },
+    { id: 'cornerthr', name: 'Corner thrusters', desc: 'Turn warnings arrive 1.5s earlier.',    tiers: [90] },        // (CC#8) synergizes with the turn cadence
+    { id: 'focus',   name: 'Focus capacitor',   desc: 'Gate question windows +25%.',            tiers: [120] }        // (CC#8) the learning-support purchase
   ];
+  // (v0.185.0, V1.1 CC#8) the SHELF: cheap one-run starting buffs — a repeatable cell sink
+  // for a maxed garage. One slot; consumed on the NEXT fresh launch, never on a resume.
+  var SHELF_ITEMS = [
+    { id: 'overshield', name: 'Overshield pip', desc: 'Next run starts with the crash-eating 6th pip.', price: 25 },
+    { id: 'scholar',    name: 'Scholar charge', desc: 'Next run opens with the study-time buff armed (first gate +50% window).', price: 25 },
+    { id: 'magnet',     name: 'Magnet surge',   desc: 'Next run launches with a live cell magnet.', price: 15 }
+  ];
+  function shelfState(profile) {
+    var cells = (profile && profile.ccCells) | 0;
+    var held = profile && profile.ccShelf;
+    return SHELF_ITEMS.map(function (it) {
+      return { id: it.id, name: it.name, desc: it.desc, price: it.price, held: held === it.id, canBuy: !held && cells >= it.price };
+    });
+  }
+  function shelfBuy(profile, id) {
+    if (!profile) return { ok: false, reason: 'no-profile' };
+    if (profile.ccShelf) return { ok: false, reason: 'held' };   // one slot: fly it before restocking
+    var it = null;
+    for (var i = 0; i < SHELF_ITEMS.length; i++) if (SHELF_ITEMS[i].id === id) it = SHELF_ITEMS[i];
+    if (!it) return { ok: false, reason: 'unknown' };
+    if ((profile.ccCells | 0) < it.price) return { ok: false, reason: 'cells' };
+    profile.ccCells = (profile.ccCells | 0) - it.price;
+    profile.ccShelf = id;
+    return { ok: true, price: it.price };
+  }
   function garageState(profile) {
     var up = (profile && profile.ccUpgrades) || {};
     var cells = (profile && profile.ccCells) | 0;
@@ -2803,6 +2876,7 @@
 
   return { CCSim: CCSim, CCView: CCView, createCCModule: createCCModule, CONFIG: CONFIG,
     _enums: { OB_NARROW: OB_NARROW, OB_LOWROCK: OB_LOWROCK, OB_ARCH: OB_ARCH, OB_SWEEP: OB_SWEEP, OB_ROCKFALL: OB_ROCKFALL, SIDE_LEFT: SIDE_LEFT, SIDE_RIGHT: SIDE_RIGHT, POWER_KINDS: POWER_KINDS },
-    garage: { ITEMS: GARAGE_ITEMS, state: garageState, buy: garageBuy },
+    garage: { ITEMS: GARAGE_ITEMS, state: garageState, buy: garageBuy,
+      shelf: { ITEMS: SHELF_ITEMS, state: shelfState, buy: shelfBuy } },   // (v0.185.0, CC#8)
     makeFallbackRng: makeFallbackRng };
 });

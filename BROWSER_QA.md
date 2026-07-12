@@ -229,6 +229,15 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CC-GARAGE2 — the deeper garage + shelf (added v0.185.0).** Die in CC with a banked
+  wallet: the Garage now lists SIX upgrades (corner thrusters + focus capacitor new) with
+  tier counters, and below them a gold 'SHELF · one-run buffs' section with three cheap
+  charges. Buy one: it flips to '✓ loaded' and the other rows lock (one slot). Launch a
+  fresh run: the buff is live from the start (overshield pip visible / scholar chip / magnet
+  pulling) and the shelf row is empty again. With focus fitted, gate timers read ~37s.
+  WRONG: a shelf charge surviving its launch, two loaded charges, or a resumed run
+  consuming the charge.
+
 - **QA-KBB-RESONANCE — themed pairs glow (added v0.184.0).** In a KBB run, buy two artifacts
   of the same category (matching border colors — e.g., two peach damage cards): both cards in
   the fan must visibly glow their category color and wear a small RESONANCE chip; the tooltip
