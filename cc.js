@@ -158,6 +158,23 @@
    * drone shot that sits just above the planet surface, looking down INTO the chasm at the ship
    * and the fleeing squadron, so the rim surface reads as a planet with a gash cut through it.
    * The intro starts high and wide (establishing the planet + chasm) and eases into the chase. */
+  // (v0.194.0, V1.1 CC#9) the canyon changes character every ~50 km. Biome 0 is the shipped
+  // dusk look VERBATIM (cast null = each material keeps its own color); the others recolor
+  // fog/light absolutely and CAST the textured materials toward one tint (maps multiply by color).
+  var BIOME_KM = 50000;
+  var BIOMES = [
+    { key: 'dusk',  name: 'DUSK SANDSTONE',        cast: null },
+    { key: 'night', name: 'BIOLUMINESCENT NIGHT',  cast: 0x24408c, fog: 0x141c34, hemiSky: 0x3a58c8, hemiGround: 0x0a1020, skyDim: 0.22 },
+    { key: 'ice',   name: 'GLACIAL TRENCH',        cast: 0xbfe0ee, fog: 0xa8c8dc, hemiSky: 0xd8ecf8, hemiGround: 0x51707e, skyDim: 0.85 },
+    { key: 'bcm',   name: 'BCM INDUSTRIAL TRENCH', cast: 0x6a3a46, fog: 0x46323a, hemiSky: 0x8a4a52, hemiGround: 0x1c1216, skyDim: 0.4 }
+  ];
+  function biomeIndexAt(score) { return Math.floor(Math.max(0, score) / BIOME_KM) % BIOMES.length; }
+  function hexOfCol(c) { return (c && typeof c.getHex === 'function') ? c.getHex() : ((c && typeof c.value === 'number') ? c.value : 0); }
+  function blendHex(a, b, t) {
+    var ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab2 = a & 255, br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+    return (Math.round(ar + (br - ar) * t) << 16) | (Math.round(ag + (bg - ag) * t) << 8) | Math.round(ab2 + (bb - ab2) * t);
+  }
+
   var CAM = {
     chasePos: [0, 5.4, 9.2], chaseLook: [0, 0.35, -14],   // (Jason v0.47.0) look-at pulled DOWN + nearer -> the horizon rises and the ship sits noticeably higher in the frame (knobs: raise chaseLook[1] to lower the ship on screen)
     introPos: [7.0, 23.0, 27.0], introLook: [0, 3.4, -12]
@@ -1034,7 +1051,8 @@
     camera.lookAt(CAM.chaseLook[0], CAM.chaseLook[1], CAM.chaseLook[2]);
 
     // dusk lighting: warm low sun + sky/ground hemisphere + dim ambient + faint neon fill
-    scene.add(new THREE.HemisphereLight(0xE9A06A, 0x2a1c2e, 0.95));
+    var hemi = new THREE.HemisphereLight(0xE9A06A, 0x2a1c2e, 0.95);
+    this._hemi = hemi; scene.add(hemi);   // (v0.194.0, CC#9) the biome crossfade retints it
     var sun = new THREE.DirectionalLight(0xFFCDA0, 1.05); sun.position.set(-6, 7, 4); scene.add(sun);
     sun.castShadow = true;
     if (sun.shadow && sun.shadow.camera) { sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0005; var _sc = sun.shadow.camera; _sc.left = -22; _sc.right = 22; _sc.top = 22; _sc.bottom = -22; _sc.near = 0.5; _sc.far = 60; _sc.updateProjectionMatrix(); }   // (Jason) sun is the shadow caster; frustum covers the foreground canyon (map size / bias / frustum tunable)
@@ -1054,6 +1072,7 @@
     // --- floor (sandstone, kept clearly DARKER than the walls; scrolls toward camera) ---
     var floorG = this._track(new THREE.PlaneGeometry(cfg.LANE_W * 3 + 6, cfg.DRAW_DIST * 1.3));
     var floorMat = this._groundMat(3, 18);                        // (04 task 3) dedicated dark-floor material
+    this._floorMat = floorMat;                                    // (v0.194.0, CC#9)
     this.texFloor = floorMat.map; this.texFloorN = floorMat.normalMap || null; // animated: offset.y
     this._mirrorScroll(floorMat, "t");                            // seamless loop along the track
     var floor = new THREE.Mesh(floorG, floorMat);
@@ -1065,6 +1084,7 @@
     this._buildSurface(cfg);     // planet ground flanking the chasm (the "not a rectangle" fix)
     this._buildPeaks(cfg);       // distant mountains on the rim surface (intro/overhead scenery — Jason)
     this._buildLightShafts(cfg); // (04 task 5) faint god-ray planes from the rim
+    this._bioInit();             // (v0.194.0, V1.1 CC#9) biome palettes derive from the LIVE base colors
 
     // --- instanced pools (one InstancedMesh per visual kind) ---
     this.scratchM = new THREE.Matrix4();
@@ -1628,8 +1648,65 @@
     if (cam.lookAt) cam.lookAt(K[0] + this._camFX * 0.65 + this._camYaw, K[1] + sy * 0.5 - dip * 0.5, K[2]);
     if (cam.rotation && typeof cam.rotation.z === 'number') cam.rotation.z += roll;   // small view-space roll after lookAt
   };
+  // (v0.194.0, V1.1 CC#9) biome crossfade machinery. Mock-safe by construction: color math
+  // is plain channel floats, written via setHex ONLY when the composed hex changes; every
+  // target object is duck-checked. Converged channels SNAP so pins can assert exact hexes.
+  CCView.prototype._bioInit = function () {
+    var base = {
+      fog: 0xB9885E, hemiSky: 0xE9A06A, hemiGround: 0x2a1c2e,
+      floor: this._floorMat ? hexOfCol(this._floorMat.color) : 0xffffff,
+      rock: (this.M && this.M.rock) ? hexOfCol(this.M.rock.color) : 0xffffff,
+      peakNear: this._peakMatNear ? hexOfCol(this._peakMatNear.color) : 0x8a6a52,
+      peakFar: this._peakMatFar ? hexOfCol(this._peakMatFar.color) : 0x5a4638
+    };
+    var pal = [];
+    for (var i = 0; i < BIOMES.length; i++) {
+      var b = BIOMES[i];
+      if (b.cast == null) pal.push({ fog: base.fog, hemiSky: base.hemiSky, hemiGround: base.hemiGround, floor: base.floor, rock: base.rock, peakNear: base.peakNear, peakFar: base.peakFar, skyDim: 1 });
+      else pal.push({ fog: b.fog, hemiSky: b.hemiSky, hemiGround: b.hemiGround,
+        floor: blendHex(base.floor, b.cast, 0.55), rock: blendHex(base.rock, b.cast, 0.55),
+        peakNear: blendHex(base.peakNear, b.cast, 0.65), peakFar: blendHex(base.peakFar, b.cast, 0.65), skyDim: b.skyDim });
+    }
+    this._bioPal = pal;
+    this._bioKeys = ['fog', 'hemiSky', 'hemiGround', 'floor', 'rock', 'peakNear', 'peakFar'];
+    this._bioCh = new Float64Array(this._bioKeys.length * 3);
+    for (var k2 = 0; k2 < this._bioKeys.length; k2++) {
+      var h0 = base[this._bioKeys[k2]];
+      this._bioCh[k2 * 3] = (h0 >> 16) & 255; this._bioCh[k2 * 3 + 1] = (h0 >> 8) & 255; this._bioCh[k2 * 3 + 2] = h0 & 255;
+    }
+    this._bioLast = {};
+    this._bioFogHex = base.fog;
+  };
+  CCView.prototype._bioApply = function (key, hex) {
+    if (key === 'fog') {
+      this._bioFogHex = hex;
+      var fc = this.scene && this.scene.fog && this.scene.fog.color; if (fc && fc.setHex) fc.setHex(hex);
+      var cm = this._endCap && this._endCap.material && this._endCap.material.color; if (cm && cm.setHex) cm.setHex(hex);   // the cap IS the fog — always in sync
+    } else if (key === 'hemiSky') { var hs = this._hemi && this._hemi.color; if (hs && hs.setHex) hs.setHex(hex); }
+    else if (key === 'hemiGround') { var hg = this._hemi && this._hemi.groundColor; if (hg && hg.setHex) hg.setHex(hex); }
+    else if (key === 'floor') { var fm2 = this._floorMat && this._floorMat.color; if (fm2 && fm2.setHex) fm2.setHex(hex); }
+    else if (key === 'rock') { var rm2 = this.M && this.M.rock && this.M.rock.color; if (rm2 && rm2.setHex) rm2.setHex(hex); }
+    else if (key === 'peakNear') { var pn = this._peakMatNear && this._peakMatNear.color; if (pn && pn.setHex) pn.setHex(hex); }
+    else if (key === 'peakFar') { var pf = this._peakMatFar && this._peakMatFar.color; if (pf && pf.setHex) pf.setHex(hex); }
+  };
+  CCView.prototype._bioTick = function (dt) {
+    if (!this._bioPal) return;
+    var pal = this._bioPal[biomeIndexAt(this.sim ? this.sim.scoreDistance : 0)];
+    var keys = this._bioKeys, ch = this._bioCh;
+    var aB = Math.min(1, (dt > 0 ? dt : 0.016) / 2.5);   // ~2.5s crossfade
+    for (var i = 0; i < keys.length; i++) {
+      var t2 = pal[keys[i]], o = i * 3;
+      var tr = (t2 >> 16) & 255, tg = (t2 >> 8) & 255, tb = t2 & 255;
+      ch[o] += (tr - ch[o]) * aB; ch[o + 1] += (tg - ch[o + 1]) * aB; ch[o + 2] += (tb - ch[o + 2]) * aB;
+      if (Math.abs(ch[o] - tr) < 1.5 && Math.abs(ch[o + 1] - tg) < 1.5 && Math.abs(ch[o + 2] - tb) < 1.5) { ch[o] = tr; ch[o + 1] = tg; ch[o + 2] = tb; }   // snap: the exponential tail ends, pins assert exact hexes
+      var hex = (Math.round(ch[o]) << 16) | (Math.round(ch[o + 1]) << 8) | Math.round(ch[o + 2]);
+      if (this._bioLast[keys[i]] !== hex) { this._bioLast[keys[i]] = hex; this._bioApply(keys[i], hex); }
+    }
+    if (this.scene && ('backgroundIntensity' in this.scene)) this.scene.backgroundIntensity += (pal.skyDim - this.scene.backgroundIntensity) * aB;
+  };
   CCView.prototype.render = function (dt) {
     this._t += dt;
+    this._bioTick(dt);   // (v0.194.0, CC#9) the canyon shifts character with distance
     var sim = this.sim, cfg = sim.cfg, THREE = this.THREE;
     var hide = this._hide, sm = this.scratchM, sp = this.scratchP, sq = this.scratchQ, ss = this.scratchS;
 
@@ -2353,6 +2430,7 @@
       // ---- HUD ----
       var hudCache = { shields: -1, score: -1, dist: -1, buffs: '', cells: -1, mile: 0 };
       var pbBest = 0, pbBeaten = false, mileHideAt = 0;   // (v0.144.0, CC#3)
+      var bioHideAt = 0; hudCache.bio = 0;                // (v0.194.0, CC#9) dusk at launch, no banner
       function updateHud() {
         if (sim.shields !== hudCache.shields) {
           hudCache.shields = sim.shields;
@@ -2380,6 +2458,18 @@
           try { ctx.audio && ctx.audio.sfx && ctx.audio.sfx('ccmile'); } catch (ePb) {}
         }
         if (mileHideAt && sim.scoreDistance > mileHideAt) { el.mileBanner.classList.remove('on'); mileHideAt = 0; }
+        // (v0.194.0, V1.1 CC#9) the biome handoff: name where the canyon just took you
+        var bioIx = biomeIndexAt(sim.scoreDistance);
+        if (bioIx !== hudCache.bio) {
+          hudCache.bio = bioIx;
+          if (el.bioBanner) {
+            el.bioBanner.textContent = '\u25b8 ENTERING: ' + BIOMES[bioIx].name;
+            el.bioBanner.classList.add('on');
+            bioHideAt = sim.scoreDistance + 2600;
+            try { ctx.audio && ctx.audio.sfx && ctx.audio.sfx('ccmile'); } catch (eBio) {}
+          }
+        }
+        if (bioHideAt && sim.scoreDistance > bioHideAt && el.bioBanner) { el.bioBanner.classList.remove('on'); bioHideAt = 0; }
         var bc = sim.boostActive ? -1 : sim.boostCharge;                // (CC#1) meter: -1 = riding
         if (bc !== hudCache.boostCharge) {
           hudCache.boostCharge = bc;
@@ -2631,6 +2721,7 @@
     var score = ce('div', 'cc-score'); hud.appendChild(score);
     var pb = ce('div', 'cc-pb'); hud.appendChild(pb);                      // (v0.144.0, CC#3)
     var mileBanner = ce('div', 'cc-mile-banner'); root.appendChild(mileBanner);
+    var bioBanner = ce('div', 'cc-bio-banner'); root.appendChild(bioBanner);   // (v0.194.0, CC#9)
     var dist = ce('div', 'cc-dist'); hud.appendChild(dist);
     var cells = ce('div', 'cc-cells'); hud.appendChild(cells);   // (J9) this-run energy cells
     var buffs = ce('div', 'cc-buffs'); hud.appendChild(buffs);
@@ -2668,7 +2759,7 @@
 
     return { root: root, canvas: canvas, fallback: fallback, hud: hud, shieldPips: shieldPips, boostBar: boostBar, score: score, dist: dist, buffs: buffs,
       kLeft: kLeft, kRight: kRight, kJump: kJump, kDuck: kDuck, replay: replay,
-      overlay: overlay, qStem: qStem, qOpts: qOpts, qFeedback: qFeedback, qTimer: qTimer, cells: cells, boostOvr: boostOvr, turnBanner: turnBanner, pb: pb, mileBanner: mileBanner,
+      overlay: overlay, qStem: qStem, qOpts: qOpts, qFeedback: qFeedback, qTimer: qTimer, cells: cells, boostOvr: boostOvr, turnBanner: turnBanner, pb: pb, mileBanner: mileBanner, bioBanner: bioBanner,
       intro: intro, introCap: introCap, introEyebrow: introEyebrow, introSkip: introSkip,
       gameover: gameover, ovrTitle: ovrTitle, ovrStats: ovrStats, ovrCells: ovrCells, garagePanel: garagePanel, btnGarage: btnGarage, btnRestart: btnRestart, btnExit: btnExit };
   }
@@ -2796,6 +2887,8 @@
     '.cc-pb.beat{color:#FFC857;text-shadow:0 0 10px rgba(255,200,87,.7);}' +
     '.cc-mile-banner{position:absolute;top:30%;left:50%;transform:translateX(-50%);display:none;font-size:22px;font-weight:800;letter-spacing:.16em;color:#1FDDE9;text-shadow:0 0 16px rgba(31,221,233,.8);pointer-events:none;z-index:12;animation:ccMilePop .5s ease-out;}' +
     '.cc-mile-banner.on{display:block;}' +
+    '.cc-bio-banner{position:absolute;top:24%;left:50%;transform:translateX(-50%);display:none;font-size:19px;font-weight:800;letter-spacing:.3em;color:#1FDDE9;text-shadow:0 0 16px rgba(31,221,233,.7);pointer-events:none;z-index:12;}' +   /* (v0.194.0, CC#9) */
+    '.cc-bio-banner.on{display:block;}' +
     '@keyframes ccMilePop{0%{transform:translateX(-50%) scale(.7);opacity:0;}100%{transform:translateX(-50%) scale(1);opacity:1;}}' +
     '@media (prefers-reduced-motion: reduce){.cc-mile-banner{animation:none;}}' +
     '[data-motion=reduced] .cc-mile-banner{animation:none;}' +
@@ -2876,6 +2969,7 @@
 
   return { CCSim: CCSim, CCView: CCView, createCCModule: createCCModule, CONFIG: CONFIG,
     _enums: { OB_NARROW: OB_NARROW, OB_LOWROCK: OB_LOWROCK, OB_ARCH: OB_ARCH, OB_SWEEP: OB_SWEEP, OB_ROCKFALL: OB_ROCKFALL, SIDE_LEFT: SIDE_LEFT, SIDE_RIGHT: SIDE_RIGHT, POWER_KINDS: POWER_KINDS },
+    biomes: { LIST: BIOMES, KM: BIOME_KM, indexAt: biomeIndexAt },   // (v0.194.0, CC#9)
     garage: { ITEMS: GARAGE_ITEMS, state: garageState, buy: garageBuy,
       shelf: { ITEMS: SHELF_ITEMS, state: shelfState, buy: shelfBuy } },   // (v0.185.0, CC#8)
     makeFallbackRng: makeFallbackRng };

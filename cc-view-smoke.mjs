@@ -341,6 +341,26 @@ if (view) {
     sim.turnPending = null; view.reducedMotion = savedRM;
   }
 
+  // (v0.194.0, V1.1 CC#9) biome shifts: schedule + crossfade, all mock-safe
+  {
+    const BI = CC.biomes;
+    ok("CC#9 schedule: 50km biomes cycle dusk->night->ice->bcm->dusk",
+      !!BI && BI.KM === 50000 && BI.LIST.length === 4
+      && BI.indexAt(0) === 0 && BI.indexAt(49999) === 0 && BI.indexAt(50000) === 1
+      && BI.indexAt(100000) === 2 && BI.indexAt(150000) === 3 && BI.indexAt(200000) === 0);
+    ok("CC#9: the view booted in dusk with the SHIPPED base colors untouched",
+      view._bioFogHex === 0xB9885E && view._endCap.material.color.value === 0xB9885E);
+    sim.scoreDistance = 50000;
+    for (let f9 = 0; f9 < 170; f9++) view.render(0.1);
+    ok("CC#9: night converges EXACTLY and the end cap IS the fog (never a stale horizon)",
+      view._bioFogHex === 0x141c34 && view._endCap.material.color.value === 0x141c34);
+    ok("CC#9: the ridges keep their near/far identity through the shift",
+      view._peakMatNear.color.value !== view._peakMatFar.color.value);
+    sim.scoreDistance = 0;
+    for (let f9b = 0; f9b < 170; f9b++) view.render(0.1);
+    ok("CC#9: back past the boundary the dusk base returns verbatim", view._bioFogHex === 0xB9885E);
+  }
+
   let dispErr = null;
   try { view.dispose(); } catch (e) { dispErr = e; }
   ok("dispose runs clean (frees disposables, nulls scene/camera/renderer)", !dispErr);

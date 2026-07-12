@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CC-BIOMES — the canyon changes character (added v0.194.0).** Run CC past 50 km: an
+  aqua 'ENTERING: BIOLUMINESCENT NIGHT' banner should land as the whole canyon crossfades
+  over ~2-3s — fog, light, rock tint AND the far horizon together (no stale warm rectangle
+  at the vanishing point — that's the end cap desyncing). 100 km goes glacial, 150 km
+  oxide-red industrial, 200 km back to dusk. The sky should dim into the night biome rather
+  than fight it. WRONG: a hard color pop instead of a fade, the horizon plane lagging the
+  fog, unreadable obstacles in any biome, or banners colliding with a turn warning.
+
 - **QA-CINE-BELT — real rocks in the belt beat (added v0.193.0).** Replay the intro to the
   'BCM warship jumped to the Kuiper Belt' beat: the drifting rocks must be the SAME craggy
   asteroid art KBB battles fly through — five distinct silhouettes, rotating, with depth
