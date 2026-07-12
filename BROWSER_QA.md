@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-DUE-EVERYWHERE — the queue calls you back (added v0.167.0).** With a few reviews due:
+  the title screen's Start should read "Start — N due", pausing any game shows the gold
+  "reviews waiting" line, and finishing a sortie offers "Review due ▸" on the debrief —
+  which must land directly in Study on those questions. With an empty queue: none of the
+  three appear. WRONG: a stale count, or the debrief button opening the plain menu.
+
 - **QA-SIM-REPORT — the report worth reading (added v0.165.0).** Finish a short sim (submit
   properly, not quit): the results should show your avg seconds against the 96s budget (peach
   when over), the five questions that ate your clock, and a "Review all" toggle that includes

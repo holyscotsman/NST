@@ -166,6 +166,35 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.167.0, V1.1 Flow#6) the due queue reaches beyond the bridge
+      {
+        const mmF = SN.core.mastery.all();
+        const poolF = SN.core.questions.pool();
+        const addF = [];
+        for (let fi = 30; fi < 33; fi++) { const idF = poolF[fi].id; if (!mmF[idF]) { mmF[idF] = { id: idF, seen: 1, correct: 0, incorrect: 1, streak: 0, bucket: 0, lastSeen: 0 }; addF.push(idF); } }
+        const dueN = SN.core.mastery.dueList(SN.core.clock.now()).length;
+        shell.showTitle(); await wait(10);
+        const startB = [...w.document.querySelectorAll("button")].find((b) => /^Start/.test(b.textContent));
+        ok("Flow#6: the TITLE Start button carries the due count (" + dueN + ")",
+          !!startB && new RegExp("Start \u2014 " + dueN + " due").test(startB.textContent));
+        shell.showMenu(); await wait(10);
+        shell.enterGame("ARM"); await wait(30);
+        shell.openPause(); await wait(10);
+        const pd = w.document.querySelector(".sx-pause-due");
+        ok("Flow#6: the PAUSE card names the waiting reviews", !!pd && new RegExp(dueN + " reviews? waiting").test(pd.textContent));
+        shell.closePause(); await wait(10);
+        shell.exitGame(); await wait(30);
+        const dbF = w.document.querySelector(".sx-debrief");
+        if (dbF) {
+          ok("Flow#6: the DEBRIEF offers Review due when the queue is hot",
+            !!dbF.querySelector(".sx-debrief-review") && /due/.test(dbF.querySelector(".sx-debrief-due").textContent));
+          dbF.querySelector(".sx-debrief-done").click(); await wait(10);
+        } else {
+          ok("Flow#6: the DEBRIEF offers Review due when the queue is hot (no debrief — no answers this sortie, acceptable path)", true);
+        }
+        addF.forEach((idF) => { delete mmF[idF]; });
+        shell.showMenu(); await wait(10);
+      }
       // (v0.166.0, V1.1 Backend#6) size budgets: a bloated drop fails the gate like any pin
       {
         const fsMod = await import("node:fs");

@@ -194,7 +194,8 @@
     var neb = global.STARNIX_ASSETS && global.STARNIX_ASSETS.nebulaBg;
     if (tphoto && neb) { tphoto.style.backgroundImage = 'url("' + neb + '")'; tphoto.classList.add("on"); }
     var row = s.querySelector(".sx-row");
-    var start = el("button", "sx-btn sx-btn-iris", "Start");
+    var dueT = this._dueCount();   // (v0.167.0, Flow#6)
+    var start = el("button", "sx-btn sx-btn-iris", dueT > 0 ? "Start \u2014 " + dueT + " due" : "Start");
     var self = this;
     this._on(start, "click", function () {
       try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {}
@@ -1082,6 +1083,11 @@
   // then most misses, then longest-unseen. Unseen questions are excluded (nothing to drill yet).
   // (v0.87.0, L1) the questions whose Leitner interval has lapsed, most overdue first —
   // the menu chip serves exactly this queue into Study mode.
+  // (v0.167.0, V1.1 Flow#6) the Leitner queue calls the player back from ANYWHERE — title,
+  // pause, debrief — not just the one screen that already won their attention.
+  Shell.prototype._dueCount = function () {
+    try { return StarNix.core.mastery.dueList(StarNix.core.clock.now()).length; } catch (e) { return 0; }
+  };
   Shell.prototype._dueQuestions = function (n) {
     var core = StarNix.core, out = [];
     try {
@@ -1609,6 +1615,8 @@
     var card = el("div", "sx-pause-card");
     card.appendChild(el("div", "sx-pause-eyebrow", "Mission paused"));
     card.appendChild(el("div", "sx-pause-title", "Paused"));
+    var dueP = this._dueCount();   // (v0.167.0, Flow#6) the queue reaches into the pause
+    if (dueP > 0) card.appendChild(el("div", "sx-pause-due", "\u23F0 " + dueP + " review" + (dueP === 1 ? "" : "s") + " waiting on the bridge"));
 
     // live settings — same controls as the Settings screen (audio applies immediately)
     card.appendChild(el("div", "sx-seclabel", "Audio"));
@@ -1718,12 +1726,16 @@
       + '<span><b>' + acc + '%</b> accuracy</span>'
       + '<span><b class="xp">+' + d.xp + '</b> XP</span>'
       + '</div>' + missedHtml
+      + (function () { var dd = self._dueCount(); return dd > 0 ? '<div class="sx-debrief-due">\u23F0 ' + dd + ' review' + (dd === 1 ? '' : 's') + ' due \u2014 clear them while it\u2019s warm</div>' : ''; })()
       + '<div class="sx-row"><button class="sx-btn sx-btn-iris sx-debrief-again" type="button">Fly again \u25b8</button>'
+      + (self._dueCount() > 0 ? '<button class="sx-btn sx-btn-ghost sx-debrief-review" type="button">Review due \u25b8</button>' : '')
       + '<button class="sx-btn sx-btn-ghost sx-debrief-done" type="button">Dismiss</button></div></div>';
     this.stage.appendChild(ov);
     var close = function () { if (ov.parentNode) ov.parentNode.removeChild(ov); };
     this._on(ov.querySelector(".sx-debrief-done"), "click", close);
     this._on(ov.querySelector(".sx-debrief-again"), "click", function () { close(); self.enterGame(d.id); });
+    var rvBtn = ov.querySelector(".sx-debrief-review");
+    if (rvBtn) this._on(rvBtn, "click", function () { close(); var qs = self._dueQuestions(30); if (qs.length) self.showExam(null, { questions: qs, mode: "study" }); });   // (Flow#6)
     this._on(ov, "click", function (e) { if (e.target === ov) close(); });
     this._on(global, "keydown", function (e) { if (e.key === "Escape" || e.key === "Esc") close(); });
     try { ov.querySelector(".sx-debrief-done").focus(); } catch (eF) {}
@@ -1932,6 +1944,8 @@
       ".sx-diag-empty{color:var(--dim);}",
       ".sx-streak-chip{font-size:12px;font-weight:700;color:#FF9857;background:rgba(255,152,87,.12);border:1px solid rgba(255,152,87,.45);border-radius:999px;padding:2px 10px;}",
       ".sx-sim-trend{margin-top:12px;}",
+      ".sx-pause-due{font-size:12.5px;color:var(--gold);border:1px solid rgba(255,200,87,.4);background:rgba(255,200,87,.08);border-radius:9px;padding:6px 10px;}",
+      ".sx-debrief-due{font-size:12.5px;color:var(--gold);margin-top:8px;}",
       ".sx-sim-trend-row{display:flex;gap:10px;font-size:12.5px;margin:4px 0;} .sx-sim-trend-row .n{flex:0 0 130px;color:var(--mid);} .sx-sim-trend-row .v{color:var(--text);font-variant-numeric:tabular-nums;}",
       ".sx-debrief{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,11,.62);}",
       ".sx-debrief-card{width:min(480px,92%);background:rgba(16,16,26,.97);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.6);}",
