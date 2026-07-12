@@ -166,6 +166,23 @@ async function runFrames(n = 6) {
       brP.click(); await wait(10);
       ok("Menu#3: the board clicks through to the Codex", shell.screen === "stats");
       shell.showMenu(); await wait(10);
+      // (v0.166.0, V1.1 Backend#6) size budgets: a bloated drop fails the gate like any pin
+      {
+        const fsMod = await import("node:fs");
+        const ledger = JSON.parse(fsMod.readFileSync(new URL("./build-size.json", import.meta.url), "utf8"));
+        const BUDGETS = {   // bytes; measured 2026-07-11 + ~10-15% headroom. Raise DELIBERATELY, in a reviewed diff.
+          assets: 2900000, three: 640000, questions: 360000, exhibits: 2500000,
+          core: 120000, shell: 200000, arm: 280000, kbb: 260000, cc: 240000, exam: 90000, audio: 130000, font: 60000,
+          total: 7600000,
+        };
+        const over = Object.keys(BUDGETS).filter((k) => (ledger[k] || 0) > BUDGETS[k]);
+        ok("Backend#6: every module inside its declared byte budget" + (over.length ? " — OVER: " + over.map((k) => k + " " + ledger[k] + ">" + BUDGETS[k]).join(", ") : ""),
+          over.length === 0);
+        ok("Backend#6: the compact bank saved the pretty-print tax (~13% real, not the estimated 40% — text dominates; 321KB vs 368KB in-bundle)",
+          (ledger.questions || 9e9) < 340000);
+        ok("Backend#6: the report persisted (per-module + gzip) for humans and this gate",
+          typeof ledger.gzip === "number" && ledger.gzip > 0 && typeof ledger.assets === "number");
+      }
       // (v0.165.0, V1.1 NIT#5) the real post-sim report: timing, review-all, per-domain history
       {
         const histB = (SN.core.profile.examHistory || []).length;

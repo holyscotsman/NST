@@ -41,9 +41,12 @@ function read(p) { return readFileSync(new URL("./" + p, import.meta.url), "utf8
 // Defuse any literal </script> so an inline block can't be closed early.
 function safe(s) { return s.replace(/<\/script>/gi, "<\\/script>"); }
 
-const blocks = modules.map(([file, name]) =>
-  `<!-- ===== ${name} (${file}) ===== -->\n<script>\n${safe(read(file))}\n</script>`
-).join("\n\n");
+const sizeLedger = {};   // (v0.166.0, V1.1 Backend#6) per-module bytes — printed + budget-gated
+const blocks = modules.map(([file, name]) => {
+  const src = safe(read(file));
+  sizeLedger[name] = Buffer.byteLength(src, "utf8");
+  return `<!-- ===== ${name} (${file}) ===== -->\n<script>\n${src}\n</script>`;
+}).join("\n\n");
 
 // ---- exhibits: inline present exhibit-images/* as data URIs (window.STARNIX_EXHIBITS).
 // Exam questions render their exhibit from this map; absent keys fall back to a pending note.
@@ -137,4 +140,20 @@ ${boot}
 
 writeFileSync(new URL("./index.html", import.meta.url), html, "utf8");
 const bytes = Buffer.byteLength(html, "utf8");
+// (v0.166.0, V1.1 Backend#6) the size report: per-module bytes + gzip total, persisted for
+// the gate. The bundle 5x'd from ~1.3MB with nobody watching — now a bloated drop goes red.
+sizeLedger.exhibits = Buffer.byteLength(exhibits.html, "utf8");
+sizeLedger.three = Buffer.byteLength(threeSrc, "utf8");
+sizeLedger.font = Buffer.byteLength(fontCss, "utf8");
+sizeLedger.total = bytes;
+{
+  const gz = (await import("node:zlib")).gzipSync(html).length;
+  sizeLedger.gzip = gz;
+  const rows = Object.keys(sizeLedger).filter((k) => k !== "total" && k !== "gzip")
+    .sort((a, b) => sizeLedger[b] - sizeLedger[a]);
+  console.log("---- size report (KB) ----");
+  for (const k of rows) console.log("  " + k.padEnd(10) + (sizeLedger[k] / 1024).toFixed(1).padStart(9));
+  console.log("  " + "TOTAL".padEnd(10) + (bytes / 1024).toFixed(1).padStart(9) + "   gzip " + (gz / 1024).toFixed(1));
+  writeFileSync(new URL("./build-size.json", import.meta.url), JSON.stringify(sizeLedger, null, 2));
+}
 console.log("Wrote index.html (" + (bytes / 1024).toFixed(1) + " KB, " + modules.length + " modules + boot + " + exhibits.n + " exhibits)");
