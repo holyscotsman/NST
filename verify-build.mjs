@@ -1215,6 +1215,26 @@ async function runFrames(n = 6) {
     ok("CC resume restores km/shields/cells", !!ccS && ccS.scoreDistance === 123000 && ccS.shields === 3 && ccS.coinScore === 44);
     ok("CC#1: resume restores the earned boost charge", !!ccS && ccS.boostCharge === 1);
     shell.exitGame(); await wait(120);
+    // (v0.146.0, V1.1 NIT#3) the Redrill-your-misses tile on exam setup
+    {
+      const poolMp = SN.core.questions.pool();
+      const mmLive = SN.core.mastery.all();
+      const seededMp = [];
+      for (let si = 20; si < 23; si++) {
+        const sid = poolMp[si].id;
+        if (!mmLive[sid]) { mmLive[sid] = { id: sid, seen: 2, correct: 0, incorrect: 2, streak: 0, bucket: 0, lastSeen: 1 }; seededMp.push(sid); }
+      }
+      shell.showExamSetup(); await wait(10);
+      const mpTile = w.document.querySelector(".sx-exam-len-misses");
+      const mpN = SN.missPile.ids(mmLive, 60).filter((e) => !!SN.core.questions.byId(e.id)).length;   // mirror the shell's byId filter
+      ok("NIT#3: exam setup offers 'Redrill your misses' with the pile count",
+        !!mpTile && mpN >= 3 && mpTile.textContent.indexOf(mpN + " question") >= 0);
+      mpTile.click(); await wait(30);
+      ok("NIT#3: the tile launches Study mode on exactly the pile",
+        shell.screen === "exam" && shell._exam._state.mode === "study" && shell._exam._state.order.length === mpN);
+      shell.showMenu(); await wait(10);
+      seededMp.forEach((sid) => { delete mmLive[sid]; });
+    }
     // (v0.108.0, G4) the update seam is the LIVE profile — no clone clobbering
     {
       SN.core.persistence.update(p => { p.__probe = 41; });
@@ -1483,6 +1503,19 @@ async function runFrames(n = 6) {
       rdBtn.click();
       ok("redrill hands back exactly the missed questions", !!redrilled && redrilled.length === 2
         && redrilled.every(q => /^rd/.test(q.id)));
+      ok("NIT#3-pure: missPile.ids derives the pile from the Leitner ledger",
+        (() => {
+          const mm = {
+            q_w1: { seen: 3, incorrect: 2, streak: 0, lastSeen: 500 },   // missed, unredeemed
+            q_w2: { seen: 4, incorrect: 1, streak: 1, lastSeen: 900 },   // one correct since — still owed
+            q_ok: { seen: 5, incorrect: 3, streak: 2, lastSeen: 950 },   // two consecutive corrects -> retired
+            q_cl: { seen: 6, incorrect: 0, streak: 4, lastSeen: 990 },   // never missed
+            q_un: { seen: 0, incorrect: 0, streak: 0, lastSeen: 0 },     // never seen
+          };
+          const ids = SN.missPile.ids(mm);
+          return ids.length === 2 && ids[0].id === "q_w2" && ids[1].id === "q_w1"   // recency first
+            && ids[0].misses === 1 && SN.missPile.ids(mm, 1).length === 1;
+        })());
       ok("redrill does NOT also fire onExit (the fall-through killed the feature in prod)", rdExit === 0);
 
       // (v0.90.0, review) extra-time Blitz bests live in their own ':xt' slot

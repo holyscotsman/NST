@@ -24,7 +24,7 @@
   var CORE_VERSION = "1.1.0";              // internal contract version (changes rarely)
   // User-facing playable-build stamp. BUMP THIS (and the date) on every delivered index.html so the
   // version shown in-game tells us exactly which build is being played/tested. Shown by the shell.
-  var BUILD_VERSION = "0.145.0";
+  var BUILD_VERSION = "0.146.0";
   var BUILD_DATE = "2026-07-03";
   var BUILD_LABEL = "v" + BUILD_VERSION + " \u00b7 " + BUILD_DATE;
   var SCHEMA_VERSION = 1;
@@ -1244,6 +1244,24 @@
     return flightPlan(sig);
   }
   StarNix.plan = { rank: flightPlan, next: flightPlanFromCore };
+
+  /* Miss pile (v0.146.0, V1.1 NIT#3) — "the exact questions you got wrong", DERIVED from the
+   * Leitner ledger instead of a second persisted store: every wrong bumps m.incorrect and
+   * resets m.streak, so `incorrect > 0 && streak < 2` IS "missed and not yet redeemed by two
+   * consecutive corrects" — across every surface (games + exams), with zero bookkeeping drift. */
+  StarNix.missPile = {
+    ids: function (masteryMap, cap) {
+      var out = [];
+      for (var id in masteryMap) {
+        if (!Object.prototype.hasOwnProperty.call(masteryMap, id)) continue;
+        var m = masteryMap[id];
+        if (m && m.seen > 0 && (m.incorrect | 0) > 0 && (m.streak | 0) < 2) out.push({ id: id, misses: m.incorrect | 0, at: m.lastSeen || 0 });
+      }
+      out.sort(function (a, b) { return (b.at - a.at) || (b.misses - a.misses) || (a.id < b.id ? -1 : 1); });
+      if (cap && out.length > cap) out.length = cap;
+      return out;
+    }
+  };
 
   /* ---- test/integration hooks (not part of the game-facing contract) - */
   StarNix._internal = {

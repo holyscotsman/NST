@@ -757,6 +757,20 @@
         lens.appendChild(ib);
       }
     } catch (eI) {}
+    // (v0.146.0, V1.1 NIT#3) redrill EXACTLY what you've gotten wrong — the end-screen redrill
+    // evaporates when you walk away; this tile serves the persistent pile (Leitner-derived,
+    // cleared per-question by two consecutive corrects on any surface).
+    try {
+      var mpIds = StarNix.missPile.ids(core.mastery.all(), 60);
+      var mpQs = [];
+      for (var mpi = 0; mpi < mpIds.length; mpi++) { var mpq = core.questions.byId(mpIds[mpi].id); if (mpq) mpQs.push(mpq); }
+      if (mpQs.length) {
+        var mb = el("button", "sx-exam-len sx-exam-len-misses");
+        mb.innerHTML = '<span class="t">\u21bb Redrill your misses</span><span class="s">' + mpQs.length + ' question' + (mpQs.length === 1 ? '' : 's') + " you've gotten wrong \u00b7 two corrects in a row retires each one</span>";
+        this._on(mb, "click", function () { self.showExam(null, { questions: mpQs, mode: "study" }); });
+        lens.appendChild(mb);
+      }
+    } catch (eMp) {}
     var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
     this._on(back, "click", function () { self.showMenu(); });
     s.querySelector(".sx-row").appendChild(back);
@@ -1706,6 +1720,7 @@
       ".sx-plan-eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#AC9BFD;white-space:nowrap;}",
       ".sx-plan-label{font-size:13px;color:var(--text);flex:1;min-width:180px;}",
       ".sx-plan-cta{padding:6px 14px;font-size:12px;}",
+      ".sx-exam-len-misses{border-color:rgba(255,107,91,.5);} .sx-exam-len-misses .t{color:var(--peach,#FF6B5B);}",
       ".sx-debrief{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,11,.62);}",
       ".sx-debrief-card{width:min(480px,92%);background:rgba(16,16,26,.97);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.6);}",
       ".sx-debrief-stats{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 6px;font-size:13px;color:var(--mid);}",

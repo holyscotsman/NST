@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-REDRILL-TILE — the miss pile (added v0.146.0).** Miss a few questions anywhere (games
+  or exams), then open Sit exam: a peach "↻ Redrill your misses" tile should list the count and
+  launch Study mode on exactly those questions. Answer one of them correctly TWICE in a row
+  (any surface): it leaves the pile; a single correct keeps it owed. WRONG: the tile showing
+  with zero misses, or a question you've redeemed twice still haunting the pile.
+
 - **QA-MENU-BOARD — Station systems board (added v0.145.0).** On a desktop-width window the
   menu's right side should show the translucent STATION SYSTEMS card: Mastered/Due/Accuracy
   plus six weakest-first domain bars, clicking anywhere opens the Codex. Squeeze the window
