@@ -26,6 +26,7 @@ export function defaultSave() {
     lifelines: defaultLifelines(),
     flags: { reachedFinalBefore: false, seenIntro: false },
     steveTaught: [],
+    stevePending: null, // a paid-for clue's question id, until it appears in a run
     lastWelcome: null, // last host welcome-line key, so he never repeats himself
     stats: { runs: 0, wins: 0, bestPayout: 0, questionsAnswered: 0, longestStreak: 0 },
     settings: { motion: 'auto', highContrast: false, sound: true, music: true, musicStyle: 'studio', postFx: true, extraTime: false, dev: false },
@@ -106,5 +107,6 @@ function migrate(parsed) {
   merged.stats = { ...base.stats, ...(parsed.stats || {}) };
   merged.settings = { ...base.settings, ...(parsed.settings || {}) };
   merged.steveTaught = Array.isArray(parsed.steveTaught) ? parsed.steveTaught : [];
+  merged.stevePending = typeof parsed.stevePending === 'string' ? parsed.stevePending : null;
   return merged;
 }

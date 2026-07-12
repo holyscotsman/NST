@@ -153,7 +153,11 @@ function pickFinal({ bank, buckets, reachedFinalBefore, ctx }) {
 // Steve's clue can reference a real, guaranteed-upcoming question. The set two
 // ahead is built after the current set is played, from the latest mastery.
 export class SetManager {
-  constructor({ bank, getMastery, mode = 'mastery', seed = 'default', reachedFinalBefore = true, rng }) {
+  // getRunIndex: the staleness clock for mastery weighting. It must be the SAME
+  // counter that stamps record().lastRun (the shell passes save.stats.runs) or
+  // "less recently seen" silently dies after any campaign rebuild — the private
+  // setIndex resets to 0 on every prestige/import while lastRun keeps counting.
+  constructor({ bank, getMastery, mode = 'mastery', seed = 'default', reachedFinalBefore = true, rng, getRunIndex }) {
     this.bank = bank;
     this.getMastery = getMastery || (() => ({ records: {} }));
     this.mode = mode;
@@ -161,6 +165,7 @@ export class SetManager {
     this.reachedFinalBefore = reachedFinalBefore;
     this.rng = rng;
     this.setIndex = 0;
+    this.getRunIndex = getRunIndex || (() => this.setIndex);
     this._current = null;
     this._next = null;
   }
@@ -179,7 +184,7 @@ export class SetManager {
       seed: this.seed,
       setIndex,
       reachedFinalBefore: this.reachedFinalBefore,
-      currentRun: setIndex,
+      currentRun: this.getRunIndex(),
       exclude,
       rng: this.rng,
     });
@@ -198,18 +203,32 @@ export class SetManager {
 
   setReachedFinalBefore(v) { this.reachedFinalBefore = v; }
 
+  // Honor Steve's promise across sessions: the campaign sets are memory-only,
+  // so a clue paid for last session may not be in this session's rebuilt set.
+  // Pin the taught question into the CURRENT set's hard block (play order
+  // 21–29, 0-based 20–28 per the 10/10/9/1 shape) so the clue still references
+  // a real, guaranteed-upcoming question (CLAUDE.md §3). No-op if already in.
+  pinIntoCurrent(q) {
+    if (!q || !this._current) return false;
+    if (this._current.some((x) => x.id === q.id)) return false;
+    const slot = 20; // first hard slot
+    this._current = this._current.slice();
+    this._current[slot] = q;
+    return true;
+  }
+
   // A guaranteed-upcoming hard question from the UPCOMING run (the prebuilt
-  // `current` set) for Steve to teach. Prefers ones with an authored steveClue
-  // and not in `alreadyTaught`. The double-buffer guarantees this set already
-  // exists, so the clue references a real question the player will actually face.
+  // `current` set) for Steve to teach. ONLY a question that carries an authored
+  // steveClue AND has not been taught before qualifies — Steve never repeats a
+  // clue (CLAUDE.md §3) and never sells a question he has nothing to say about
+  // (the old fallback charged 4,000 coins and rendered an empty tip). When
+  // nothing qualifies, null: the green room shows his "nothing new" state.
   peekUpcomingHard(alreadyTaught = new Set()) {
     if (!this._current) return null;
     const mastery = this.getMastery();
     const hards = this._current.filter((q) => tierOfQuestion(q, mastery, this.mode) === 'hard' || q.authoredDifficulty === 'hard');
     const withClue = hards.filter((q) => q.steveClue && !alreadyTaught.has(q.id));
-    if (withClue.length) return withClue[0];
-    const fresh = hards.filter((q) => !alreadyTaught.has(q.id));
-    return fresh[0] || hards[0] || null;
+    return withClue[0] || null;
   }
 }
 

@@ -108,6 +108,22 @@ test('priority questions outweigh peers in selection until they graduate', () =>
   assert.equal(gradPrio, selectionWeight(m3, gradPeerBox, 0), 'graduated priority = graduated peer'); // NEGATIVE CONTROL
 });
 
+test('selectionWeight prefers staler items and the staleness nudge caps at 6', () => {
+  const m = emptyMastery();
+  const qa = { id: 'STOR-M-101', authoredDifficulty: 'medium' };
+  const qb = { id: 'STOR-M-102', authoredDifficulty: 'medium' };
+  record(m, qa.id, { correct: true, runIndex: 4, authoredDifficulty: 'medium' });
+  record(m, qb.id, { correct: true, runIndex: 9, authoredDifficulty: 'medium' });
+  assert.ok(selectionWeight(m, qa, 10) > selectionWeight(m, qb, 10), 'staler item weighs more');
+  // The cap: 20 runs stale weighs the same as 6 runs stale.
+  const m2 = emptyMastery();
+  record(m2, qa.id, { correct: true, runIndex: 0, authoredDifficulty: 'medium' });
+  assert.equal(selectionWeight(m2, qa, 20), selectionWeight(m2, qa, 6), 'staleness contribution caps at 6');
+  // NEGATIVE CONTROL: a collapsed clock (currentRun behind lastRun, the old
+  // post-prestige state) flattens the preference to the clamp floor.
+  assert.equal(selectionWeight(m, qa, 0), selectionWeight(m, qb, 0), 'collapsed clock loses the stale/recent signal');
+});
+
 test('domainProgress gives unseen questions zero credit', () => {
   const bank = [
     { id: 'AHV-H-001', domain: 'ahv', authoredDifficulty: 'hard' },

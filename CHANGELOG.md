@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased — upgrade batch 1: core-rules bug fixes, Steve integrity, copy truth
+
+Nine `Upgrade_v0.1.1.md` items (GS-01/02/03, GS-10, CL-01/02/04, PX-01, PQ-09):
+
+- **No more double grading** — a second submit on an already-graded question
+  used to re-grade it, inflating the coin math and double-recording mastery.
+  `answer()` now latches until `advance()`; the shell tolerates the refusal.
+- **Lifelines refuse a dead or won run** — a stray use after permadeath/win
+  silently burned a persisted charge the player paid coins for. Guarded in core.
+- **The "less recently seen" weighting works again** — the staleness clock used
+  a private counter that reset on every prestige/import, silently killing half
+  the mastery weighting. The campaign now feeds `save.stats.runs` (the same
+  clock that stamps `lastRun`) into selection.
+- **Steve keeps his word** — he never repeats a taught clue and never sells a
+  question he has no clue for (the old fallback charged 4,000 coins and
+  rendered "undefined" as the tip); an empty clue can no longer reach the UI or
+  the cutscene. And his **paid clue now survives a reload**: the pending
+  question id persists in the save and is pinned back into a rebuilt campaign
+  set until it actually appears in a run (the §3 "guaranteed-upcoming" promise,
+  kept across sessions). Owner questions carry no clues yet — flagged
+  (`FLAGS.md §1b`), so Steve is quieter until clues are authored.
+- **The game stops mis-teaching its own lifelines** — the in-game Help and the
+  README both described the pre-revision design ("the audience never points you
+  wrong", "a hedged tip toward the right answer") plus the wrong safe havens,
+  the removed mastery board, and a stale bank count. Both rewritten to shipped
+  behavior; Help gains a keyboard-controls bullet; a new **docs-drift gate**
+  (`tests/docs.test.mjs`) pins the bank count, safe havens, live URL, and the
+  retired claims as forbidden strings so stale copy cannot return.
+
 ## Unreleased — v0.1.1 kickoff: upgrade program, version badge, Exam2 bank
 
 - **Version on the title screen** — the game now shows its version (v0.1.1) in

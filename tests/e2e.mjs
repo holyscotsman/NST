@@ -127,6 +127,20 @@ async function main() {
     const code = await page.inputValue('.save-io');
     check('settings exports a readable save code', /"version":\s*1/.test(code || ''), (code || '').slice(0, 40));
 
+    // ---- Scenario 3d: the Help screen teaches the SHIPPED lifelines ----
+    await page.goto(base, { waitUntil: 'load', timeout: 20000 });
+    await page.waitForSelector('.brand-main', { timeout: 8000 });
+    await page.click('text=How to play');
+    await page.waitForSelector('.help-list', { timeout: 5000 });
+    const help = await page.textContent('.help-list');
+    check('help describes the fallible audience poll', /fallible poll/.test(help || ''));
+    check('help lists the keyboard controls', /Enter locks/.test(help || '') && /Escape pauses/.test(help || ''));
+    // NEGATIVE CONTROLS: the retired pre-revision claims must be gone.
+    check('help no longer claims the audience is never wrong', !/never points you wrong/.test(help || ''));
+    check('help no longer claims a hedged tip toward the right answer', !/hedged tip/.test(help || ''));
+    await page.click('text=Got it');
+    await page.waitForSelector('.brand-main', { timeout: 5000 });
+
     // ---- Scenario 4: first-run intro cinematic (fresh save) ----
     const ctx2 = await browser.newContext({ viewport: { width: 1100, height: 800 } });
     await ctx2.addInitScript(() => {

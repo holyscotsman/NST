@@ -23,35 +23,37 @@ things you're shaky on and eases off the ones you've mastered.
 1. **Start a new game.** Your first time, the host gives you a tour of the
    soundstage and walks you through the rules — then it's 30 questions: 10 easy,
    10 medium, 9 hard, and one nearly-impossible final.
-2. **One wrong answer ends the run** — but your coins **bank** at each tier
-   boundary (questions 10, 20, and 29). Clear a tier and that money is safe even
-   if you fall later.
+2. **One wrong answer ends the run** — but your coins **bank** at the safe
+   havens (questions 5, 10, 17 and 25). Pass one and that money is yours to
+   keep even if you fall later.
 3. **Three lifelines**, one use each:
    - **50:50** removes two wrong answers.
-   - **Ask the audience** polls the room — it never points you at a wrong answer,
-     but on hard questions it's only a weak hint.
-   - **Phone a friend** gives a hedged tip toward the right answer.
-   - Using a lifeline still counts as correct — but it won't mark that topic as
-     *mastered*. You only master what you answer on your own.
+   - **Ask the audience** runs a real, fallible poll — the crowd is usually
+     right, but a tempting wrong answer can win the room, especially on hard
+     questions.
+   - **Phone a friend** is a panicked guess — right about two times in three.
+   - Lifelines **advise, they never grade**: the answer key decides what's
+     correct. A lifeline-assisted answer still counts — but it won't mark that
+     topic as *mastered*. You only master what you answer on your own.
 4. **Miss one and you're walked back to the green room**, where the correct
    answer and its explanation are waiting — read it, then spend banked coins:
    buy a second slot for a lifeline, recharge them, or pay **Steve** for an
-   inside tip on a hard question you're about to face. A mastery board shows
-   your weakest exam domains, then it's "Start next round". The goal is to keep
-   going.
+   inside tip on a hard question you're about to face. Then it's "Start next
+   round". The goal is to keep going.
 5. **Seeds** let you replay the exact same 30 questions — or challenge a friend to
    the identical run.
 
-Everything works with keyboard (number keys pick answers, Enter locks it in),
-touch, and screen readers. There's a **reduced-motion** mode, a **high-contrast**
-mode, and there are **no timers** — study at your own pace.
+Everything works with keyboard (number keys or A–F pick an answer, arrows move
+between them, Enter locks it in, Escape pauses), touch, and screen readers.
+There's a **reduced-motion** mode, a **high-contrast** mode, and there are
+**no timers** — study at your own pace.
 
 ## What makes it stick
 
 - **It learns you.** Every question has a personal "mastery" level (a spaced-
   repetition system). Miss something and it comes back sooner and harder; nail it
   a few times and it drifts away — occasionally resurfacing so you don't forget.
-  The green room's mastery board shows your progress domain by domain.
+  Owner-flagged **priority questions** are drilled first until you master them.
 - **It sounds and moves like a show.** An original synth score shifts with the
   stakes — quick and bright on easy questions, slower and lower as the money
   climbs, a heartbeat under the final — and a camera director cuts between
@@ -97,22 +99,26 @@ No dependencies are required to *play* — the test scripts use Playwright.
 index.html            # entry point
 src/core/             # pure game logic (no browser deps) — fully unit-tested
   config, rng, questionSchema, mastery, lifelines, coins, selection,
-  runController, eventBus, aiAdapter
+  runController, eventBus, textSplit, aiAdapter
 src/shell/            # browser layer
   main.js, studio.js (WebGL), director.js + takes.js (camera), music.js,
-  backdrop.js (CSS studio), audio.js, persistence.js, ui/*
-src/content/          # the question bank (questions.js) + quarantine.js
+  backdrop.js (CSS studio), audio.js, hostLines.js, persistence.js, ui/*
+src/content/          # the question bank (questions.js), parsers, images/
+scripts/              # import-questions.mjs (Markdown/interchange → bank)
+styles/               # main.css (the whole DOM look)
 vendor/               # Three.js r160 + addons, self-hosted Montserrat
 tests/                # unit tests, smoke test, full e2e
-docs/                 # cinematic spec (+ event contract), content QA report
+docs/                 # cinematic spec (+ event contract), authoring guide,
+                      # content QA report, interchange bank sources
 ```
 
 ## A note on answer quality
 
-The 157-question bank covers 12 exam domains. It was drafted and then
+The 233-question bank covers 12 exam domains. It combines owner-supplied
+practice-exam sets (used verbatim, keys and all) with a drafted pool that was
 **independently double-checked** for factual accuracy against Nutanix
-documentation, and is marked *verified* — with a final human review still
-recommended before you rely on it for exam prep (tracked in
+documentation — with a final human review still recommended before you rely on
+it for exam prep (tracked in
 [`FLAGS.md`](FLAGS.md) and [`docs/CONTENT_QA_REPORT.md`](docs/CONTENT_QA_REPORT.md)).
 Found a question you'd word differently? That's exactly the kind of fix this is
 set up for — the answer keys live in `src/content/questions.js`.

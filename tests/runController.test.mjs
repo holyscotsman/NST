@@ -114,6 +114,60 @@ test('devJumpTo does not grade — mastery is untouched by the jump', () => {
   assert.equal(JSON.stringify(getRecord(mastery, q.id)), before); // NEGATIVE CONTROL
 });
 
+test('a double submit cannot re-grade the same question (advance latch)', () => {
+  const { rc, mastery } = freshRun();
+  rc.start();
+  const q = rc.current().q;
+  const first = rc.answer(q.answer.slice());
+  assert.equal(first.correct, true);
+  assert.equal(rc.clearedCount, 1);
+  const boxAfterFirst = getRecord(mastery, q.id).box;
+
+  // Second submit before advance(): refused outright.
+  const second = rc.answer(q.answer.slice());
+  assert.equal(second, null, 'second grade is refused'); // NEGATIVE CONTROL
+  assert.equal(rc.clearedCount, 1, 'coins math not inflated');
+  assert.equal(getRecord(mastery, q.id).box, boxAfterFirst, 'mastery promoted exactly once');
+  assert.equal(rc.snapshot().awaitingAdvance, true, 'snapshot exposes the latch for the UI');
+
+  // After advance() grading works normally again — including permadeath.
+  rc.advance();
+  assert.equal(rc.snapshot().awaitingAdvance, false);
+  const c = rc.current();
+  const wrong = [0, 1, 2, 3].find((i) => !c.q.answer.includes(i));
+  const r = rc.answer([wrong]);
+  assert.equal(r.correct, false);
+  assert.equal(rc.alive, false, 'a wrong answer still ends the run');
+});
+
+test('lifelines are refused once the run has ended (dead or won)', () => {
+  // Dead run: die on Q1 with full charges, then try to use one.
+  const { rc } = freshRun();
+  rc.start();
+  // NEGATIVE CONTROL first: the identical call before death succeeds.
+  assert.equal(rc.canUseLifeline('fifty'), true);
+  const c = rc.current();
+  const wrong = [0, 1, 2, 3].find((i) => !c.q.answer.includes(i));
+  rc.answer([wrong]);
+  assert.equal(rc.alive, false);
+  assert.equal(rc.canUseLifeline('audience'), false, 'dead run refuses lifelines');
+  assert.equal(rc.useLifeline('audience'), null);
+  assert.equal(rc.lifelines.audience.charges, 1, 'the paid charge is not burned'); // NEGATIVE CONTROL
+
+  // Won run: drive 30 correct, then try to use one.
+  const b = freshRun('WIN');
+  b.rc.start();
+  while (b.rc.alive && !b.rc.won) {
+    const cur = b.rc.current();
+    const r = b.rc.answer(cur.q.answer.slice());
+    if (r.hasNext) b.rc.advance();
+  }
+  assert.equal(b.rc.won, true);
+  assert.equal(b.rc.canUseLifeline('fifty'), false, 'won run refuses lifelines');
+  assert.equal(b.rc.useLifeline('fifty'), null);
+  assert.equal(b.rc.lifelines.fifty.charges, 1);
+});
+
 test('multi-answer grading is all-or-nothing', () => {
   assert.equal(sameSet([0, 2], [2, 0]), true, 'order-insensitive');
   assert.equal(sameSet([0], [0, 2]), false, 'partial is wrong'); // NEGATIVE CONTROL

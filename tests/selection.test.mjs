@@ -109,6 +109,73 @@ test('mastery mode surfaces priority questions first; seeded mode ignores priori
   assert.ok(mMean > sMean + 0.6, `mastery (${mMean.toFixed(2)}) must beat priority-blind seeded (${sMean.toFixed(2)})`);
 });
 
+test('SetManager feeds the shared run clock into mastery weighting (staleness survives rebuilds)', () => {
+  const bank = makeBank({ easy: 15, medium: 15, hard: 15, extreme: 5, impossible: 2 });
+  // Spread lastRun 0..14 across every item so the clock value changes weights.
+  const mkMastery = () => {
+    const m = emptyMastery();
+    bank.filter((q) => q.authoredDifficulty !== 'extreme').forEach((q, i) => {
+      record(m, q.id, { correct: true, runIndex: i % 15, authoredDifficulty: q.authoredDifficulty });
+    });
+    return m;
+  };
+  const mkRng = () => { let c = 0; return () => { c++; return ((c * 2654435761) % 1000) / 1000; }; };
+  const ids = (set) => set.map((q) => q.id);
+
+  // Plumbing proof: a SetManager with clock=10 builds the EXACT set that a
+  // direct buildSet with currentRun=10 builds (same rng, same mastery).
+  const direct10 = buildSet({ bank, mastery: mkMastery(), mode: 'mastery', currentRun: 10, rng: mkRng(), reachedFinalBefore: true });
+  const sm10 = new SetManager({ bank, getMastery: mkMastery, mode: 'mastery', rng: mkRng(), reachedFinalBefore: true, getRunIndex: () => 10 });
+  assert.deepEqual(ids(sm10.init()), ids(direct10), 'getRunIndex reaches buildSet as currentRun');
+
+  // NEGATIVE CONTROL: the old post-prestige state (clock reset to 0) selects a
+  // DIFFERENT set — staleness clamps to zero and the weighting changes.
+  const sm0 = new SetManager({ bank, getMastery: mkMastery, mode: 'mastery', rng: mkRng(), reachedFinalBefore: true, getRunIndex: () => 0 });
+  assert.notDeepEqual(ids(sm0.init()), ids(direct10), 'a collapsed clock changes selection');
+});
+
+test('pinIntoCurrent places a promised question into a hard slot exactly once', () => {
+  const bank = makeBank({ easy: 25, medium: 25, hard: 25, extreme: 8, impossible: 2 });
+  const sm = new SetManager({ bank, getMastery: () => emptyMastery(), mode: 'seeded', seed: 'PIN', reachedFinalBefore: true });
+  sm.init();
+  const outsider = bank.find((q) => q.authoredDifficulty === 'hard' && !sm.current().some((x) => x.id === q.id));
+  assert.ok(outsider, 'fixture provides a hard question outside the set');
+
+  assert.equal(sm.pinIntoCurrent(outsider), true);
+  const set = sm.current();
+  assert.equal(set.length, 30);
+  assert.equal(new Set(set.map((q) => q.id)).size, 30, 'still 30 distinct');
+  const idx = set.findIndex((q) => q.id === outsider.id);
+  assert.ok(idx >= 20 && idx <= 28, `pinned into the hard block (got ${idx})`);
+
+  // NEGATIVE CONTROL: pinning a question already in the set is a no-op.
+  const before = set.map((q) => q.id);
+  assert.equal(sm.pinIntoCurrent(set[5]), false);
+  assert.deepEqual(sm.current().map((q) => q.id), before, 'set unchanged');
+});
+
+test('Steve never repeats a taught clue and never sells a clue-less question', () => {
+  // 8 clue-less hards + AHV-H-900 (the only clue carrier) = exactly 9 hards, so
+  // every hard question is guaranteed into the seeded set's 9 hard slots.
+  const bank = makeBank({ hard: 8 });
+  const sm = new SetManager({ bank, getMastery: () => emptyMastery(), mode: 'seeded', seed: 'STEVE', reachedFinalBefore: true });
+  sm.init();
+
+  // NEGATIVE CONTROL: untaught, clue-carrying → returned (Steve still works).
+  const q = sm.peekUpcomingHard(new Set());
+  assert.ok(q && q.id === 'AHV-H-900' && q.steveClue, 'the clue carrier is offered');
+
+  // Already taught → null, even with 8 untaught clue-less hards in the set
+  // (the old fallback would re-teach or sell one of those).
+  assert.equal(sm.peekUpcomingHard(new Set(['AHV-H-900'])), null, 'no repeats, no clue-less sales');
+
+  // A set whose hard slots hold ONLY clue-less questions → null outright.
+  const bare = makeBank({ hard: 9 }).filter((x) => x.id !== 'AHV-H-900');
+  const sm2 = new SetManager({ bank: bare, getMastery: () => emptyMastery(), mode: 'seeded', seed: 'STEVE2', reachedFinalBefore: true });
+  sm2.init();
+  assert.equal(sm2.peekUpcomingHard(new Set()), null, 'nothing to teach means nothing for sale');
+});
+
 test('SetManager keeps a disjoint current/next and Steve reads the upcoming run', () => {
   // Big enough to build two fully-disjoint back-to-back runs (needs >= 60).
   const bank = makeBank({ easy: 25, medium: 25, hard: 25, extreme: 8, impossible: 2 });

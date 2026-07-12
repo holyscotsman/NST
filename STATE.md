@@ -52,7 +52,17 @@ audio-resume hardening, pause menu, mastery dashboard removed).
   Settings "Reset progress" hardened to a true first-time reset. Steve
   opener/closer flavour flagged in `FLAGS.md §2`; visuals in `BROWSER_QA.md`.
 
-### v0.1.1 kickoff (latest)
+### Upgrade batch 1 (latest)
+- Nine `Upgrade_v0.1.1.md` items shipped (✅-marked in the doc): GS-01
+  double-grade latch (`awaitingAdvance`), GS-02 lifelines refused after run
+  end, GS-03 shared staleness clock (`SetManager.getRunIndex` ←
+  `save.stats.runs`), GS-10/CL-02 Steve never repeats/sells clue-less
+  (+`FLAGS.md §1b`: owner questions lack clues), CL-04 `stevePending` persisted
+  + `pinIntoCurrent`, PX-01/CL-01 Help copy truth + keyboard bullet, PQ-09
+  README rewrite + `tests/docs.test.mjs` drift gate. The work queue now lives
+  in `Upgrade_v0.1.1.md` (see AUTONOMOUS_RUN.md).
+
+### v0.1.1 kickoff
 - `Upgrade_v0.1.1.md` at the repo root is the 50-item department program
   (10 each: Game Systems GS-*, Content & Learning CL-*, Graphics GX-*,
   Player Experience PX-*, Platform & QA PQ-*), each item with a file-level

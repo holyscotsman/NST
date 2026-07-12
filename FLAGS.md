@@ -43,6 +43,19 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
 - **Note:** the **runtime never uses AI to grade** — correctness is decided
   solely by the stored authored key.
 
+## 1b. Steve clue coverage — owner questions have no clues yet
+- **What changed:** Steve now only ever sells a question that carries an
+  authored `steveClue` and that he hasn't taught before (`peekUpcomingHard`,
+  CLAUDE.md §3 "never gives the same clue twice"). The old fallback could
+  charge 4,000 coins and render an empty tip.
+- **Consequence:** none of the owner-supplied questions (25 NPX priority +
+  51 interchange) carry `steveClue`, and the priority boost floods early runs
+  with exactly those — so Steve will read "nothing new for you" more often
+  until clues exist for them.
+- **Needs the human:** Steve clues are teaching dialogue (§7). Say the word
+  and drafts can be produced for your review (the `Upgrade_v0.1.1.md` CL-03
+  item), or author them yourself in the Markdown sources.
+
 ## 2. Host dialogue — intro cinematic, welcome lines, quips (authored content)
 - **What:** the first-run cinematic (`src/shell/ui/cinematic.js`) contains host
   dialogue: the studio tour lines and the guided tutorial that walks the player
@@ -58,6 +71,10 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
   lines were AI-drafted at the owner's explicit request ("the host explains how
   to play") — they are game-mechanics narration, not exam teaching — but still
   warrant a human read-through for voice and tone.
+- **Also in this bucket:** the corrected Help-screen copy (lifeline accuracy +
+  the new keyboard bullet) and the reworked README lifeline/safe-haven wording
+  — mechanics documentation aligned to `docs/LIFELINES.md`, awaiting the same
+  human read (kept honest by the `tests/docs.test.mjs` drift gate).
 - **Integrity note:** the tutorial's revealed answer marks Q1 as assisted, so
   the freebie never promotes mastery.
 

@@ -47,6 +47,20 @@ test('reset returns a first-time save — the intro replays and nothing carries 
   assert.deepEqual(fresh.steveTaught, []);
 });
 
+test('stevePending persists a paid clue and migrate normalizes bad shapes', () => {
+  const s = defaultSave();
+  assert.equal(s.stevePending, null, 'default is null');
+  s.stevePending = 'AHV-H-900';
+  const back = importString(exportString(s));
+  assert.equal(back.stevePending, 'AHV-H-900', 'the paid promise survives a round-trip');
+  // NEGATIVE CONTROL: a non-string stevePending in a stored save normalizes to
+  // null instead of crashing the load or leaking a weird type into selection.
+  const dirty = importString(JSON.stringify({ version: 1, stevePending: { evil: true } }));
+  assert.equal(dirty.stevePending, null);
+  const missing = importString(JSON.stringify({ version: 1 }));
+  assert.equal(missing.stevePending, null, 'older saves without the field fill with null');
+});
+
 test('prestige keeps mastery but resets wallet and slots (import-safe)', () => {
   const s = defaultSave();
   s.wallet = 9000;

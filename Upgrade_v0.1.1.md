@@ -23,7 +23,7 @@ Three clusters are one implementation seen from multiple departments — build e
 
 The pure rules engine: run shape, permadeath, banking, lifeline mechanics, seeded determinism, double-buffer set generation, Leitner mastery + priority weighting, the event contract, the coin economy. Everything in `src/core/` — headless, deterministic, provable.
 
-### GS-01 · Latch RunController.answer() against double grading
+### ✅ GS-01 · Latch RunController.answer() against double grading
 
 **Type:** bug-fix
 
@@ -45,7 +45,7 @@ The pure rules engine: run shape, permadeath, banking, lifeline mechanics, seede
 
 **Bound by.** The authored key remains the sole grader (§4); latch is pure core state plus a defensive shell guard — no event-contract change; never fabricate a green; small per-unit commit, no co-author tag.
 
-### GS-02 · Refuse lifeline use once the run has ended
+### ✅ GS-02 · Refuse lifeline use once the run has ended
 
 **Type:** bug-fix
 
@@ -64,7 +64,7 @@ The pure rules engine: run shape, permadeath, banking, lifeline mechanics, seede
 
 **Bound by.** Lifelines advise, never grade (§3/§4); persisted charge economy must not be altered otherwise; headless green with negative controls is the ship gate.
 
-### GS-03 · Unify the mastery staleness clock across SetManager and RunController
+### ✅ GS-03 · Unify the mastery staleness clock across SetManager and RunController
 
 **Type:** bug-fix
 
@@ -210,7 +210,7 @@ The pure rules engine: run shape, permadeath, banking, lifeline mechanics, seede
 
 **Bound by.** The event contract is renegotiated in spec §10 in the same change (§5); additive-only payload changes so unknown-event/unknown-field consumers keep working; the registry describes events, it never carries question text (quiz stays DOM, §5).
 
-### GS-10 · Stop Steve repeating taught clues or selling clue-less questions
+### ✅ GS-10 · Stop Steve repeating taught clues or selling clue-less questions
 
 **Type:** bug-fix
 
@@ -236,7 +236,7 @@ The pure rules engine: run shape, permadeath, banking, lifeline mechanics, seede
 
 The question bank, ingestion/QA tooling, learning-model integration, exhibits/images, and authored-copy pipeline. **Frozen surface: no question stem, option, or answer key changes.** Dialogue drafts and metadata enrichment ship flagged for human review.
 
-### CL-01 · Fix the Help screen's outdated lifeline copy
+### ✅ CL-01 · Fix the Help screen's outdated lifeline copy
 
 **Type:** bug-fix
 
@@ -255,7 +255,7 @@ The question bank, ingestion/QA tooling, learning-model integration, exhibits/im
 
 **Bound by.** CLAUDE.md §7: game copy is AI-drafted only as flagged-for-review work — FLAGS.md entry mandatory, not done until a human reads it. Copy must state facts that match lifelines.js exactly (no new mechanics implied). Sentence case per brand rules.
 
-### CL-02 · Stop Steve selling an empty clue for clue-less hard questions
+### ✅ CL-02 · Stop Steve selling an empty clue for clue-less hard questions
 
 **Type:** bug-fix
 
@@ -296,7 +296,7 @@ The question bank, ingestion/QA tooling, learning-model integration, exhibits/im
 
 **Bound by.** HARD: question stems/options/keys frozen — metadata only, gated by the diff step. CLAUDE.md §7: teaching-dialogue drafts follow the §4 offline-QA precedent — FLAGS.md flagging mandatory and the item is NOT done until the owner signs the clues off. Clues teach the concept, never verbatim answers. Explanations are not reworded.
 
-### CL-04 · Make Steve's paid clue survive a reload — persist and pin the pending taught question
+### ✅ CL-04 · Make Steve's paid clue survive a reload — persist and pin the pending taught question
 
 **Type:** bug-fix
 
@@ -666,7 +666,7 @@ The WebGL soundstage, camera direction, characters/crowd, lighting, post FX, and
 
 Everything the player touches in the DOM: the quiz card, screens, HUD/ladder, input, ARIA + accessibility, responsive layout, feedback loops, onboarding.
 
-### PX-01 · Correct the Help screen's lifeline descriptions and add a keyboard-controls section
+### ✅ PX-01 · Correct the Help screen's lifeline descriptions and add a keyboard-controls section
 
 **Type:** bug-fix
 
@@ -1063,7 +1063,7 @@ Gates and pipes: the headless suite + negative-control policy, browser harnesses
 
 **Bound by.** Lifelines advise, never grade - do not re-test grading here (core-owned); Steve is one call per visit and never repeats a clue (assert, do not alter); no timers introduced; test hook usage stays behind the wwtbane.e2e opt-in.
 
-### PQ-09 · Fix stale player-facing copy (README + in-game help) and add a mechanical docs-drift gate
+### ✅ PQ-09 · Fix stale player-facing copy (README + in-game help) and add a mechanical docs-drift gate
 
 **Type:** bug-fix
 

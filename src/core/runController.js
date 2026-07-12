@@ -47,6 +47,7 @@ export class RunController {
     this.assisted = false;             // any lifeline used on the current question
     this.usedThisQuestion = new Set(); // which lifeline types used on current question
     this.lifelineOutput = {};          // cached lifeline results for current question
+    this.awaitingAdvance = false;      // graded-correct, waiting for advance() — no re-grade
   }
 
   start() {
@@ -79,6 +80,7 @@ export class RunController {
       lifelines: this.lifelines,
       assisted: this.assisted,
       usedThisQuestion: [...this.usedThisQuestion],
+      awaitingAdvance: this.awaitingAdvance,
     };
   }
 
@@ -89,6 +91,7 @@ export class RunController {
   }
 
   canUseLifeline(type) {
+    if (!this.alive || this.won) return false; // a dead/won run must never burn a paid charge
     if (!LIFELINE_TYPES.includes(type)) return false;
     if (this.usedThisQuestion.has(type)) return false;
     const l = this.lifelines[type];
@@ -122,6 +125,7 @@ export class RunController {
   // Returns a result object describing what happened.
   answer(selectedIndices) {
     if (!this.alive || this.won) return null;
+    if (this.awaitingAdvance) return null; // already graded — a double submit must not re-grade
     if (!Array.isArray(selectedIndices)) return null; // UI-contract guard
     const cur = this.current();
     const q = cur.q;
@@ -183,6 +187,9 @@ export class RunController {
     }
 
     // Grading is done; the UI shows feedback, then calls advance() to move on.
+    // Latch until then: re-grading the same question would inflate clearedCount
+    // (and the coin math riding on it) and double-record mastery.
+    this.awaitingAdvance = true;
     result.hasNext = true;
     return result;
   }
@@ -202,6 +209,7 @@ export class RunController {
     this.assisted = false;
     this.usedThisQuestion = new Set();
     this.lifelineOutput = {};
+    this.awaitingAdvance = false;
     this._show();
     return this.current();
   }
@@ -214,6 +222,7 @@ export class RunController {
     this.assisted = false;
     this.usedThisQuestion = new Set();
     this.lifelineOutput = {};
+    this.awaitingAdvance = false;
     this._show();
     return this.current();
   }

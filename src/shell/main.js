@@ -325,7 +325,9 @@ export class Game {
     // Fresh Steve availability each visit.
     if (!this.steveVisit.locked) {
       const q = this.campaign.peekUpcomingHard(new Set(this.save.steveTaught));
-      this.steveVisit = { called: false, locked: false, question: q, clue: q ? q.steveClue : '' };
+      // Belt-and-braces: selection only returns clue-carrying questions, but a
+      // missing clue must never reach the UI as the string "undefined".
+      this.steveVisit = { called: false, locked: false, question: q, clue: (q && q.steveClue) || '' };
     }
     this._renderGreenRoom();
   }
@@ -398,6 +400,9 @@ export class Game {
     if (!this.save.steveTaught.includes(this.steveVisit.question.id)) {
       this.save.steveTaught.push(this.steveVisit.question.id);
     }
+    // The paid promise survives a reload: until this question appears in a run,
+    // a rebuilt campaign pins it back into the upcoming set (_ensureCampaign).
+    this.save.stevePending = this.steveVisit.question.id;
     this.audio.play('lifeline');
     this.persist();
     this._renderGreenRoom(); // the clue now lives in the panel underneath…
@@ -414,8 +419,19 @@ export class Game {
       getMastery: () => this.save.mastery,
       mode: 'mastery',
       reachedFinalBefore: true, // finals handled by the impossible-swap below
+      // Staleness clock = the same counter record() stamps into lastRun, so
+      // "less recently seen" survives prestige/import campaign rebuilds.
+      getRunIndex: () => this.save.stats.runs,
     });
     this.campaign.init();
+    // Steve's paid, not-yet-delivered clue: the rebuilt set almost certainly
+    // dropped that question — pin it back so the promise (CLAUDE.md §3:
+    // "a real, guaranteed-upcoming question") holds across sessions.
+    if (this.save.stevePending) {
+      const pending = this.bank.find((q) => q.id === this.save.stevePending);
+      if (pending) this.campaign.pinIntoCurrent(pending);
+      else { this.save.stevePending = null; this.persist(); } // question left the bank
+    }
   }
 
   startRun(mode, seedInput) {
@@ -449,6 +465,11 @@ export class Game {
     }
 
     this.steveVisit.locked = false; // next green-room visit re-rolls Steve
+    // Steve's promise is delivered the moment his question enters a live run.
+    if (this.save.stevePending && set.some((q) => q.id === this.save.stevePending)) {
+      this.save.stevePending = null;
+      this.persist();
+    }
     this.mode = mode; this.seed = seed;
     // Lifelines: run works off (and depletes) the saved charges.
     this.rc = new RunController({
@@ -679,6 +700,7 @@ export class Game {
   answer(indices) {
     if (!this.rc) return;
     const result = this.rc.answer(indices);
+    if (!result) return; // dead run / double submit — core refused the grade
     this.hud.update(this.rc.snapshot());
     this.quiz.showFeedback(result);
     // Mastery + lifeline charges changed this turn.

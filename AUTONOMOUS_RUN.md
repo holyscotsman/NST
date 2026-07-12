@@ -14,8 +14,11 @@
 ## Queue
 
 ### Ready
-- _Empty — everything remaining is blocked on the human (below) or lives as an
-  unspecced idea in `BACKLOG.md`. Promote a backlog item here once specced._
+- **`Upgrade_v0.1.1.md`** is the queue: work the unchecked items (✅ = shipped).
+  Bug-fixes first within each department; the cross-department clusters land
+  together. Shipped so far: GS-01/02/03, GS-10, CL-01/02/04, PX-01, PQ-09.
+  Items needing owner input (CL-03 clue drafting, PQ-10 service worker) park in
+  `FLAGS.md` per the loop rules.
 
 ### Done (recent)
 - Markdown question-bank ingestion: `parseMarkdownBank.js` + `npm run

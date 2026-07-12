@@ -104,8 +104,10 @@ export const PRIORITY_WEIGHT_BOOST = 10;
 export function selectionWeight(state, q, currentRun) {
   const rec = getRecord(state, q.id);
   const box = rec ? rec.box : seedBox(q.authoredDifficulty);
-  // lastRun and currentRun can be different counters — clamp both ends so a
-  // weight never goes negative (which would make an item unselectable).
+  // The campaign passes the same clock that stamps lastRun (save.stats.runs via
+  // SetManager.getRunIndex). The clamp stays as defense for imported/legacy
+  // saves whose lastRun may outrun a fresh clock — a weight must never go
+  // negative (that would make an item unselectable).
   const staleness = rec ? Math.max(0, Math.min(6, currentRun - rec.lastRun)) : 6;
   // Weakness dominates; staleness is a gentle nudge; +1 keeps everything eligible.
   const base = (MASTERY.MAX_BOX - box) * 2 + staleness + 1;

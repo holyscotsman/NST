@@ -39,8 +39,11 @@ function youPortrait() {
 
 // Plays the cutscene into `root`. Returns a skip() that finishes it early.
 export function playSteveCutscene(root, { clue, reduced = false, onDone } = {}) {
-  const parts = splitIntoParts(clue || '', 3);
-  const lines = [STEVE_OPENER, parts[0], parts[1], parts[2], STEVE_CLOSER];
+  // Selection guarantees a clue exists (peekUpcomingHard only sells clue-carrying
+  // questions), but if one ever arrives empty, skip the three clue bubbles rather
+  // than popping blanks between the opener and the sign-off.
+  const parts = (clue && clue.trim()) ? splitIntoParts(clue, 3) : [];
+  const lines = [STEVE_OPENER, ...parts, STEVE_CLOSER];
 
   const bubble = h('p', { class: 'sc-bubble', 'aria-live': 'polite' }, '');
   const steveSide = h('div', { class: 'sc-side steve' }, stevePortrait(), h('span', { class: 'sc-name' }, 'Steve'), bubble);
