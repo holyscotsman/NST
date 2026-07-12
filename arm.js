@@ -2729,7 +2729,7 @@
         c2d.shadowBlur = 10; c2d.shadowColor = COL.aqua; c2d.fillStyle = COL.aqua; c2d.globalAlpha = 0.9; c2d.fillRect(-4, -4, 8, 8); c2d.restore();
       }
       c2d.globalAlpha = 1; c2d.shadowBlur = 0;
-      if (input.thrust && state === "SECTOR") { c2d.shadowBlur = 16; c2d.shadowColor = TRAIL; c2d.fillStyle = TRAIL; c2d.globalAlpha = 0.85 + (reducedMotion ? 0.1 : 0.15 * runRng.next()); c2d.beginPath(); c2d.moveTo(-13, -5); c2d.lineTo(-13 - (9 + (reducedMotion ? 4 : runRng.next() * 10)), 0); c2d.lineTo(-13, 5); c2d.closePath(); c2d.fill(); c2d.globalAlpha = 1; }   // (v0.57.0) thruster flame wears the mastery trail tint
+      if (input.thrust && state === "SECTOR") { c2d.shadowBlur = 20; c2d.shadowColor = TRAIL; c2d.fillStyle = TRAIL; c2d.globalAlpha = 0.85 + (reducedMotion ? 0.1 : 0.15 * runRng.next()); c2d.beginPath(); c2d.moveTo(-13, -7.5); c2d.lineTo(-13 - (13.5 + (reducedMotion ? 6 : runRng.next() * 15)), 0); c2d.lineTo(-13, 7.5); c2d.closePath(); c2d.fill(); c2d.globalAlpha = 1; }   // (v0.57.0 trail tint; v0.200.0 ARM#10/PLAYTEST C2: flame 1.5x so the purchasable tints actually SELL)
       if (spriteReady(SPR.hero)) { drawSprite(SPR.hero, 40); c2d.restore(); c2d.shadowBlur = 0; return; }   // S3: asset hull (cargo + thrust already drawn); below is the vector fallback
       c2d.shadowBlur = 8; c2d.shadowColor = COL.iris600; c2d.fillStyle = "#5a32c8"; c2d.strokeStyle = COL.aqua; c2d.lineWidth = 1.3;
       c2d.beginPath(); c2d.moveTo(-1, -3); c2d.lineTo(-7, -19); c2d.lineTo(-13, -17); c2d.lineTo(-12, -4); c2d.closePath(); c2d.fill(); c2d.stroke();

@@ -597,7 +597,9 @@ async function runFrames(n = 6) {
         SN.core.profile.settings.reducedMotion = false; shell._applyMotion();
         ok("FE-motion: toggling off removes the attribute", !w.document.documentElement.hasAttribute("data-motion"));
         const css = w.document.documentElement.innerHTML;
-        ok("FE#9: the ship power-on splash — stepper, 10 real progress steps, fault trap, reduced-motion static, boot removal",
+        ok("ARM#10/C2: the thruster flame ships at 1.5x (the trail tints finally have a canvas)",
+      html.includes("c2d.moveTo(-13, -7.5); c2d.lineTo(-13 - (13.5 + (reducedMotion ? 6 : runRng.next() * 15)), 0); c2d.lineTo(-13, 7.5);"));
+    ok("FE#9: the ship power-on splash — stepper, 10 real progress steps, fault trap, reduced-motion static, boot removal",
       html.includes('<div id="sx-boot"') && html.includes("window.__sxBoot = (function ()")
       && (html.match(/__sxBoot\(/g) || []).length === 10   // 9 module steps + the exhibits step
       && html.includes("Powering up the bridge") && html.includes("Loading the question bank")
