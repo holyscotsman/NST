@@ -345,6 +345,38 @@ function newWindow() {
   ok(run.won === true, 'the run stays marked WON through the Deep Belt (checkpoint carries it)');
 })();
 
+(function pityOffer() {
+  group('KBB#4: boss-shop pity — a discounted legendary in every post-boss shop');
+  var V = newWindow(), K = V.KBB;
+  var ctxP = H.makeCtx(K, { seed: SEED + 60 });
+  var run = K.createRun(ctxP, { seed: SEED + 60 });
+  var isLeg = function (o) { return K.ARTIFACTS_BY_ID[o.id].rarity === 'legendary'; };
+  // post-boss shop (round 5): the guarantee
+  run.section = 2; run.round = K.CONFIG.roundsPerSection; run.phase = 'shop'; K._test.buildShop(run);
+  var legs = run.shop.artifacts.filter(isLeg);
+  ok(legs.length >= 1 && legs.some(function (o) { return o.pity === true; }),
+     'KBB#4: the post-boss shop always carries a pity legendary');
+  var lp = legs.filter(function (o) { return o.pity; })[0];
+  var fullLeg = Math.max(1, Math.round(K.CONFIG.artifactPrice.legendary * (1 + (run.section - 1) * K.CONFIG.pricePerSection)));
+  ok(lp.price === Math.max(1, Math.round(fullLeg * 0.7)) && lp.price < fullLeg,
+     'KBB#4: the pity price carries the 30% salvage cut (' + lp.price + 'c vs ' + fullLeg + 'c full)');
+  // mid-section shops (rounds 1-4): NO guarantee
+  var sawMid = false;
+  for (var rp = 1; rp < K.CONFIG.roundsPerSection; rp++) {
+    run.round = rp; K._test.buildShop(run);
+    if (run.shop.artifacts.some(function (o) { return o.pity; })) sawMid = true;
+  }
+  ok(!sawMid, 'KBB#4: mid-section shops roll the normal table (no pity tag)');
+  // owning every legendary: the pity gracefully yields (no dupes, no crash)
+  run.round = K.CONFIG.roundsPerSection;
+  var allLegs = [];
+  for (var ai in K.ARTIFACTS_BY_ID) { if (K.ARTIFACTS_BY_ID[ai].rarity === 'legendary') allLegs.push(ai); }
+  run.squad.artifacts = allLegs.map(function (id) { return { def: K.ARTIFACTS_BY_ID[id], state: {} }; });
+  K._test.buildShop(run);
+  var dupes = run.shop.artifacts.filter(function (o) { return isLeg(o) && allLegs.indexOf(o.id) >= 0; });
+  ok(dupes.length === 0, 'KBB#4: with every legendary owned, no duplicate is forced');
+})();
+
 (function domFlow() {
   group('DOM: mount -> skip intro -> Start run -> answered turns -> boss music -> unmount');
   var V = newWindow(), doc = V.doc, KBB = V.KBB;

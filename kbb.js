@@ -689,6 +689,29 @@
     fireSide(run, 'onShopEnter', {});
     run.shop = { artifacts: [], consumables: [], rerollCost: rerollCost(run), boostBought: false };
     rollArtifactOffers(run); rollConsumableOffers(run);
+    // (v0.156.0, V1.1 KBB#4) boss-shop PITY: the 600-run sweep bought ZERO legendaries — a
+    // whole rarity tier was dead content. Every POST-BOSS shop now guarantees one unowned
+    // legendary among the offers, at 30% off (boss salvage). Rerolls re-run this, so the
+    // guarantee holds through them too.
+    if (run.round === CONFIG.roundsPerSection) {
+      var ownedP = {}, ip;
+      for (ip = 0; ip < run.squad.artifacts.length; ip++) ownedP[run.squad.artifacts[ip].def.id] = true;
+      var legIdx = -1;
+      for (ip = 0; ip < run.shop.artifacts.length; ip++) { if (ARTIFACTS_BY_ID[run.shop.artifacts[ip].id].rarity === 'legendary') { legIdx = ip; break; } }
+      if (legIdx >= 0) {
+        var lo = run.shop.artifacts[legIdx];
+        lo.price = Math.max(1, Math.round(lo.price * 0.7)); lo.pity = true;   // a natural roll gets the salvage cut
+      } else {
+        var offeredP = {};
+        for (ip = 0; ip < run.shop.artifacts.length; ip++) offeredP[run.shop.artifacts[ip].id] = true;
+        var legsP = ARTIFACTS.filter(function (a2) { return a2.rarity === 'legendary' && !ownedP[a2.id] && !offeredP[a2.id]; });
+        if (legsP.length) {
+          var pickP = legsP[Math.floor(run.rng.next() * legsP.length)];
+          var slotP = Math.max(0, run.shop.artifacts.length - 1);
+          run.shop.artifacts[slotP] = { id: pickP.id, price: Math.max(1, Math.round(artifactPrice(run, 'legendary') * 0.7)), pity: true };
+        }
+      }
+    }
   }
   function shopBuyArtifact(run, offerIndex) {
     if (run.phase !== 'shop' || !run.shop) return { ok: false, reason: 'not-shop' };
@@ -1013,6 +1036,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-won .kbb-lost-card{border-color:' + P.gold + ';box-shadow:0 0 40px rgba(255,200,87,.25);}');
     css.push('.kbb-won-note{font-size:12.5px;color:' + P.dim + ';text-align:center;margin-top:8px;}');
     css.push('.kbb-won-push{border-color:' + P.gold + ';color:' + P.gold + ';}');
+    css.push('.kbb-pity{margin-left:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:' + P.gold + ';border:1px solid ' + P.gold + ';border-radius:999px;padding:1px 7px;}');
     css.push('.kbb-debrief summary{cursor:pointer;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:' + P.gold + ';}');
     css.push('.kbb-debrief-row{margin:8px 0 2px;border-left:3px solid ' + P.peach + ';padding-left:10px;}');
     css.push('.kbb-debrief-stem{font-size:12.5px;color:' + P.text + ';}');
@@ -2710,7 +2734,7 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
           var card = s.doc.createElement('div'); card.className = 'kbb-card';
           card.style.borderLeftColor = CAT_COLOR[def.category] || PALETTE.iris;
           var body = s.doc.createElement('div'); body.className = 'body';
-          body.innerHTML = '<div class="nm">' + def.name + '<span class="rar kbb-rar-' + def.rarity + '">' + def.rarity + '</span></div><div class="desc">' + def.description + '</div>';
+          body.innerHTML = '<div class="nm">' + def.name + '<span class="rar kbb-rar-' + def.rarity + '">' + def.rarity + '</span>' + (off.pity ? '<span class="kbb-pity">boss salvage \u221230%</span>' : '') + '</div><div class="desc">' + def.description + '</div>';
           var side = s.doc.createElement('div'); side.className = 'side';
           var buy = s.doc.createElement('button'); buy.className = 'kbb-btn';
           buy.textContent = (full ? 'Replace' : 'Buy') + ' ' + off.price + 'c';

@@ -10,7 +10,7 @@
 const fs = require('fs');
 (0, eval)(fs.readFileSync(require('path').join(__dirname, 'kbb.js'), 'utf8')); // -> globalThis.KBB
 const KBB = globalThis.KBB;
-const { createRun, drawQuestion, submitAnswer, leaveShop, startDungeon, shopBuyArtifact, CONFIG, ARTIFACTS_BY_ID } = KBB;
+const { createRun, drawQuestion, submitAnswer, leaveShop, startDungeon, shopBuyArtifact, claimVictory, CONFIG, ARTIFACTS_BY_ID } = KBB;
 // sweep without editing the module: KBB_PATCH='{"maxAttacks":5,"squad":{"hp":32}}'
 const PATCH = process.env.KBB_PATCH ? JSON.parse(process.env.KBB_PATCH) : null;
 if (PATCH){ if (PATCH.squad) Object.assign(CONFIG.squad, PATCH.squad); for (const k in PATCH) if (k!=='squad') CONFIG[k]=PATCH[k]; }
@@ -52,6 +52,7 @@ function simRun(seed,cohort,p,rnd){
   while(guard++<400){
     if(run.phase==='lost') return run.depthClearedSection; // section last cleared; died trying for the next
     if(run.section>CONFIG.fuzzSectionCap) return 99;       // survived to cap = "cleared"
+    if(run.phase==='won'){ claimVictory(run); continue; } // (v0.156.0) the fuzz player always pushes into the Deep Belt — KBB#3's win beat had winning runs spinning out of the loop as undefined
     if(run.phase==='shop'){ shop(run,cohort,rnd); if(run._preRun) startDungeon(run); else leaveShop(run); continue; }
     if(run.phase==='battle'){
       const d=drawQuestion(run); const q=run.battle.question; if(!q) return run.depthClearedSection; // bank dry (won't happen here)

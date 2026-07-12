@@ -229,6 +229,12 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-KBB-PITY — boss salvage (added v0.156.0).** Beat any KBB section boss and open the
+  shop: one offer must be a LEGENDARY wearing a gold "boss salvage −30%" badge, priced
+  noticeably under its usual cost, and actually affordable within a couple of sections'
+  earnings. Reroll: a discounted legendary is still there. Mid-section shops: no badge.
+  WRONG: a pity legendary you already own, or the badge on a non-legendary.
+
 - **QA-ARM-SMOOTH — no more sector-5 wall (added v0.155.0).** Play sectors 4 through 6: the
   jump should feel gradual — some tougher ships mixed in at 5, most by 6 — and enemy shots
   should sting slightly more each sector rather than suddenly. Settings → "Smooth difficulty"
