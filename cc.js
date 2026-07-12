@@ -268,6 +268,7 @@
     p.jumpT = 0; p.jumping = false; p.jumpHeld = false; p.jumpHang = 0; p.duckT = 0; p.ducking = false; p.y = 0; p.topY = cfg.PLAYER_H;
     this.buffs.magnet = 0; this.buffs.invincible = 0; this.buffs.coinX2 = 0; this.buffs.slowmo = 0;
     this.overshield = 0; this.scholarNext = false; this.doubleNext = false;   // (v0.178.0, CC#7)
+    this.overtaken = 0;                                                       // (v0.202.0, V1.1 CC#10) BCM stragglers passed (0-5)
 
     this.phase = PHASE_RUN;
     this.shields = cfg.SHIELDS_START + (this._up ? this._up.hull : 0);   // (J9) hull tiers
@@ -356,6 +357,17 @@
     this.scoreDistance += this.scoreSpeed * dt;
     while (this.scoreDistance >= this._nextMile) {   // (v0.144.0, CC#3) 25 km milestone clock —
       this.lastMilestone = this._nextMile; this._nextMile += 25000;   // a 100 km boost lands on the LATEST mark, not four stacked banners
+    }
+    // (v0.202.0, V1.1 CC#10) the catch-up arc: every 50 km (offset 3 km past the biome handoff
+    // so the two moments never collide) one BCM straggler falls back and is OVERTAKEN — derived
+    // from score alone, so a resumed run recomputes it for free; a boost jump coalesces to ONE beat.
+    var ovN = Math.min(5, Math.floor(Math.max(0, this.scoreDistance - 3000) / 50000));
+    if (ovN > this.overtaken) {
+      this.overtaken = ovN;
+      this._emit && this._emit('overtake');
+      if (this.ctx.telemetry && typeof this.ctx.telemetry.emit === 'function') {
+        this.ctx.telemetry.emit({ t: 'overtake', game: 'CC', remain: 5 - ovN, at: Math.round(this.scoreDistance) });
+      }
     }
     // (v0.104.0, C4) turn lifecycle: warn TURN_WARN_S ahead (never during a boost ride),
     // then require the matching lane the instant the threshold crosses. Miss = wall clip.
@@ -1953,7 +1965,12 @@
     // (v0.105.0, C3, Jason) ambient flythrough: every so often one squadron ship peels off
     // and sweeps across the sky band — pure view-side set dressing off the forked view clock.
     if (this.squadron && this.squadron.children.length && !this.reducedMotion) {
-      if (!this._flyT && ((this._t + 11) % 26) < dt * 2) { this._flyT = 0.0001; this._flyIdx = (this._flyIdx || 0) % this.squadron.children.length; }
+      if (!this._flyT && ((this._t + 11) % 26) < dt * 2) {
+        this._flyIdx = (this._flyIdx || 0) % this.squadron.children.length;
+        var flTry = 0;   // (v0.202.0, CC#10) overtaken ships are GONE — the sweep skips them
+        while (this.squadron.children[this._flyIdx].visible === false && flTry++ < 6) this._flyIdx = (this._flyIdx + 1) % this.squadron.children.length;
+        if (this.squadron.children[this._flyIdx].visible !== false) this._flyT = 0.0001;
+      }
       if (this._flyT) {
         this._flyT += dt / 5;                                    // a 5s sweep
         var fsh = this.squadron.children[this._flyIdx], fk2 = Math.min(1, this._flyT);
@@ -1962,6 +1979,26 @@
         fsh.position.y = 8.5 + Math.sin(fe * Math.PI) * 3.2;
         if (this._flyT >= 1) { this._flyT = 0; this._flyIdx++; }   // bob loop re-adopts it next frame
       }
+    }
+    // (v0.202.0, V1.1 CC#10) the OVERTAKE: a straggler falls back through the fog, wobbles with
+    // damage sparks, grows past the camera, and stays gone — the chase finally pays on screen.
+    if (this._ovT) {
+      var osh = this.squadron && this.squadron.children[this._ovIdx];
+      if (osh) {
+        this._ovT += dt / 2.2;
+        var ok2 = Math.min(1, this._ovT), oe = ok2 * ok2;
+        osh.position.z = this._ovZ0 + oe * 36;                    // toward and past the camera plane
+        osh.position.y = 8.5 - oe * 7.2;
+        osh.scale.x = osh.scale.y = osh.scale.z = 1 + oe * 5;
+        osh.rotation.z = Math.sin(ok2 * 9.5) * 0.5;               // the damage wobble
+        var sparkN = Math.floor(this._ovT * 6);
+        if (sparkN !== this._ovSparkN) { this._ovSparkN = sparkN; this.spawnSparks(osh.position.x, osh.position.y, 6, this.reducedMotion ? 0 : 4); }
+        if (ok2 >= 1) {
+          osh.visible = false;                                    // one fewer ship ahead, permanently
+          osh.scale.x = osh.scale.y = osh.scale.z = 1; osh.position.z = this._ovZ0;
+          this._ovT = 0;
+        }
+      } else this._ovT = 0;
     }
     // planet surface scrolls along travel like the floor (its own rate for the larger tiles)
     var so = -d * 0.14;
@@ -2005,6 +2042,18 @@
     this.renderer.render(this.scene, this.camera);
   };
 
+  // (v0.202.0, V1.1 CC#10) start the overtake sweep for straggler idx (0-4). Reduced motion
+  // skips the theatrics and simply retires the ship.
+  CCView.prototype.overtakeFlyby = function (idx) {
+    if (!this.squadron || !this.squadron.children.length) return;
+    var iOv = Math.max(0, Math.min(this.squadron.children.length - 1, idx | 0));
+    var shOv = this.squadron.children[iOv];
+    if (!shOv || shOv.visible === false) return;
+    if (this.reducedMotion) { shOv.visible = false; return; }
+    if (this._flyT && this._flyIdx === iOv) this._flyT = 0;      // the ambient sweep yields
+    this._ovIdx = iOv; this._ovT = 0.0001; this._ovSparkN = -1;
+    this._ovZ0 = shOv.position.z;
+  };
   CCView.prototype.spawnSparks = function (x, y, z, n) {
     var rng = this.vrng || this.sim.rng;
     for (var i = 0; i < n; i++) {
@@ -2086,6 +2135,7 @@
         sim.coinScore = rz.coinScore | 0; sim._gatesPassed = rz.gatesPassed | 0;
         sim.boostCharge = rz.boostCharge | 0;   // (v0.139.0, CC#1)
         sim._nextMile = (Math.floor(sim.scoreDistance / 25000) + 1) * 25000;   // (v0.144.0, CC#3) derive, don't snapshot
+        sim.overtaken = Math.min(5, Math.floor(Math.max(0, sim.scoreDistance - 3000) / 50000));   // (v0.202.0, CC#10) silent re-derive — no replayed beats
         if (rz.nextTurnScore) sim._nextTurnScore = rz.nextTurnScore;
         sim._nextGateScore = (Math.floor(sim.scoreDistance / (sim.cfg.GATE_KM * 1000)) + 1) * (sim.cfg.GATE_KM * 1000);   // (G4) grid snap
         sim._resumed = true;                                              // (G4) applyUpgrades must NOT re-fill the checkpointed shields
@@ -2140,6 +2190,16 @@
             mileHideAt = sim.scoreDistance + 2600;
             ctx.audio.sfx('lasercharge');
           } catch (eSq) {}
+        }
+        else if (name === 'overtake') {   // (v0.202.0, V1.1 CC#10) the catch-up arc pays on screen
+          try {
+            var remO = 5 - (sim.overtaken | 0);
+            el.mileBanner.textContent = remO > 0 ? '\u2b9e SQUADRON: ' + remO + ' REMAIN' : '\u2b9e THE SQUADRON IS YOURS';
+            el.mileBanner.classList.add('on');
+            mileHideAt = sim.scoreDistance + 2600;
+            ctx.audio.sfx('ccboost');
+            if (view && view.overtakeFlyby) view.overtakeFlyby((sim.overtaken | 0) - 1);
+          } catch (eOv) {}
         }
         else if (name === 'powerup') ctx.audio.sfx('correct');
         else if (name === 'gameover') ctx.audio.sfx('explode');

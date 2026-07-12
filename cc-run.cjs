@@ -536,6 +536,28 @@ function runToQuestion(sim, maxSecs, pinShields) {
      'the +2 respects SHIELDS_MAX — one pip short heals exactly 1');
 })();
 
+/* ============ 4h) CC#10: THE CATCH-UP ARC — overtakes derived from score ============ */
+(function overtakes() {
+  group('CC#10: a straggler falls every 50km (+3km biome offset); jumps coalesce; resume replays nothing');
+  var sim = mkSim(SEED + 60);
+  ok(sim.overtaken === 0, 'a fresh run has passed nobody');
+  sim._nextGateScore = 1e9; sim.shields = CFG.SHIELDS_MAX;
+  sim.scoreDistance = 52900; sim.step(1 / 60);   // the step itself advances ~8m
+  ok(sim.overtaken === 0, '52.9km: the first straggler is still ahead (the 3km biome offset holds)');
+  sim.scoreDistance = 53001; sim.step(1 / 60);
+  ok(sim.overtaken === 1, '53km: OVERTAKEN — one down');
+  var tel = sim.ctx._rec.telemetry.filter(function (e) { return e.t === 'overtake'; });
+  ok(tel.length === 1 && tel[0].remain === 4, 'telemetry: one overtake beat, 4 remain');
+  sim.scoreDistance = 203001; sim.step(1 / 60);
+  var tel2 = sim.ctx._rec.telemetry.filter(function (e) { return e.t === 'overtake'; });
+  ok(sim.overtaken === 4 && tel2.length === 2 && tel2[1].remain === 1,
+     'a boost-sized jump coalesces to ONE beat (1 -> 4, remain 1)');
+  sim.scoreDistance = 999999; sim.step(1 / 60);
+  sim.step(1 / 60);
+  var tel3 = sim.ctx._rec.telemetry.filter(function (e) { return e.t === 'overtake'; });
+  ok(sim.overtaken === 5 && tel3.length === 3, 'the arc caps at 5 — no further beats, ever');
+})();
+
 /* ============ 4g) CC#8: GARAGE 2.0 — deeper tiers, two new fits, the shelf ============ */
 (function garage2() {
   group('CC#8: Garage 2.0 — tier 2s, corner thrusters, focus capacitor, the one-run shelf');

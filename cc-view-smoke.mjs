@@ -341,6 +341,21 @@ if (view) {
     sim.turnPending = null; view.reducedMotion = savedRM;
   }
 
+  // (v0.202.0, V1.1 CC#10) the overtake sweep retires a straggler for good
+  {
+    const kids = view.squadron.children;
+    ok("CC#10: five squadron ships fly ahead before any overtake", kids.length === 5 && kids.every(k => k.visible !== false));
+    view.overtakeFlyby(0);
+    for (let f10 = 0; f10 < 80; f10++) view.render(0.05);
+    ok("CC#10: the overtaken straggler is GONE and stays gone", kids[0].visible === false && kids.slice(1).every(k => k.visible !== false));
+    view.overtakeFlyby(0);
+    ok("CC#10: a dead ship cannot be overtaken twice", !view._ovT);
+    // the ambient flythrough must never adopt a retired ship
+    let adopted = false;
+    for (let f11 = 0; f11 < 800; f11++) { view.render(0.05); if (view._flyT && view._flyIdx === 0) adopted = true; }
+    ok("CC#10: the ambient sweep skips retired ships", !adopted);
+  }
+
   // (v0.194.0, V1.1 CC#9) biome shifts: schedule + crossfade, all mock-safe
   {
     const BI = CC.biomes;

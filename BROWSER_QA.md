@@ -229,6 +229,15 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CC-OVERTAKE — the chase pays (added v0.202.0).** Run CC past 53 km (a boost helps):
+  just after the biome shift settles, one BCM straggler should visibly fall back through the
+  fog — growing, wobbling, trailing sparks — and sweep past you as 'SQUADRON: 4 REMAIN'
+  flashes with the boost sting. Count the ships ahead: one fewer, permanently, and the
+  ambient flybys never use the dead one. By ~253 km the banner reads 'THE SQUADRON IS
+  YOURS'. Reduced motion: the count drops without the theatrics. WRONG: the overtake and
+  the ENTERING-biome banner talking over each other, a retired ship popping back, or the
+  straggler clipping through the player.
+
 - **QA-KBB-HANGAR — death pays forward (added v0.201.0).** Lose a KBB run after earning
   some coins: the log should show 'Salvage recovered' and the Run-over card now carries a
   HANGAR section with your salvage balance and three purchases. Buy the starting artifact
