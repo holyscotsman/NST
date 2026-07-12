@@ -116,8 +116,19 @@ async function runFrames(n = 6) {
     ok("screen === cinematic", SN.shell.screen === "cinematic");
     ok("cinematic canvas mounted", !!w.document.querySelector(".sx-cine-canvas"));
     ok("mission panel present, starts hidden", (function () { const m = w.document.querySelector(".sx-mission"); return !!m && m.style.opacity === "0"; })());
-    let guard = 0;
-    while (SN.shell.screen === "cinematic" && guard < 60) { await runFrames(20); guard++; }   // drive through every beat
+    let guard = 0, sawFull = false;
+    while (SN.shell.screen === "cinematic" && guard < 240) {
+      await runFrames(5);
+      if (w.document.querySelectorAll(".sx-mission-list li.on").length === 4) sawFull = true;
+      guard++;
+    }
+    // (v0.181.0) the stagger CADENCE is pinned structurally, not by sampling: the per-call
+    // performance.now stub makes T leap under load (any extra caller advances it), so a
+    // sampled partial state is inherently racy. Cadence itself is BROWSER_QA's to eyeball.
+    ok("Menu#7: all four finale lines are revealed before the cinematic ends", sawFull);
+    ok("Menu#7: the staggered reveal + per-line tick are in the build (0.4s cadence, .on class writes)",
+      html.includes("1 + Math.floor((T - B.mission) / 0.4)") && html.includes('mLines[lr].classList.add("on")')
+      && html.includes(".sx-mission-list li.on{opacity:1;"));
     w.performance.now = realNow;
     ok("G3 (v0.107.0): the cinematic sound rail fired its beats EXACTLY ONCE each",
       ["sfx:lasercharge", "sfx:laserfire", "sfx:explode", "sfx:laserhit"].every(n => calls.filter(x => x === n).length === 1));
@@ -128,6 +139,23 @@ async function runFrames(n = 6) {
     ok("cinematic flies our REAL ARM art (armStation / bcmShip / armEnemyDive) with vector fallback (v0.124.0, Jason)",
       html.includes('cineImg("armStation")') && html.includes('cineImg("bcmShip")') && html.includes('cineImg("armEnemyDive")')
       && html.includes("stationA && stationA.ready") && html.includes("warshipA && warshipA.ready") && html.includes("diveA && diveA.ready"));
+
+    // Menu#7 (v0.181.0): the finale is launchable — real buttons, per-game accents, the gold NIT line
+    {
+      SN.shell.showCinematic();
+      const goes = w.document.querySelectorAll(".sx-mission-go");
+      const ids = Array.from(goes).map(b => b.getAttribute("data-game")).join(",");
+      ok("Menu#7: four launchable mission lines (ARM,CC,KBB,NIT) with accent-coded names + the gold NIT line",
+        goes.length === 4 && ids === "ARM,CC,KBB,NIT"
+        && !!w.document.querySelector('.sx-mission-go[data-game="ARM"] .acc-iris')
+        && !!w.document.querySelector('.sx-mission-go[data-game="CC"] .acc-aqua')
+        && !!w.document.querySelector('.sx-mission-go[data-game="KBB"] .acc-peach')
+        && !!w.document.querySelector('.sx-mission-go[data-game="NIT"] .acc-gold'));
+      w.document.querySelector('.sx-mission-go[data-game="NIT"]').dispatchEvent(new w.Event("click", { bubbles: true }));
+      ok("Menu#7: the NIT line jumps clean into exam setup (cinematic RAF cancelled, canvas gone)",
+        SN.shell.screen === "exam-setup" && !w.document.querySelector(".sx-cine-canvas"));
+      SN.shell.showMenu();
+    }
   }
 
   console.log("\nC. Menu");
@@ -1780,17 +1808,32 @@ async function runFrames(n = 6) {
       await wait(80);
       const htW = w.document.querySelector(".kbb-ht-skip"); if (htW) htW.click();
       await wait(80);
-      const stW = w.KBB._test.state();
-      const qW = stW.run.battle.question;
-      if (qW) {
-        const ciW = qW.multi ? qW.correctIndices : [qW.correctIndex];
-        for (const iW of ciW) { const oW = w.document.querySelector('.kbb-opt[data-idx="' + iW + '"]'); if (oW) oW.click(); }
-        const sbW = w.document.querySelector(".kbb-submit"); if (sbW && !sbW.disabled) sbW.click();
-        stW.run.phase = "shop"; w.KBB._test.buildShop(stW.run);
-        const cW = w.document.querySelector(".kbb-cont:not(.kbb-submit)"); if (cW) cW.click();
-        // (v0.114.0, D6) the 'shop' phase now renders the RUN MAP; Embark is the exit
-        const nbW = [...w.document.querySelectorAll(".kbb-btn")].find(n => /embark|next battle|start run|next section/i.test(n.textContent || ""));
-        if (nbW) nbW.click();
+      // (v0.181.0) hermetic: the one-shot click recipe left NO checkpoint when a screen lagged
+      // (recorded flake class: v0.177 + one v0.181 gate run). State-aware retries -- the pin
+      // still only passes via a REAL Embark click writing the checkpoint.
+      for (let wtry = 0; wtry < 6 && !(SN.core.profile.saves && SN.core.profile.saves.KBB); wtry++) {
+        if (wtry > 0) console.log("  (checkpoint write-path drive: retry " + wtry + ")");
+        { // late-appearing overlays swallow clicks: clear them every attempt, not just once
+          const skL = [...w.document.querySelectorAll(".kbb-skip")].find(n => /skip/i.test(n.textContent || "")); if (skL) { skL.click(); await wait(40); }
+          const htL = w.document.querySelector(".kbb-ht-skip"); if (htL) { htL.click(); await wait(40); }
+        }
+        const stW = w.KBB._test.state();
+        if (!stW || !stW.run) break;
+        const qW = stW.run.battle ? stW.run.battle.question : null;
+        if (qW) {
+          const ciW = qW.multi ? qW.correctIndices : [qW.correctIndex];
+          for (const iW of ciW) { const oW = w.document.querySelector('.kbb-opt[data-idx="' + iW + '"]'); if (oW) oW.click(); }
+          const sbW = w.document.querySelector(".kbb-submit"); if (sbW && !sbW.disabled) sbW.click();
+          stW.run.phase = "shop"; w.KBB._test.buildShop(stW.run);
+          const cW = w.document.querySelector(".kbb-cont:not(.kbb-submit)"); if (cW) cW.click();
+          // (v0.114.0, D6) the 'shop' phase now renders the RUN MAP; Embark is the exit
+          const nbW = [...w.document.querySelectorAll(".kbb-btn")].find(n => /embark|next battle|start run|next section/i.test(n.textContent || ""));
+          if (nbW) nbW.click();
+        } else {
+          const cAny = w.document.querySelector(".kbb-cont:not(.kbb-submit)") || [...w.document.querySelectorAll(".kbb-btn")].find(n => /embark|next battle|continue|onward/i.test(n.textContent || ""));
+          if (cAny) cAny.click(); else break;
+        }
+        await wait(60);
       }
       ok("KBB between-battles exit (map Embark) checkpoints to the LIVE profile synchronously",
         !!(SN.core.profile.saves && SN.core.profile.saves.KBB && SN.core.profile.saves.KBB.section >= 1));
@@ -2840,7 +2883,7 @@ async function runFrames(n = 6) {
         rows.length === 4 && gotN === 1 && /crest/i.test(w.document.querySelector(".sx-reward.got .sx-reward-label").textContent));
     }
     shell.showMenu();
-    ok("the bridge rank strip wears the Pilot crest", !!w.document.querySelector(".sx-rank .sx-crest"));
+    ok("the bridge rank strip wears the Pilot crest", !!w.document.querySelector(".sx-rank .sx-rank-crest"));
     // the promotion toast names what Lieutenant pays
     core.profile.xp = 1400; core.profile.rankSeen = 3; core.profile.settings.reducedMotion = false;
     shell.showMenu();

@@ -227,11 +227,24 @@
       '<div class="sx-mission-eyebrow">Nutanix Starlight Rescue Crew \u00B7 NX-SRC</div>' +
       '<h2 class="sx-mission-title">Your mission</h2>' +
       '<ul class="sx-mission-list">' +
-        '<li><b>Rebuild</b> the MCI Station <span>\u2014 Acropolis Rescue</span></li>' +
-        '<li><b>Capture</b> the escaped squadron <span>\u2014 Chasm Chase</span></li>' +
-        '<li><b>Defeat</b> the BCM warship in the Kuiper Belt <span>\u2014 Kuiper Belt Battle</span></li>' +
+        '<li><button type="button" class="sx-mission-go" data-game="ARM"><b>Rebuild</b> the MCI Station <span class="acc-iris">\u2014 Acropolis Rescue</span></button></li>' +
+        '<li><button type="button" class="sx-mission-go" data-game="CC"><b>Capture</b> the escaped squadron <span class="acc-aqua">\u2014 Chasm Chase</span></button></li>' +
+        '<li><button type="button" class="sx-mission-go" data-game="KBB"><b>Defeat</b> the BCM warship in the Kuiper Belt <span class="acc-peach">\u2014 Kuiper Belt Battle</span></button></li>' +
+        '<li><button type="button" class="sx-mission-go" data-game="NIT"><b>Certify</b> when you are ready <span class="acc-gold">\u2014 Nutanix Interrogation Test</span></button></li>' +
       '</ul>';
     mission.style.opacity = "0";
+    var mLines = mission.querySelectorAll(".sx-mission-list li"), lastLineN = 0;   // (v0.181.0, V1.1 Menu#7)
+    // (Menu#7) the finale IS the first mission select — each revealed line launches directly;
+    // _clearScreen cancels the cinematic RAF, so the jump is clean.
+    this._on(mission, "click", function (eM) {
+      var go = eM.target;
+      while (go && go !== mission && !(go.getAttribute && go.getAttribute("data-game"))) go = go.parentNode;
+      if (!go || go === mission) return;
+      var gid = go.getAttribute("data-game");
+      try { StarNix.core.audio.sfx("click"); } catch (eS) {}
+      if (gid === "NIT") { try { StarNix.core.audio.playTrack("menu"); } catch (eN) {} self.showExamSetup(); }
+      else self.enterGame(gid);
+    });
     wrap.appendChild(canvas); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip);
     this.stage.appendChild(wrap);
 
@@ -527,7 +540,16 @@
         ctx.fillRect(0, 0, W, H * 0.06); ctx.fillRect(0, H * 0.94, W, H * 0.06);
       }
 
-      if (T >= B.mission) { var mo = String(clamp((T - B.mission) / 0.8, 0, 1)); if (mo !== lastMo) { lastMo = mo; mission.style.opacity = mo; } }
+      if (T >= B.mission) {
+        var mo = String(clamp((T - B.mission) / 0.8, 0, 1)); if (mo !== lastMo) { lastMo = mo; mission.style.opacity = mo; }
+        // (v0.181.0, V1.1 Menu#7) accent-coded staggered reveal, one soft tick per landing line
+        var ln = reduced ? mLines.length : Math.min(mLines.length, 1 + Math.floor((T - B.mission) / 0.4));
+        if (ln !== lastLineN) {
+          for (var lr = lastLineN; lr < ln; lr++) mLines[lr].classList.add("on");
+          if (!reduced) { try { StarNix.core.audio.sfx("click"); } catch (eTk) {} }
+          lastLineN = ln;
+        }
+      }
       var capNow = caption(T); if (capNow !== lastCap) { lastCap = capNow; cap.textContent = capNow; }   // (v0.108.0, G4) no per-frame DOM writes
       if (T >= B.end) { self._endCinematic(); return; }
       self._raf = global.requestAnimationFrame(frame);
@@ -746,7 +768,7 @@
     var line = el("span", "sx-rank-xp", xp.toLocaleString() + " XP · " + toNext);
     host.appendChild(name);
     try {   // (v0.179.0, V1.1 Flow#7) the Pilot reward: a bridge crest beside the rank name
-      if (X.perks && X.perks(xp).crest) { var crest = el("span", "sx-crest", "\u2b21"); crest.title = "Bridge crest \u2014 Pilot rank reward"; host.appendChild(crest); }
+      if (X.perks && X.perks(xp).crest) { var crest = el("span", "sx-rank-crest", "\u2b21"); crest.title = "Bridge crest \u2014 Pilot rank reward"; host.appendChild(crest); }
     } catch (eCr) {}
     host.appendChild(bar); host.appendChild(line);
     if (streakN >= 2) host.appendChild(el("span", "sx-streak-chip", "\ud83d\udd25 " + streakN + "-day streak"));   // (v0.153.0, Flow#4)
@@ -1859,11 +1881,19 @@
       ".sx-sub{color:var(--mid);letter-spacing:.18em;text-transform:uppercase;font-size:12px;}",
       ".sx-wordmark{color:var(--mid);letter-spacing:.34em;text-transform:lowercase;font-weight:700;font-size:13px;opacity:.8;}",
       ".sx-wordmark-img{height:26px;width:auto;display:block;opacity:.94;filter:drop-shadow(0 0 14px rgba(120,85,250,.35));}",
-      ".sx-mission{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,88%);background:rgba(13,13,24,.82);border:1px solid var(--border);border-radius:18px;padding:22px 26px;text-align:left;box-shadow:0 0 50px rgba(120,85,250,.25);transition:opacity .5s ease;pointer-events:none;}",
+      ".sx-mission{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,88%);background:rgba(13,13,24,.82);border:1px solid var(--border);border-radius:18px;padding:22px 26px;text-align:left;box-shadow:0 0 50px rgba(120,85,250,.25);transition:opacity .5s ease;pointer-events:auto;}",
       ".sx-mission-eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--aqua);margin-bottom:6px;}",
       ".sx-mission-title{font-size:23px;font-weight:800;margin:0 0 14px;color:var(--text);}",
       ".sx-mission-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px;}",
-      ".sx-mission-list li{font-size:15px;color:#d6d6e6;padding-left:24px;position:relative;line-height:1.4;}",
+      ".sx-mission-list li{font-size:15px;color:#d6d6e6;padding-left:24px;position:relative;line-height:1.4;opacity:0;transform:translateY(6px);transition:opacity .3s ease,transform .3s ease;}",
+      ".sx-mission-list li.on{opacity:1;transform:none;}",
+      "[data-motion=\"reduced\"] .sx-mission-list li{transition:none;transform:none;}",
+      ".sx-mission-go{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;}",
+      ".sx-mission-go:hover span,.sx-mission-go:focus-visible span{color:var(--text);}",
+      ".sx-mission-list .acc-iris{color:#AC9BFD;}",
+      ".sx-mission-list .acc-aqua{color:#1FDDE9;}",
+      ".sx-mission-list .acc-peach{color:#FF6B5B;}",
+      ".sx-mission-list .acc-gold{color:#FFC857;}",
       ".sx-mission-list li::before{content:'\\25B8';position:absolute;left:3px;color:var(--mantis);}",
       ".sx-mission-list b{color:var(--text);}",
       ".sx-mission-list span{color:var(--mid);font-size:13px;}",
@@ -1993,7 +2023,7 @@
       ".sx-diag-ev{color:var(--mid);font-size:10.5px;}",
       ".sx-diag-empty{color:var(--dim);}",
       ".sx-streak-chip{font-size:12px;font-weight:700;color:#FF9857;background:rgba(255,152,87,.12);border:1px solid rgba(255,152,87,.45);border-radius:999px;padding:2px 10px;}",
-      ".sx-crest{font-size:13px;color:var(--gold);border:1px solid rgba(255,200,87,.5);border-radius:6px;padding:0 6px;line-height:18px;}",
+      ".sx-rank-crest{font-size:13px;color:var(--gold);border:1px solid rgba(255,200,87,.5);border-radius:6px;padding:0 6px;line-height:18px;}",
       ".sx-reward{display:flex;gap:10px;align-items:baseline;border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:4px 0;opacity:.5;}",
       ".sx-reward.got{opacity:1;border-color:rgba(255,200,87,.5);}",
       ".sx-reward-rank{color:var(--gold);font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}",

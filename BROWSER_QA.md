@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CINE-FINALE — the finale is a mission select (added v0.181.0).** Watch the intro
+  cinematic to the end (or replay it): the four mission lines must land one at a time,
+  ~0.4s apart, each with a soft tick — game names tinted iris (Acropolis), aqua (Chasm),
+  peach (Kuiper), gold (NIT). Hover a line: it should read as a button; clicking 'Certify
+  when you are ready' must jump straight into exam setup, clicking a game line straight
+  into that game. Reduced motion: all four appear together, silent. WRONG: flat grey names,
+  all lines popping at once with motion ON, ticks under reduced motion, or a dead line.
+
 - **QA-ARM-TYPING — the CRT type-out (added v0.180.0).** Start an ARM briefing: Vega's words
   must TYPE onto the console (~34ms/char, blinking block caret) with the option buttons dimmed
   until the line completes. Click anywhere in the bezel — the full message must snap in and the
