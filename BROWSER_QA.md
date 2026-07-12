@@ -229,6 +229,14 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-KBB-RESONANCE — themed pairs glow (added v0.184.0).** In a KBB run, buy two artifacts
+  of the same category (matching border colors — e.g., two peach damage cards): both cards in
+  the fan must visibly glow their category color and wear a small RESONANCE chip; the tooltip
+  names the live pair bonus. Damage pairs should hit noticeably (+2), defense pairs open
+  battles with extra shield. Sell one of the pair: the glow and chip must drop immediately.
+  WRONG: a chip on a lone card, a glow that survives selling the partner, or chips so small
+  they collide with the card name.
+
 - **QA-PACE-FEED — the slow-card signal (added v0.183.0).** Answer a handful of questions
   SLOWLY (use most of the timer) but correctly, across a few sessions, then open the Codex:
   the readiness box should grow an orange line ('N mastered cards still run slow'), slow rows

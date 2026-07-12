@@ -857,6 +857,65 @@ function newWindow() {
   }
 })();
 
+/* ============ KBB#8 (v0.184.0): category resonance — themed pairs pay ============ */
+(function resonance() {
+  group('KBB#8: a 2+ category pair pays its passive bonus (single-pass, same-seed deltas)');
+  var V = newWindow(), K = V.KBB;
+  function fresh(ids) {
+    var r = K.createRun(H.makeCtx(K, { seed: SEED + 93 }), { seed: SEED + 93 });
+    (ids || []).forEach(function (id) { K.equipArtifact(r, id); });   // no fireAcquire: onAcquire hooks stay silent
+    return r;
+  }
+  var right = function (q) { return q.multi ? q.correctIndices.slice() : q.correctIndex; };
+  ok(!K.resonant(fresh(['shard-burst']), 'damage') && K.resonant(fresh(['shard-burst', 'quickdraw-cache']), 'damage'),
+     'resonant(): one of a category is silent, a pair is live');
+  // DAMAGE +2: shard-burst (streak>=2) and quickdraw (full HP) hooks are both silent on a
+  // damaged squad answering its FIRST question — the same-seed delta is pure resonance.
+  {
+    var r0 = fresh([]), r2 = fresh(['shard-burst', 'quickdraw-cache']);
+    r0.squad.shield = 0; r2.squad.shield = 0;   // strip the opening brace so the hit reaches hull (quickdraw stays silent)
+    K._test.applyIncoming(r0, 5); K._test.applyIncoming(r2, 5);
+    var d0 = K.submitAnswer(r0, right(K.drawQuestion(r0).question), 800, 'attack').damage;
+    var d2 = K.submitAnswer(r2, right(K.drawQuestion(r2).question), 800, 'attack').damage;
+    ok(d2 === d0 + 2, 'damage pair: +2 flat exactly (' + d0 + ' -> ' + d2 + ')');
+  }
+  // DEFENSE +3: reactive-ward + shield-overflow have NO battle-start hooks — the next
+  // battle opens at exactly startShield + 3.
+  {
+    // same-seed delta: every battle opens with the +block brace, so measure pair vs no-pair
+    function openShield(ids) {
+      var r = fresh(ids), guard = 0;
+      while (!r.battle.over && guard++ < 40) K.submitAnswer(r, right(K.drawQuestion(r).question), 700, 'attack');
+      if (r.phase !== 'shop') return NaN;
+      K.leaveShop(r);
+      return r.squad.shield;
+    }
+    var s0 = openShield([]), s2 = openShield(['reactive-ward', 'shield-overflow']);
+    ok(!isNaN(s0) && s2 === s0 + 3, 'defense pair: the next battle opens +3 over the same-seed no-pair run (' + s0 + ' -> ' + s2 + ')');
+  }
+  // ECONOMY +1: compression (no hooks) + interest-ledger (shop-enter only) — the win
+  // pipeline delta vs the artifact-less same-seed run is exactly +1.
+  {
+    var e0 = fresh([]), e2 = fresh(['compression', 'interest-ledger']);
+    function winCoins(r) {
+      var g2 = 0, res2 = null;
+      while (!r.battle.over && g2++ < 40) res2 = K.submitAnswer(r, right(K.drawQuestion(r).question), 700, 'attack');
+      return res2 && res2.coinsGained;
+    }
+    var c0 = winCoins(e0), c2 = winCoins(e2);
+    ok(typeof c0 === 'number' && c2 === c0 + 1, 'economy pair: +1 coin on the win (' + c0 + ' -> ' + c2 + ')');
+  }
+  // SUSTAIN +1: measured inside the repair bracket (res.healed), onAcquire unfired.
+  {
+    var rS = fresh(['nanobot-swarm', 'triage-protocol']);
+    rS.squad.shield = 0;                        // strip the opening brace: the 10 must reach hull for heal headroom
+    K._test.applyIncoming(rS, 10);
+    var rr = K.submitAnswer(rS, right(K.drawQuestion(rS).question), 700, 'repair');
+    ok(rr.correct === true && rr.healed === rS.squad.healPower + 1,
+       'sustain pair: repair heals healPower+1 (' + rr.healed + ')');
+  }
+})();
+
 /* ============ Backend#7 (v0.183.0): the KBB answer carries its latency ============ */
 (function answerLatency() {
   group('Backend#7: submitAnswer passes answerMs as latencyMs into mastery.record');

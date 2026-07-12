@@ -67,6 +67,16 @@
   // d.flat (additive base), d.mult (additive to 1-based mult), d.post (xfinal).
   // final = round(flat*mult*post) clamped finite>=0. Q5-gated tagged q5:true. ----
   function healAmt(run, base) { return Math.max(0, Math.round(base + (run.squad.healPower - CONFIG.squad.healPower))); }
+  // (v0.184.0, V1.1 KBB#8) category resonance: 2+ artifacts of ONE category pay a small
+  // passive bonus, computed in single passes at four consumption points — never via
+  // per-artifact hooks, so the Scrambler's hook jam cannot touch it.
+  function resonanceCount(run, cat) {
+    var arts = run && run.squad && run.squad.artifacts, n = 0;
+    if (!arts) return 0;
+    for (var i = 0; i < arts.length; i++) if (arts[i].def && arts[i].def.category === cat) n++;
+    return n;
+  }
+  function resonant(run, cat) { return resonanceCount(run, cat) >= 2; }
 
   var ARTIFACTS = [
     /* DAMAGE */
@@ -441,6 +451,7 @@
   }
   function computeDamage(run, answerMs) {
     var d = { flat: run.squad.basePower, mult: 1, post: 1 };
+    if (resonant(run, 'damage')) d.flat += 2;   // (v0.184.0, KBB#8) damage resonance
     var arts = run.squad.artifacts;
     var jammed = !!(run.battle && run.battle.enemy && run.battle.enemy.jamOn);   // (v0.162.0, KBB#5) the Scrambler suppresses artifact damage hooks this turn
     for (var i = 0; i < arts.length; i++) {
@@ -501,7 +512,7 @@
     };
     run.phase = 'battle';
     run.misses = [];   // (v0.140.0, V1.1 KBB#2) each battle collects its own debrief
-    run.squad.shield = run.squad.startShield || 0;   // (v0.99.0, K10) fittings can raise the floor; no carry-over otherwise
+    run.squad.shield = (run.squad.startShield || 0) + (resonant(run, 'defense') ? 3 : 0);   // (v0.99.0, K10) fittings raise the floor; (v0.184.0, KBB#8) defense resonance +3
     fireSide(run, 'onBattleStart', {});
     run._api.addShield(run.squad.block);
   }
@@ -526,7 +537,7 @@
   function enemyDown(e) { return e.hp <= 0 && !(e.escortHp > 0); }   // (v0.162.0, KBB#5) a splitter's escort must ALSO die
   function winBattle(run, res) {
     var b = run.battle; b.over = true; res.win = true;
-    var coins = b.enemy.rewardCoins, arts = run.squad.artifacts;
+    var coins = b.enemy.rewardCoins + (resonant(run, 'economy') ? 1 : 0), arts = run.squad.artifacts;   // (v0.184.0, KBB#8) economy resonance
     for (var i = 0; i < arts.length; i++) {
       var h = arts[i].def.hooks.modifyCoinGain;
       if (h) { var r = h(makeArtCtx(run, arts[i]), coins); if (typeof r === 'number' && isFinite(r)) coins = Math.max(0, r); }
@@ -603,7 +614,7 @@
         run.log.push('Brace: +' + res.shieldGained + ' shield');
       } else {                                                    // repair
         var hpBefore = run.squad.hp; b.lastDamage = 0;
-        run._api.heal(run.squad.healPower);
+        run._api.heal(run.squad.healPower + (resonant(run, 'sustain') ? 1 : 0));   // (v0.184.0, KBB#8) sustain resonance
         res.healed = run.squad.hp - hpBefore;
         run.log.push('Repair: +' + res.healed + ' HP');
       }
@@ -933,6 +944,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     sellArtifact: sellArtifact, isSellable: isSellable, sellRefund: sellRefund,
     useConsumable: useConsumable, leaveShop: leaveShop, claimVictory: claimVictory,
     equipArtifact: equipArtifact, hasArtifact: hasArtifact,
+    resonant: resonant, resonanceCount: resonanceCount,   // (v0.184.0, KBB#8)
     currentIntent: currentIntent, makeEnemy: makeEnemy,
     scoreOf: scoreOf, depthLabel: depthLabel,
     // Test seam (harmless in prod): lets harnesses fire individual hooks and
@@ -1007,6 +1019,8 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     // (v0.127.0, Jason) the hand's fanned cards = the ARTIFACT collection
     css.push('.kbb-acard{position:relative;width:118px;height:150px;flex:none;background:linear-gradient(#191926,#101018);border:1.5px solid ' + P.border + ';border-radius:12px;padding:10px 9px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;transform-origin:50% 100%;transition:transform .14s;}');
     css.push('.kbb-acard.a0{transform:rotate(-8deg) translateY(9px);}.kbb-acard.a1{transform:rotate(-4deg) translateY(3px);}.kbb-acard.a3{transform:rotate(4deg) translateY(3px);}.kbb-acard.a4{transform:rotate(8deg) translateY(9px);}');
+    css.push('.kbb-acard.res{border-width:2.5px;}');   /* (v0.184.0, KBB#8) */
+    css.push('.kbb-res-chip{position:absolute;top:3px;right:5px;font-size:7.5px;font-weight:800;letter-spacing:.09em;border:1px solid;border-radius:4px;padding:0 3px;background:rgba(0,0,0,.4);}');
     css.push('.kbb-root:not(.kbb-reduced) .kbb-acard:hover{transform:translateY(-10px);z-index:2;}');
     css.push('.kbb-root:not(.kbb-reduced) .kbb-acard.a0:hover{transform:rotate(-8deg) translateY(-8px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a1:hover{transform:rotate(-4deg) translateY(-9px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a3:hover{transform:rotate(4deg) translateY(-9px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a4:hover{transform:rotate(8deg) translateY(-8px);}');
     css.push('.kbb-reduced .kbb-acard{transition:none;}');
@@ -2231,10 +2245,13 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
           var card = s.doc.createElement('div');
           if (a) {
             var cc2 = CAT_COLOR[a.def.category] || PALETTE.iris;
-            card.className = 'kbb-acard a' + i;
+            var isRes = resonant(s.run, a.def.category);   // (v0.184.0, KBB#8) a live pair glows
+            card.className = 'kbb-acard a' + i + (isRes ? ' res' : '');
             card.style.borderColor = cc2;
-            card.title = a.def.name + ' \u2014 ' + a.def.description;
+            if (isRes) card.style.boxShadow = '0 0 12px ' + cc2;
+            card.title = a.def.name + ' \u2014 ' + a.def.description + (isRes ? ' \u00b7 RESONANCE: pair bonus live' : '');
             card.innerHTML = '<span class="an">' + a.def.name + '</span>' +
+              (isRes ? '<span class="kbb-res-chip" style="color:' + cc2 + ';border-color:' + cc2 + '">RESONANCE</span>' : '') +
               '<span class="ai" style="color:' + cc2 + ';background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px ' + cc2 + '">\u27F3</span>' +
               '<span class="ad">' + a.def.description + '</span>' +
               '<span class="af kbb-rar-' + a.def.rarity + '">ARTIFACT \u00b7 ' + a.def.rarity.toUpperCase() + '</span>';
