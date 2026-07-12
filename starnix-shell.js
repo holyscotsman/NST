@@ -296,7 +296,7 @@
     var CORE_N = 12, cores = new Array(CORE_N);
     for (var c2 = 0; c2 < CORE_N; c2++) { var cca = (c2 / CORE_N) * Math.PI * 2 + rng.next() * 0.4, ccs = 70 + rng.next() * 150; cores[c2] = { vx: Math.cos(cca) * ccs, vy: Math.sin(cca) * ccs, rot: rng.next() * 6.28, spin: (rng.next() - 0.5) * 4, col: (c2 % 2 ? "#1FDDE9" : "#FFC857") }; }
     var ROCK_N = 16, rocks = new Array(ROCK_N);
-    for (var r2 = 0; r2 < ROCK_N; r2++) rocks[r2] = { x: rng.next(), y: 0.16 + rng.next() * 0.66, z: 0.4 + rng.next() * 1.2, rot: rng.next() * 6.28, spin: (rng.next() - 0.5) * 1.5, sz: 6 + rng.next() * 15, sides: 5 + (rng.next() * 3 | 0) };
+    for (var r2 = 0; r2 < ROCK_N; r2++) rocks[r2] = { x: rng.next(), y: 0.16 + rng.next() * 0.66, z: 0.4 + rng.next() * 1.2, rot: rng.next() * 6.28, spin: (rng.next() - 0.5) * 1.5, sz: 6 + rng.next() * 15, sides: 5 + (rng.next() * 3 | 0), spr: (rng.next() * 5 | 0) };   // (v0.193.0, Menu#9) each rock picks its KBB sprite
     var SQ_N = 5, squad = new Array(SQ_N);
     for (var q2 = 0; q2 < SQ_N; q2++) squad[q2] = { dx: (q2 - (SQ_N - 1) / 2) * 26, ph: rng.next() * 6.28 };
 
@@ -310,6 +310,9 @@
       try { var s = (global.STARNIX_ASSETS && global.STARNIX_ASSETS[key]) || ""; if (!s) return null; var im = new Image(); var o = { img: im, ready: false }; im.onload = function () { o.ready = true; }; im.src = s; return o; } catch (e) { return null; }
     }
     var stationA = cineImg("armStation"), warshipA = cineImg("bcmShip"), diveA = cineImg("armEnemyDive");
+    // (v0.193.0, V1.1 Menu#9) the belt beat flies the REAL KBB asteroids — the cinematic
+    // foreshadows the game it hands you; flat polys stay as the asset-not-ready fallback.
+    var asteroidA = [cineImg("kbbAsteroid1"), cineImg("kbbAsteroid2"), cineImg("kbbAsteroid3"), cineImg("kbbAsteroid4"), cineImg("kbbAsteroid5")];
 
     // -------- beat timeline (seconds): station | beam | shatter | belt | planet | mission --------
     var B = reduced
@@ -449,7 +452,11 @@
         ctx.globalAlpha = 1; ctx.shadowBlur = 0;
       } else {
         var bk = k - warpDur;
-        for (var rr = 0; rr < ROCK_N; rr++) { var o = rocks[rr]; var px = ((o.x - bk * 0.05 * o.z) % 1 + 1) % 1; var x = px * W, y = o.y * H, sz = o.sz * scale * o.z * 0.6; ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot + o.spin * bk); ctx.globalAlpha = clamp(bk * 1.6, 0, 0.92); if (!reduced) { ctx.shadowColor = "#3a3a5a"; ctx.shadowBlur = 6; } regPoly(0, 0, sz, o.sides, 0); ctx.fillStyle = "#2b2b3e"; ctx.fill(); ctx.strokeStyle = "#5a5a78"; ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); }
+        for (var rr = 0; rr < ROCK_N; rr++) { var o = rocks[rr]; var px = ((o.x - bk * 0.05 * o.z) % 1 + 1) % 1; var x = px * W, y = o.y * H, sz = o.sz * scale * o.z * 0.6; ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot + o.spin * bk); ctx.globalAlpha = clamp(bk * 1.6, 0, 0.92); if (!reduced) { ctx.shadowColor = "#3a3a5a"; ctx.shadowBlur = 6; }
+          var aA = asteroidA[o.spr];   // (v0.193.0, Menu#9) real KBB rock art, poly fallback
+          if (aA && aA.ready) { var asz = sz * 2.3, ash = asz * (aA.img.naturalHeight / aA.img.naturalWidth || 1); ctx.drawImage(aA.img, -asz / 2, -ash / 2, asz, ash); }
+          else { regPoly(0, 0, sz, o.sides, 0); ctx.fillStyle = "#2b2b3e"; ctx.fill(); ctx.strokeStyle = "#5a5a78"; ctx.lineWidth = 1; ctx.stroke(); }
+          ctx.restore(); }
         ctx.globalAlpha = 1; ctx.shadowBlur = 0;
         var ek = clamp(bk / 1.4, 0, 1), wsc = scale * (1.1 - ek * 0.92);
         if (wsc > 0.05) {

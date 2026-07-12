@@ -229,6 +229,13 @@ help for C1/C2/C6. For audio, game + genre + a few words is enough to find the s
   SHIP DOWN. Let the question TIMER expire with ≤2 shields: feedback still appears (no stuck overlay),
   See results → SHIP DOWN. WRONG: any death that freezes the world with no overlay.
 
+- **QA-CINE-BELT — real rocks in the belt beat (added v0.193.0).** Replay the intro to the
+  'BCM warship jumped to the Kuiper Belt' beat: the drifting rocks must be the SAME craggy
+  asteroid art KBB battles fly through — five distinct silhouettes, rotating, with depth
+  parallax — not flat grey hexagons. They should read instantly as 'that's where I'm going
+  next'. WRONG: grey polygons (assets failed to load), all rocks sharing one silhouette, or
+  asteroids popping in unscaled/blurry.
+
 - **QA-KBB-SURGE — two actions on one answer (added v0.192.0).** In a KBB battle, get three
   correct in a row: the log announces the charge, and your NEXT correct answer opens a gold
   'SURGE — one more action' panel under the explanation with Attack/Brace/Repair buttons; the
