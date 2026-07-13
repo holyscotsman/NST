@@ -198,6 +198,9 @@
       self.showCinematic();
     });
     row.appendChild(start);
+    var menu = el("button", "sx-btn sx-btn-ghost", "← Main menu");
+    this._on(menu, "click", function () { window.location.href = "../"; });
+    row.appendChild(menu);
     this.stage.appendChild(s);
   };
 
