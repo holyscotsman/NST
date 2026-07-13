@@ -1,0 +1,6 @@
+node_modules/
+.DS_Store
+*.log
+
+# graphics-overhaul screenshots — regenerate with tests/shots-gfx.mjs; not committed (binary bloat)
+shots/

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Who Wants to be a Nutanix Engineer?</title>
+<meta name="description" content="A game-show quiz to learn and drill the Nutanix NCP-MCI exam. Answer 30 in a row to win." />
+<meta name="theme-color" content="#04040a" />
+<meta name="color-scheme" content="dark" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
+<!-- Self-hosted font — no external requests, works offline (see vendor/fonts). -->
+<link rel="stylesheet" href="./vendor/fonts/montserrat.css" />
+<link rel="stylesheet" href="./styles/main.css" />
+
+<!-- Three.js is vendored into the repo and served locally — never from a CDN. -->
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+  <div id="studio-root" aria-hidden="true"></div>
+  <div id="backdrop-fallback" aria-hidden="true"></div>
+
+  <main id="ui-root">
+    <div id="screen" role="main"></div>
+  </main>
+
+  <div id="announce" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+
+  <noscript>
+    <div class="boot-error">This game needs JavaScript enabled to play.</div>
+  </noscript>
+  <div id="boot-error" class="boot-error hidden"></div>
+
+  <script type="module">
+    import { Game } from './src/shell/main.js';
+    const roots = {
+      studio: document.getElementById('studio-root'),
+      fallback: document.getElementById('backdrop-fallback'),
+      screen: document.getElementById('screen'),
+      announce: document.getElementById('announce'),
+    };
+    const game = new Game(roots);
+    game.boot().catch((e) => {
+      console.error(e);
+      const be = document.getElementById('boot-error');
+      be.classList.remove('hidden');
+      be.textContent = 'Something went wrong starting the game: ' + (e && e.message ? e.message : e);
+    });
+  </script>
+</body>
+</html>
