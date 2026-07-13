@@ -1,0 +1,427 @@
+/* Nutanix Study Tool — launcher / home page
+ * Recreated from the design handoff (NST-DESIGN-BRIEF.md + the .dc.html prototype):
+ * the "Immersive" direction — 1C desktop, 2A tablet, 2B mobile.
+ * Dark-only, purple signature (replacing the Nutanix lime-green accent per the client).
+ * Colorblind-safe (states pair color with icon/text), visible focus rings, reduced-motion aware. */
+
+:root {
+  /* Surfaces */
+  --bg: #08060F;
+  --glass-card: rgba(20, 18, 33, 0.62);
+  --glass-card-mobile: rgba(20, 18, 33, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --raised: #1C1830;
+  --border: #2A2440;
+
+  /* Text */
+  --text: #ECEAF6;
+  --heading: #F5F3FC;
+  --muted: #B4AECB;
+  --muted-2: #A49FBC;
+  --faint: #8F86B8;
+  --fainter: #6E6890;
+
+  /* Purple — primary/interactive */
+  --purple: #7C4DFF;
+  --purple-light: #A98BFF;
+  --purple-hover: #C4B0FF;
+
+  /* Type */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-ui: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* ---------------------------------------------------------------- background */
+.nst-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.nst-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+}
+.nst-glow--purple {
+  top: -130px; left: -90px; width: 560px; height: 560px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.40), transparent 62%);
+}
+.nst-glow--blue {
+  bottom: -170px; right: -70px; width: 620px; height: 620px;
+  background: radial-gradient(circle, rgba(34, 140, 240, 0.26), transparent 62%);
+}
+.nst-glow--magenta {
+  top: 90px; right: 240px; width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(214, 79, 166, 0.20), transparent 65%);
+}
+.nst-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ---------------------------------------------------------------- app shell */
+.nst-app {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ---------------------------------------------------------------- top nav */
+.nst-nav {
+  height: 74px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 56px;
+}
+.nst-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  border-radius: 12px;
+}
+.nst-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(145deg, #8B5CF6, #4E2CC0);
+  box-shadow: 0 6px 18px rgba(124, 77, 255, 0.4);
+}
+.nst-wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.nst-nav-utils {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.nst-help {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted-2);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color 0.16s var(--ease), border-color 0.16s var(--ease);
+}
+.nst-help:hover { color: var(--purple-hover); border-color: rgba(169, 139, 255, 0.55); }
+.nst-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(28, 24, 48, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--purple-light);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- main */
+.nst-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 56px 56px;
+}
+
+/* ---------------------------------------------------------------- hero */
+.nst-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+  max-width: 720px;
+}
+.nst-eyebrow {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--purple-light);
+}
+.nst-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 54px;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: var(--heading);
+}
+.nst-sub {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------- cards */
+.nst-cards {
+  margin-top: 52px;
+  display: flex;
+  gap: 24px;
+  width: 100%;
+  max-width: 1180px;
+}
+.nst-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  border-radius: 20px;
+  background: var(--glass-card);
+  border: 1px solid var(--glass-border);
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.18s var(--ease), border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+}
+.nst-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(169, 139, 255, 0.55);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.55);
+}
+.nst-card:focus-visible {
+  outline: 2px solid var(--purple-light);
+  outline-offset: 3px;
+}
+
+.nst-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nst-card-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+.nst-card-tag {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #C9C2E6;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 5px 11px;
+  border-radius: 10px;
+}
+.nst-card-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 23px;
+  line-height: 1.2;
+  color: var(--heading);
+  margin-top: 24px;
+}
+.nst-card-desc {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin-top: 12px;
+  flex: 1;
+}
+.nst-desc-short { display: none; }
+
+.nst-card-cta {
+  margin-top: 26px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}
+.nst-cta-arrow { transition: transform 0.18s var(--ease); }
+.nst-card:hover .nst-cta-arrow { transform: translateX(3px); }
+
+/* Per-tool identity: icon-tile gradient + glow, CTA gradient + glow */
+.nst-card--game .nst-card-icon { background: linear-gradient(135deg, #8B5CF6, #D64FA6); box-shadow: 0 12px 30px rgba(139, 92, 246, 0.45); }
+.nst-card--game .nst-card-cta  { background: linear-gradient(135deg, #8B5CF6, #B33C8E); box-shadow: 0 10px 26px rgba(139, 92, 246, 0.4); }
+
+.nst-card--study .nst-card-icon { background: linear-gradient(135deg, #7C4DFF, #22A9E8); box-shadow: 0 12px 30px rgba(34, 140, 240, 0.42); }
+.nst-card--study .nst-card-cta  { background: linear-gradient(135deg, #2FA8EE, #1466C9); box-shadow: 0 10px 26px rgba(34, 140, 240, 0.38); }
+
+.nst-card--exam .nst-card-icon { background: linear-gradient(135deg, #6D5DFF, #3E23A6); box-shadow: 0 12px 30px rgba(124, 77, 255, 0.45); }
+.nst-card--exam .nst-card-cta  { background: linear-gradient(135deg, #7C4DFF, #4326A8); box-shadow: 0 10px 26px rgba(124, 77, 255, 0.4); }
+
+/* ================================================================ TABLET (2A) */
+@media (max-width: 1023px) {
+  .nst-nav { height: 68px; padding: 0 32px; }
+  .nst-help { display: none; }
+  .nst-main { padding: 0 32px 24px; gap: 40px; }
+  .nst-title { font-size: 40px; }
+  .nst-sub { font-size: 15px; max-width: 420px; }
+
+  .nst-cards {
+    margin-top: 40px;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 620px;
+  }
+  .nst-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    padding: 22px 24px;
+    border-radius: 18px;
+  }
+  .nst-card:hover { transform: translateY(-4px); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }
+  .nst-card-head { display: contents; }
+  .nst-card-icon { width: 56px; height: 56px; border-radius: 15px; }
+  .nst-card-icon svg { width: 28px; height: 28px; }
+  /* title + desc stack in the middle, flex:1 */
+  .nst-card-title { margin-top: 0; font-size: 19px; order: 2; flex: 1 1 auto; }
+  .nst-card-desc { margin-top: 4px; font-size: 14px; order: 3; flex: 1 1 100%; }
+  .nst-card-tag { order: 1; align-self: center; }
+  /* Regroup: use a wrapper-free approach — middle column via order + wrapping */
+  .nst-card {
+    flex-wrap: wrap;
+  }
+  .nst-card-icon { order: 0; }
+  .nst-card-cta {
+    order: 4;
+    margin-top: 0;
+    height: 44px;
+    padding: 0 20px;
+    width: auto;
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+}
+
+/* Tablet middle-column layout: put title row + desc together, CTA to the right.
+   Implemented with a grid so the icon, text block, and CTA sit on one row. */
+@media (max-width: 1023px) and (min-width: 641px) {
+  .nst-card {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 20px;
+    row-gap: 4px;
+    flex-wrap: nowrap;
+  }
+  .nst-card-icon { grid-row: 1 / 3; grid-column: 1; }
+  .nst-card-title { grid-column: 2; grid-row: 1; align-self: end; }
+  .nst-card-tag { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; }
+  .nst-card-desc { grid-column: 2; grid-row: 2; align-self: start; }
+  .nst-card-cta { grid-column: 3; grid-row: 1 / 3; }
+}
+
+/* ================================================================ MOBILE (2B) */
+@media (max-width: 640px) {
+  .nst-nav { height: 54px; padding: 0 20px; }
+  .nst-wordmark { font-size: 14px; }
+  .nst-mark { width: 32px; height: 32px; }
+  .nst-mark svg { width: 17px; height: 17px; }
+
+  .nst-main { padding: 0 20px 24px; gap: 26px; }
+  .nst-eyebrow { font-size: 10px; }
+  .nst-title { font-size: 29px; }
+  .nst-sub { font-size: 14px; }
+
+  .nst-cards { margin-top: 26px; gap: 12px; max-width: 460px; }
+  .nst-card {
+    display: grid;
+    grid-template-columns: 46px 1fr auto;
+    align-items: center;
+    column-gap: 15px;
+    padding: 15px 16px;
+    border-radius: 16px;
+    background: var(--glass-card-mobile);
+  }
+  .nst-card:hover { transform: translateY(-3px); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5); }
+  .nst-card-head { display: contents; }
+  .nst-card-icon { grid-column: 1; grid-row: 1 / 3; width: 46px; height: 46px; border-radius: 13px; }
+  .nst-card-icon svg { width: 23px; height: 23px; }
+  .nst-card-tag { display: none; }
+  .nst-card-title { grid-column: 2; grid-row: 1; margin-top: 0; font-size: 15.5px; align-self: end; }
+  .nst-card-desc {
+    grid-column: 2; grid-row: 2;
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--muted-2);
+    align-self: start;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .nst-desc-full { display: none; }
+  .nst-desc-short { display: inline; }
+
+  /* CTA collapses to a trailing arrow chip */
+  .nst-card-cta {
+    grid-column: 3; grid-row: 1 / 3;
+    margin-top: 0;
+    height: auto;
+    background: none !important;
+    box-shadow: none !important;
+    color: var(--purple-light);
+  }
+  .nst-cta-label { display: none; }
+  .nst-cta-arrow { width: 19px; height: 19px; }
+}
+
+/* ---------------------------------------------------------------- a11y / motion */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+  .nst-card:hover { transform: none; }
+}

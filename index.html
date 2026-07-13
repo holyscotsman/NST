@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Nutanix Study Tool</title>
+  <meta name="description" content="Nutanix Study Tool — one dark-mode home for three certification-prep tools: WWTBANE, StarNix, and Nutanix Practice Exams." />
+  <meta name="theme-color" content="#08060F" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238B5CF6'%3E%3Crect x='3' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='9.7' y='9.7' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='3' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3C/svg%3E" />
+
+  <!-- Fonts: Space Grotesk (display) + Manrope (UI). Falls back to a system stack if the CDN is blocked. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" />
+
+  <link rel="stylesheet" href="./styles/nst-home.css" />
+</head>
+<body>
+  <!-- Atmospheric background: aurora glows + dot grid (decorative, behind content) -->
+  <div class="nst-bg" aria-hidden="true">
+    <span class="nst-glow nst-glow--purple"></span>
+    <span class="nst-glow nst-glow--blue"></span>
+    <span class="nst-glow nst-glow--magenta"></span>
+    <span class="nst-dots"></span>
+  </div>
+
+  <div class="nst-app">
+    <!-- Top navigation -->
+    <header class="nst-nav">
+      <a class="nst-brand" href="./" aria-label="Nutanix Study Tool home">
+        <span class="nst-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="3" y="3" width="4.6" height="4.6" rx="1.5" />
+            <rect x="16.4" y="3" width="4.6" height="4.6" rx="1.5" />
+            <rect x="9.7" y="9.7" width="4.6" height="4.6" rx="1.5" />
+            <rect x="3" y="16.4" width="4.6" height="4.6" rx="1.5" />
+            <rect x="16.4" y="16.4" width="4.6" height="4.6" rx="1.5" />
+          </svg>
+        </span>
+        <span class="nst-wordmark">Nutanix Study Tool</span>
+      </a>
+      <div class="nst-nav-utils">
+        <a class="nst-help" href="#help">Help</a>
+        <span class="nst-avatar" aria-hidden="true">NE</span>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="nst-main">
+      <section class="nst-hero">
+        <p class="nst-eyebrow">NUTANIX STUDY TOOL</p>
+        <h1 class="nst-title">Prep like an expert</h1>
+        <p class="nst-sub">Choose your challenge. Three tools, one dark-mode home.</p>
+      </section>
+
+      <nav class="nst-cards" aria-label="Study tools">
+        <!-- WWTBANE -->
+        <a class="nst-card nst-card--game" href="./wwtbane/" data-tool="Who Wants to Be a Nutanix Engineer">
+          <div class="nst-card-head">
+            <span class="nst-card-icon" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                <path d="M4 22h16" />
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+              </svg>
+            </span>
+            <span class="nst-card-tag">GAME</span>
+          </div>
+          <h2 class="nst-card-title">Who Wants to Be a Nutanix Engineer</h2>
+          <p class="nst-card-desc">
+            <span class="nst-desc-full">Game-show-style quiz. Climb the ladder and prove your expertise.</span>
+            <span class="nst-desc-short">Game-show-style quiz</span>
+          </p>
+          <span class="nst-card-cta">
+            <span class="nst-cta-label">Play</span>
+            <svg class="nst-cta-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </span>
+        </a>
+
+        <!-- StarNix -->
+        <a class="nst-card nst-card--study" href="./starnix/" data-tool="StarNix">
+          <div class="nst-card-head">
+            <span class="nst-card-icon" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 7v14" />
+                <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+              </svg>
+            </span>
+            <span class="nst-card-tag">STUDY</span>
+          </div>
+          <h2 class="nst-card-title">StarNix</h2>
+          <p class="nst-card-desc">
+            <span class="nst-desc-full">Study guides and reference material to build a solid foundation.</span>
+            <span class="nst-desc-short">Study guides &amp; reference</span>
+          </p>
+          <span class="nst-card-cta">
+            <span class="nst-cta-label">Open</span>
+            <svg class="nst-cta-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </span>
+        </a>
+
+        <!-- Nutanix Practice Exams -->
+        <a class="nst-card nst-card--exam" href="./practice-exams/" data-tool="Nutanix Practice Exams">
+          <div class="nst-card-head">
+            <span class="nst-card-icon" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="8" height="4" x="8" y="2" rx="1" />
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <path d="m9 14 2 2 4-4" />
+              </svg>
+            </span>
+            <span class="nst-card-tag">EXAM</span>
+          </div>
+          <h2 class="nst-card-title">Nutanix Practice Exams</h2>
+          <p class="nst-card-desc">
+            <span class="nst-desc-full">Practice and exam modes with an 80% pass bar. Get exam-ready.</span>
+            <span class="nst-desc-short">Practice &amp; exam modes · 80% pass</span>
+          </p>
+          <span class="nst-card-cta">
+            <span class="nst-cta-label">Start</span>
+            <svg class="nst-cta-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </span>
+        </a>
+      </nav>
+    </main>
+  </div>
+</body>
+</html>
