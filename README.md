@@ -1,5 +1,7 @@
 # Nutanix Study Tool (NST)
 
+**Live:** <https://holyscotsman.github.io/NST/> — once GitHub Pages is enabled (see [Deploy](#deploy)).
+
 One dark-mode home for Nutanix certification prep. From the landing page you pick one of
 three tools:
 
@@ -74,13 +76,23 @@ Each tool retains its own tooling:
 ## Deploy
 
 Plain static site — **no build step, no deploy pipeline** (exactly like WWTBANE and StarNix today).
-In the repo's **Settings → Pages**, set **Source: Deploy from a branch**, **Branch: `main` / `/ (root)`**.
-GitHub then serves the files directly (the root `.nojekyll` turns Jekyll off so everything is served
-as-is). The launcher lands at `https://holyscotsman.github.io/NST/`, with each tool at
-`/NST/wwtbane/`, `/NST/starnix/`, and `/NST/practice-exams/`.
+GitHub Pages just serves the files from a branch.
 
-That's the whole deployment — open the URL. (The only workflow in the repo is `ci.yml`, which runs
-tests; it does not deploy anything.)
+**One-time setup** (in the repo's **Settings → Pages**):
+
+1. **Source:** *Deploy from a branch*.
+2. **Branch:** pick the branch that contains the site, then `/ (root)`, and **Save**.
+   - After this project's pull request is merged, that branch is **`main`**.
+   - To preview *before* merging, pick the feature branch instead.
+3. Wait ~1 minute, then open **<https://holyscotsman.github.io/NST/>**.
+
+> A fresh repo has Pages **off** by default and `main` starts empty, so the URL 404s until both are
+> true: Pages is enabled **and** the chosen branch actually contains `index.html` at its root. The
+> root `.nojekyll` turns Jekyll off so everything is served as-is.
+
+Once live, the launcher is at `https://holyscotsman.github.io/NST/`, with each tool at
+`/NST/wwtbane/`, `/NST/starnix/`, and `/NST/practice-exams/`. The only workflow in the repo is
+`ci.yml` (tests); it does not deploy anything.
 
 ## Configuring Practice Exams
 
