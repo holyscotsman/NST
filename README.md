@@ -36,7 +36,8 @@ nst/
 │   ├── results.js          # scoring + review screen
 │   ├── styles.css
 │   └── data/               # question bank (255 NCP-MCI questions) + exhibit images
-└── .github/workflows/      # GitHub Pages deploy + CI
+├── .nojekyll               # serve files as-is (no Jekyll), like wwtbane/starnix
+└── .github/workflows/      # CI (tests only)
 ```
 
 Design language (all tools): dark-only theme, purple signature color (`#7C4DFF`), Space Grotesk +
@@ -72,8 +73,14 @@ Each tool retains its own tooling:
 
 ## Deploy
 
-Pushing to `main` deploys to GitHub Pages via `.github/workflows/pages.yml`, which assembles only
-the runtime files of each tool (specs, docs, and tests are not published).
+Plain static site — **no build step, no deploy pipeline** (exactly like WWTBANE and StarNix today).
+In the repo's **Settings → Pages**, set **Source: Deploy from a branch**, **Branch: `main` / `/ (root)`**.
+GitHub then serves the files directly (the root `.nojekyll` turns Jekyll off so everything is served
+as-is). The launcher lands at `https://holyscotsman.github.io/NST/`, with each tool at
+`/NST/wwtbane/`, `/NST/starnix/`, and `/NST/practice-exams/`.
+
+That's the whole deployment — open the URL. (The only workflow in the repo is `ci.yml`, which runs
+tests; it does not deploy anything.)
 
 ## Configuring Practice Exams
 
