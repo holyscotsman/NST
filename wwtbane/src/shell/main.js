@@ -32,6 +32,15 @@ export class Game {
     this.roots = roots; // { studio, screen, announce, fallback }
     this.bus = createBus();
     this.save = persistence.load();
+    // (NST) honor NST-wide preferences set on the launcher (localStorage "nst.prefs")
+    try {
+      const np = JSON.parse(localStorage.getItem('nst.prefs') || '{}');
+      const s = this.save.settings;
+      if ('reducedMotion' in np) s.motion = np.reducedMotion ? 'reduced' : 'auto';
+      if ('highContrast' in np) s.highContrast = !!np.highContrast;
+      if ('audioMuted' in np) { s.sound = !np.audioMuted; s.music = !np.audioMuted; }
+      if ('devMode' in np) s.dev = !!np.devMode;
+    } catch { /* prefs are optional */ }
     this.audio = new GameAudio({ enabled: this.save.settings.sound });
     this.music = new Music({ enabled: this.save.settings.music !== false, style: this.save.settings.musicStyle || 'studio' });
     this.bank = null;

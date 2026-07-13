@@ -259,3 +259,28 @@ body {
   * { transition: none !important; animation: none !important; }
   .pe-modecard:hover, .pe-btn:hover { transform: none; }
 }
+
+/* ================================================================ NST A11Y ROOT CLASSES */
+.nst-reduced-motion *, .nst-reduced-motion *::before, .nst-reduced-motion *::after {
+  transition-duration: 0.001ms !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+.nst-reduced-motion .pe-modecard:hover, .nst-reduced-motion .pe-btn:hover { transform: none; }
+
+.nst-high-contrast {
+  --muted: #E7E2F6;
+  --muted-2: #DBD5EF;
+  --faint: #C3BCDE;
+  --border: #6E63A0;
+  --glass-border: rgba(255, 255, 255, 0.34);
+}
+.nst-high-contrast .pe-opt { border-color: #6E63A0; }
+.nst-high-contrast .pe-card, .nst-high-contrast .pe-modecard { background: #17131F; }
+
+.nst-larger-text .pe-q-prompt { font-size: 20px; }
+.nst-larger-text .pe-opt { font-size: 16.5px; }
+.nst-larger-text .pe-explain p { font-size: 16px; }
+.nst-larger-text .pe-review-prompt { font-size: 17px; }
+.nst-larger-text .pe-modecard-desc { font-size: 16px; }
