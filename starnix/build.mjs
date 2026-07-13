@@ -33,8 +33,7 @@ const modules = [
   ["audio.js", "audio"],
   ["arm.js", "arm"],
   ["cc.js", "cc"],
-  ["kbb.js", "kbb"],
-  ["exam.js", "exam"]
+  ["kbb.js", "kbb"]
 ];
 
 function read(p) { return readFileSync(new URL("./" + p, import.meta.url), "utf8"); }
@@ -52,8 +51,7 @@ const BOOT_MSGS = {
   audio: "Warming the synth racks\u2026",
   arm: "Fueling the rescue wing\u2026",
   cc: "Spinning up the chasm\u2026",
-  kbb: "Charting the Kuiper Belt\u2026",
-  exam: "Arming the Testing station\u2026"
+  kbb: "Charting the Kuiper Belt\u2026"
 };
 const blocks = modules.map(([file, name]) => {
   const src = safe(read(file));

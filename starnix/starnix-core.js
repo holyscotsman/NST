@@ -299,9 +299,8 @@
   /* =================================================================== *
    * 4b. Commander rank — cross-game XP meta-progression (v0.52.0 unit 2)
    * One pool (profile.xp) fed ONLY by existing seams: every answer through
-   * makeMasteryStore.record (all three games + the exam route through it),
-   * exam completions (shell _recordExam), and run scores (persistence
-   * .submitScore — the 01 seam ARM already calls, completed in initCore).
+   * makeMasteryStore.record (all three games route through it) and run scores
+   * (persistence.submitScore — the 01 seam ARM already calls, completed in initCore).
    * All math is pure + deterministic; thresholds are pinned by the gate.
    * =================================================================== */
   var XP_AWARDS = {
@@ -309,8 +308,6 @@
     answerWrong: 2,      // attempts still teach — small participation award
     promotion: 15,       // Leitner bucket moved UP (correct answers only)
     mastered: 40,        // bonus when a question first crosses MASTERED_BUCKET
-    examComplete: 25,    // finishing any exam mode (never on abandon)
-    examPass: 75,        // bonus at the exam module's own 80% pass mark
     runScore: 150        // a positive score submitted through persistence.submitScore (ARM campaign win)
   };
   // ~10 NX-SRC service ranks. Thresholds are FLAT data — the gate pins them; tune only with a version bump.
@@ -374,10 +371,6 @@
     }
     return n;
   }
-  function xpForExam(sum) {
-    if (!sum || sum.abandoned || !sum.total) return 0;
-    return XP_AWARDS.examComplete + (((sum.pct || 0) >= 80) ? XP_AWARDS.examPass : 0);
-  }
   function xpForScore(game, score) {
     return (typeof score === "number" && score > 0) ? XP_AWARDS.runScore : 0;
   }
@@ -410,13 +403,11 @@
       check: function (s) { var b = s.profile && s.profile.streaksBest; return !!(b && b.ARM >= 10); } },
     { id: "station-restored", icon: "🛰", xp: 250, name: "Station restored", desc: "Complete the full ARM campaign — every sector swept.",
       check: function (s) { var p = s.profile; return !!(p && p.bests && typeof p.bests.ARM === "number"); } },
-    { id: "sim-certified",    icon: "🎓", xp: 150, name: "Sim certified",    desc: "Score 80% or better on a full Exam sim.",
-      check: function (s) { var h = s.profile && s.profile.examHistory; if (!h || !h.length) return false; for (var i = 0; i < h.length; i++) { if (h[i].mode === "sim" && (h[i].pct || 0) >= 80) return true; } return false; } },
     { id: "scholar",          icon: "📚", xp: 75,  name: "Scholar",          desc: "See 50 distinct questions from the bank.",
       check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; var n = 0; for (var k in m) { if (Object.prototype.hasOwnProperty.call(m, k)) n++; if (n >= 50) return true; } return false; } },
     { id: "first-mastery",    icon: "✦",  xp: 50,  name: "First mastery",    desc: "Bring one question up to mastered.",
       check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; for (var k in m) { if (m[k] && m[k].bucket >= MASTERED_BUCKET) return true; } return false; } },
-    { id: "domain-sweep",     icon: "🗺", xp: 150, name: "Domain sweep",     desc: "Answer at least one question in every exam domain.",
+    { id: "domain-sweep",     icon: "🗺", xp: 150, name: "Domain sweep",     desc: "Answer at least one question in every domain.",
       check: function (s) { var st = s.stats; if (!st || !st.domains || !st.domains.length) return false; for (var i = 0; i < st.domains.length; i++) { if (!(st.domains[i].seen > 0)) return false; } return true; } },
     { id: "archivist",        icon: "🏛", xp: 200, name: "Archivist",        desc: "Master 25 questions.",
       check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; var n = 0; for (var k in m) { if (m[k] && m[k].bucket >= MASTERED_BUCKET) { n++; if (n >= 25) return true; } } return false; } },
@@ -461,31 +452,25 @@
    * — NOT ctx.rng.fork, which is boot-seeded and can't reproduce across boots;
    * the determinism pin requires date-only dependence, deviation logged).
    * Progress feeds from the SAME existing seams as XP/achievements: the
-   * mastery.record choke point, _recordExam, and the XP pool itself.
+   * mastery.record choke point and the XP pool itself.
    * Claiming pays mission XP into the unit-2 pool. State on profile.daily.
    * =================================================================== */
   var DAILY_TEMPLATES = [
     { id: "sharp",   icon: "🎯", name: "Sharpshooter",  xp: 40, targets: [10, 15, 20],
       desc: function (t) { return "Answer " + t + " questions correctly today."; },
       progress: function (d) { return d.correct || 0; } },
-    { id: "spec",    icon: "🛰", name: "Specialist",    xp: 40, targets: [5, 8], games: ["ARM", "KBB", "CC", "EXAM"],
-      desc: function (t, g) { return "Answer " + t + " correctly in " + (g === "EXAM" ? "the practice exam" : g) + " today."; },
+    { id: "spec",    icon: "🛰", name: "Specialist",    xp: 40, targets: [5, 8], games: ["ARM", "KBB", "CC"],
+      desc: function (t, g) { return "Answer " + t + " correctly in " + g + " today."; },
       progress: function (d, m) { return (d.byGame && d.byGame[m.game]) || 0; } },
     { id: "chain",   icon: "🔗", name: "Chain reaction", xp: 50, targets: [3, 5, 7],
       desc: function (t) { return "Hit a streak of " + t + " correct answers today."; },
       progress: function (d) { return d.bestStreak || 0; } },
-    { id: "exam",    icon: "🎓", name: "Examiner",      xp: 60, targets: [1],
-      desc: function () { return "Complete an exam in any mode today."; },
-      progress: function (d) { return d.exams || 0; } },
     { id: "collect", icon: "✦",  name: "Collector",     xp: 50, targets: [60, 100, 150],
       desc: function (t) { return "Earn " + t + " XP today."; },
       progress: function (d, m, profile) { return Math.max(0, ((profile && profile.xp) || 0) - (d.xpStart || 0)); } },
     { id: "promote", icon: "📈", name: "Drill sergeant", xp: 60, targets: [3, 5],
       desc: function (t) { return "Promote " + t + " questions up the mastery ladder today."; },
-      progress: function (d) { return d.promotions || 0; } },
-    { id: "gauntlet", icon: "\u26a1", name: "Gauntleteer", xp: 60, targets: [1],   // (v0.196.0, V1.1 NIT#9)
-      desc: function () { return "Complete today's Daily gauntlet."; },
-      progress: function (d, m, profile) { return (profile && profile.blitzDaily && d && profile.blitzDaily.last === d.date) ? 1 : 0; } }
+      progress: function (d) { return d.promotions || 0; } }
   ];
   function dayKey(ts) {
     var d = new Date(ts != null ? ts : clock.now());
@@ -515,7 +500,7 @@
       return Math.round((db - da) / 86400000);
     } catch (e) { return 99; }
   }
-  function dayActive(d) { return !!(d && ((d.correct | 0) > 0 || (d.exams | 0) > 0)); }
+  function dayActive(d) { return !!(d && (d.correct | 0) > 0); }
   function studyStreakDays(profile) {
     if (!profile) return 0;
     var d = profile.daily, base = profile.streakDays | 0, last = profile.streakLast || null;
@@ -538,7 +523,7 @@
       }
       profile.daily = {
         date: key, missions: genDaily(key),
-        correct: 0, byGame: {}, bestStreak: 0, exams: 0, promotions: 0,
+        correct: 0, byGame: {}, bestStreak: 0, promotions: 0,
         xpStart: (typeof profile.xp === "number" && profile.xp >= 0) ? profile.xp : 0
       };
     }
@@ -890,9 +875,6 @@
       qstats: {},            // (v0.183.0, V1.1 Backend#7) per-question pace aggregates: id -> {n, lat(EMA ms), pct(EMA of window used)}
       station: 0,            // (v0.186.0, V1.1 Flow#8) MCI Station modules re-lit (0-60) — mastery-fed, latched forever
       onboarded: false,      // (v0.195.0, V1.1 Flow#9) first-run order ribbons + bridge tour latch
-      blitzDaily: null,      // (v0.196.0, V1.1 NIT#9) daily gauntlet record: {last, streak, best, pts, pct}
-      notes: {},             // (v0.203.0, V1.1 NIT#10) per-question memos: qid -> the learner's own words (<=500 chars)
-      certified: 0,          // (v0.204.0, V1.1 Flow#10) finale latch: timestamp when the grind found its ending
       kbbSalvage: 0,         // (v0.201.0, V1.1 KBB#10) persistent salvage banked at run end
       kbbHangar: null,       // (v0.201.0, KBB#10) hangar fittings: {artifact?, hp?, slot?}
       settings: defaultSettings(),
@@ -919,10 +901,7 @@
     if (!p.qstats || typeof p.qstats !== "object") p.qstats = {};       // (v0.183.0, Backend#7)
     if (typeof p.station !== "number" || !(p.station >= 0)) p.station = 0;   // (v0.186.0, Flow#8)
     if (typeof p.onboarded !== "boolean") p.onboarded = !!(p.totals && p.totals.questionsSeen > 0);   // (v0.195.0, Flow#9) veterans skip the tour
-    if (p.blitzDaily !== null && (typeof p.blitzDaily !== "object" || !p.blitzDaily)) p.blitzDaily = null;   // (v0.196.0, NIT#9)
     if (typeof p.kbbSalvage !== "number" || !(p.kbbSalvage >= 0)) p.kbbSalvage = 0;   // (v0.201.0, KBB#10)
-    if (!p.notes || typeof p.notes !== "object") p.notes = {};   // (v0.203.0, NIT#10)
-    if (typeof p.certified !== "number" || !(p.certified >= 0)) p.certified = 0;   // (v0.204.0, Flow#10)
     if (p.kbbHangar != null && typeof p.kbbHangar !== "object") p.kbbHangar = null;
     if (typeof p.streakDays !== "number") p.streakDays = 0;            // (v0.153.0, Flow#4)
     if (typeof p.streakDaysBest !== "number") p.streakDaysBest = 0;
@@ -1371,7 +1350,7 @@
   StarNix.xp = {
     AWARDS: XP_AWARDS, RANKS: RANKS, rankFor: rankFor,
     REWARDS: RANK_REWARDS, perks: rankPerks, rewardsAt: rankRewardsAt,   // (v0.179.0, V1.1 Flow#7)
-    forAnswer: xpForAnswer, forExam: xpForExam, forScore: xpForScore, add: addXP
+    forAnswer: xpForAnswer, forScore: xpForScore, add: addXP
   };
 
   /* Achievements surface (v0.53.0 unit 3) — LIST is read-only data for renderers;
@@ -1406,12 +1385,12 @@
 
   /* Flight plan (v0.141.0, V1.1 Flow#2) — "what should I do right now?" as a PURE ranking
    * over explicit signals, so the gate can pin every branch without live state. Order:
-   * due reviews > first undone daily > sim recency (none ever / >=7 days stale) > weakest
-   * domain (<80% mastered) > all clear. next() gathers the signals from a live core. */
+   * due reviews > first undone daily > weakest domain (<80% mastered) > all clear.
+   * next() gathers the signals from a live core. */
   function flightPlan(sig) {
     sig = sig || {};
     var due = sig.dueCount | 0;
-    if (due > 0) return { kind: "due", label: due + " review" + (due === 1 ? "" : "s") + " due \u2014 clear the queue first", cta: "Review \u25b8", action: "due" };
+    if (due > 0) return { kind: "due", label: due + " review" + (due === 1 ? "" : "s") + " due \u2014 due questions resurface as you play", cta: "Open Codex \u25b8", action: "progress" };
     var ds = sig.daily || [];
     for (var i = 0; i < ds.length; i++) {
       var st = ds[i];
@@ -1420,17 +1399,13 @@
         return { kind: "daily", label: "Daily: " + (st.label || st.name || "mission"), cta: g ? "Launch " + g + " \u25b8" : "Go \u25b8", action: g ? "game" : "progress", game: g };
       }
     }
-    var DAY = 86400000, now = sig.now != null ? sig.now : clock.now();
-    if (!sig.lastSimAt) return { kind: "sim", label: "No exam sim on record \u2014 fly one to calibrate readiness", cta: "Run a sim \u25b8", action: "sim" };
-    var days = Math.floor((now - sig.lastSimAt) / DAY);
-    if (days >= 7) return { kind: "sim", label: "No sim in " + days + " days \u2014 time to re-calibrate", cta: "Run a sim \u25b8", action: "sim" };
     var wk = sig.weakest;
     if (wk && (wk.masteredPct || 0) < 0.8) return { kind: "domain", label: "Weakest domain: " + wk.domain + " (" + Math.round((wk.masteredPct || 0) * 100) + "% mastered) \u2014 drill it", cta: "Open Codex \u25b8", action: "progress", domain: wk.domain };
     return { kind: "clear", label: "All clear \u2014 fly any mission for XP", cta: null, action: null };
   }
   function flightPlanFromCore(core, now) {
     now = now != null ? now : clock.now();
-    var sig = { now: now, dueCount: 0, daily: [], lastSimAt: 0, weakest: null };
+    var sig = { now: now, dueCount: 0, daily: [], weakest: null };
     try { sig.dueCount = core.mastery.dueList(now).length; } catch (e1) {}
     try {
       ensureDaily(core.profile);
@@ -1439,7 +1414,6 @@
         if (st && !st.claimed) sig.daily.push(st);
       }
     } catch (e2) {}
-    try { var hist = core.profile.examHistory || []; for (var h = hist.length - 1; h >= 0; h--) { if (hist[h].mode === "sim") { sig.lastSimAt = hist[h].at || 0; break; } } } catch (e3) {}
     try { var stx = core.questions.stats(); if (stx.domains && stx.domains[0]) sig.weakest = { domain: stx.domains[0].domain, masteredPct: stx.domains[0].masteredPct }; } catch (e4) {}
     return flightPlan(sig);
   }

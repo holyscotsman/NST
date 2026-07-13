@@ -22,9 +22,7 @@
     KBB: { title: "Kuiper Belt Battle", tag: "roguelike", accent: "peach", track: "kbb",
       blurb: "Hunt the BCM warship through escalating fights. Answer to attack; build artifact combos." },
     CC: { title: "Chasm Chase", tag: "3D endless runner", accent: "aqua", track: "cc",
-      blurb: "Chase the BCM squadron down the chasm. Dodge, collect cores, answer to hold your shields." },
-    NIT: { title: "Nutanix Interrogation Test", tag: "practice exam", accent: "gold", track: "exam",
-      blurb: "No rescue op \u2014 the real exam. Face the live question bank one at a time against the clock; 80% to certify." }
+      blurb: "Chase the BCM squadron down the chasm. Dodge, collect cores, answer to hold your shields." }
   };
 
   function Shell() {
@@ -67,7 +65,6 @@
   };
   Shell.prototype._clearScreen = function () {
     this._cancelRaf();
-    if (this._exam && this._exam.teardown) { try { this._exam.teardown(); } catch (e) {} this._exam = null; }
     this._clear(this._screenListeners);
     if (this.stage) this.stage.textContent = "";
   };
@@ -194,8 +191,7 @@
     var neb = global.STARNIX_ASSETS && global.STARNIX_ASSETS.nebulaBg;
     if (tphoto && neb) { tphoto.style.backgroundImage = 'url("' + neb + '")'; tphoto.classList.add("on"); }
     var row = s.querySelector(".sx-row");
-    var dueT = this._dueCount();   // (v0.167.0, Flow#6)
-    var start = el("button", "sx-btn sx-btn-iris", dueT > 0 ? "Start \u2014 " + dueT + " due" : "Start");
+    var start = el("button", "sx-btn sx-btn-iris", "Start");
     var self = this;
     this._on(start, "click", function () {
       try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {}
@@ -230,7 +226,6 @@
         '<li><button type="button" class="sx-mission-go" data-game="ARM"><b>Rebuild</b> the MCI Station <span class="acc-iris">\u2014 Acropolis Rescue</span></button></li>' +
         '<li><button type="button" class="sx-mission-go" data-game="CC"><b>Capture</b> the escaped squadron <span class="acc-aqua">\u2014 Chasm Chase</span></button></li>' +
         '<li><button type="button" class="sx-mission-go" data-game="KBB"><b>Defeat</b> the BCM warship in the Kuiper Belt <span class="acc-peach">\u2014 Kuiper Belt Battle</span></button></li>' +
-        '<li><button type="button" class="sx-mission-go" data-game="NIT"><b>Certify</b> when you are ready <span class="acc-gold">\u2014 Nutanix Interrogation Test</span></button></li>' +
       '</ul>';
     mission.style.opacity = "0";
     var mLines = mission.querySelectorAll(".sx-mission-list li"), lastLineN = 0;   // (v0.181.0, V1.1 Menu#7)
@@ -242,8 +237,7 @@
       if (!go || go === mission) return;
       var gid = go.getAttribute("data-game");
       try { StarNix.core.audio.sfx("click"); } catch (eS) {}
-      if (gid === "NIT") { try { StarNix.core.audio.playTrack("menu"); } catch (eN) {} self.showExamSetup(); }
-      else self.enterGame(gid);
+      self.enterGame(gid);
     });
     wrap.appendChild(canvas); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip);
     this.stage.appendChild(wrap);
@@ -590,80 +584,6 @@
     this.showMenu();
   };
 
-  /* (v0.204.0, V1.1 Flow#10) the certification finale — an actual ENDING. A station-relight
-   * canvas beat (armStation re-lit segment by segment, the intro cinematic's own art), then
-   * the certificate: rank, sims, mastery, date. profile.certified latches on first entry so
-   * it fires exactly once and replays from the Codex forever. Honesty note included: this is
-   * the study milestone, not the NCP-MCI itself. */
-  Shell.prototype.showFinale = function (optsF) {
-    this._clearScreen();
-    this.screen = "finale";
-    var self = this, core = StarNix.core, prof = core.profile;
-    var replay = !!(optsF && optsF.replay);
-    if (!replay && !prof.certified) {
-      prof.certified = (core.clock && core.clock.now) ? core.clock.now() : Date.now();
-      try { core.persistence.update(function (p) { p.certified = prof.certified; }); } catch (eCf) {}
-    }
-    var reduced = !!(prof.settings && prof.settings.reducedMotion);
-    var s = el("div", "sx-screen sx-finale");
-    this.stage.appendChild(s);
-    var certAt = prof.certified || ((core.clock && core.clock.now) ? core.clock.now() : Date.now());
-    function showCert() {
-      s.textContent = "";
-      var card = el("div", "sx-cert");
-      card.appendChild(el("div", "sx-eyebrow", "NX-SRC \u00b7 CERTIFICATION OF STATION SERVICE"));
-      card.appendChild(el("h2", "sx-h2", "The MCI Station shines again"));
-      var rk = StarNix.xp.rankFor(prof.xp || 0);
-      card.appendChild(el("div", "sx-cert-rank", "\u2726 " + rk.name + " \u00b7 " + (prof.xp || 0).toLocaleString() + " XP"));
-      var stF = null; try { stF = core.questions.stats(); } catch (eSt) {}
-      var ovF = (stF && stF.overall) || { masteredPct: 0, total: 0 };
-      card.appendChild(el("div", "sx-cert-line", "Station 60/60 modules \u00b7 " + Math.round((ovF.masteredPct || 0) * 100) + "% of the bank mastered (" + (ovF.total || 0) + " questions)"));
-      var simsF = [];
-      try { simsF = (prof.examHistory || []).filter(function (hF) { return hF.mode === "sim"; }).slice(-3).map(function (hF) { return (hF.pct || 0) + "%"; }); } catch (eSm) {}
-      if (simsF.length) card.appendChild(el("div", "sx-cert-line", "Recent exam sims: " + simsF.join(" \u00b7 ")));
-      card.appendChild(el("div", "sx-cert-date", "Certified aboard the bridge \u00b7 " + StarNix.daily.dayKey(certAt)));
-      card.appendChild(el("div", "sx-cert-note", "This is your STUDY milestone \u2014 the readiness composite says you are ready for the real NCP-MCI. Go sit it."));
-      var rowF = el("div", "sx-row");
-      var back = el("button", "sx-btn sx-btn-iris", "Return to the bridge \u25b8");
-      self._on(back, "click", function () { self.showMenu(); });
-      rowF.appendChild(back); card.appendChild(rowF);
-      s.appendChild(card);
-      self._focusScreen(s);
-    }
-    if (reduced) { showCert(); return; }
-    // the relight beat: the intro's own station art, lit segment by segment in gold
-    var cv = el("canvas", "sx-finale-cv"); cv.width = 640; cv.height = 400;
-    var cap = el("div", "sx-cap", "Every module answers. The station relights.");
-    var skip = el("button", "sx-skip", "Skip \u25b6");
-    s.appendChild(cv); s.appendChild(cap); s.appendChild(skip);
-    this._on(skip, "click", function () { self._cancelRaf(); showCert(); });
-    var g2 = null; try { g2 = cv.getContext && cv.getContext("2d"); } catch (eG2) {}
-    if (!g2) { showCert(); return; }                     // headless: straight to the certificate
-    var img = null;
-    try { var srcF = global.STARNIX_ASSETS && global.STARNIX_ASSETS.armStation; if (srcF && global.Image) { img = new global.Image(); img.src = srcF; } } catch (eIm) {}
-    var t0F = (global.performance && global.performance.now) ? global.performance.now() : Date.now();
-    var DUR = 6.0;
-    var frame = function () {
-      var tF = (((global.performance && global.performance.now) ? global.performance.now() : Date.now()) - t0F) / 1000;
-      var kF = Math.min(1, tF / DUR);
-      g2.fillStyle = "#07070e"; g2.fillRect(0, 0, cv.width, cv.height);
-      var sw2 = 300, sx2 = (cv.width - sw2) / 2, sy2 = (cv.height - sw2) / 2;
-      if (img && img.complete && img.naturalWidth) { g2.globalAlpha = 0.35 + 0.65 * kF; g2.drawImage(img, sx2, sy2, sw2, sw2); g2.globalAlpha = 1; }
-      else { g2.strokeStyle = "#34344a"; g2.strokeRect(sx2, sy2, sw2, sw2); }
-      var lit = Math.floor(kF * 12 + 0.0001);
-      for (var sg = 0; sg < 12; sg++) {
-        g2.fillStyle = sg < lit ? "rgba(255,200,87,.5)" : "rgba(4,4,12,.75)";
-        g2.fillRect(sx2 + sg * (sw2 / 12), sy2, sw2 / 12 - 1, sw2);
-      }
-      g2.fillStyle = "#FFC857"; g2.font = "700 14px Montserrat, sans-serif"; g2.textAlign = "center";
-      g2.fillText(lit + " / 12 SECTIONS ONLINE", cv.width / 2, sy2 + sw2 + 34);
-      if (kF >= 1) { self._raf = 0; showCert(); return; }
-      self._raf = global.requestAnimationFrame(frame);
-    };
-    try { core.audio.playTrack("menu"); core.audio.sfx("correct"); } catch (eAu) {}
-    this._raf = global.requestAnimationFrame(frame);
-  };
-
   /* =================================================================== *
    * main menu
    * =================================================================== */
@@ -679,20 +599,9 @@
     var prof0 = StarNix.core.profile || {};
     if (prof0.settings && prof0.settings.reducedMotion) s.className += " sx-reduced";   // (v0.116.0, R1) the in-app toggle, not just the OS query
     var stationN = Math.max(0, Math.min(60, prof0.station | 0));   // (v0.186.0, Flow#8) the persistent mastery-fed meter
-    // (v0.204.0, V1.1 Flow#10) the Leitner grind gets a DESTINATION: station rebuilt AND
-    // readiness sustained (two sims >= 80) fires the one-shot certification finale.
-    try {
-      if (!prof0.certified) {
-        var sims80 = 0;
-        (prof0.examHistory || []).forEach(function (hC) { if (hC.mode === "sim" && (hC.pct || 0) >= 80) sims80++; });
-        if (stationN >= 60 && sims80 >= 2) { this.showFinale(); return; }
-      }
-    } catch (eFin) {}
     var bestCC = (prof0.bests && prof0.bests.CC) | 0;
     var bestKBBv = (prof0.bests && prof0.bests.KBB) | 0;
     var bestKBB = bestKBBv ? (Math.floor(bestKBBv / 100) + "-" + (bestKBBv % 100)) : "\u2014";
-    var bestSim = 0;
-    try { (prof0.examHistory || []).forEach(function (h2) { if (h2.pct > bestSim) bestSim = h2.pct; }); } catch (eBS) {}
     s.innerHTML = '<div class="sx-menu-photo" aria-hidden="true"></div>' +
       '<div class="sx-bridge-grad" aria-hidden="true"></div>' +
       '<div class="sx-bridge-top">' +
@@ -701,7 +610,7 @@
       '</div>' +
       '<div class="sx-bridge-left">' +
         '<h2 class="sx-h2">Mission select</h2>' +
-        '<div class="sx-bridge-sub">The BCM shattered the MCI Station. Four operations stand between you and certification.</div>' +
+        '<div class="sx-bridge-sub">The BCM shattered the MCI Station. Three missions to rebuild it — every answer relights a module.</div>' +
         '<div class="sx-cards"></div>' +
       '</div>' +
       '<div class="sx-bridge-right"><div class="sx-br-lbl">STATION SYSTEMS</div><div class="sx-br-grid"></div><div class="sx-br-list"></div><div class="sx-br-hint">Open the Codex \u25b8</div></div>' +
@@ -781,43 +690,32 @@
     var STRIP_META = {
       ARM: { stat: "Station", val: stationN + "/60", art: "armHero" },
       CC:  { stat: "Best",    val: bestCC ? bestCC.toLocaleString() : "\u2014", art: null },
-      KBB: { stat: "Depth",   val: bestKBB, art: "kbbEnemy" },
-      NIT: { stat: "Best sim", val: bestSim ? bestSim + "%" : "\u2014", art: null }
+      KBB: { stat: "Depth",   val: bestKBB, art: "kbbEnemy" }
     };
-    ["ARM", "CC", "KBB", "NIT"].forEach(function (id) {
+    ["ARM", "CC", "KBB"].forEach(function (id) {
       var m = GAME_META[id], sm = STRIP_META[id];
-      var isExam = (id === "NIT");                              // the exam runs via its own flow, not registerGame
-      var loaded = isExam ? !!(StarNix.exam && StarNix.exam.run) : !!StarNix.getGame(id);
-      if (isExam) {
-        var div = el("div", "sx-strip-divider");
-        div.innerHTML = '<i></i><span>THE REAL THING</span><i></i>';
-        cards.appendChild(div);
-      }
-      var card = el("button", "sx-card sx-strip sx-acc-" + m.accent + (isExam ? " sx-strip-gold" : ""));
+      var loaded = !!StarNix.getGame(id);
+      var card = el("button", "sx-card sx-strip sx-acc-" + m.accent);
       var artHtml;
       var artSrc = sm.art && global.STARNIX_ASSETS && global.STARNIX_ASSETS[sm.art];
       if (artSrc) artHtml = '<span class="sx-strip-art" style="background-image:url(' + "'" + artSrc + "'" + ')"></span>';
       else if (id === "CC") artHtml = '<span class="sx-strip-art sx-strip-planet"></span>';
-      else if (isExam) artHtml = '<span class="sx-strip-art sx-strip-glyph">\u25C8</span>';
       else artHtml = '<span class="sx-strip-art sx-strip-glyph">\u2B21</span>';
       card.innerHTML = artHtml +
         '<span class="sx-strip-body"><span class="sx-card-title">' + m.title + '</span><span class="sx-card-tag">' + id + ' \u00b7 ' + m.tag + '</span></span>' +
         '<span class="sx-strip-stat"><span class="l">' + sm.stat + '</span><span class="v">' + sm.val + '</span></span>' +
-        '<span class="sx-strip-cta' + (isExam ? ' gold' : '') + '">' + (isExam ? 'Sit exam \u25b8' : 'LAUNCH \u25b8') + '</span>' +
+        '<span class="sx-strip-cta">LAUNCH \u25b8</span>' +
         '<span class="sx-card-state" style="display:none">' + (loaded ? "Ready" : "Not in this build") + '</span>';
       // (v0.195.0, V1.1 Flow#9) first-run order ribbons — guidance, never locks
       if (!prof0.onboarded) {
-        var seen9 = (prof0.totals && prof0.totals.questionsSeen) | 0;
-        var ribTxt = id === "ARM" ? "1 \u00b7 START HERE" : id === "CC" ? "2 \u00b7 THEN" : id === "KBB" ? "3 \u00b7 THEN"
-          : (seen9 < 50 ? "4 \u00b7 AFTER ~50 CARDS (" + seen9 + "/50)" : "4 \u00b7 WHEN READY");
+        var ribTxt = id === "ARM" ? "1 \u00b7 START HERE" : id === "CC" ? "2 \u00b7 THEN" : "3 \u00b7 THEN";
         card.appendChild(el("span", "sx-strip-ribbon" + (id === "ARM" ? " lead" : ""), ribTxt));
       }
       if (!loaded) card.classList.add("sx-card-disabled");
       self._on(card, "click", function () {
         try { StarNix.core.audio.sfx("click"); } catch (e) {}
         if (!loaded) { self._toast(m.title + " isn't loaded in this build."); return; }
-        if (isExam) self.showExamSetup();
-        else self.enterGame(id);
+        self.enterGame(id);
       });
       cards.appendChild(card);
     });
@@ -839,28 +737,10 @@
     var top = s.querySelector(".sx-menu-top");
     function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", fn); top.appendChild(b); }
     // (v0.128.0, V1.1 Menu#1) the top Continue deduped away — the dock CTA is the one Continue
-    // (v0.87.0, L1 / v0.138.0, V1.1 Menu#2) the due queue is the highest-learning-value CTA in
-    // the app — it now reads like one: a gold banner in the dock, escalating to a full-width
-    // strip above the missions when the queue is heavy (>= 10). Same .sx-due-chip wiring (QA-E9).
-    var dueQs = this._dueQuestions(30);
-    if (dueQs.length) {
-      var heavy = dueQs.length >= 10;
-      var dueBtn = el("button", "sx-btn sx-due-chip " + (heavy ? "sx-due-strip" : "sx-due-dock"),
-        "\u23F0 " + dueQs.length + " question" + (dueQs.length === 1 ? "" : "s") + " due for review \u00b7 " + (heavy ? "Clear the queue \u25b8" : "Review \u25b8"));
-      this._on(dueBtn, "click", function () { self.showExam(null, { questions: dueQs, mode: "study" }); });
-      if (heavy) {
-        var cardsHost = s.querySelector(".sx-cards");
-        cardsHost.parentNode.insertBefore(dueBtn, cardsHost);
-      } else {
-        var dock0 = s.querySelector(".sx-bridge-dock");
-        dock0.insertBefore(dueBtn, dock0.firstChild);
-      }
-    }
     // (v0.141.0, V1.1 Flow#2) Today's flight plan — ONE ranked "do this next" card at the
-    // top of the dock, from the pure core planner. When reviews are due, the due chip above
-    // already IS the plan's top action, so the card stays away (no duplicate gold CTA).
+    // top of the dock, from the pure core planner.
     try {
-      if (!dueQs.length && StarNix.plan) {
+      if (StarNix.plan) {
         var plan = StarNix.plan.next(StarNix.core, StarNix.core.clock.now());
         if (plan && plan.kind !== "due") {
           var pc = el("div", "sx-plan-card");
@@ -871,7 +751,6 @@
             this._on(pBtn, "click", function () {
               try { StarNix.core.audio.sfx("click"); } catch (eS) {}
               if (plan.action === "game" && plan.game && StarNix.getGame(plan.game)) self.enterGame(plan.game);
-              else if (plan.action === "sim") self.showExamSetup();
               else self.showStats();
             });
             pc.appendChild(pBtn);
@@ -916,8 +795,7 @@
         var tourSteps = [
           { sel: ".sx-rank", name: "THE RANK STRIP", txt: "Every correct answer on ANY surface feeds this one XP pool \u2014 promotions pay real rewards." },
           { sel: ".sx-bridge-dock", name: "THE DAILY DOCK", txt: "Three date-seeded missions a day, plus your Continue button. Streaks live and die here." },
-          { sel: ".sx-due-chip", name: "THE DUE CHIP", txt: "When reviews come due this chip appears \u2014 clear those first; spaced retrieval is the whole game.",
-            altSel: ".sx-bridge-right", altName: "STATION SYSTEMS", altTxt: "Your mastery readout \u2014 the station re-lights as you master the bank. Open the Codex for the full picture." }
+          { sel: ".sx-bridge-right", name: "STATION SYSTEMS", txt: "Your mastery readout \u2014 the station re-lights as you master the bank. Open the Codex for the full picture." }
         ];
         var tourI = 0, tourHi = null;
         var coach = el("div", "sx-tour");
@@ -1038,308 +916,8 @@
     }
   };
 
-  /* =================================================================== *
-   * practice exam  (Core study mode; full live bank, timer-as-score)
-   * =================================================================== */
-  Shell.prototype.showExamSetup = function () {
-    this._clearScreen();
-    this.screen = "exam-setup";
-    var self = this, core = StarNix.core;
-    var total = 0;
-    try { total = core.questions.pool().length; } catch (e) {}
-    try { core.audio.playTrack("exam"); } catch (e) {}
-    var s = el("div", "sx-screen sx-panelwrap");
-    if (!this._examMode) this._examMode = "study";                 // Study is the default experience
-    s.innerHTML = '<div class="sx-panel">' +
-      '<div class="sx-eyebrow">Practice exam</div>' +
-      '<h2 class="sx-h2">Choose your mode and length</h2>' +
-      '<div class="sx-exam-modes"></div>' +
-      '<p class="sx-exam-blurb"></p>' +
-      '<div class="sx-exam-lens"></div>' +
-      '<div class="sx-row"></div></div>';
-    var MODE_BLURB = {
-      study: "Untimed. Pick an answer, confirm it, and read the explanation before moving on. Browse back through anything you\u2019ve answered.",
-      sim: "One clock for the whole exam, like the real NCP-MCI (" + 96 + "s per question). Move freely, flag questions, review before you submit. Explanations at the end.",
-      blitz: "The arcade mode: the clock is your score \u2014 answer before the points run down. First click commits. 80% passes; speed sets your best."
-    };
-    var modesEl = s.querySelector(".sx-exam-modes");
-    var blurbEl = s.querySelector(".sx-exam-blurb");
-    function modeBtn(id, label) {
-      var b = el("button", "sx-exam-mode" + (self._examMode === id ? " on" : ""));
-      b.type = "button"; b.textContent = label; b.setAttribute("data-mode", id);
-      self._on(b, "click", function () {
-        self._examMode = id;
-        var all = modesEl.querySelectorAll(".sx-exam-mode");
-        for (var i = 0; i < all.length; i++) all[i].classList.toggle("on", all[i].getAttribute("data-mode") === id);
-        blurbEl.textContent = MODE_BLURB[id];
-      });
-      modesEl.appendChild(b);
-    }
-    modeBtn("study", "Study"); modeBtn("sim", "Exam sim"); modeBtn("blitz", "Blitz");
-    blurbEl.textContent = MODE_BLURB[this._examMode];
-    var lens = s.querySelector(".sx-exam-lens");
-    function lenBtn(title, sub, count) {
-      var b = el("button", "sx-exam-len");
-      var best = "";
-      try { var xk = core.profile.settings && core.profile.settings.extraTime ? ":xt" : ""; var e = core.profile.bests && core.profile.bests.EXAM && core.profile.bests.EXAM[String(count) + xk]; if (e) best = '<span class="b">Best: ' + (e.pts || 0).toLocaleString() + ' pts \u00b7 ' + (e.pct || 0) + '%</span>'; } catch (x) {}
-      b.innerHTML = '<span class="t">' + title + '</span><span class="s">' + sub + '</span>' + best;
-      self._on(b, "click", function () { self.showExam(count); });
-      lens.appendChild(b);
-    }
-    if (total > 20) lenBtn("Quick", "20 questions \u00b7 a fast confidence check", 20);
-    if (total > 75) lenBtn("Standard", "75 questions \u00b7 the real exam's length (120 min at sim pace)", 75);   // (v0.84.0, B1) was 65 — the real NCP-MCI is 75 q
-    lenBtn("Full bank", total + " questions \u00b7 everything that's live", total);
-    // (v0.196.0, V1.1 NIT#9) the Daily gauntlet: one seeded 10-question Blitz per day —
-    // the retention loop the Leitner scheduler needs to actually work.
-    try {
-      var gDay = StarNix.daily.dayKey();
-      var bd9 = core.profile.blitzDaily || null;
-      var gStreak = (bd9 && bd9.streak) | 0;
-      var chip9 = gStreak >= 2 ? ' \u00b7 \ud83d\udd25 ' + gStreak + '-day streak' : '';
-      var gb = el("button", "sx-exam-len sx-exam-len-gauntlet");
-      if (bd9 && bd9.last === gDay) {
-        gb.innerHTML = '<span class="t">\u26a1 Daily gauntlet \u2014 done for today</span><span class="s">' + (bd9.pts || 0).toLocaleString() + ' pts \u00b7 ' + (bd9.pct || 0) + '%' + chip9 + ' \u00b7 a fresh set arrives tomorrow</span>';
-        gb.disabled = true;
-      } else {
-        gb.innerHTML = '<span class="t">\u26a1 Daily gauntlet</span><span class="s">10 seeded questions \u00b7 ONE scored Blitz attempt \u2014 the same set for everyone today' + chip9 + (bd9 && bd9.best ? ' \u00b7 best ' + bd9.best.toLocaleString() + ' pts' : '') + '</span>';
-        this._on(gb, "click", function () {
-          var qsG = self._gauntletQuestions(gDay);
-          if (!qsG.length) return;
-          self._examMode = "blitz";
-          self._gauntletDay = gDay;                       // _recordExam consumes this
-          self.showExam(null, { questions: qsG, mode: "blitz" });
-        });
-      }
-      lens.appendChild(gb);
-    } catch (eG9) {}
-    // (v0.92.0, G1) exhibits are deliberately exam-only (games can't render images) — but
-    // that made them invisible to a games-first player. One tap serves exactly those.
-    try {
-      var imgQs = core.questions.pool().filter(function (q) { return !!q.image; });
-      if (imgQs.length) {
-        var ib = el("button", "sx-exam-len sx-exam-len-exhibit");
-        ib.innerHTML = '<span class="t">\ud83d\uddbc Exhibits</span><span class="s">' + imgQs.length + ' screenshot questions \u00b7 they only appear in exam modes \u2014 practice reading the screens</span>';
-        this._on(ib, "click", function () { self.showExam(null, { questions: imgQs, mode: "study" }); });
-        lens.appendChild(ib);
-      }
-    } catch (eI) {}
-    // (v0.157.0, V1.1 NIT#4) a 75-question sim is a 2-hour sitting — resume it. Validated
-    // hard: any unknown id or length drift discards the blob to a fresh start.
-    try {
-      var rz = core.profile.examResume;
-      var rzOk = rz && rz.mode === "sim" && Array.isArray(rz.ids) && rz.ids.length
-        && Array.isArray(rz.perms) && rz.perms.length === rz.ids.length
-        && Array.isArray(rz.drafts) && rz.drafts.length === rz.ids.length
-        && Array.isArray(rz.flags) && rz.flags.length === rz.ids.length
-        && rz.ids.every(function (idR) { return !!core.questions.byId(idR); });
-      if (rz && !rzOk) { core.persistence.update(function (p) { delete p.examResume; }); rz = null; }
-      if (rz && rzOk) {
-        var ansN = 0; for (var za = 0; za < rz.drafts.length; za++) if (rz.drafts[za] != null) ansN++;
-        var remS = Math.max(0, Math.floor((rz.remainMs || 0) / 1000)), mmR = Math.floor(remS / 60), ssR = remS % 60;
-        var rb = el("button", "sx-exam-len sx-exam-len-resume");
-        rb.innerHTML = '<span class="t">\u23f8 Resume your sim</span><span class="s">' + ansN + ' of ' + rz.ids.length + ' answered \u00b7 ' + mmR + ':' + (ssR < 10 ? '0' : '') + ssR + ' left</span>';
-        this._on(rb, "click", function () { self._examMode = "sim"; self.showExam(rz.ids.length, { mode: "sim", resume: rz }); });
-        lens.appendChild(rb);
-        var rd = el("button", "sx-btn sx-btn-ghost sx-exam-resume-discard", "Discard the saved sim");
-        this._on(rd, "click", function () { try { core.persistence.update(function (p) { delete p.examResume; }); } catch (eDd) {} self.showExamSetup(); });
-        lens.appendChild(rd);
-      }
-    } catch (eRz0) {}
-    // (v0.203.0, V1.1 NIT#10) drill exactly what you wrote about
-    try {
-      var notedQs = core.questions.pool().filter(function (qN) { return !!((core.profile.notes || {})[qN.id]); });
-      if (notedQs.length) {
-        var nb10 = el("button", "sx-exam-len sx-exam-len-noted");
-        nb10.innerHTML = '<span class="t">\u270e Noted questions</span><span class="s">' + notedQs.length + ' with your own memos \u00b7 drill exactly what you wrote about</span>';
-        this._on(nb10, "click", function () { self._examMode = "study"; self.showExam(null, { questions: notedQs, mode: "study" }); });
-        lens.appendChild(nb10);
-      }
-    } catch (eN10) {}
-    // (v0.190.0, V1.1 NIT#8) the domain lens — 'study just storage' is one tap from the
-    // Testing station too, closing the loop the readiness composite opens.
-    try {
-      var domStats = (core.questions.stats().domains || []).filter(function (dd) { return dd.total > 0; });
-      if (domStats.length) {
-        lens.appendChild(el("div", "sx-domlens-head", "Study one domain"));
-        var dRow = el("div", "sx-domlens-row");
-        domStats.forEach(function (dd) {
-          var chip = el("button", "sx-domlens-chip");
-          chip.type = "button";
-          chip.textContent = dd.domain + " \u00b7 " + (dd.seen === 0 ? "new" : Math.round((dd.masteredPct || 0) * 100) + "%");
-          chip.title = dd.total + " question" + (dd.total === 1 ? "" : "s") + " \u00b7 launches Study on just " + dd.domain;
-          self._on(chip, "click", function () {
-            var qsL = core.questions.pool().filter(function (qL) { return qL.domain === dd.domain; });
-            if (!qsL.length) return;
-            self._examMode = "study";
-            self.showExam(null, { questions: qsL, mode: "study" });
-          });
-          dRow.appendChild(chip);
-        });
-        lens.appendChild(dRow);
-      }
-    } catch (eDl) {}
-    // (v0.146.0, V1.1 NIT#3) redrill EXACTLY what you've gotten wrong — the end-screen redrill
-    // evaporates when you walk away; this tile serves the persistent pile (Leitner-derived,
-    // cleared per-question by two consecutive corrects on any surface).
-    try {
-      var mpIds = StarNix.missPile.ids(core.mastery.all(), 60);
-      var mpQs = [];
-      for (var mpi = 0; mpi < mpIds.length; mpi++) { var mpq = core.questions.byId(mpIds[mpi].id); if (mpq) mpQs.push(mpq); }
-      if (mpQs.length) {
-        var mb = el("button", "sx-exam-len sx-exam-len-misses");
-        mb.innerHTML = '<span class="t">\u21bb Redrill your misses</span><span class="s">' + mpQs.length + ' question' + (mpQs.length === 1 ? '' : 's') + " you've gotten wrong \u00b7 two corrects in a row retires each one</span>";
-        this._on(mb, "click", function () { self.showExam(null, { questions: mpQs, mode: "study" }); });
-        lens.appendChild(mb);
-      }
-    } catch (eMp) {}
-    var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
-    this._on(back, "click", function () { self.showMenu(); });
-    s.querySelector(".sx-row").appendChild(back);
-    this.stage.appendChild(s);
-  };
 
-  Shell.prototype.showExam = function (count, opts) {
-    opts = opts || {};                                   // (v0.51.0) { questions, mode } — the weakest-drill path
-    this._clearScreen();
-    this.screen = "exam";
-    var self = this, core = StarNix.core;
-    var s = el("div", "sx-screen"); s.style.padding = "0"; s.style.display = "block";
-    this.stage.appendChild(s);
-    var rm = false;
-    try { rm = !!(core.profile && core.profile.settings && core.profile.settings.reducedMotion); } catch (e) {}
-    var pool = [];
-    if (opts.questions && opts.questions.length) pool = opts.questions.slice();
-    else { try { pool = core.questions.pool(); } catch (e) {} }
-    // (v0.163.0, V1.1 Flow#5) blueprint quotas for SIMS — live only once Jason ratifies
-    // StarNix.blueprint.WEIGHTS (quarantined null today: the official EBG publishes no
-    // section weights). With weights, the sim pool is pre-filled per-domain before the
-    // exam module shuffles presentation order.
-    try {
-      if ((opts.mode || this._examMode) === "sim" && !opts.questions && StarNix.blueprint && StarNix.blueprint.WEIGHTS) {
-        var bq = StarNix.blueprint.quota(pool, (count && count > 0) ? Math.min(count, pool.length) : pool.length, StarNix.blueprint.WEIGHTS);
-        if (bq && bq.length) pool = bq;
-      }
-    } catch (eBq) {}
-    var ec = (count && count > 0 && count < pool.length) ? count : pool.length;
-    var prevBest = 0;
-    try { var xk2 = core.profile.settings && core.profile.settings.extraTime ? ":xt" : ""; var eb = core.profile.bests && core.profile.bests.EXAM && core.profile.bests.EXAM[String(ec) + xk2]; if (eb) prevBest = eb.pts || 0; } catch (e) {}
-    try { core.audio.playTrack("exam"); } catch (e) {}   // chill study bed; no game/Vega audio in the exam
-    if (StarNix.exam && StarNix.exam.run) {
-      this._exam = StarNix.exam.run({
-        mode: opts.mode || this._examMode || "study",
-        container: s,
-        questions: pool,
-        count: count,
-        bestPoints: prevBest,
-        rng: core.makeRng("exam-" + (core.clock && core.clock.now ? core.clock.now() : Date.now())),
-        audio: core.audio,
-        mastery: core.mastery,
-        reducedMotion: rm,
-        extraTime: !!(core.profile && core.profile.settings && core.profile.settings.extraTime),   // (v0.84.0, B2)
-        resume: opts.resume || null,   // (v0.157.0, NIT#4)
-        onDraft: function (blob) {
-          try { if (core.persistence && core.persistence.update) core.persistence.update(function (p) { if (blob) p.examResume = blob; else delete p.examResume; }); } catch (eDr) {}
-        },
-        onComplete: function (sum) { self._recordExam(sum); },
-        // (v0.203.0, V1.1 NIT#10) per-question memos — the learner's own words on the profile
-        notes: {
-          get: function (qid) { try { return (core.profile.notes || {})[qid] || ""; } catch (eNg) { return ""; } },
-          set: function (qid, text) {
-            try {
-              core.persistence.update(function (p) {
-                var ns = p.notes || (p.notes = {});
-                var tN = String(text || "").trim().slice(0, 500);
-                if (tN) ns[qid] = tN; else delete ns[qid];
-              });
-            } catch (eNs) {}
-          }
-        },
-        onRedrill: function (qs) { self.showExam(null, { questions: qs, mode: "study" }); },   // (v0.87.0, L2)
-        onExit: function () { self.showMenu(); },
-        onRetry: function () { self.showExam(count, opts); }
-      });
-    } else { self.showMenu(); }
-  };
 
-  // Record a completed exam's best speed-score per length (profile.bests.EXAM[count]).
-  // (v0.196.0, V1.1 NIT#9) today's gauntlet set: seeded by the DATE alone, so every
-  // retry-tempted player gets the same ten — deterministic by construction, pinnable by the same token.
-  Shell.prototype._gauntletQuestions = function (dateStr) {
-    var coreG = StarNix.core;
-    var dayG = dateStr || StarNix.daily.dayKey();
-    var rngG = coreG.makeRng("blitz-daily:" + dayG);
-    var poolG = coreG.questions.pool().slice();
-    for (var iG = poolG.length - 1; iG > 0; iG--) { var jG = Math.floor(rngG.next() * (iG + 1)); var tG = poolG[iG]; poolG[iG] = poolG[jG]; poolG[jG] = tG; }
-    return poolG.slice(0, 10);
-  };
-  Shell.prototype._recordExam = function (sum) {
-    if (!sum) return;
-    // (v0.52.0 unit 2) Commander-rank XP: any COMPLETED exam awards into the one pool
-    // (forExam returns 0 for abandoned/empty); pass bonus at the exam's own 80% mark.
-    try {
-      var pX = StarNix.core.profile;
-      if (StarNix.xp && pX) {
-        var nX = StarNix.xp.forExam(sum);
-        if (nX > 0) {
-          StarNix.xp.add(pX, nX);
-          if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(pX);
-        }
-      }
-    } catch (eX) {}
-    // (v0.51.0) Exam-sim history feeds the readiness read on the Progress screen. Completed sims
-    // only (no abandoned partials); capped at the last 20. Blitz bests below are untouched.
-    if (sum.mode === "sim" && sum.total && !sum.abandoned) {
-      try {
-        var coreH = StarNix.core;
-        var hist = coreH.profile.examHistory = coreH.profile.examHistory || [];
-        var bdC = {};   // (v0.165.0, V1.1 NIT#5) compact per-domain history: {domain: [correct, total]}
-        try { for (var bk in sum.byDomain) if (Object.prototype.hasOwnProperty.call(sum.byDomain, bk)) bdC[bk] = [sum.byDomain[bk].correct | 0, sum.byDomain[bk].total | 0]; } catch (eBd) {}
-        hist.push({ mode: "sim", pct: sum.pct || 0, correct: sum.correct || 0, total: sum.total || 0, avgSecs: sum.avgSecs || 0, byDomain: bdC, at: (coreH.clock && coreH.clock.now ? coreH.clock.now() : Date.now()) });
-        if (hist.length > 20) hist.splice(0, hist.length - 20);
-        if (coreH.persistence && coreH.persistence.save) coreH.persistence.save(coreH.profile);
-      } catch (eH) {}
-    }
-    // (v0.53.0 unit 3) achievements see the freshly recorded history (sim-certified etc.).
-    try { if (StarNix.achievements) StarNix.achievements.evaluate(StarNix.core.profile); } catch (eA) {}
-    // (v0.56.0 unit 6) daily missions: any completed exam ticks the Examiner counter.
-    try {
-      var pD = StarNix.core.profile;
-      if (StarNix.daily && pD && !sum.abandoned && sum.total) {
-        var dd = StarNix.daily.ensure(pD);
-        if (dd) { dd.exams = (dd.exams || 0) + 1; if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(pD); }
-      }
-    } catch (eD) {}
-    // (v0.196.0, V1.1 NIT#9) the Daily gauntlet: ONE scored attempt per day — streak + best.
-    try {
-      var gDayR = this._gauntletDay; this._gauntletDay = null;
-      if (gDayR && sum.mode === "blitz" && !sum.abandoned && sum.total === 10 && gDayR === StarNix.daily.dayKey()) {
-        var pG = StarNix.core.profile;
-        var bdG = pG.blitzDaily || (pG.blitzDaily = { last: null, streak: 0, best: 0, pts: 0, pct: 0 });
-        if (bdG.last !== gDayR) {                       // retries after the first completion never score
-          var yG = StarNix.daily.dayKey(StarNix.core.clock.now() - 86400000);
-          bdG.streak = (bdG.last === yG) ? (bdG.streak | 0) + 1 : 1;
-          bdG.last = gDayR;
-          bdG.pts = sum.speedPoints || 0; bdG.pct = sum.pct || 0;
-          if ((sum.speedPoints || 0) > (bdG.best | 0)) bdG.best = sum.speedPoints || 0;
-          try { StarNix.core.persistence.save(pG); } catch (eGs) {}
-        }
-      }
-    } catch (eG) {}
-    if (sum.mode && sum.mode !== "blitz") return;   // bests are the Blitz speed leaderboard; Study/Sim don't compete on speed
-    var core = StarNix.core;
-    try {
-      var b = core.profile.bests = core.profile.bests || {};
-      var ex = b.EXAM = b.EXAM || {};
-      // (v0.90.0, review) extra-time runs score on a stretched window — same skill, more
-      // points — so they compete in their own ':xt' slot instead of inflating the base bests.
-      var key = String(sum.total) + (core.profile.settings && core.profile.settings.extraTime ? ":xt" : "");
-      var prev = ex[key];
-      if (!prev || (sum.speedPoints || 0) > (prev.pts || 0)) {
-        ex[key] = { pts: sum.speedPoints || 0, pct: sum.pct || 0, correct: sum.correct || 0, total: sum.total || 0, at: (core.clock && core.clock.now ? core.clock.now() : Date.now()) };
-      }
-      if (core.persistence && core.persistence.save) core.persistence.save(core.profile);
-    } catch (e) {}
-  };
 
   /* =================================================================== *
    * stats / codex
@@ -1433,76 +1011,8 @@
     }
   };
 
-  // (v0.51.0) Weakest questions: seen-and-shaky first — lowest Leitner bucket, then broken streak,
-  // then most misses, then longest-unseen. Unseen questions are excluded (nothing to drill yet).
-  // (v0.87.0, L1) the questions whose Leitner interval has lapsed, most overdue first —
-  // the menu chip serves exactly this queue into Study mode.
-  // (v0.167.0, V1.1 Flow#6) the Leitner queue calls the player back from ANYWHERE — title,
-  // pause, debrief — not just the one screen that already won their attention.
-  Shell.prototype._dueCount = function () {
-    try { return StarNix.core.mastery.dueList(StarNix.core.clock.now()).length; } catch (e) { return 0; }
-  };
-  // (v0.172.0, Jason) within the due CAP, priority questions board first (stable order kept
-  // inside each group — most-overdue first within priority, then within the rest).
-  Shell.prototype._duePartition = function (qs, n) {
-    var hi = [], lo = [];
-    for (var i = 0; i < qs.length; i++) { if (qs[i] && qs[i].priority > 1) hi.push(qs[i]); else lo.push(qs[i]); }
-    return hi.concat(lo).slice(0, n);
-  };
-  Shell.prototype._dueQuestions = function (n) {
-    var core = StarNix.core, out = [];
-    try {
-      var now = core.clock && core.clock.now ? core.clock.now() : Date.now();
-      // (v0.90.0, review) dueList is already sorted earliest-due-first (true overdue order —
-      // lastSeen alone ignores the interval); preserve ITS order instead of re-sorting.
-      var ids = core.mastery.dueList ? core.mastery.dueList(now) : [];
-      var byId = {};
-      var pool = core.questions.pool();
-      for (var i = 0; i < pool.length; i++) byId[pool[i].id] = pool[i];
-      for (var d = 0; d < ids.length; d++) if (byId[ids[d]]) out.push(byId[ids[d]]);
-    } catch (e) {}
-    return this._duePartition(out, n || 30);   // (v0.172.0, Jason) priority boards the capped queue first
-  };
 
-  Shell.prototype._weakestQuestions = function (n) {
-    var core = StarNix.core, out = [];
-    try {
-      var pool = core.questions.pool();
-      for (var i = 0; i < pool.length; i++) {
-        var m = core.mastery.get(pool[i].id);
-        if (m && m.seen) out.push({ q: pool[i], m: m });
-      }
-      var qsS = core.profile.qstats || {};   // (v0.183.0, Backend#7) the pace feed
-      out.sort(function (a, b) {
-        // slow-but-correct is a REAL study signal: a >=65% window EMA costs one effective
-        // bucket, so slow-mastered cards surface ahead of equally-mastered fast ones.
-        var ea = a.m.bucket - ((qsS[a.q.id] && qsS[a.q.id].pct != null && qsS[a.q.id].pct >= 0.65) ? 1 : 0);
-        var eb2 = b.m.bucket - ((qsS[b.q.id] && qsS[b.q.id].pct != null && qsS[b.q.id].pct >= 0.65) ? 1 : 0);
-        return (ea - eb2) || (a.m.streak - b.m.streak) || (b.m.incorrect - a.m.incorrect) || (a.m.lastSeen - b.m.lastSeen);
-      });
-    } catch (e) {}
-    return out.slice(0, n || 20).map(function (x) { return x.q; });
-  };
 
-  // (v0.51.0) Readiness: an explicitly APPROXIMATE composite against the exam module's own 80% pass
-  // mark — 50% recent Exam-sim average (last 3 completed sims), 30% bank mastery, 20% bank coverage.
-  // With zero sims the score is null (mastery/coverage alone can't stand in for exam conditions).
-  Shell.prototype._readiness = function () {
-    var core = StarNix.core, st = null;
-    try { st = core.questions.stats(); } catch (e) {}
-    var overall = (st && st.overall) || { seen: 0, total: 1, masteredPct: 0 };
-    var coverage = overall.total ? overall.seen / overall.total : 0;
-    var mastered = overall.masteredPct || 0;
-    var hist = [];
-    try { hist = (core.profile.examHistory || []).filter(function (h) { return h.mode === "sim" && h.total; }); } catch (e) {}
-    var last3 = hist.slice(-3);
-    var simAvg = null;
-    if (last3.length) { var acc = 0; for (var i = 0; i < last3.length; i++) acc += (last3[i].pct || 0); simAvg = acc / last3.length; }
-    var score = (simAvg == null) ? null : Math.round(0.5 * simAvg + 30 * mastered + 20 * coverage);
-    var trend = 0;
-    if (hist.length >= 2) trend = (hist[hist.length - 1].pct || 0) - (hist[hist.length - 2].pct || 0);
-    return { score: score, simAvg: simAvg, mastered: mastered, coverage: coverage, sims: hist.length, last: hist.slice(-5), trend: trend, target: 80 };
-  };
 
   Shell.prototype.showStats = function () {
     this._clearScreen();
@@ -1515,51 +1025,14 @@
     // back button + Escape-to-menu, not just the ← Menu buried at the bottom.
     this._on(global, "keydown", function (e) { if (e.key === "Escape" || e.key === "Esc") { e.preventDefault(); self.showMenu(); } });
     s.innerHTML = '<div class="sx-panel"><button class="sx-btn sx-btn-ghost sx-stats-topback" type="button">← Menu</button><div class="sx-eyebrow">Codex</div><h2 class="sx-h2">Your progress</h2>'
-      + '<div class="sx-ready"></div>'
       + '<div class="sx-stat-grid"></div>'
       + '<div class="sx-dom-head">Domain mastery heatmap</div><div class="sx-heatmap"></div>'
       + '<div class="sx-dom-head">Daily missions</div><div class="sx-daily sx-daily-stats"></div>'
       + '<div class="sx-dom-head">Achievements <span class="sx-ach-count"></span></div><div class="sx-ach"></div>'
       + '<div class="sx-dom-head">Rank rewards</div><div class="sx-rewards"></div>'
       + '<div class="sx-dom-head">By domain · weakest first</div><div class="sx-domain-list"></div>'
-      + '<div class="sx-dom-head">Weakest questions</div><div class="sx-weak"></div>'
       + '<div class="sx-row"></div></div>';
 
-    // ---- readiness (v0.51.0): sim-anchored composite vs the exam's own 80% pass mark ----
-    (function buildReadiness(box) {
-      var r = self._readiness();
-      var head = el("div", "sx-ready-head");
-      var scoreEl = el("div", "sx-ready-score" + (r.score == null ? " none" : (r.score >= r.target ? " good" : (r.score >= r.target - 15 ? " close" : " far"))));
-      scoreEl.textContent = (r.score == null) ? "—" : (r.score + "%");
-      head.appendChild(scoreEl);
-      var lab = el("div", "sx-ready-lab");
-      lab.innerHTML = '<div class="sx-ready-title">Exam readiness <span class="sx-ready-approx">approximate</span></div>'
-        + '<div class="sx-ready-sub">' + (r.score == null
-          ? "Complete an <b>Exam sim</b> to calibrate — mastery alone can\u2019t stand in for exam conditions."
-          : "vs the " + r.target + "% pass mark \u00b7 sims avg " + Math.round(r.simAvg) + "% \u00b7 mastery " + Math.round(r.mastered * 100) + "% \u00b7 coverage " + Math.round(r.coverage * 100) + "%"
-            + (r.sims >= 2 ? (' \u00b7 trend ' + (r.trend >= 0 ? "+" : "") + Math.round(r.trend) + " pts") : "")) + "</div>";
-      head.appendChild(lab);
-      box.appendChild(head);
-      if (r.last.length) {
-        var strip = el("div", "sx-ready-sims");
-        for (var i = 0; i < r.last.length; i++) {
-          var h = r.last[i];
-          var chip = el("span", "sx-simchip" + ((h.pct || 0) >= r.target ? " pass" : ""), Math.round(h.pct || 0) + "%");
-          chip.title = h.correct + "/" + h.total;
-          strip.appendChild(chip);
-        }
-        box.appendChild(strip);
-      }
-      // (v0.183.0, Backend#7) the pace feed: mastered cards that still run slow
-      try {
-        var qsP = core.profile.qstats || {}, slowN = 0;
-        for (var qk in qsP) { var mP = core.mastery.get(qk); if (mP && mP.bucket >= 4 && qsP[qk].pct != null && qsP[qk].pct >= 0.65) slowN++; }
-        if (slowN > 0) box.appendChild(el("div", "sx-ready-pace", "\ud83d\udc22 " + slowN + " mastered card" + (slowN === 1 ? "" : "s") + " still run" + (slowN === 1 ? "s" : "") + " slow \u2014 the drill boards them first"));
-      } catch (ePc) {}
-      var simBtn = el("button", "sx-btn sx-btn-ghost sx-ready-go", r.sims ? "Run another Exam sim" : "Take an Exam sim");
-      self._on(simBtn, "click", function () { self._examMode = "sim"; self.showExam(75); });   // (v0.84.0, B1) count-less call ran the ENTIRE bank (~6 h)
-      box.appendChild(simBtn);
-    })(s.querySelector(".sx-ready"));
 
     this._buildStatsSummary(s.querySelector(".sx-stat-grid"), s.querySelector(".sx-domain-list"));
 
@@ -1570,49 +1043,14 @@
       for (var i = 0; i < doms.length; i++) {
         var d = doms[i], pct = Math.round((d.masteredPct || 0) * 100);
         var tier = d.seen === 0 ? "t0" : pct >= 70 ? "t4" : pct >= 45 ? "t3" : pct >= 20 ? "t2" : "t1";
-        // (v0.190.0, V1.1 NIT#8) diagnose -> drill on the SAME screen: every tile launches
-        // Study scoped to exactly its domain's questions.
-        var tile = el("button", "sx-heat " + tier);
-        tile.type = "button";
+        var tile = el("div", "sx-heat " + tier);
         tile.innerHTML = '<div class="sx-heat-dom">' + d.domain + '</div>'
           + '<div class="sx-heat-pct">' + (d.seen === 0 ? "new" : pct + "%") + "</div>"
           + (d.due ? '<div class="sx-heat-due">' + d.due + " due</div>" : "");
-        tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen \u00b7 click to study this domain";
-        tile.setAttribute("aria-label", "Study " + d.domain + " \u2014 " + d.total + " questions");
-        (function (domName) {
-          self._on(tile, "click", function () {
-            var qsD = core.questions.pool().filter(function (qD) { return qD.domain === domName; });
-            if (!qsD.length) return;
-            try { core.audio.sfx("click"); } catch (eSf) {}
-            self._examMode = "study";
-            self.showExam(null, { questions: qsD, mode: "study" });
-          });
-        })(d.domain);
+        tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen";
         box.appendChild(tile);
       }
     })(s.querySelector(".sx-heatmap"));
-    // (v0.165.0, V1.1 NIT#5) per-domain SIM trend — 'storage: 55% -> 70% -> 85%' beats one
-    // opaque percentage. Needs >= 2 sims that recorded byDomain.
-    try {
-      var histT = (core.profile.examHistory || []).filter(function (h) { return h.mode === "sim" && h.byDomain; }).slice(-3);
-      if (histT.length >= 2) {
-        var trendBox = el("div", "sx-sim-trend");
-        trendBox.appendChild(el("div", "sx-dom-head", "Sim trend \u00b7 last " + histT.length + " sims"));
-        var domsT = {};
-        histT.forEach(function (h) { for (var dk in h.byDomain) if (Object.prototype.hasOwnProperty.call(h.byDomain, dk)) domsT[dk] = 1; });
-        Object.keys(domsT).sort().forEach(function (dk) {
-          var line = histT.map(function (h) {
-            var e2 = h.byDomain[dk];
-            return e2 && e2[1] ? Math.round(100 * e2[0] / e2[1]) + "%" : "\u2013";
-          }).join(" \u2192 ");
-          var rowT = el("div", "sx-sim-trend-row");
-          rowT.appendChild(el("span", "n", dk));
-          rowT.appendChild(el("span", "v", line));
-          trendBox.appendChild(rowT);
-        });
-        s.querySelector(".sx-heatmap").parentNode.insertBefore(trendBox, s.querySelector(".sx-heatmap").nextSibling);
-      }
-    } catch (eTr) {}
 
     // ---- daily missions row (v0.56.0 unit 6): full rows; the section label above titles it (A3) ----
     this._renderDaily(s.querySelector(".sx-daily"), { head: false });
@@ -1641,14 +1079,6 @@
       if (cnt) cnt.textContent = got + " / " + list.length;
     })(s.querySelector(".sx-ach"));
 
-    // (v0.204.0, V1.1 Flow#10) the certificate replays from here, forever
-    try {
-      if (core.profile.certified) {
-        var certBtn = el("button", "sx-btn sx-btn-primary sx-cert-replay", "\u2726 View your certificate \u25b8");
-        this._on(certBtn, "click", function () { self.showFinale({ replay: true }); });
-        s.querySelector(".sx-ready").appendChild(certBtn);
-      }
-    } catch (eCr10) {}
     // ---- rank rewards (v0.179.0, V1.1 Flow#7): what each rank pays — earned vs ahead ----
     (function buildRewards(box) {
       if (!box || !StarNix.xp.REWARDS) return;
@@ -1663,31 +1093,6 @@
       }
     })(s.querySelector(".sx-rewards"));
 
-    // ---- weakest-questions drill (v0.51.0): worst-20 by bucket/streak/misses -> Study mode ----
-    (function buildWeak(box) {
-      var weak = self._weakestQuestions(20);
-      if (!weak.length) {
-        box.appendChild(el("div", "sx-weak-empty", "Nothing to drill yet \u2014 answer some questions first."));
-        return;
-      }
-      var list = el("div", "sx-weak-list");
-      var show = Math.min(6, weak.length);
-      for (var i = 0; i < show; i++) {
-        var q = weak[i], m = core.mastery.get(q.id) || {};
-        var qsR = (core.profile.qstats || {})[q.id];
-        var slowR = !!(qsR && qsR.pct != null && qsR.pct >= 0.65);   // (v0.183.0, Backend#7)
-        var row = el("div", "sx-weak-row");
-        row.innerHTML = '<span class="sx-weak-dom">' + (q.domain || "") + '</span>'
-          + '<span class="sx-weak-stem">' + String(q.stem || "").slice(0, 72).replace(/&/g, "&amp;").replace(/</g, "&lt;") + (String(q.stem || "").length > 72 ? "\u2026" : "") + "</span>"
-          + '<span class="sx-weak-miss">' + (slowR ? "\ud83d\udc22 " : "") + (m.incorrect || 0) + "\u2715</span>";
-        list.appendChild(row);
-      }
-      box.appendChild(list);
-      if (weak.length > show) box.appendChild(el("div", "sx-weak-more", "+ " + (weak.length - show) + " more in the drill"));
-      var drill = el("button", "sx-btn sx-btn-primary sx-drill", "Drill these " + weak.length + " in Study mode");
-      self._on(drill, "click", function () { self.showExam(null, { questions: self._weakestQuestions(20), mode: "study" }); });
-      box.appendChild(drill);
-    })(s.querySelector(".sx-weak"));
 
     var back = el("button", "sx-btn sx-btn-ghost", "← Menu");
     this._on(back, "click", function () { self.showMenu(); });
@@ -2026,8 +1431,6 @@
     var card = el("div", "sx-pause-card");
     card.appendChild(el("div", "sx-pause-eyebrow", "Mission paused"));
     card.appendChild(el("div", "sx-pause-title", "Paused"));
-    var dueP = this._dueCount();   // (v0.167.0, Flow#6) the queue reaches into the pause
-    if (dueP > 0) card.appendChild(el("div", "sx-pause-due", "\u23F0 " + dueP + " review" + (dueP === 1 ? "" : "s") + " waiting on the bridge"));
 
     // live settings — same controls as the Settings screen (audio applies immediately)
     card.appendChild(el("div", "sx-seclabel", "Audio"));
@@ -2137,16 +1540,12 @@
       + '<span><b>' + acc + '%</b> accuracy</span>'
       + '<span><b class="xp">+' + d.xp + '</b> XP</span>'
       + '</div>' + missedHtml
-      + (function () { var dd = self._dueCount(); return dd > 0 ? '<div class="sx-debrief-due">\u23F0 ' + dd + ' review' + (dd === 1 ? '' : 's') + ' due \u2014 clear them while it\u2019s warm</div>' : ''; })()
       + '<div class="sx-row"><button class="sx-btn sx-btn-iris sx-debrief-again" type="button">Fly again \u25b8</button>'
-      + (self._dueCount() > 0 ? '<button class="sx-btn sx-btn-ghost sx-debrief-review" type="button">Review due \u25b8</button>' : '')
       + '<button class="sx-btn sx-btn-ghost sx-debrief-done" type="button">Dismiss</button></div></div>';
     this.stage.appendChild(ov);
     var close = function () { if (ov.parentNode) ov.parentNode.removeChild(ov); };
     this._on(ov.querySelector(".sx-debrief-done"), "click", close);
     this._on(ov.querySelector(".sx-debrief-again"), "click", function () { close(); self.enterGame(d.id); });
-    var rvBtn = ov.querySelector(".sx-debrief-review");
-    if (rvBtn) this._on(rvBtn, "click", function () { close(); var qs = self._dueQuestions(30); if (qs.length) self.showExam(null, { questions: qs, mode: "study" }); });   // (Flow#6)
     this._on(ov, "click", function (e) { if (e.target === ov) close(); });
     this._on(global, "keydown", function (e) { if (e.key === "Escape" || e.key === "Esc") close(); });
     try { ov.querySelector(".sx-debrief-done").focus(); } catch (eF) {}
@@ -2241,18 +1640,6 @@
       ".sx-btn:active{transform:scale(.98);}",
       ".sx-btn-iris{background:var(--iris);color:#fff;}.sx-btn-iris:hover{background:var(--iris600);}",
       ".sx-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--mid);}",
-      ".sx-btn-exam{background:linear-gradient(90deg,#7855FA,#1FDDE9);color:#fff;box-shadow:0 8px 22px rgba(120,85,250,.35);}",
-      ".sx-btn-exam:hover{transform:translateY(-1px);}",
-      ".sx-exam-blurb{color:var(--mid);font-size:13.5px;line-height:1.55;margin:0 0 18px;}",
-      ".sx-exam-lens{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}",
-      ".sx-exam-modes{display:flex;gap:8px;margin:2px 0 10px;}",
-      ".sx-exam-mode{flex:1;background:rgba(255,255,255,.04);border:1.5px solid var(--border);border-radius:10px;padding:10px 8px;color:var(--dim);font:700 13px Montserrat,Arial,sans-serif;cursor:pointer;transition:border-color .12s,color .12s;}",
-      ".sx-exam-mode.on{border-color:var(--aqua);color:var(--text);background:rgba(31,221,233,.08);}",
-      ".sx-exam-len{display:flex;flex-direction:column;gap:3px;text-align:left;background:rgba(255,255,255,.04);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .12s,background .12s;font-family:inherit;}",
-      ".sx-exam-len:hover{border-color:var(--iris300);background:rgba(120,85,250,.10);}",
-      ".sx-exam-len .t{font-size:16px;font-weight:700;}",
-      ".sx-exam-len .s{font-size:12.5px;color:var(--mid);}",
-      ".sx-exam-len .b{font-size:12px;font-weight:700;color:var(--gold,#FFC857);margin-top:5px;}",
       ".sx-btn-ghost:hover{border-color:var(--iris);color:var(--text);}",
       ".sx-cine{padding:0;}.sx-cine-canvas{position:absolute;inset:0;width:100%;height:100%;}",
       ".sx-cap{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);max-width:620px;width:86%;font-size:16px;font-weight:600;color:#eef;text-shadow:0 0 12px #000,0 0 4px #000;pointer-events:none;line-height:1.4;}",
@@ -2329,10 +1716,6 @@
       ".sx-br-list .sx-dom-row{margin:5px 0;font-size:11.5px;}",
       ".sx-br-hint{font-size:10.5px;letter-spacing:.1em;color:var(--dim);margin-top:8px;text-transform:uppercase;}",
       ".sx-reduced .sx-menu-photo.on,.sx-reduced .sx-title-photo.on{animation:none;transform:scale(1.04);}",
-      ".sx-due-chip{border-color:var(--gold);color:var(--gold);}",
-      ".sx-due-chip:hover{background:rgba(255,200,87,.12);}",
-      ".sx-due-dock{flex:none;background:rgba(255,200,87,.1);border:1px solid var(--gold);font-weight:800;}",
-      ".sx-due-strip{display:block;width:100%;text-align:left;margin:0 0 12px;padding:13px 18px;font-size:14px;font-weight:800;background:rgba(255,200,87,.12);border:1px solid var(--gold);border-left:4px solid var(--gold);border-radius:14px;}",
       ".sx-cards{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:480px;margin:0 auto;}",
       ".sx-card{width:100%;max-width:440px;text-align:left;background:rgba(20,20,29,.9);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;font-family:inherit;color:var(--text);transition:transform .08s,border-color .12s,box-shadow .12s;}",
       ".sx-card:hover{transform:translateY(-3px);}",
@@ -2357,9 +1740,6 @@
       ".sx-plan-eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#AC9BFD;white-space:nowrap;}",
       ".sx-plan-label{font-size:13px;color:var(--text);flex:1;min-width:180px;}",
       ".sx-plan-cta{padding:6px 14px;font-size:12px;}",
-      ".sx-exam-len-misses{border-color:rgba(255,107,91,.5);} .sx-exam-len-misses .t{color:var(--peach,#FF6B5B);}",
-      ".sx-exam-len-resume{border-color:rgba(31,221,233,.55);} .sx-exam-len-resume .t{color:var(--aqua,#1FDDE9);}",
-      ".sx-exam-resume-discard{font-size:12px;padding:6px 12px;align-self:flex-start;}",
       ".sx-diag{font-size:11.5px;color:var(--mid);max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px 10px;}",
       ".sx-diag-build{color:var(--dim);letter-spacing:.08em;margin-bottom:6px;}",
       ".sx-diag-err{border-left:3px solid var(--peach,#FF6B5B);padding-left:8px;margin:6px 0;}",
@@ -2379,28 +1759,16 @@
       ".sx-tour-row{display:flex;gap:8px;}",
       ".sx-tour-hi{outline:2px solid var(--aqua);outline-offset:3px;border-radius:10px;box-shadow:0 0 24px rgba(31,221,233,.35);}",
       /* (v0.204.0, V1.1 Flow#10) the finale + certificate */
-      ".sx-finale{display:flex;align-items:center;justify-content:center;background:#07070e;position:relative;}",
-      ".sx-finale-cv{max-width:92%;max-height:70%;}",
-      ".sx-cert{width:min(560px,92%);background:rgba(13,13,24,.96);border:1.5px solid var(--gold);border-radius:18px;padding:30px 34px;text-align:center;box-shadow:0 0 70px rgba(255,200,87,.25);}",
-      ".sx-cert-rank{font-size:19px;font-weight:800;color:var(--gold);margin:12px 0 8px;letter-spacing:.04em;}",
-      ".sx-cert-line{font-size:13.5px;color:var(--text);margin:5px 0;font-variant-numeric:tabular-nums;}",
-      ".sx-cert-date{font-size:12px;color:var(--mid);margin:12px 0 4px;letter-spacing:.08em;text-transform:uppercase;}",
-      ".sx-cert-note{font-size:13px;color:var(--aqua);margin:14px 0 18px;line-height:1.5;}",
-      ".sx-cert-replay{margin-top:10px;}",
       ".sx-reward{display:flex;gap:10px;align-items:baseline;border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:4px 0;opacity:.5;}",
       ".sx-reward.got{opacity:1;border-color:rgba(255,200,87,.5);}",
       ".sx-reward-rank{color:var(--gold);font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}",
       ".sx-reward-label{font-size:13px;}",
-      ".sx-sim-trend{margin-top:12px;}",
-      ".sx-pause-due{font-size:12.5px;color:var(--gold);border:1px solid rgba(255,200,87,.4);background:rgba(255,200,87,.08);border-radius:9px;padding:6px 10px;}",
-      ".sx-debrief-due{font-size:12.5px;color:var(--gold);margin-top:8px;}",
       ".sx-coach-tip{display:flex;align-items:center;gap:10px;background:rgba(120,85,250,.14);border:1px solid rgba(120,85,250,.55);border-radius:11px;padding:9px 12px;margin-bottom:8px;font-size:13px;color:var(--text);}",
       ".sx-coach-x{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:2px 6px;margin-left:auto;}",
       ".sx-coach-pulse{animation:sxCoach 1.6s ease-in-out infinite;border-color:rgba(120,85,250,.8) !important;}",
       "@keyframes sxCoach{0%,100%{box-shadow:0 0 0 0 rgba(120,85,250,.0);}50%{box-shadow:0 0 22px 4px rgba(120,85,250,.45);}}",
       "@media (prefers-reduced-motion: reduce){.sx-coach-pulse{animation:none;outline:2px solid rgba(120,85,250,.8);}}",
       "[data-motion=reduced] .sx-coach-pulse{animation:none;outline:2px solid rgba(120,85,250,.8);}",
-      ".sx-sim-trend-row{display:flex;gap:10px;font-size:12.5px;margin:4px 0;} .sx-sim-trend-row .n{flex:0 0 130px;color:var(--mid);} .sx-sim-trend-row .v{color:var(--text);font-variant-numeric:tabular-nums;}",
       ".sx-debrief{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,11,.62);}",
       ".sx-debrief-card{width:min(480px,92%);background:rgba(16,16,26,.97);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.6);}",
       ".sx-debrief-stats{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 6px;font-size:13px;color:var(--mid);}",
@@ -2426,28 +1794,12 @@
       ".sx-dom-fill.strong{background:linear-gradient(90deg,var(--mantis),#6fae18);}",
       ".sx-dom-head{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);margin:18px 0 6px;text-align:left;}",
       /* (v0.51.0) Progress & readiness */
-      ".sx-ready{display:flex;flex-direction:column;gap:10px;margin:6px 0 14px;padding:14px;border:1px solid rgba(255,255,255,0.10);border-radius:14px;background:rgba(255,255,255,0.03);}",
-      ".sx-ready-head{display:flex;align-items:center;gap:14px;}",
-      ".sx-ready-score{font-size:34px;font-weight:800;min-width:86px;text-align:center;}",
-      ".sx-ready-score.good{color:var(--mantis);} .sx-ready-score.close{color:var(--gold);} .sx-ready-score.far{color:var(--peach);} .sx-ready-score.none{color:var(--mid);}",
-      ".sx-ready-title{font-weight:700;text-align:left;} .sx-ready-approx{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);margin-left:6px;}",
-      ".sx-ready-sub{font-size:12px;color:var(--mid);text-align:left;margin-top:2px;}",
-      ".sx-ready-sims{display:flex;gap:6px;flex-wrap:wrap;}",
-      ".sx-simchip{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.14);color:var(--peach);}",
-      ".sx-simchip::before{content:'\\2715 ';font-size:9px;}",   // (v0.170.0, FE#6) fail = x, pass = check — shape first
-      ".sx-simchip.pass{color:var(--mantis);border-color:rgba(146,221,35,0.4);}",
-      ".sx-simchip.pass::before{content:'\\2713 ';}",
-      ".sx-ready-go{align-self:flex-start;}",
       ".sx-heatmap{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-start;}",
       ".sx-heat{min-width:96px;flex:1 1 96px;max-width:150px;padding:9px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.10);text-align:left;}",
       ".sx-heat-dom{font-size:11px;color:var(--fg);opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
       ".sx-heat-pct{font-size:17px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;}",
       "button.sx-heat{font-family:inherit;cursor:pointer;color:inherit;}",   /* (v0.190.0, NIT#8) tiles launch */
       "button.sx-heat:hover,button.sx-heat:focus-visible{border-color:var(--aqua);box-shadow:0 0 14px rgba(31,221,233,.25);}",
-      ".sx-domlens-head{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:4px 0 0;}",
-      ".sx-domlens-row{display:flex;flex-wrap:wrap;gap:7px;}",
-      ".sx-domlens-chip{font-family:inherit;font-size:12px;font-weight:700;color:var(--mid);background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:999px;padding:6px 12px;cursor:pointer;transition:border-color .12s,color .12s;}",
-      ".sx-domlens-chip:hover,.sx-domlens-chip:focus-visible{border-color:var(--aqua);color:var(--text);}",
       ".sx-heat-due{font-size:10px;color:var(--gold);margin-top:1px;}",
       ".sx-heat.t0{background:rgba(255,255,255,0.03);color:var(--mid);}",
       ".sx-heat.t1{background:rgba(255,107,91,0.14);border-color:rgba(255,107,91,0.35);border-style:dotted;} .sx-heat.t1 .sx-heat-pct{color:var(--peach);}",
@@ -2456,15 +1808,6 @@
       ".sx-heat.t2{background:rgba(255,200,87,0.12);border-color:rgba(255,200,87,0.32);} .sx-heat.t2 .sx-heat-pct{color:var(--gold);}",
       ".sx-heat.t3{background:rgba(146,221,35,0.10);border-color:rgba(146,221,35,0.30);} .sx-heat.t3 .sx-heat-pct{color:var(--mantis);}",
       ".sx-heat.t4{background:rgba(146,221,35,0.18);border-color:rgba(146,221,35,0.50);} .sx-heat.t4 .sx-heat-pct{color:var(--mantis);}",
-      ".sx-weak-list{display:flex;flex-direction:column;gap:5px;}",
-      ".sx-weak-row{display:flex;gap:10px;align-items:baseline;font-size:12px;text-align:left;}",
-      ".sx-weak-dom{color:var(--aqua);font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto;}",
-      ".sx-weak-stem{color:var(--fg);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;}",
-      ".sx-weak-miss{color:var(--peach);flex:0 0 auto;font-weight:700;}",
-      ".sx-weak-more{font-size:11px;color:var(--mid);margin-top:4px;text-align:left;}",
-      ".sx-ready-pace{font-size:12.5px;color:#FF9857;margin:8px 0 2px;}",   /* (v0.183.0, Backend#7) */
-      ".sx-weak-empty{font-size:12px;color:var(--mid);text-align:left;}",
-      ".sx-drill{margin-top:10px;}",
       ".sx-stat.good .sx-stat-val{color:var(--mantis);}",
       ".sx-stat.due .sx-stat-val{color:var(--aqua);}",
       ".sx-toggles{display:flex;flex-direction:column;gap:4px;margin:10px 0;}",

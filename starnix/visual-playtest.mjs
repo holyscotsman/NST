@@ -58,7 +58,7 @@ await shot("menu-progression-lit");
 /* ---- 3. Progress screen (readiness / heatmap / daily / achievements) ---- */
 await page.evaluate(() => {
   const S = window.StarNix, p = S.core.profile;
-  p.achievements = { "first-contact": 1, "hot-streak": 1, "sim-certified": 1 };
+  p.achievements = { "first-contact": 1, "hot-streak": 1 };
   S.shell.showStats();
 });
 await sleep(600);
@@ -142,16 +142,6 @@ for (let i = 0; i < 5; i++) {
 await shot("cc-run-final");
 await page.evaluate(() => window.StarNix.shell.exitGame());
 await sleep(300);
-
-/* ---- 8. Exam: blitz question + combo chip ---- */
-await page.evaluate(() => { const S = window.StarNix.shell; S._examMode = "blitz"; S.showExam(10); });
-await sleep(1200); await shot("exam-blitz-question");
-await page.evaluate(() => {
-  // answer the current question correctly to light the combo chip
-  const st = window.StarNix.shell._exam && window.StarNix.shell._exam._state;
-  if (st) { const q = st.order[st.i]; const btns = document.querySelectorAll(".sx-exam-opt"); if (btns[q.correctIndex]) btns[q.correctIndex].click(); }
-});
-await sleep(400); await shot("exam-blitz-combo-lit");
 
 await browser.close();
 console.log("\nDone — " + n + " screenshots in playtest-shots/");
