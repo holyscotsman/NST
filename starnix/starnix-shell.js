@@ -1,0 +1,2592 @@
+/* =====================================================================
+ * StarNix — shell  (starnix-shell.js)
+ * boot -> title -> shared cinematic (skippable) -> menu
+ *      -> mount/unmount one game -> back to menu.  (01 §9)
+ *
+ * Depends on starnix-core.js (window.StarNix.core, initCore, makeContext,
+ * registerGame/getGame). Defines window.StarNix.shell and window.StarNix.boot.
+ *
+ * Strict unmount lifecycle: leaving a game calls module.unmount() (the game
+ * frees its own RAF/listeners/pools) and the shell removes the game root.
+ * The shell tracks ALL its own listeners + RAF so destroy() leaves no residue.
+ * ===================================================================== */
+(function (global) {
+  "use strict";
+
+  var StarNix = global.StarNix;
+  if (!StarNix) throw new Error("starnix-shell.js: load starnix-core.js first");
+
+  var GAME_META = {
+    ARM: { title: "Acropolis Rescue Mission", tag: "2D flight + collect", accent: "iris", track: "arm",
+      blurb: "Gather scattered station cores, answer to install them, rebuild the MCI Station." },
+    KBB: { title: "Kuiper Belt Battle", tag: "roguelike", accent: "peach", track: "kbb",
+      blurb: "Hunt the BCM warship through escalating fights. Answer to attack; build artifact combos." },
+    CC: { title: "Chasm Chase", tag: "3D endless runner", accent: "aqua", track: "cc",
+      blurb: "Chase the BCM squadron down the chasm. Dodge, collect cores, answer to hold your shields." },
+    NIT: { title: "Nutanix Interrogation Test", tag: "practice exam", accent: "gold", track: "exam",
+      blurb: "No rescue op \u2014 the real exam. Face the live question bank one at a time against the clock; 80% to certify." }
+  };
+
+  function Shell() {
+    this.root = null;
+    this.stage = null;          // persistent container inside root
+    this.screen = "boot";
+    this.currentModule = null;
+    this.currentGameRoot = null;
+    this.lastGameId = null;
+    this.cinematicPlayed = false;
+    this._shellListeners = [];  // live for the whole session
+    this._screenListeners = []; // cleared on every screen change
+    this._raf = 0;              // cinematic RAF handle
+    this._audioUnlocked = false;
+  }
+
+  Shell.prototype._on = function (target, type, fn, opts, bag) {
+    target.addEventListener(type, fn, opts || false);
+    (bag || this._screenListeners).push({ target: target, type: type, fn: fn, opts: opts || false });
+  };
+  Shell.prototype._clear = function (bag) {
+    for (var i = 0; i < bag.length; i++) {
+      var l = bag[i];
+      l.target.removeEventListener(l.type, l.fn, l.opts);
+    }
+    bag.length = 0;
+  };
+  Shell.prototype._cancelRaf = function () {
+    if (this._raf) { global.cancelAnimationFrame(this._raf); this._raf = 0; }
+  };
+  // (v0.135.0, V1.1 FE#1) every screen swap wipes the stage, which silently drops keyboard
+  // focus to <body>. Screens now hand focus to themselves (tabindex=-1 container) so Tab
+  // starts from the top of the new screen and screen readers announce the change.
+  // (v0.136.0, V1.1 FE#2) dev-only surfaces (Jukebox) hide from players — same detection ARM uses
+  function shellDevMode() {
+    try { return !!(global.STARNIX_DEV || (global.location && global.location.search && /[?&]dev\b/.test(global.location.search))); } catch (e) { return false; }
+  }
+  Shell.prototype._focusScreen = function (s) {
+    try { s.tabIndex = -1; s.focus({ preventScroll: true }); } catch (e) { try { s.focus(); } catch (e2) {} }
+  };
+  Shell.prototype._clearScreen = function () {
+    this._cancelRaf();
+    if (this._exam && this._exam.teardown) { try { this._exam.teardown(); } catch (e) {} this._exam = null; }
+    this._clear(this._screenListeners);
+    if (this.stage) this.stage.textContent = "";
+  };
+
+  /* ---- audio unlock on first gesture --------------------------------- */
+  Shell.prototype._wireAudioUnlock = function () {
+    var self = this;
+    var unlock = function () {
+      if (self._audioUnlocked) return;
+      self._audioUnlocked = true;
+      try { StarNix.core.audio.ensure(); } catch (e) {}
+      var s = StarNix.core.profile ? StarNix.core.profile.settings : null;
+      if (s) {
+        try {
+          var au = StarNix.core.audio;
+          if (au.setMasterVolume) au.setMasterVolume(s.masterVol == null ? 1 : s.masterVol);
+          if (au.setMusicVolume) au.setMusicVolume(s.musicVol == null ? 1 : s.musicVol);
+          if (au.setSfxVolume) au.setSfxVolume(s.sfxVol == null ? 1 : s.sfxVol);
+          if (au.setMusicGenre) au.setMusicGenre(s.musicGenre === "chill" ? "chill" : "upbeat");   // (v0.49.0)
+          au.setMusic(!!s.music); au.setSfx(!!s.sfx);
+        } catch (e) {}
+      }
+    };
+    this._on(this.root, "pointerdown", unlock, false, this._shellListeners);
+    this._on(this.root, "keydown", unlock, false, this._shellListeners);
+  };
+
+  /* ---- DOM helpers (static skeletons via innerHTML; dynamic via text) - */
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  /* Original neon "NX" wireframe-X motif, drawn in code (not the official mark). */
+  var NX_CREST =
+    '<svg class="sx-crest-x" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="1.6">' +
+    '<path d="M5 5 L19 19 M19 5 L5 19" stroke="#AC9BFD"/>' +
+    '<rect x="9.5" y="9.5" width="5" height="5" transform="rotate(45 12 12)" stroke="#1FDDE9"/></svg>';
+
+  /* =================================================================== *
+   * boot
+   * =================================================================== */
+  Shell.prototype.boot = function (root, opts) {
+    var selfB = this;
+    StarNix._errScreen = function () { return selfB.screen || ""; };   // (v0.147.0, Backend#3)
+    var self = this;
+    this.root = (typeof root === "string") ? document.getElementById(root) : root;
+    if (!this.root) throw new Error("boot: root element not found");
+    // shell-owned scaffold
+    this.root.classList.add("starnix-shell");
+    this.stage = el("div", "sx-stage");
+    this.root.appendChild(this.stage);
+    // Persistent build-version badge (lives on root, not stage, so it survives screen swaps and
+    // stays visible inside every game). Non-interactive. Tells us which build is being tested.
+    var label = (StarNix && StarNix.BUILD_LABEL) || "";
+    if (label) {
+      this.buildBadge = el("div", "sx-build-badge", label);
+      this.buildBadge.setAttribute("aria-hidden", "true");
+      this.root.appendChild(this.buildBadge);
+    }
+    this._injectShellCSS();
+    this._wireAudioUnlock();
+    return StarNix.initCore(opts || {}).then(function () {
+      self._applyContrast();        // #12: apply saved high-contrast preference on load
+      self._applyMotion();          // (v0.150.0) reduced-motion attribute on load
+      // v0.53.0 unit 3: achievement unlock toasts. Registered once at boot; fires from the
+      // core evaluator wherever the unlock happens — the toast overlays the stage, so it
+      // shows mid-game too. Reward styling (gold), no animation beyond the toast itself.
+      if (StarNix.achievements) {
+        StarNix.achievements.onUnlock(function (defs) {
+          for (var i = 0; i < defs.length; i++) {
+            self._toast(defs[i].icon + " Achievement: " + defs[i].name + " (+" + defs[i].xp + " XP)", "sx-toast-gold");
+          }
+        });
+      }
+      self.showTitle();
+      return self;
+    });
+  };
+
+  /* High-contrast / low-vision mode (#12). The HC palette lives in the theme CSS
+   * (core themeCSS) keyed on <html data-contrast="high">; this just flips the attribute
+   * from the persisted `colorblind` setting. Stored key stays `colorblind` for profile compat. */
+  // (v0.150.0, V1.1 FE reduced-motion) ONE switchboard for the in-app toggle: data-motion on
+  // <html>, so any module's CSS can twin its prefers-reduced-motion rule with
+  // [data-motion="reduced"] and honor BOTH the OS query and the in-app setting. New rules use
+  // this; the existing sx-reduced/arm-reduce/kbb-reduced class plumbing stays (green + pinned).
+  Shell.prototype._applyMotion = function () {
+    try {
+      var p = StarNix.core && StarNix.core.profile;
+      var on = !!(p && p.settings && p.settings.reducedMotion);
+      var doc = (this.root && this.root.ownerDocument) || document;
+      if (on) doc.documentElement.setAttribute("data-motion", "reduced");
+      else doc.documentElement.removeAttribute("data-motion");
+    } catch (e) {}
+  };
+  Shell.prototype._applyContrast = function () {
+    try {
+      var p = StarNix.core && StarNix.core.profile;
+      var on = !!(p && p.settings && p.settings.colorblind);
+      var doc = (this.root && this.root.ownerDocument) || document;
+      if (on) doc.documentElement.setAttribute("data-contrast", "high");
+      else doc.documentElement.removeAttribute("data-contrast");
+    } catch (e) {}
+  };
+
+  /* =================================================================== *
+   * title
+   * =================================================================== */
+  Shell.prototype.showTitle = function () {
+    this._clearScreen();
+    this.screen = "title";
+    var s = el("div", "sx-screen sx-title");
+    // Official Nutanix wordmark (white SVG), title screen ONLY, unaltered (07 §3).
+    s.innerHTML =
+      '<div class="sx-title-photo" aria-hidden="true"></div>' +
+      '<img class="sx-wordmark-img" alt="Nutanix" src="' + ((global.STARNIX_ASSETS && global.STARNIX_ASSETS.wordmark) || '') + '">' +
+      '<h1 class="sx-h1">StarNix</h1>' +
+      '<div class="sx-sub">NCP-MCI · Starlight Rescue Crew</div>' +
+      '<div class="sx-row"></div>';
+    var tphoto = s.querySelector(".sx-title-photo");
+    var neb = global.STARNIX_ASSETS && global.STARNIX_ASSETS.nebulaBg;
+    if (tphoto && neb) { tphoto.style.backgroundImage = 'url("' + neb + '")'; tphoto.classList.add("on"); }
+    var row = s.querySelector(".sx-row");
+    var dueT = this._dueCount();   // (v0.167.0, Flow#6)
+    var start = el("button", "sx-btn sx-btn-iris", dueT > 0 ? "Start \u2014 " + dueT + " due" : "Start");
+    var self = this;
+    this._on(start, "click", function () {
+      try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {}
+      self.showCinematic();
+    });
+    row.appendChild(start);
+    this.stage.appendChild(s);
+  };
+
+  /* =================================================================== *
+   * shared cinematic (cold open, skippable)  (00 §2)
+   * One RAF; pre-allocated buffers (no per-frame allocation, 01 §13).
+   * Beats: station intact -> Disruptor beam + shatter -> warp to Kuiper
+   *        belt -> squadron descends to planet.
+   * =================================================================== */
+  Shell.prototype.showCinematic = function () {
+    this._clearScreen();
+    this.screen = "cinematic";
+    var self = this;
+    var reduced = !!(StarNix.core.profile && StarNix.core.profile.settings.reducedMotion);
+
+    var wrap = el("div", "sx-screen sx-cine");
+    var canvas = el("canvas", "sx-cine-canvas");
+    var cap = el("div", "sx-cap");
+    var skip = el("button", "sx-skip", "Skip \u25B6");
+    // finale mission panel (DOM = crisp + accessible); hidden until last beat
+    var mission = el("div", "sx-mission");
+    mission.innerHTML =
+      '<div class="sx-mission-eyebrow">Nutanix Starlight Rescue Crew \u00B7 NX-SRC</div>' +
+      '<h2 class="sx-mission-title">Your mission</h2>' +
+      '<ul class="sx-mission-list">' +
+        '<li><button type="button" class="sx-mission-go" data-game="ARM"><b>Rebuild</b> the MCI Station <span class="acc-iris">\u2014 Acropolis Rescue</span></button></li>' +
+        '<li><button type="button" class="sx-mission-go" data-game="CC"><b>Capture</b> the escaped squadron <span class="acc-aqua">\u2014 Chasm Chase</span></button></li>' +
+        '<li><button type="button" class="sx-mission-go" data-game="KBB"><b>Defeat</b> the BCM warship in the Kuiper Belt <span class="acc-peach">\u2014 Kuiper Belt Battle</span></button></li>' +
+        '<li><button type="button" class="sx-mission-go" data-game="NIT"><b>Certify</b> when you are ready <span class="acc-gold">\u2014 Nutanix Interrogation Test</span></button></li>' +
+      '</ul>';
+    mission.style.opacity = "0";
+    var mLines = mission.querySelectorAll(".sx-mission-list li"), lastLineN = 0;   // (v0.181.0, V1.1 Menu#7)
+    // (Menu#7) the finale IS the first mission select — each revealed line launches directly;
+    // _clearScreen cancels the cinematic RAF, so the jump is clean.
+    this._on(mission, "click", function (eM) {
+      var go = eM.target;
+      while (go && go !== mission && !(go.getAttribute && go.getAttribute("data-game"))) go = go.parentNode;
+      if (!go || go === mission) return;
+      var gid = go.getAttribute("data-game");
+      try { StarNix.core.audio.sfx("click"); } catch (eS) {}
+      if (gid === "NIT") { try { StarNix.core.audio.playTrack("menu"); } catch (eN) {} self.showExamSetup(); }
+      else self.enterGame(gid);
+    });
+    wrap.appendChild(canvas); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip);
+    this.stage.appendChild(wrap);
+
+    var ctx = canvas.getContext("2d");
+    var dpr = Math.min(global.devicePixelRatio || 1, 2);
+    var W = 0, H = 0, cx = 0, cy = 0, scale = 1;
+    function sizeCanvas() {
+      W = wrap.clientWidth || 800; H = wrap.clientHeight || 600;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = W / 2; cy = H * 0.46;                       // action sits slightly above middle
+      scale = Math.max(0.7, Math.min(W, H) / 720);     // readable + centered on big monitors
+    }
+    sizeCanvas();
+
+    var rng = StarNix.core.makeRng("cine-v2");
+
+    // -------- pre-allocated buffers (no per-frame allocation, 01 §13) --------
+    var STAR_N = 110, stars = new Array(STAR_N);
+    // (v0.107.0, G3, Jason: "more 3D") stars carry a DEPTH — projected from center, they
+    // drift toward the camera and streak during high-energy beats. Pre-allocated per 01 §13.
+    for (var i = 0; i < STAR_N; i++) stars[i] = { x: rng.next(), y: rng.next(), s: 0.4 + rng.next() * 1.5, a: 0.18 + rng.next() * 0.6, z: 0.25 + rng.next() * 0.75 };
+
+    function hexPts(r) { var a = []; for (var p = 0; p < 6; p++) { var an = (p / 6) * Math.PI * 2 - Math.PI / 2; a.push([Math.cos(an) * r, Math.sin(an) * r]); } return a; }
+    function buildStation() {
+      return [
+        { pts: [[-78, -3], [-46, -3], [-46, 3], [-78, 3]], fill: "#1FDDE9", stroke: "#1FDDE9" },              // left panel arm
+        { pts: [[46, -3], [78, -3], [78, 3], [46, 3]], fill: "#1FDDE9", stroke: "#1FDDE9" },                  // right panel arm
+        { pts: [[-104, -17], [-78, -17], [-78, 17], [-104, 17]], fill: "rgba(31,221,233,0.16)", stroke: "#1FDDE9" }, // left panel
+        { pts: [[78, -17], [104, -17], [104, 17], [78, 17]], fill: "rgba(31,221,233,0.16)", stroke: "#1FDDE9" },     // right panel
+        { pts: [[-46, -11], [-30, -11], [-30, 11], [-46, 11]], fill: "#1d1d4a", stroke: "#7855FA" },          // left module
+        { pts: [[30, -11], [46, -11], [46, 11], [30, 11]], fill: "#1d1d4a", stroke: "#7855FA" },              // right module
+        { pts: hexPts(27), fill: "#2a2566", stroke: "#AC9BFD", glow: "#7855FA", lw: 2 }                       // hub
+      ];
+    }
+    var STATION = buildStation();
+    var WARSHIP = [[28, 0], [20, -4], [-6, -9], [-26, 0], [-6, 9], [20, 4]];     // dart, nose at +x
+
+    // (v0.152.0, V1.1 Menu#4) the REAL station art shatters: a 4x3 grid of drawImage
+    // source-rect fragments (ARM's proven boss-intro technique), pre-allocated here.
+    var FRAG_GX = 4, FRAG_GY = 3, FRAG_N = FRAG_GX * FRAG_GY, frags = new Array(FRAG_N);
+    for (var f2 = 0; f2 < FRAG_N; f2++) {
+      var fgx = (f2 % FRAG_GX) - (FRAG_GX - 1) / 2, fgy = ((f2 / FRAG_GX) | 0) - (FRAG_GY - 1) / 2;
+      var fsp = 70 + rng.next() * 150;
+      frags[f2] = { vx: fgx * fsp * 0.8 + (rng.next() - 0.5) * 50, vy: fgy * fsp * 1.1 + (rng.next() - 0.5) * 50, spin: (rng.next() - 0.5) * 3.2 };
+    }
+    var SHARD_N = 46, shards = new Array(SHARD_N);
+    for (var s2 = 0; s2 < SHARD_N; s2++) { var sa = rng.next() * Math.PI * 2, sp = 60 + rng.next() * 240; shards[s2] = { vx: Math.cos(sa) * sp, vy: Math.sin(sa) * sp, rot: rng.next() * 6.28, spin: (rng.next() - 0.5) * 7, sz: 3 + rng.next() * 7, hue: rng.next() }; }
+    var CORE_N = 12, cores = new Array(CORE_N);
+    for (var c2 = 0; c2 < CORE_N; c2++) { var cca = (c2 / CORE_N) * Math.PI * 2 + rng.next() * 0.4, ccs = 70 + rng.next() * 150; cores[c2] = { vx: Math.cos(cca) * ccs, vy: Math.sin(cca) * ccs, rot: rng.next() * 6.28, spin: (rng.next() - 0.5) * 4, col: (c2 % 2 ? "#1FDDE9" : "#FFC857") }; }
+    var ROCK_N = 16, rocks = new Array(ROCK_N);
+    for (var r2 = 0; r2 < ROCK_N; r2++) rocks[r2] = { x: rng.next(), y: 0.16 + rng.next() * 0.66, z: 0.4 + rng.next() * 1.2, rot: rng.next() * 6.28, spin: (rng.next() - 0.5) * 1.5, sz: 6 + rng.next() * 15, sides: 5 + (rng.next() * 3 | 0), spr: (rng.next() * 5 | 0) };   // (v0.193.0, Menu#9) each rock picks its KBB sprite
+    var SQ_N = 5, squad = new Array(SQ_N);
+    for (var q2 = 0; q2 < SQ_N; q2++) squad[q2] = { dx: (q2 - (SQ_N - 1) / 2) * 26, ph: rng.next() * 6.28 };
+
+    var planetImg = null, planetReady = false;
+    try { var psrc = (global.STARNIX_ASSETS && global.STARNIX_ASSETS.planet) || ""; if (psrc) { planetImg = new Image(); planetImg.onload = function () { planetReady = true; }; planetImg.src = psrc; } } catch (e) {}
+    // (v0.124.0, Jason) the cinematic now flies our REAL art where it has it: the MCI Station
+    // (armStation), the BCM warship that fires the Disruptor + jumps to the belt (bcmShip), and
+    // the BCM squadron that dives on the planet (armEnemyDive — authored for exactly this beat).
+    // Each is asset-gated; the original vector art is the fallback (and what jsdom/tests see).
+    function cineImg(key) {
+      try { var s = (global.STARNIX_ASSETS && global.STARNIX_ASSETS[key]) || ""; if (!s) return null; var im = new Image(); var o = { img: im, ready: false }; im.onload = function () { o.ready = true; }; im.src = s; return o; } catch (e) { return null; }
+    }
+    var stationA = cineImg("armStation"), warshipA = cineImg("bcmShip"), diveA = cineImg("armEnemyDive");
+    // (v0.193.0, V1.1 Menu#9) the belt beat flies the REAL KBB asteroids — the cinematic
+    // foreshadows the game it hands you; flat polys stay as the asset-not-ready fallback.
+    var asteroidA = [cineImg("kbbAsteroid1"), cineImg("kbbAsteroid2"), cineImg("kbbAsteroid3"), cineImg("kbbAsteroid4"), cineImg("kbbAsteroid5")];
+
+    // -------- beat timeline (seconds): station | beam | shatter | belt | planet | mission --------
+    var B = reduced
+      ? { station: 0.0, beam: 1.6, shatter: 2.8, belt: 4.0, planet: 5.2, mission: 6.4, end: 9.4 }
+      : { station: 0.0, beam: 3.4, shatter: 6.4, belt: 9.2, planet: 12.0, mission: 14.8, end: 18.4 };
+    var CAPS = [
+      [B.station, "The MCI Station held every concept you need to pass."],
+      [B.beam, "Then the Broad Communication Military fired the Microsegmentation Disruptor."],
+      [B.shatter, "The station shattered into knowledge cores."],
+      [B.belt, "The BCM warship jumped to the Kuiper Belt."],
+      [B.planet, "A BCM squadron broke off toward the planet below."],
+      [B.mission, ""]
+    ];
+    function caption(t) { var c = ""; for (var k = 0; k < CAPS.length; k++) { if (t >= CAPS[k][0]) c = CAPS[k][1]; } return c; }
+
+    // -------- draw helpers (no per-frame allocation) --------
+    function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeOut(t) { return 1 - (1 - t) * (1 - t); }
+    function drawPolyPts(pts, fill, stroke, glow, lw) {
+      ctx.beginPath();
+      for (var p = 0; p < pts.length; p++) { var v = pts[p]; if (p === 0) ctx.moveTo(v[0], v[1]); else ctx.lineTo(v[0], v[1]); }
+      ctx.closePath();
+      if (glow && !reduced) { ctx.shadowColor = glow; ctx.shadowBlur = 12; }
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1.5; ctx.stroke(); }
+      ctx.shadowBlur = 0;
+    }
+    function regPoly(x, y, r, sides, rot) { ctx.beginPath(); for (var p = 0; p < sides; p++) { var an = rot + (p / sides) * Math.PI * 2; var px = x + Math.cos(an) * r, py = y + Math.sin(an) * r; if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); } ctx.closePath(); }
+
+    function drawStation(alpha, sx, sy) {
+      if (stationA && stationA.ready) {   // (v0.124.0) the real MCI Station art
+        ctx.save(); ctx.translate(cx + (sx || 0), cy + (sy || 0)); ctx.rotate(T * 0.1); ctx.globalAlpha = alpha;
+        var sw2 = 300 * scale, sh2 = sw2 * (stationA.img.naturalHeight / stationA.img.naturalWidth || 0.66);
+        if (!reduced) { ctx.shadowColor = "#1FDDE9"; ctx.shadowBlur = 20; }
+        ctx.drawImage(stationA.img, -sw2 / 2, -sh2 / 2, sw2, sh2);
+        ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0; return;
+      }
+      ctx.save(); ctx.translate(cx + (sx || 0), cy + (sy || 0)); ctx.rotate(T * 0.16); ctx.scale(scale, scale); ctx.globalAlpha = alpha;
+      for (var p = 0; p < STATION.length; p++) { var pg = STATION[p]; drawPolyPts(pg.pts, pg.fill, pg.stroke, pg.glow, pg.lw); }
+      ctx.restore(); ctx.globalAlpha = 1;
+    }
+    function drawWarBeam(bk) {
+      var enter = easeOut(clamp(bk / 1.0, 0, 1));
+      var wsx = lerp(W + 90, cx + 160 * scale, enter), wsy = cy, sc = scale * 1.1, noseX = wsx - 30 * sc;
+      var shake = (bk >= 2.0 && !reduced) ? (rng.next() - 0.5) * 6 : 0;
+      drawStation(1, shake, shake * 0.6);
+      if (bk >= 1.0) {   // (v0.159.0, V1.1 Menu#5) ARM's layered charge: radial glow + dashed aim line
+        var ch = clamp((bk - 1.0) / 1.0, 0, 1);
+        if (!reduced) {
+          ctx.save(); ctx.globalCompositeOperation = "lighter";
+          var crR = (4 + ch * 16) * scale;
+          var cgR = ctx.createRadialGradient(noseX, wsy, 0, noseX, wsy, crR * 2.2);
+          if (cgR && cgR.addColorStop) {
+            cgR.addColorStop(0, "rgba(255,107,91," + (0.5 + 0.4 * ch) + ")"); cgR.addColorStop(1, "rgba(255,107,91,0)");
+            ctx.fillStyle = cgR; ctx.beginPath(); ctx.arc(noseX, wsy, crR * 2.2, 0, 6.283); ctx.fill();
+          }
+          if (ctx.setLineDash) {
+            ctx.strokeStyle = "rgba(255,107,91," + (0.25 + 0.35 * ch) + ")"; ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 8]); ctx.lineDashOffset = -T * 40;
+            ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke(); ctx.setLineDash([]);
+          }
+          ctx.restore();
+        } else {
+          ctx.save(); ctx.fillStyle = "#FF6B5B"; ctx.beginPath(); ctx.arc(noseX, wsy, 3 + ch * 8, 0, 6.283); ctx.fill(); ctx.restore();
+        }
+        ctx.shadowBlur = 0;
+      }
+      if (bk >= 2.0) {
+        var fk = clamp((bk - 2.0) / 1.0, 0, 1);
+        if (!reduced) {   // (v0.159.0, Menu#5) the layered fire moment: glow stroke + white core + impact flash
+          ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 22;
+          ctx.strokeStyle = "rgba(255,107,91,0.85)"; ctx.lineWidth = (7 + 12 * (1 - fk * 0.5)) * scale;
+          ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke();
+          ctx.strokeStyle = "rgba(255,238,228,0.9)"; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke();
+          if (fk < 0.25) {   // impact flash at the station the instant the beam lands
+            var ifR = (30 + fk * 260) * scale;
+            var ig = ctx.createRadialGradient(cx, cy, 0, cx, cy, ifR);
+            if (ig && ig.addColorStop) {
+              ig.addColorStop(0, "rgba(255,255,255," + (0.7 * (1 - fk / 0.25)) + ")"); ig.addColorStop(1, "rgba(255,107,91,0)");
+              ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(cx, cy, ifR, 0, 6.283); ctx.fill();
+            }
+          }
+          ctx.restore(); ctx.shadowBlur = 0;
+          ctx.fillStyle = "rgba(255,107,91," + (0.05 + fk * 0.12) + ")"; ctx.fillRect(0, 0, W, H);
+        } else {
+          ctx.save(); ctx.strokeStyle = "#FF6B5B"; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
+          ctx.beginPath(); ctx.moveTo(noseX, wsy); ctx.lineTo(cx, cy); ctx.stroke(); ctx.restore(); ctx.globalAlpha = 1;
+        }
+      }
+      ctx.save(); ctx.translate(wsx, wsy);
+      if (warshipA && warshipA.ready) {   // (v0.124.0) the real BCM warship
+        var ww = 108 * sc / 1.1, wh = ww * (warshipA.img.naturalHeight / warshipA.img.naturalWidth || 0.6);
+        if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 14; }
+        ctx.scale(-1, 1); ctx.drawImage(warshipA.img, -ww / 2, -wh / 2, ww, wh);
+      } else {
+        ctx.scale(-sc, sc);
+        if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 10; }
+        drawPolyPts(WARSHIP, "#3a1d22", "#FF6B5B", "#FF6B5B", 1.6);
+        ctx.beginPath(); ctx.arc(8, 0, 3, 0, 6.283); ctx.fillStyle = "#FFC857"; ctx.fill();
+      }
+      ctx.restore(); ctx.shadowBlur = 0;
+    }
+    function drawShards(k) {
+      if (stationA && stationA.ready) {   // (v0.152.0, Menu#4) the art itself breaks apart
+        var iw = stationA.img.naturalWidth || 400, ih = stationA.img.naturalHeight || 264;
+        var sw3 = 300 * scale, sh3 = sw3 * (ih / iw || 0.66);
+        var scw = iw / FRAG_GX, sch = ih / FRAG_GY, dcw = sw3 / FRAG_GX, dch = sh3 / FRAG_GY;
+        var fa = clamp(1.15 - k * 0.5, 0, 1);
+        if (fa > 0) {
+          for (var ff2 = 0; ff2 < FRAG_N; ff2++) {
+            var fo = frags[ff2], fgx2 = ff2 % FRAG_GX, fgy2 = (ff2 / FRAG_GX) | 0;
+            var fbx = (fgx2 - (FRAG_GX - 1) / 2) * dcw, fby = (fgy2 - (FRAG_GY - 1) / 2) * dch;
+            var fxp = cx + fbx + fo.vx * k, fyp = cy + fby + fo.vy * k - k * k * 26;
+            ctx.save(); ctx.translate(fxp, fyp); ctx.rotate(fo.spin * k); ctx.globalAlpha = fa;
+            if (!reduced) { ctx.shadowColor = "#1FDDE9"; ctx.shadowBlur = 8; }
+            ctx.drawImage(stationA.img, fgx2 * scw, fgy2 * sch, scw, sch, -dcw / 2, -dch / 2, dcw, dch);
+            ctx.restore();
+          }
+        }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        return;
+      }
+      for (var s = 0; s < SHARD_N; s++) { var o = shards[s]; var a = clamp(1.2 - k * 0.45, 0, 1); if (a <= 0) continue; var x = cx + o.vx * k, y = cy + o.vy * k; ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot + o.spin * k); ctx.globalAlpha = a; var col = o.hue < 0.5 ? "#7855FA" : "#AC9BFD"; if (!reduced) { ctx.shadowColor = col; ctx.shadowBlur = 8; } ctx.fillStyle = col; ctx.fillRect(-o.sz / 2, -o.sz / 2, o.sz, o.sz * 0.7); ctx.restore(); }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    function drawCores(k) {
+      for (var c = 0; c < CORE_N; c++) { var o = cores[c]; var a = clamp(1.0 - k * 0.16, 0.25, 1); var x = cx + o.vx * k * 0.6, y = cy + o.vy * k * 0.6; ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot + o.spin * k); ctx.globalAlpha = a; if (!reduced) { ctx.shadowColor = o.col; ctx.shadowBlur = 14; } regPoly(0, 0, 7 + Math.sin(T * 4 + c) * 1.2, 6, 0); ctx.fillStyle = o.col; ctx.fill(); ctx.restore(); }
+      ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+    }
+    function drawWarpBelt(k) {
+      var warpDur = reduced ? 0.4 : 0.9;
+      if (k < warpDur) {
+        var wk = k / warpDur; ctx.strokeStyle = "#AC9BFD"; ctx.lineWidth = 2;
+        for (var w = 0; w < STAR_N; w++) { var sw = stars[w]; var sx = sw.x * W - cx, sy = sw.y * H - cy; var an = Math.atan2(sy, sx), r = Math.hypot(sx, sy); var x1 = cx + Math.cos(an) * r, y1 = cy + Math.sin(an) * r, x2 = cx + Math.cos(an) * (r + wk * 260), y2 = cy + Math.sin(an) * (r + wk * 260); ctx.globalAlpha = 0.5; if (!reduced) { ctx.shadowColor = "#1FDDE9"; ctx.shadowBlur = 8; } ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+      } else {
+        var bk = k - warpDur;
+        for (var rr = 0; rr < ROCK_N; rr++) { var o = rocks[rr]; var px = ((o.x - bk * 0.05 * o.z) % 1 + 1) % 1; var x = px * W, y = o.y * H, sz = o.sz * scale * o.z * 0.6; ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot + o.spin * bk); ctx.globalAlpha = clamp(bk * 1.6, 0, 0.92); if (!reduced) { ctx.shadowColor = "#3a3a5a"; ctx.shadowBlur = 6; }
+          var aA = asteroidA[o.spr];   // (v0.193.0, Menu#9) real KBB rock art, poly fallback
+          if (aA && aA.ready) { var asz = sz * 2.3, ash = asz * (aA.img.naturalHeight / aA.img.naturalWidth || 1); ctx.drawImage(aA.img, -asz / 2, -ash / 2, asz, ash); }
+          else { regPoly(0, 0, sz, o.sides, 0); ctx.fillStyle = "#2b2b3e"; ctx.fill(); ctx.strokeStyle = "#5a5a78"; ctx.lineWidth = 1; ctx.stroke(); }
+          ctx.restore(); }
+        ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        var ek = clamp(bk / 1.4, 0, 1), wsc = scale * (1.1 - ek * 0.92);
+        if (wsc > 0.05) {
+          ctx.save(); ctx.translate(cx, cy - 10 * scale); ctx.globalAlpha = clamp(1 - ek, 0, 1);
+          if (warshipA && warshipA.ready) {   // (v0.124.0) the real BCM warship jumping away
+            var rw = 108 * wsc / 1.1, rh = rw * (warshipA.img.naturalHeight / warshipA.img.naturalWidth || 0.6);
+            if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 14; }
+            ctx.scale(-1, 1); ctx.drawImage(warshipA.img, -rw / 2, -rh / 2, rw, rh);
+          } else {
+            ctx.scale(-wsc, wsc); if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 12; }
+            drawPolyPts(WARSHIP, "#3a1d22", "#FF6B5B", "#FF6B5B", 1.5);
+          }
+          ctx.restore(); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+        }
+      }
+    }
+    function drawPlanetSquad(k) {
+      var pr = H * 0.42, pcx = cx, pcy = lerp(H * 1.34, H * 0.82, easeOut(clamp(k / 1.6, 0, 1)));
+      ctx.save(); if (!reduced) { ctx.shadowColor = "#1FDDE9"; ctx.shadowBlur = 40; } ctx.fillStyle = "rgba(31,221,233,0.05)"; ctx.beginPath(); ctx.arc(pcx, pcy, pr * 1.02, 0, 6.283); ctx.fill(); ctx.restore(); ctx.shadowBlur = 0;
+      ctx.save(); ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, 6.283); ctx.clip();
+      if (planetReady) ctx.drawImage(planetImg, pcx - pr, pcy - pr, pr * 2, pr * 2); else { ctx.fillStyle = "#241a16"; ctx.fillRect(pcx - pr, pcy - pr, pr * 2, pr * 2); }
+      ctx.restore();
+      ctx.save(); ctx.strokeStyle = "rgba(172,155,253,0.45)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(pcx, pcy, pr, 0, 6.283); ctx.stroke(); ctx.restore();
+      var sk = clamp((k - 0.4) / 2.2, 0, 1), startY = cy * 0.5, endY = pcy - pr - 18 * scale;
+      for (var q = 0; q < SQ_N; q++) {
+        var o = squad[q]; var qx = cx + o.dx * scale, qy = lerp(startY, endY, sk) + Math.sin(T * 3 + o.ph) * 3;
+        ctx.save(); ctx.translate(qx, qy);
+        if (diveA && diveA.ready) {   // (v0.124.0) the real BCM dive enemy (authored nose-down for this beat)
+          var dw = 30 * scale, dh = dw * (diveA.img.naturalHeight / diveA.img.naturalWidth || 1);
+          if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 10; }
+          ctx.drawImage(diveA.img, -dw / 2, -dh / 2, dw, dh);
+        } else {
+          if (!reduced) { ctx.shadowColor = "#FF6B5B"; ctx.shadowBlur = 10; }
+          ctx.fillStyle = "#FF6B5B"; ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(6, -6); ctx.lineTo(-6, -6); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#FFC857"; ctx.fillRect(-1.5, -2, 3, 3);
+        }
+        ctx.restore(); ctx.shadowBlur = 0;
+      }
+    }
+
+    var T = 0, last = global.performance.now();
+    // (v0.107.0, G3) beat-synced sound design — each fires exactly once
+    var SFX_BEATS = [
+      { at: B.beam + 1.0, name: "lasercharge", done: false },
+      { at: B.beam + 2.0, name: "laserfire", done: false },
+      { at: B.shatter, name: "explode", done: false },
+      { at: B.belt, name: "laserhit", done: false },
+      { at: B.planet, name: "collect", done: false },
+      // (v0.188.0, Menu#8) a soft tick as each caption starts typing
+      { at: B.station, name: "click", done: false },
+      { at: B.beam, name: "click", done: false },
+      { at: B.shatter + 0.02, name: "click", done: false },
+      { at: B.belt + 0.02, name: "click", done: false },
+      { at: B.planet + 0.02, name: "click", done: false },
+      { at: B.mission, name: "correct", done: false }
+    ];
+    var camZ = 1, lastCap = null, lastMo = null;   // (G3) push-in; (G4) DOM write caches
+    var capStart = 0, capShown = -1;               // (v0.188.0, V1.1 Menu#8) type-on caption state
+    function frame(ts) {
+      var dt = (ts - last) / 1000; last = ts; if (dt > 0.05) dt = 0.05; T += dt;
+      for (var sfb = 0; sfb < SFX_BEATS.length; sfb++) { var fb = SFX_BEATS[sfb]; if (!fb.done && T >= fb.at) { fb.done = true; try { StarNix.core.audio.sfx(fb.name); } catch (eFb) {} } }
+      ctx.clearRect(0, 0, W, H);
+      var inBelt = (T >= B.belt && T < B.planet);
+      // (G3) projected starfield: depth drift always, hard streaks during the beam + jump
+      if (!inBelt) {
+        var rush = (!reduced && ((T >= B.beam + 2.0 && T < B.shatter) || (T >= B.shatter && T < B.shatter + 0.5))) ? 3.2 : 0.35;
+        for (var i = 0; i < STAR_N; i++) {
+          var st = stars[i];
+          if (!reduced) { st.z -= dt * 0.05 * rush; if (st.z < 0.12) st.z += 0.85; }
+          var pxs = cx + (st.x - 0.5) * W / st.z * 0.62, pys = cy + (st.y - 0.5) * H / st.z * 0.62;
+          if (pxs < -20 || pxs > W + 20 || pys < -20 || pys > H + 20) continue;
+          ctx.globalAlpha = st.a * (0.6 + 0.4 * Math.sin(T * 2 + i)) * clamp(1.1 - st.z, 0.15, 1);
+          ctx.fillStyle = "#cfd2ff";
+          var ssz = st.s / st.z * 0.55;
+          if (rush > 1 && !reduced) { ctx.fillRect(pxs, pys, ssz + (pxs - cx) * 0.03 * rush, Math.max(1, ssz * 0.5)); }
+          else ctx.fillRect(pxs, pys, ssz, ssz);
+        }
+        ctx.globalAlpha = 1;
+      }
+      // (G3) camera push: eases deeper into each beat, resets on transitions
+      var camTarget = reduced ? 1 : (T < B.beam ? 1.05 : T < B.shatter ? 1.12 : T < B.belt ? 1.06 : T < B.planet ? 1.0 : 1.03);
+      camZ += (camTarget - camZ) * Math.min(1, dt * 0.7);
+      ctx.save();
+      if (!reduced) { ctx.translate(cx, cy); ctx.scale(camZ, camZ); ctx.translate(-cx, -cy); }
+
+      if (T < B.beam) { drawStation(1, 0, 0); }
+      else if (T < B.shatter) { drawWarBeam(T - B.beam); }
+      else if (T < B.belt) { var ks = T - B.shatter; if (!reduced) { var ff = clamp(0.3 - ks * 0.6, 0, 0.3); if (ff > 0) { ctx.fillStyle = "rgba(255,107,91," + ff + ")"; ctx.fillRect(0, 0, W, H); } } drawShards(ks); drawCores(ks); }
+      else if (T < B.planet) { drawWarpBelt(T - B.belt); }
+      else { drawPlanetSquad(T - B.planet); }
+      ctx.restore();
+      // (G3) vignette: cheap depth frame (two edge fills, no gradient allocation)
+      // (v0.188.0, V1.1 Menu#8) proper letterbox bars — a static cinema frame drawn for
+      // everyone (not motion); the bottom bar sits behind the caption line.
+      ctx.fillStyle = "rgba(4,4,10,0.82)";
+      ctx.fillRect(0, 0, W, H * 0.07);
+      ctx.fillRect(0, H * 0.86, W, H * 0.14);
+
+      if (T >= B.mission) {
+        var mo = String(clamp((T - B.mission) / 0.8, 0, 1)); if (mo !== lastMo) { lastMo = mo; mission.style.opacity = mo; }
+        // (v0.181.0, V1.1 Menu#7) accent-coded staggered reveal, one soft tick per landing line
+        var ln = reduced ? mLines.length : Math.min(mLines.length, 1 + Math.floor((T - B.mission) / 0.4));
+        if (ln !== lastLineN) {
+          for (var lr = lastLineN; lr < ln; lr++) mLines[lr].classList.add("on");
+          if (!reduced) { try { StarNix.core.audio.sfx("click"); } catch (eTk) {} }
+          lastLineN = ln;
+        }
+      }
+      // (v0.188.0, V1.1 Menu#8) type-on captions: each line lands over ~0.6s, whole-line
+      // under reduced motion — still guarded, a DOM write only when the substring changes.
+      var capNow = caption(T);
+      if (capNow !== lastCap) { lastCap = capNow; capStart = T; capShown = -1; }
+      var capWant = (reduced || !capNow) ? capNow.length : Math.min(capNow.length, Math.ceil(((T - capStart) / 0.6) * capNow.length));
+      if (capWant !== capShown) { capShown = capWant; cap.textContent = capNow.slice(0, capWant); }
+      if (T >= B.end) { self._endCinematic(); return; }
+      self._raf = global.requestAnimationFrame(frame);
+    }
+
+    var onResize = function () { sizeCanvas(); };
+    this._on(global, "resize", onResize);
+    var doSkip = function () { try { StarNix.core.audio.sfx("click"); } catch (e) {} self._endCinematic(); };
+    this._on(skip, "click", doSkip);
+    this._on(global, "keydown", function (e) { if (e.key === "Escape" || e.key === " " || e.code === "Space") { e.preventDefault(); doSkip(); } });
+
+    this.cinematicPlayed = true;
+    this._raf = global.requestAnimationFrame(frame);
+  };
+  Shell.prototype._endCinematic = function () {
+    this._cancelRaf();
+    try { StarNix.core.audio.playTrack("menu"); } catch (e) {}
+    this.showMenu();
+  };
+
+  /* (v0.204.0, V1.1 Flow#10) the certification finale — an actual ENDING. A station-relight
+   * canvas beat (armStation re-lit segment by segment, the intro cinematic's own art), then
+   * the certificate: rank, sims, mastery, date. profile.certified latches on first entry so
+   * it fires exactly once and replays from the Codex forever. Honesty note included: this is
+   * the study milestone, not the NCP-MCI itself. */
+  Shell.prototype.showFinale = function (optsF) {
+    this._clearScreen();
+    this.screen = "finale";
+    var self = this, core = StarNix.core, prof = core.profile;
+    var replay = !!(optsF && optsF.replay);
+    if (!replay && !prof.certified) {
+      prof.certified = (core.clock && core.clock.now) ? core.clock.now() : Date.now();
+      try { core.persistence.update(function (p) { p.certified = prof.certified; }); } catch (eCf) {}
+    }
+    var reduced = !!(prof.settings && prof.settings.reducedMotion);
+    var s = el("div", "sx-screen sx-finale");
+    this.stage.appendChild(s);
+    var certAt = prof.certified || ((core.clock && core.clock.now) ? core.clock.now() : Date.now());
+    function showCert() {
+      s.textContent = "";
+      var card = el("div", "sx-cert");
+      card.appendChild(el("div", "sx-eyebrow", "NX-SRC \u00b7 CERTIFICATION OF STATION SERVICE"));
+      card.appendChild(el("h2", "sx-h2", "The MCI Station shines again"));
+      var rk = StarNix.xp.rankFor(prof.xp || 0);
+      card.appendChild(el("div", "sx-cert-rank", "\u2726 " + rk.name + " \u00b7 " + (prof.xp || 0).toLocaleString() + " XP"));
+      var stF = null; try { stF = core.questions.stats(); } catch (eSt) {}
+      var ovF = (stF && stF.overall) || { masteredPct: 0, total: 0 };
+      card.appendChild(el("div", "sx-cert-line", "Station 60/60 modules \u00b7 " + Math.round((ovF.masteredPct || 0) * 100) + "% of the bank mastered (" + (ovF.total || 0) + " questions)"));
+      var simsF = [];
+      try { simsF = (prof.examHistory || []).filter(function (hF) { return hF.mode === "sim"; }).slice(-3).map(function (hF) { return (hF.pct || 0) + "%"; }); } catch (eSm) {}
+      if (simsF.length) card.appendChild(el("div", "sx-cert-line", "Recent exam sims: " + simsF.join(" \u00b7 ")));
+      card.appendChild(el("div", "sx-cert-date", "Certified aboard the bridge \u00b7 " + StarNix.daily.dayKey(certAt)));
+      card.appendChild(el("div", "sx-cert-note", "This is your STUDY milestone \u2014 the readiness composite says you are ready for the real NCP-MCI. Go sit it."));
+      var rowF = el("div", "sx-row");
+      var back = el("button", "sx-btn sx-btn-iris", "Return to the bridge \u25b8");
+      self._on(back, "click", function () { self.showMenu(); });
+      rowF.appendChild(back); card.appendChild(rowF);
+      s.appendChild(card);
+      self._focusScreen(s);
+    }
+    if (reduced) { showCert(); return; }
+    // the relight beat: the intro's own station art, lit segment by segment in gold
+    var cv = el("canvas", "sx-finale-cv"); cv.width = 640; cv.height = 400;
+    var cap = el("div", "sx-cap", "Every module answers. The station relights.");
+    var skip = el("button", "sx-skip", "Skip \u25b6");
+    s.appendChild(cv); s.appendChild(cap); s.appendChild(skip);
+    this._on(skip, "click", function () { self._cancelRaf(); showCert(); });
+    var g2 = null; try { g2 = cv.getContext && cv.getContext("2d"); } catch (eG2) {}
+    if (!g2) { showCert(); return; }                     // headless: straight to the certificate
+    var img = null;
+    try { var srcF = global.STARNIX_ASSETS && global.STARNIX_ASSETS.armStation; if (srcF && global.Image) { img = new global.Image(); img.src = srcF; } } catch (eIm) {}
+    var t0F = (global.performance && global.performance.now) ? global.performance.now() : Date.now();
+    var DUR = 6.0;
+    var frame = function () {
+      var tF = (((global.performance && global.performance.now) ? global.performance.now() : Date.now()) - t0F) / 1000;
+      var kF = Math.min(1, tF / DUR);
+      g2.fillStyle = "#07070e"; g2.fillRect(0, 0, cv.width, cv.height);
+      var sw2 = 300, sx2 = (cv.width - sw2) / 2, sy2 = (cv.height - sw2) / 2;
+      if (img && img.complete && img.naturalWidth) { g2.globalAlpha = 0.35 + 0.65 * kF; g2.drawImage(img, sx2, sy2, sw2, sw2); g2.globalAlpha = 1; }
+      else { g2.strokeStyle = "#34344a"; g2.strokeRect(sx2, sy2, sw2, sw2); }
+      var lit = Math.floor(kF * 12 + 0.0001);
+      for (var sg = 0; sg < 12; sg++) {
+        g2.fillStyle = sg < lit ? "rgba(255,200,87,.5)" : "rgba(4,4,12,.75)";
+        g2.fillRect(sx2 + sg * (sw2 / 12), sy2, sw2 / 12 - 1, sw2);
+      }
+      g2.fillStyle = "#FFC857"; g2.font = "700 14px Montserrat, sans-serif"; g2.textAlign = "center";
+      g2.fillText(lit + " / 12 SECTIONS ONLINE", cv.width / 2, sy2 + sw2 + 34);
+      if (kF >= 1) { self._raf = 0; showCert(); return; }
+      self._raf = global.requestAnimationFrame(frame);
+    };
+    try { core.audio.playTrack("menu"); core.audio.sfx("correct"); } catch (eAu) {}
+    this._raf = global.requestAnimationFrame(frame);
+  };
+
+  /* =================================================================== *
+   * main menu
+   * =================================================================== */
+  Shell.prototype.showMenu = function () {
+    this._clearScreen();
+    this.screen = "menu";
+    var self = this;
+    // (v0.110.0, D2 — design handoff "Bridge command", Menu Proposals #1a, CHOSEN)
+    // The menu is staged as the bridge: mission strips left, the SHATTERED station right,
+    // rank/due/settings in a top bar, dailies + Continue in a bottom dock. Behavioral
+    // classes (.sx-card/.sx-rank/.sx-daily/.sx-due-chip) are kept — same wiring, new skin.
+    var s = el("div", "sx-screen sx-menu sx-bridge");
+    var prof0 = StarNix.core.profile || {};
+    if (prof0.settings && prof0.settings.reducedMotion) s.className += " sx-reduced";   // (v0.116.0, R1) the in-app toggle, not just the OS query
+    var stationN = Math.max(0, Math.min(60, prof0.station | 0));   // (v0.186.0, Flow#8) the persistent mastery-fed meter
+    // (v0.204.0, V1.1 Flow#10) the Leitner grind gets a DESTINATION: station rebuilt AND
+    // readiness sustained (two sims >= 80) fires the one-shot certification finale.
+    try {
+      if (!prof0.certified) {
+        var sims80 = 0;
+        (prof0.examHistory || []).forEach(function (hC) { if (hC.mode === "sim" && (hC.pct || 0) >= 80) sims80++; });
+        if (stationN >= 60 && sims80 >= 2) { this.showFinale(); return; }
+      }
+    } catch (eFin) {}
+    var bestCC = (prof0.bests && prof0.bests.CC) | 0;
+    var bestKBBv = (prof0.bests && prof0.bests.KBB) | 0;
+    var bestKBB = bestKBBv ? (Math.floor(bestKBBv / 100) + "-" + (bestKBBv % 100)) : "\u2014";
+    var bestSim = 0;
+    try { (prof0.examHistory || []).forEach(function (h2) { if (h2.pct > bestSim) bestSim = h2.pct; }); } catch (eBS) {}
+    s.innerHTML = '<div class="sx-menu-photo" aria-hidden="true"></div>' +
+      '<div class="sx-bridge-grad" aria-hidden="true"></div>' +
+      '<div class="sx-bridge-top">' +
+        '<div class="sx-crest">' + NX_CREST + '<span>NX-SRC \u00B7 Starlight Rescue Crew</span></div>' +
+        '<div class="sx-bridge-topright"><div class="sx-rank"></div><div class="sx-menu-top"></div></div>' +
+      '</div>' +
+      '<div class="sx-bridge-left">' +
+        '<h2 class="sx-h2">Mission select</h2>' +
+        '<div class="sx-bridge-sub">The BCM shattered the MCI Station. Four operations stand between you and certification.</div>' +
+        '<div class="sx-cards"></div>' +
+      '</div>' +
+      '<div class="sx-bridge-right"><div class="sx-br-lbl">STATION SYSTEMS</div><div class="sx-br-grid"></div><div class="sx-br-list"></div><div class="sx-br-hint">Open the Codex \u25b8</div></div>' +
+      '<div class="sx-bridge-dock"><span class="sx-dock-lbl">DAILY MISSIONS</span><div class="sx-daily"></div><div class="sx-dock-cta"></div></div>';
+    this._renderRank(s.querySelector(".sx-rank"));
+    // (v0.145.0, V1.1 Menu#3) bridge status board: per-domain mastery on the previously-empty
+    // right side — the SAME _buildStatsSummary the Codex uses, restyled as subsystem readouts.
+    try {
+      this._buildStatsSummary(s.querySelector(".sx-br-grid"), s.querySelector(".sx-br-list"), { compact: true, maxDomains: 6 });
+      // (v0.186.0, V1.1 Flow#8) the vista: the MCI Station re-lights section by section as the
+      // bank gets mastered — the campaign fiction, fed by EVERY surface, visible every boot.
+      (function vista() {
+        var host = s.querySelector(".sx-bridge-right");
+        if (!host) return;
+        var segs = 12, lit = Math.max(0, Math.min(segs, Math.round(stationN / 60 * segs)));
+        var cv = el("canvas", "sx-station-vista");
+        cv.width = 232; cv.height = 96;
+        cv.setAttribute("data-lit", String(lit));
+        cv.title = "MCI Station \u2014 " + stationN + "/60 modules re-lit by mastery";
+        host.insertBefore(cv, host.firstChild);
+        var g2d = null;
+        try { g2d = cv.getContext && cv.getContext("2d"); } catch (eG) {}
+        if (!g2d) return;                             // headless: structure only, per harness convention
+        function paint(imEl) {
+          g2d.clearRect(0, 0, cv.width, cv.height);
+          if (imEl) { try { g2d.drawImage(imEl, 8, 4, cv.width - 16, cv.height - 8); } catch (eDI) {} }
+          else { g2d.strokeStyle = "#34344a"; g2d.strokeRect(10, 12, cv.width - 20, cv.height - 24); }
+          var w2 = (cv.width - 16) / segs;
+          for (var si = 0; si < segs; si++) {
+            var x0 = 8 + si * w2;
+            if (si >= lit) { g2d.fillStyle = "rgba(4,4,12,.88)"; g2d.fillRect(x0, 0, w2 + 1, cv.height); }
+            else { g2d.fillStyle = "rgba(255,200,87,.10)"; g2d.fillRect(x0, 0, w2, cv.height); }
+          }
+          g2d.fillStyle = "#FFC857"; g2d.font = "700 10px Montserrat, sans-serif";
+          g2d.fillText(stationN + "/60", cv.width - 44, cv.height - 8);
+        }
+        var art = global.STARNIX_ASSETS && global.STARNIX_ASSETS.armStation;
+        if (art && global.Image) {
+          var im = new global.Image();
+          im.onload = function () { paint(im); };
+          im.src = art;
+          paint(null);                                 // frame now; art lands async
+        } else paint(null);
+      })();
+      var brP = s.querySelector(".sx-bridge-right");
+      this._on(brP, "click", function () { try { StarNix.core.audio.sfx("click"); } catch (eB) {} self.showStats(); });
+    } catch (eBr) {}
+    this._renderDaily(s.querySelector(".sx-daily"), { compact: true, head: false });   // (D2) the dock carries its own label
+    // (v0.199.0, V1.1 Menu#10) the dock admits the clock is real: a local-midnight reset
+    // countdown + a gold badge counting done-but-unclaimed missions. Pure presentation over
+    // StarNix.daily state, recomputed on every rebuild — no timer.
+    try {
+      var dockLbl = s.querySelector(".sx-dock-lbl");
+      if (dockLbl) {
+        var nowMs10 = StarNix.core.clock.now();
+        var mid10 = new Date(nowMs10); mid10.setHours(24, 0, 0, 0);
+        var remMs10 = Math.max(0, mid10.getTime() - nowMs10);
+        var hh10 = Math.floor(remMs10 / 3600000), mm10 = Math.floor((remMs10 % 3600000) / 60000);
+        dockLbl.appendChild(el("span", "sx-dock-reset", "resets in " + hh10 + "h " + (mm10 < 10 ? "0" : "") + mm10 + "m"));
+        var unclaimed10 = 0;
+        for (var di10 = 0; di10 < 3; di10++) {
+          var st10 = StarNix.daily.state(prof0, di10);
+          if (st10 && st10.done && !st10.claimed) unclaimed10++;
+        }
+        if (unclaimed10 > 0) {
+          var badge10 = el("span", "sx-dock-claimbadge", String(unclaimed10));
+          badge10.title = unclaimed10 + " mission" + (unclaimed10 === 1 ? "" : "s") + " done \u2014 claim before the reset";
+          dockLbl.appendChild(badge10);
+        }
+      }
+    } catch (eDk) {}
+    var photoEl = s.querySelector(".sx-menu-photo");
+    var menuBg = global.STARNIX_ASSETS && global.STARNIX_ASSETS.menuBg;
+    if (photoEl && menuBg) { photoEl.style.backgroundImage = 'url("' + menuBg + '")'; photoEl.classList.add("on"); }
+    var cards = s.querySelector(".sx-cards");
+
+    var STRIP_META = {
+      ARM: { stat: "Station", val: stationN + "/60", art: "armHero" },
+      CC:  { stat: "Best",    val: bestCC ? bestCC.toLocaleString() : "\u2014", art: null },
+      KBB: { stat: "Depth",   val: bestKBB, art: "kbbEnemy" },
+      NIT: { stat: "Best sim", val: bestSim ? bestSim + "%" : "\u2014", art: null }
+    };
+    ["ARM", "CC", "KBB", "NIT"].forEach(function (id) {
+      var m = GAME_META[id], sm = STRIP_META[id];
+      var isExam = (id === "NIT");                              // the exam runs via its own flow, not registerGame
+      var loaded = isExam ? !!(StarNix.exam && StarNix.exam.run) : !!StarNix.getGame(id);
+      if (isExam) {
+        var div = el("div", "sx-strip-divider");
+        div.innerHTML = '<i></i><span>THE REAL THING</span><i></i>';
+        cards.appendChild(div);
+      }
+      var card = el("button", "sx-card sx-strip sx-acc-" + m.accent + (isExam ? " sx-strip-gold" : ""));
+      var artHtml;
+      var artSrc = sm.art && global.STARNIX_ASSETS && global.STARNIX_ASSETS[sm.art];
+      if (artSrc) artHtml = '<span class="sx-strip-art" style="background-image:url(' + "'" + artSrc + "'" + ')"></span>';
+      else if (id === "CC") artHtml = '<span class="sx-strip-art sx-strip-planet"></span>';
+      else if (isExam) artHtml = '<span class="sx-strip-art sx-strip-glyph">\u25C8</span>';
+      else artHtml = '<span class="sx-strip-art sx-strip-glyph">\u2B21</span>';
+      card.innerHTML = artHtml +
+        '<span class="sx-strip-body"><span class="sx-card-title">' + m.title + '</span><span class="sx-card-tag">' + id + ' \u00b7 ' + m.tag + '</span></span>' +
+        '<span class="sx-strip-stat"><span class="l">' + sm.stat + '</span><span class="v">' + sm.val + '</span></span>' +
+        '<span class="sx-strip-cta' + (isExam ? ' gold' : '') + '">' + (isExam ? 'Sit exam \u25b8' : 'LAUNCH \u25b8') + '</span>' +
+        '<span class="sx-card-state" style="display:none">' + (loaded ? "Ready" : "Not in this build") + '</span>';
+      // (v0.195.0, V1.1 Flow#9) first-run order ribbons — guidance, never locks
+      if (!prof0.onboarded) {
+        var seen9 = (prof0.totals && prof0.totals.questionsSeen) | 0;
+        var ribTxt = id === "ARM" ? "1 \u00b7 START HERE" : id === "CC" ? "2 \u00b7 THEN" : id === "KBB" ? "3 \u00b7 THEN"
+          : (seen9 < 50 ? "4 \u00b7 AFTER ~50 CARDS (" + seen9 + "/50)" : "4 \u00b7 WHEN READY");
+        card.appendChild(el("span", "sx-strip-ribbon" + (id === "ARM" ? " lead" : ""), ribTxt));
+      }
+      if (!loaded) card.classList.add("sx-card-disabled");
+      self._on(card, "click", function () {
+        try { StarNix.core.audio.sfx("click"); } catch (e) {}
+        if (!loaded) { self._toast(m.title + " isn't loaded in this build."); return; }
+        if (isExam) self.showExamSetup();
+        else self.enterGame(id);
+      });
+      cards.appendChild(card);
+    });
+    // dock CTA: Continue — last game (v0.128.0, V1.1 Menu#1: survives reloads via profile.lastGame,
+    // falling back to any populated G2 save so a returning player always gets the affordance)
+    (function () {
+      var dockCta = s.querySelector(".sx-dock-cta");
+      var lg = self.lastGameId && StarNix.getGame(self.lastGameId) ? self.lastGameId : null;
+      if (!lg && prof0.lastGame && StarNix.getGame(prof0.lastGame)) lg = prof0.lastGame;
+      if (!lg && prof0.saves) { for (var sg in prof0.saves) { if (Object.prototype.hasOwnProperty.call(prof0.saves, sg) && StarNix.getGame(sg)) { lg = sg; break; } } }
+      if (!lg) return;
+      var lbl = "Continue \u2014 " + GAME_META[lg].title.split(" ")[0];
+      if (lg === "ARM" && prof0.saves && prof0.saves.ARM) lbl = "Continue \u2014 ARM \u00b7 Sector " + prof0.saves.ARM.sector;
+      var cta = el("button", "sx-dock-continue", lbl + " \u25b8");
+      self._on(cta, "click", function () { self.enterGame(lg); });
+      dockCta.appendChild(cta);
+    })();
+
+    var top = s.querySelector(".sx-menu-top");
+    function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", fn); top.appendChild(b); }
+    // (v0.128.0, V1.1 Menu#1) the top Continue deduped away — the dock CTA is the one Continue
+    // (v0.87.0, L1 / v0.138.0, V1.1 Menu#2) the due queue is the highest-learning-value CTA in
+    // the app — it now reads like one: a gold banner in the dock, escalating to a full-width
+    // strip above the missions when the queue is heavy (>= 10). Same .sx-due-chip wiring (QA-E9).
+    var dueQs = this._dueQuestions(30);
+    if (dueQs.length) {
+      var heavy = dueQs.length >= 10;
+      var dueBtn = el("button", "sx-btn sx-due-chip " + (heavy ? "sx-due-strip" : "sx-due-dock"),
+        "\u23F0 " + dueQs.length + " question" + (dueQs.length === 1 ? "" : "s") + " due for review \u00b7 " + (heavy ? "Clear the queue \u25b8" : "Review \u25b8"));
+      this._on(dueBtn, "click", function () { self.showExam(null, { questions: dueQs, mode: "study" }); });
+      if (heavy) {
+        var cardsHost = s.querySelector(".sx-cards");
+        cardsHost.parentNode.insertBefore(dueBtn, cardsHost);
+      } else {
+        var dock0 = s.querySelector(".sx-bridge-dock");
+        dock0.insertBefore(dueBtn, dock0.firstChild);
+      }
+    }
+    // (v0.141.0, V1.1 Flow#2) Today's flight plan — ONE ranked "do this next" card at the
+    // top of the dock, from the pure core planner. When reviews are due, the due chip above
+    // already IS the plan's top action, so the card stays away (no duplicate gold CTA).
+    try {
+      if (!dueQs.length && StarNix.plan) {
+        var plan = StarNix.plan.next(StarNix.core, StarNix.core.clock.now());
+        if (plan && plan.kind !== "due") {
+          var pc = el("div", "sx-plan-card");
+          pc.appendChild(el("span", "sx-plan-eyebrow", "Today's flight plan"));
+          pc.appendChild(el("span", "sx-plan-label", plan.label));
+          if (plan.cta) {
+            var pBtn = el("button", "sx-btn sx-btn-iris sx-plan-cta", plan.cta);
+            this._on(pBtn, "click", function () {
+              try { StarNix.core.audio.sfx("click"); } catch (eS) {}
+              if (plan.action === "game" && plan.game && StarNix.getGame(plan.game)) self.enterGame(plan.game);
+              else if (plan.action === "sim") self.showExamSetup();
+              else self.showStats();
+            });
+            pc.appendChild(pBtn);
+          }
+          var dockP = s.querySelector(".sx-bridge-dock");
+          dockP.insertBefore(pc, dockP.firstChild);
+        }
+      }
+    } catch (ePl) {}
+    topBtn("Stats / Codex", function () { self.showStats(); });
+    topBtn("Settings", function () { self.showSettings(); });
+    topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
+
+    this.stage.appendChild(s);
+    // (v0.168.0, V1.1 Menu#6) first-run coach mark: one flag, one pulse, one dismissible tip.
+    // A new recruit faces four strips + a divider + rank + dock with zero guidance otherwise.
+    try {
+      if (!prof0.firstMenuSeen) {
+        var armStrip = null, strips = s.querySelectorAll(".sx-strip");
+        for (var cm = 0; cm < strips.length; cm++) { if (/ARM/.test(strips[cm].textContent)) { armStrip = strips[cm]; break; } }
+        if (armStrip) {
+          armStrip.classList.add("sx-coach-pulse");
+          var tip = el("div", "sx-coach-tip");
+          tip.appendChild(el("span", "sx-coach-txt", "New recruit? Start with Acropolis Rescue \u2014 it teaches the core loop."));
+          var tipX = el("button", "sx-coach-x", "\u2715");
+          tip.appendChild(tipX);
+          armStrip.parentNode.insertBefore(tip, armStrip);
+          var dismissCoach = function () {
+            try { tip.parentNode && tip.parentNode.removeChild(tip); armStrip.classList.remove("sx-coach-pulse"); } catch (eC1) {}
+            try { StarNix.core.persistence.update(function (p) { p.firstMenuSeen = true; }); } catch (eC2) {}
+          };
+          this._on(tipX, "click", dismissCoach);
+          this._on(armStrip, "click", dismissCoach);   // launching the mission IS the dismissal
+        }
+      }
+    } catch (eCm) {}
+    // (v0.195.0, V1.1 Flow#9) the 3-step bridge tour: rank strip -> daily dock -> due chip
+    // (or the station board when nothing is due yet). Guidance only — never locks; finishing
+    // OR skipping latches profile.onboarded, and veterans migrate as already-onboarded.
+    try {
+      if (!prof0.onboarded) {
+        var tourSteps = [
+          { sel: ".sx-rank", name: "THE RANK STRIP", txt: "Every correct answer on ANY surface feeds this one XP pool \u2014 promotions pay real rewards." },
+          { sel: ".sx-bridge-dock", name: "THE DAILY DOCK", txt: "Three date-seeded missions a day, plus your Continue button. Streaks live and die here." },
+          { sel: ".sx-due-chip", name: "THE DUE CHIP", txt: "When reviews come due this chip appears \u2014 clear those first; spaced retrieval is the whole game.",
+            altSel: ".sx-bridge-right", altName: "STATION SYSTEMS", altTxt: "Your mastery readout \u2014 the station re-lights as you master the bank. Open the Codex for the full picture." }
+        ];
+        var tourI = 0, tourHi = null;
+        var coach = el("div", "sx-tour");
+        var coachName = el("div", "sx-tour-name"), coachTxt = el("div", "sx-tour-txt");
+        var coachRow = el("div", "sx-tour-row");
+        var coachNext = el("button", "sx-btn sx-btn-iris sx-tour-next", "Next \u25b8");
+        var coachSkip = el("button", "sx-btn sx-btn-ghost sx-tour-skip", "Skip tour");
+        coachRow.appendChild(coachNext); coachRow.appendChild(coachSkip);
+        coach.appendChild(el("div", "sx-eyebrow", "Bridge tour"));
+        coach.appendChild(coachName); coach.appendChild(coachTxt); coach.appendChild(coachRow);
+        var tourShow = function () {
+          var st9 = tourSteps[tourI];
+          var primary = s.querySelector(st9.sel);
+          var tgt = primary || (st9.altSel ? s.querySelector(st9.altSel) : null);
+          if (tourHi) tourHi.classList.remove("sx-tour-hi");
+          tourHi = tgt; if (tgt) tgt.classList.add("sx-tour-hi");
+          coachName.textContent = "Step " + (tourI + 1) + " of " + tourSteps.length + " \u00b7 " + (primary || !st9.altSel ? st9.name : st9.altName);
+          coachTxt.textContent = (primary || !st9.altSel) ? st9.txt : st9.altTxt;
+          coachNext.textContent = tourI === tourSteps.length - 1 ? "Done \u2713" : "Next \u25b8";
+        };
+        var tourEnd = function () {
+          if (tourHi) tourHi.classList.remove("sx-tour-hi");
+          try { coach.parentNode && coach.parentNode.removeChild(coach); } catch (eT1) {}
+          prof0.onboarded = true;
+          try { StarNix.core.persistence.update(function (p) { p.onboarded = true; }); } catch (eT2) {}
+        };
+        this._on(coachNext, "click", function () { if (tourI >= tourSteps.length - 1) tourEnd(); else { tourI++; tourShow(); } });
+        this._on(coachSkip, "click", tourEnd);
+        s.appendChild(coach);
+        tourShow();
+      }
+    } catch (eTour) {}
+    this._focusScreen(s);   // (v0.135.0, FE#1) hand keyboard focus to the new screen
+  };
+
+  /* Commander rank strip (v0.52.0 unit 2) — renders name + XP bar + to-next line from
+   * profile.xp, and fires the ONE-SHOT rank-up moment (gold toast; pulse only when motion
+   * is allowed — reduced-motion gets the same strip/toast, static). Rebuilt on every
+   * showMenu, so it self-refreshes after any game/exam session. */
+  Shell.prototype._renderRank = function (host) {
+    if (!host) return;
+    var core = StarNix.core, X = StarNix.xp;
+    // (v0.153.0, V1.1 Flow#4) the study-day flame — the strongest retention loop a daily app has
+    var streakN = 0;
+    try { streakN = StarNix.daily.streak(core.profile); } catch (eSt) {}
+    var prof = core && core.profile;
+    if (!prof || !X) { host.style.display = "none"; return; }
+    var xp = (typeof prof.xp === "number" && prof.xp >= 0) ? prof.xp : 0;
+    var r = X.rankFor(xp);
+    var name = el("span", "sx-rank-name", "✦ " + r.name);
+    var bar = el("span", "sx-rank-bar");
+    var fill = el("i");
+    fill.style.width = Math.round(r.progress * 100) + "%";
+    bar.appendChild(fill);
+    var toNext = (r.next != null)
+      ? (r.next - xp).toLocaleString() + " XP to " + X.RANKS[r.index + 1].name
+      : "top rank";
+    var line = el("span", "sx-rank-xp", xp.toLocaleString() + " XP · " + toNext);
+    host.appendChild(name);
+    try {   // (v0.179.0, V1.1 Flow#7) the Pilot reward: a bridge crest beside the rank name
+      if (X.perks && X.perks(xp).crest) { var crest = el("span", "sx-rank-crest", "\u2b21"); crest.title = "Bridge crest \u2014 Pilot rank reward"; host.appendChild(crest); }
+    } catch (eCr) {}
+    host.appendChild(bar); host.appendChild(line);
+    if (streakN >= 2) host.appendChild(el("span", "sx-streak-chip", "\ud83d\udd25 " + streakN + "-day streak"));   // (v0.153.0, Flow#4)
+    var seen = (typeof prof.rankSeen === "number" && prof.rankSeen >= 0) ? prof.rankSeen : 0;
+    if (r.index > seen) {
+      prof.rankSeen = r.index;
+      try { if (core.persistence && core.persistence.save) core.persistence.save(prof); } catch (e) {}
+      var rm = !!(prof.settings && prof.settings.reducedMotion);
+      if (!rm) host.classList.add("sx-rank-up");           // pulse; reduced-motion stays static
+      var rwL = (X.rewardsAt) ? X.rewardsAt(r.index) : [];   // (v0.179.0, Flow#7) the promotion names what it pays
+      this._toast("✦ Promoted: " + r.name + (rwL.length ? " \u2014 " + rwL.join(" \u00b7 ") : ""), "sx-toast-gold");
+      try { core.audio.sfx("correct"); } catch (e2) {}
+    }
+  };
+
+  /* Daily-missions strip (v0.56.0 unit 6) — shared by the menu card and the Progress screen
+   * row. Three rows: icon + label + progress n/target; a gold Claim button when done and
+   * unclaimed (pays mission XP into the pool), a ✓ chip once claimed. Rebuilt per render. */
+  Shell.prototype._renderDaily = function (host, opts) {
+    if (!host) return;
+    opts = opts || {};                                 // (v0.60.0 P2·1) compact: no desc line (menu); head: false = host section already titled (Progress, fixes the A3 double header)
+    var self = this, core = StarNix.core, D = StarNix.daily;
+    var prof = core && core.profile;
+    if (!prof || !D) { host.style.display = "none"; return; }
+    D.ensure(prof);
+    if (opts.head !== false) host.appendChild(el("div", "sx-daily-head", opts.compact ? "Daily missions" : "Daily missions · " + prof.daily.date));
+    for (var i = 0; i < prof.daily.missions.length; i++) {
+      (function (idx) {
+        var st = D.state(prof, idx);
+        if (!st) return;
+        var row = el("div", "sx-daily-row" + (st.claimed ? " claimed" : (st.done ? " done" : "")));
+        row.appendChild(el("span", "sx-daily-ic", st.icon));
+        var body = el("span", "sx-daily-body");
+        body.appendChild(el("span", "sx-daily-name", st.name));
+        if (!opts.compact) body.appendChild(el("span", "sx-daily-desc", st.label));
+        else row.title = st.label;                     // compact keeps the goal one hover away
+        row.appendChild(body);
+        row.appendChild(el("span", "sx-daily-prog", st.progress + " / " + st.target));
+        if (st.claimed) {
+          row.appendChild(el("span", "sx-daily-claimed", "✓ +" + st.xp + " XP"));
+        } else if (st.done) {
+          var btn = el("button", "sx-btn sx-daily-claim", "Claim +" + st.xp + " XP");
+          self._on(btn, "click", function () {
+            var got = D.claim(prof, idx);
+            if (got > 0) {
+              try { if (core.persistence && core.persistence.save) core.persistence.save(prof); } catch (e) {}
+              try { core.audio.sfx("correct"); } catch (e2) {}
+              // re-render FIRST (the rebuild wipes the stage), THEN toast so it survives
+              if (self.screen === "menu") self.showMenu(); else if (self.screen === "stats") self.showStats();
+              self._toast("✦ Mission complete: +" + got + " XP", "sx-toast-gold");
+            }
+          });
+          row.appendChild(btn);
+        }
+        host.appendChild(row);
+      })(i);
+    }
+  };
+
+  /* =================================================================== *
+   * practice exam  (Core study mode; full live bank, timer-as-score)
+   * =================================================================== */
+  Shell.prototype.showExamSetup = function () {
+    this._clearScreen();
+    this.screen = "exam-setup";
+    var self = this, core = StarNix.core;
+    var total = 0;
+    try { total = core.questions.pool().length; } catch (e) {}
+    try { core.audio.playTrack("exam"); } catch (e) {}
+    var s = el("div", "sx-screen sx-panelwrap");
+    if (!this._examMode) this._examMode = "study";                 // Study is the default experience
+    s.innerHTML = '<div class="sx-panel">' +
+      '<div class="sx-eyebrow">Practice exam</div>' +
+      '<h2 class="sx-h2">Choose your mode and length</h2>' +
+      '<div class="sx-exam-modes"></div>' +
+      '<p class="sx-exam-blurb"></p>' +
+      '<div class="sx-exam-lens"></div>' +
+      '<div class="sx-row"></div></div>';
+    var MODE_BLURB = {
+      study: "Untimed. Pick an answer, confirm it, and read the explanation before moving on. Browse back through anything you\u2019ve answered.",
+      sim: "One clock for the whole exam, like the real NCP-MCI (" + 96 + "s per question). Move freely, flag questions, review before you submit. Explanations at the end.",
+      blitz: "The arcade mode: the clock is your score \u2014 answer before the points run down. First click commits. 80% passes; speed sets your best."
+    };
+    var modesEl = s.querySelector(".sx-exam-modes");
+    var blurbEl = s.querySelector(".sx-exam-blurb");
+    function modeBtn(id, label) {
+      var b = el("button", "sx-exam-mode" + (self._examMode === id ? " on" : ""));
+      b.type = "button"; b.textContent = label; b.setAttribute("data-mode", id);
+      self._on(b, "click", function () {
+        self._examMode = id;
+        var all = modesEl.querySelectorAll(".sx-exam-mode");
+        for (var i = 0; i < all.length; i++) all[i].classList.toggle("on", all[i].getAttribute("data-mode") === id);
+        blurbEl.textContent = MODE_BLURB[id];
+      });
+      modesEl.appendChild(b);
+    }
+    modeBtn("study", "Study"); modeBtn("sim", "Exam sim"); modeBtn("blitz", "Blitz");
+    blurbEl.textContent = MODE_BLURB[this._examMode];
+    var lens = s.querySelector(".sx-exam-lens");
+    function lenBtn(title, sub, count) {
+      var b = el("button", "sx-exam-len");
+      var best = "";
+      try { var xk = core.profile.settings && core.profile.settings.extraTime ? ":xt" : ""; var e = core.profile.bests && core.profile.bests.EXAM && core.profile.bests.EXAM[String(count) + xk]; if (e) best = '<span class="b">Best: ' + (e.pts || 0).toLocaleString() + ' pts \u00b7 ' + (e.pct || 0) + '%</span>'; } catch (x) {}
+      b.innerHTML = '<span class="t">' + title + '</span><span class="s">' + sub + '</span>' + best;
+      self._on(b, "click", function () { self.showExam(count); });
+      lens.appendChild(b);
+    }
+    if (total > 20) lenBtn("Quick", "20 questions \u00b7 a fast confidence check", 20);
+    if (total > 75) lenBtn("Standard", "75 questions \u00b7 the real exam's length (120 min at sim pace)", 75);   // (v0.84.0, B1) was 65 — the real NCP-MCI is 75 q
+    lenBtn("Full bank", total + " questions \u00b7 everything that's live", total);
+    // (v0.196.0, V1.1 NIT#9) the Daily gauntlet: one seeded 10-question Blitz per day —
+    // the retention loop the Leitner scheduler needs to actually work.
+    try {
+      var gDay = StarNix.daily.dayKey();
+      var bd9 = core.profile.blitzDaily || null;
+      var gStreak = (bd9 && bd9.streak) | 0;
+      var chip9 = gStreak >= 2 ? ' \u00b7 \ud83d\udd25 ' + gStreak + '-day streak' : '';
+      var gb = el("button", "sx-exam-len sx-exam-len-gauntlet");
+      if (bd9 && bd9.last === gDay) {
+        gb.innerHTML = '<span class="t">\u26a1 Daily gauntlet \u2014 done for today</span><span class="s">' + (bd9.pts || 0).toLocaleString() + ' pts \u00b7 ' + (bd9.pct || 0) + '%' + chip9 + ' \u00b7 a fresh set arrives tomorrow</span>';
+        gb.disabled = true;
+      } else {
+        gb.innerHTML = '<span class="t">\u26a1 Daily gauntlet</span><span class="s">10 seeded questions \u00b7 ONE scored Blitz attempt \u2014 the same set for everyone today' + chip9 + (bd9 && bd9.best ? ' \u00b7 best ' + bd9.best.toLocaleString() + ' pts' : '') + '</span>';
+        this._on(gb, "click", function () {
+          var qsG = self._gauntletQuestions(gDay);
+          if (!qsG.length) return;
+          self._examMode = "blitz";
+          self._gauntletDay = gDay;                       // _recordExam consumes this
+          self.showExam(null, { questions: qsG, mode: "blitz" });
+        });
+      }
+      lens.appendChild(gb);
+    } catch (eG9) {}
+    // (v0.92.0, G1) exhibits are deliberately exam-only (games can't render images) — but
+    // that made them invisible to a games-first player. One tap serves exactly those.
+    try {
+      var imgQs = core.questions.pool().filter(function (q) { return !!q.image; });
+      if (imgQs.length) {
+        var ib = el("button", "sx-exam-len sx-exam-len-exhibit");
+        ib.innerHTML = '<span class="t">\ud83d\uddbc Exhibits</span><span class="s">' + imgQs.length + ' screenshot questions \u00b7 they only appear in exam modes \u2014 practice reading the screens</span>';
+        this._on(ib, "click", function () { self.showExam(null, { questions: imgQs, mode: "study" }); });
+        lens.appendChild(ib);
+      }
+    } catch (eI) {}
+    // (v0.157.0, V1.1 NIT#4) a 75-question sim is a 2-hour sitting — resume it. Validated
+    // hard: any unknown id or length drift discards the blob to a fresh start.
+    try {
+      var rz = core.profile.examResume;
+      var rzOk = rz && rz.mode === "sim" && Array.isArray(rz.ids) && rz.ids.length
+        && Array.isArray(rz.perms) && rz.perms.length === rz.ids.length
+        && Array.isArray(rz.drafts) && rz.drafts.length === rz.ids.length
+        && Array.isArray(rz.flags) && rz.flags.length === rz.ids.length
+        && rz.ids.every(function (idR) { return !!core.questions.byId(idR); });
+      if (rz && !rzOk) { core.persistence.update(function (p) { delete p.examResume; }); rz = null; }
+      if (rz && rzOk) {
+        var ansN = 0; for (var za = 0; za < rz.drafts.length; za++) if (rz.drafts[za] != null) ansN++;
+        var remS = Math.max(0, Math.floor((rz.remainMs || 0) / 1000)), mmR = Math.floor(remS / 60), ssR = remS % 60;
+        var rb = el("button", "sx-exam-len sx-exam-len-resume");
+        rb.innerHTML = '<span class="t">\u23f8 Resume your sim</span><span class="s">' + ansN + ' of ' + rz.ids.length + ' answered \u00b7 ' + mmR + ':' + (ssR < 10 ? '0' : '') + ssR + ' left</span>';
+        this._on(rb, "click", function () { self._examMode = "sim"; self.showExam(rz.ids.length, { mode: "sim", resume: rz }); });
+        lens.appendChild(rb);
+        var rd = el("button", "sx-btn sx-btn-ghost sx-exam-resume-discard", "Discard the saved sim");
+        this._on(rd, "click", function () { try { core.persistence.update(function (p) { delete p.examResume; }); } catch (eDd) {} self.showExamSetup(); });
+        lens.appendChild(rd);
+      }
+    } catch (eRz0) {}
+    // (v0.203.0, V1.1 NIT#10) drill exactly what you wrote about
+    try {
+      var notedQs = core.questions.pool().filter(function (qN) { return !!((core.profile.notes || {})[qN.id]); });
+      if (notedQs.length) {
+        var nb10 = el("button", "sx-exam-len sx-exam-len-noted");
+        nb10.innerHTML = '<span class="t">\u270e Noted questions</span><span class="s">' + notedQs.length + ' with your own memos \u00b7 drill exactly what you wrote about</span>';
+        this._on(nb10, "click", function () { self._examMode = "study"; self.showExam(null, { questions: notedQs, mode: "study" }); });
+        lens.appendChild(nb10);
+      }
+    } catch (eN10) {}
+    // (v0.190.0, V1.1 NIT#8) the domain lens — 'study just storage' is one tap from the
+    // Testing station too, closing the loop the readiness composite opens.
+    try {
+      var domStats = (core.questions.stats().domains || []).filter(function (dd) { return dd.total > 0; });
+      if (domStats.length) {
+        lens.appendChild(el("div", "sx-domlens-head", "Study one domain"));
+        var dRow = el("div", "sx-domlens-row");
+        domStats.forEach(function (dd) {
+          var chip = el("button", "sx-domlens-chip");
+          chip.type = "button";
+          chip.textContent = dd.domain + " \u00b7 " + (dd.seen === 0 ? "new" : Math.round((dd.masteredPct || 0) * 100) + "%");
+          chip.title = dd.total + " question" + (dd.total === 1 ? "" : "s") + " \u00b7 launches Study on just " + dd.domain;
+          self._on(chip, "click", function () {
+            var qsL = core.questions.pool().filter(function (qL) { return qL.domain === dd.domain; });
+            if (!qsL.length) return;
+            self._examMode = "study";
+            self.showExam(null, { questions: qsL, mode: "study" });
+          });
+          dRow.appendChild(chip);
+        });
+        lens.appendChild(dRow);
+      }
+    } catch (eDl) {}
+    // (v0.146.0, V1.1 NIT#3) redrill EXACTLY what you've gotten wrong — the end-screen redrill
+    // evaporates when you walk away; this tile serves the persistent pile (Leitner-derived,
+    // cleared per-question by two consecutive corrects on any surface).
+    try {
+      var mpIds = StarNix.missPile.ids(core.mastery.all(), 60);
+      var mpQs = [];
+      for (var mpi = 0; mpi < mpIds.length; mpi++) { var mpq = core.questions.byId(mpIds[mpi].id); if (mpq) mpQs.push(mpq); }
+      if (mpQs.length) {
+        var mb = el("button", "sx-exam-len sx-exam-len-misses");
+        mb.innerHTML = '<span class="t">\u21bb Redrill your misses</span><span class="s">' + mpQs.length + ' question' + (mpQs.length === 1 ? '' : 's') + " you've gotten wrong \u00b7 two corrects in a row retires each one</span>";
+        this._on(mb, "click", function () { self.showExam(null, { questions: mpQs, mode: "study" }); });
+        lens.appendChild(mb);
+      }
+    } catch (eMp) {}
+    var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
+    this._on(back, "click", function () { self.showMenu(); });
+    s.querySelector(".sx-row").appendChild(back);
+    this.stage.appendChild(s);
+  };
+
+  Shell.prototype.showExam = function (count, opts) {
+    opts = opts || {};                                   // (v0.51.0) { questions, mode } — the weakest-drill path
+    this._clearScreen();
+    this.screen = "exam";
+    var self = this, core = StarNix.core;
+    var s = el("div", "sx-screen"); s.style.padding = "0"; s.style.display = "block";
+    this.stage.appendChild(s);
+    var rm = false;
+    try { rm = !!(core.profile && core.profile.settings && core.profile.settings.reducedMotion); } catch (e) {}
+    var pool = [];
+    if (opts.questions && opts.questions.length) pool = opts.questions.slice();
+    else { try { pool = core.questions.pool(); } catch (e) {} }
+    // (v0.163.0, V1.1 Flow#5) blueprint quotas for SIMS — live only once Jason ratifies
+    // StarNix.blueprint.WEIGHTS (quarantined null today: the official EBG publishes no
+    // section weights). With weights, the sim pool is pre-filled per-domain before the
+    // exam module shuffles presentation order.
+    try {
+      if ((opts.mode || this._examMode) === "sim" && !opts.questions && StarNix.blueprint && StarNix.blueprint.WEIGHTS) {
+        var bq = StarNix.blueprint.quota(pool, (count && count > 0) ? Math.min(count, pool.length) : pool.length, StarNix.blueprint.WEIGHTS);
+        if (bq && bq.length) pool = bq;
+      }
+    } catch (eBq) {}
+    var ec = (count && count > 0 && count < pool.length) ? count : pool.length;
+    var prevBest = 0;
+    try { var xk2 = core.profile.settings && core.profile.settings.extraTime ? ":xt" : ""; var eb = core.profile.bests && core.profile.bests.EXAM && core.profile.bests.EXAM[String(ec) + xk2]; if (eb) prevBest = eb.pts || 0; } catch (e) {}
+    try { core.audio.playTrack("exam"); } catch (e) {}   // chill study bed; no game/Vega audio in the exam
+    if (StarNix.exam && StarNix.exam.run) {
+      this._exam = StarNix.exam.run({
+        mode: opts.mode || this._examMode || "study",
+        container: s,
+        questions: pool,
+        count: count,
+        bestPoints: prevBest,
+        rng: core.makeRng("exam-" + (core.clock && core.clock.now ? core.clock.now() : Date.now())),
+        audio: core.audio,
+        mastery: core.mastery,
+        reducedMotion: rm,
+        extraTime: !!(core.profile && core.profile.settings && core.profile.settings.extraTime),   // (v0.84.0, B2)
+        resume: opts.resume || null,   // (v0.157.0, NIT#4)
+        onDraft: function (blob) {
+          try { if (core.persistence && core.persistence.update) core.persistence.update(function (p) { if (blob) p.examResume = blob; else delete p.examResume; }); } catch (eDr) {}
+        },
+        onComplete: function (sum) { self._recordExam(sum); },
+        // (v0.203.0, V1.1 NIT#10) per-question memos — the learner's own words on the profile
+        notes: {
+          get: function (qid) { try { return (core.profile.notes || {})[qid] || ""; } catch (eNg) { return ""; } },
+          set: function (qid, text) {
+            try {
+              core.persistence.update(function (p) {
+                var ns = p.notes || (p.notes = {});
+                var tN = String(text || "").trim().slice(0, 500);
+                if (tN) ns[qid] = tN; else delete ns[qid];
+              });
+            } catch (eNs) {}
+          }
+        },
+        onRedrill: function (qs) { self.showExam(null, { questions: qs, mode: "study" }); },   // (v0.87.0, L2)
+        onExit: function () { self.showMenu(); },
+        onRetry: function () { self.showExam(count, opts); }
+      });
+    } else { self.showMenu(); }
+  };
+
+  // Record a completed exam's best speed-score per length (profile.bests.EXAM[count]).
+  // (v0.196.0, V1.1 NIT#9) today's gauntlet set: seeded by the DATE alone, so every
+  // retry-tempted player gets the same ten — deterministic by construction, pinnable by the same token.
+  Shell.prototype._gauntletQuestions = function (dateStr) {
+    var coreG = StarNix.core;
+    var dayG = dateStr || StarNix.daily.dayKey();
+    var rngG = coreG.makeRng("blitz-daily:" + dayG);
+    var poolG = coreG.questions.pool().slice();
+    for (var iG = poolG.length - 1; iG > 0; iG--) { var jG = Math.floor(rngG.next() * (iG + 1)); var tG = poolG[iG]; poolG[iG] = poolG[jG]; poolG[jG] = tG; }
+    return poolG.slice(0, 10);
+  };
+  Shell.prototype._recordExam = function (sum) {
+    if (!sum) return;
+    // (v0.52.0 unit 2) Commander-rank XP: any COMPLETED exam awards into the one pool
+    // (forExam returns 0 for abandoned/empty); pass bonus at the exam's own 80% mark.
+    try {
+      var pX = StarNix.core.profile;
+      if (StarNix.xp && pX) {
+        var nX = StarNix.xp.forExam(sum);
+        if (nX > 0) {
+          StarNix.xp.add(pX, nX);
+          if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(pX);
+        }
+      }
+    } catch (eX) {}
+    // (v0.51.0) Exam-sim history feeds the readiness read on the Progress screen. Completed sims
+    // only (no abandoned partials); capped at the last 20. Blitz bests below are untouched.
+    if (sum.mode === "sim" && sum.total && !sum.abandoned) {
+      try {
+        var coreH = StarNix.core;
+        var hist = coreH.profile.examHistory = coreH.profile.examHistory || [];
+        var bdC = {};   // (v0.165.0, V1.1 NIT#5) compact per-domain history: {domain: [correct, total]}
+        try { for (var bk in sum.byDomain) if (Object.prototype.hasOwnProperty.call(sum.byDomain, bk)) bdC[bk] = [sum.byDomain[bk].correct | 0, sum.byDomain[bk].total | 0]; } catch (eBd) {}
+        hist.push({ mode: "sim", pct: sum.pct || 0, correct: sum.correct || 0, total: sum.total || 0, avgSecs: sum.avgSecs || 0, byDomain: bdC, at: (coreH.clock && coreH.clock.now ? coreH.clock.now() : Date.now()) });
+        if (hist.length > 20) hist.splice(0, hist.length - 20);
+        if (coreH.persistence && coreH.persistence.save) coreH.persistence.save(coreH.profile);
+      } catch (eH) {}
+    }
+    // (v0.53.0 unit 3) achievements see the freshly recorded history (sim-certified etc.).
+    try { if (StarNix.achievements) StarNix.achievements.evaluate(StarNix.core.profile); } catch (eA) {}
+    // (v0.56.0 unit 6) daily missions: any completed exam ticks the Examiner counter.
+    try {
+      var pD = StarNix.core.profile;
+      if (StarNix.daily && pD && !sum.abandoned && sum.total) {
+        var dd = StarNix.daily.ensure(pD);
+        if (dd) { dd.exams = (dd.exams || 0) + 1; if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(pD); }
+      }
+    } catch (eD) {}
+    // (v0.196.0, V1.1 NIT#9) the Daily gauntlet: ONE scored attempt per day — streak + best.
+    try {
+      var gDayR = this._gauntletDay; this._gauntletDay = null;
+      if (gDayR && sum.mode === "blitz" && !sum.abandoned && sum.total === 10 && gDayR === StarNix.daily.dayKey()) {
+        var pG = StarNix.core.profile;
+        var bdG = pG.blitzDaily || (pG.blitzDaily = { last: null, streak: 0, best: 0, pts: 0, pct: 0 });
+        if (bdG.last !== gDayR) {                       // retries after the first completion never score
+          var yG = StarNix.daily.dayKey(StarNix.core.clock.now() - 86400000);
+          bdG.streak = (bdG.last === yG) ? (bdG.streak | 0) + 1 : 1;
+          bdG.last = gDayR;
+          bdG.pts = sum.speedPoints || 0; bdG.pct = sum.pct || 0;
+          if ((sum.speedPoints || 0) > (bdG.best | 0)) bdG.best = sum.speedPoints || 0;
+          try { StarNix.core.persistence.save(pG); } catch (eGs) {}
+        }
+      }
+    } catch (eG) {}
+    if (sum.mode && sum.mode !== "blitz") return;   // bests are the Blitz speed leaderboard; Study/Sim don't compete on speed
+    var core = StarNix.core;
+    try {
+      var b = core.profile.bests = core.profile.bests || {};
+      var ex = b.EXAM = b.EXAM || {};
+      // (v0.90.0, review) extra-time runs score on a stretched window — same skill, more
+      // points — so they compete in their own ':xt' slot instead of inflating the base bests.
+      var key = String(sum.total) + (core.profile.settings && core.profile.settings.extraTime ? ":xt" : "");
+      var prev = ex[key];
+      if (!prev || (sum.speedPoints || 0) > (prev.pts || 0)) {
+        ex[key] = { pts: sum.speedPoints || 0, pct: sum.pct || 0, correct: sum.correct || 0, total: sum.total || 0, at: (core.clock && core.clock.now ? core.clock.now() : Date.now()) };
+      }
+      if (core.persistence && core.persistence.save) core.persistence.save(core.profile);
+    } catch (e) {}
+  };
+
+  /* =================================================================== *
+   * stats / codex
+   * =================================================================== */
+  /* ---- shared control builders (reused by Settings, Stats, and the pause overlay) ---- */
+  Shell.prototype._buildVolumeSliders = function (container) {
+    var self = this, core = StarNix.core, settings = core.profile.settings;
+    function makeSlider(key, label, onApply) {
+      var cur = settings[key] == null ? 1 : settings[key];
+      var row = el("div", "sx-slider");
+      row.appendChild(el("span", "sx-slider-label", label));
+      var input = el("input", "sx-range");
+      input.type = "range"; input.min = "0"; input.max = "100"; input.step = "5";
+      input.value = String(Math.round(cur * 100)); input.setAttribute("aria-label", label);
+      var val = el("span", "sx-slider-val", Math.round(cur * 100) + "%");
+      self._on(input, "input", function () {
+        var v = (parseInt(input.value, 10) || 0) / 100;
+        settings[key] = v; val.textContent = Math.round(v * 100) + "%";
+        try { onApply(v); } catch (e) {}
+      });
+      self._on(input, "change", function () { core.persistence.save(core.profile); });
+      row.appendChild(input); row.appendChild(val); container.appendChild(row);
+    }
+    makeSlider("masterVol", "Master volume", function (v) { if (core.audio.setMasterVolume) core.audio.setMasterVolume(v); });
+    makeSlider("musicVol", "Music volume", function (v) {
+      if (v === 0) { settings.music = false; core.audio.setMusic(false); }
+      else { if (!settings.music) { settings.music = true; core.audio.setMusic(true); } if (core.audio.setMusicVolume) core.audio.setMusicVolume(v); }
+    });
+    makeSlider("sfxVol", "Effects volume", function (v) {
+      if (v === 0) { settings.sfx = false; core.audio.setSfx(false); }
+      else { if (!settings.sfx) { settings.sfx = true; core.audio.setSfx(true); } if (core.audio.setSfxVolume) core.audio.setSfxVolume(v); }
+    });
+  };
+  Shell.prototype._buildToggles = function (container) {
+    var self = this, core = StarNix.core, settings = core.profile.settings;
+    var TOGGLES = [
+      { key: "reducedMotion", label: "Reduced motion", apply: function () { self._applyMotion(); } },
+      { key: "extraTime", label: "Extra time on timed questions" },
+      { key: "colorblind", label: "High contrast", apply: function () { self._applyContrast(); } }
+    ];
+    TOGGLES.forEach(function (t) {
+      var row = el("label", "sx-toggle");
+      row.appendChild(el("span", "sx-toggle-label", t.label));
+      var btn = el("button", "sx-switch" + (settings[t.key] ? " on" : ""));
+      btn.setAttribute("role", "switch");
+      btn.setAttribute("aria-checked", settings[t.key] ? "true" : "false");
+      self._on(btn, "click", function () {
+        settings[t.key] = !settings[t.key];
+        btn.classList.toggle("on", settings[t.key]);
+        btn.setAttribute("aria-checked", settings[t.key] ? "true" : "false");
+        if (t.apply) t.apply();                    // live-apply (e.g. high contrast)
+        core.persistence.save(core.profile);
+      });
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+  };
+  // Renders the stat grid + per-domain bars. opts.compact = fewer headline stats; opts.maxDomains = cap rows.
+  Shell.prototype._buildStatsSummary = function (gridBox, listBox, opts) {
+    opts = opts || {};
+    var core = StarNix.core, st = core.questions.stats(), totals = core.profile.totals;
+    function stat(label, val, cls) { var box = el("div", "sx-stat" + (cls ? " " + cls : "")); box.appendChild(el("div", "sx-stat-val", String(val))); box.appendChild(el("div", "sx-stat-label", label)); gridBox.appendChild(box); }
+    var acc = st.overall.attempts ? Math.round(st.overall.accuracy * 100) : 0;
+    if (opts.compact) {
+      stat("Mastered", st.overall.mastered, "good");
+      stat("Due for review", st.overall.due, st.overall.due ? "due" : "");
+      stat("Accuracy", acc + "%");
+    } else {
+      stat("Questions in bank", st.overall.total);
+      stat("Mastered", st.overall.mastered, "good");
+      stat("Due for review", st.overall.due, st.overall.due ? "due" : "");
+      stat("New", st.overall.fresh);
+      stat("Accuracy", acc + "%");
+      stat("Seen (lifetime)", totals.questionsSeen);
+    }
+    if (!listBox) return;
+    function tier(pct) { return pct >= 0.67 ? "strong" : (pct >= 0.34 ? "mid" : "weak"); }
+    var n = opts.maxDomains ? Math.min(opts.maxDomains, st.domains.length) : st.domains.length;
+    for (var di = 0; di < n; di++) {
+      var d = st.domains[di];
+      var row = el("div", "sx-dom-row");
+      row.appendChild(el("div", "sx-dom-name", d.domain));
+      var bar = el("div", "sx-dom-bar"); var fill = el("i", "sx-dom-fill " + tier(d.masteredPct));
+      fill.style.width = Math.round(d.masteredPct * 100) + "%";
+      bar.appendChild(fill); row.appendChild(bar);
+      row.appendChild(el("div", "sx-dom-count", d.mastered + "/" + d.total));
+      var badge = el("div", "sx-dom-due", d.due ? (d.due + " due") : "");
+      if (!d.due) badge.classList.add("none");
+      row.appendChild(badge);
+      listBox.appendChild(row);
+    }
+  };
+
+  // (v0.51.0) Weakest questions: seen-and-shaky first — lowest Leitner bucket, then broken streak,
+  // then most misses, then longest-unseen. Unseen questions are excluded (nothing to drill yet).
+  // (v0.87.0, L1) the questions whose Leitner interval has lapsed, most overdue first —
+  // the menu chip serves exactly this queue into Study mode.
+  // (v0.167.0, V1.1 Flow#6) the Leitner queue calls the player back from ANYWHERE — title,
+  // pause, debrief — not just the one screen that already won their attention.
+  Shell.prototype._dueCount = function () {
+    try { return StarNix.core.mastery.dueList(StarNix.core.clock.now()).length; } catch (e) { return 0; }
+  };
+  // (v0.172.0, Jason) within the due CAP, priority questions board first (stable order kept
+  // inside each group — most-overdue first within priority, then within the rest).
+  Shell.prototype._duePartition = function (qs, n) {
+    var hi = [], lo = [];
+    for (var i = 0; i < qs.length; i++) { if (qs[i] && qs[i].priority > 1) hi.push(qs[i]); else lo.push(qs[i]); }
+    return hi.concat(lo).slice(0, n);
+  };
+  Shell.prototype._dueQuestions = function (n) {
+    var core = StarNix.core, out = [];
+    try {
+      var now = core.clock && core.clock.now ? core.clock.now() : Date.now();
+      // (v0.90.0, review) dueList is already sorted earliest-due-first (true overdue order —
+      // lastSeen alone ignores the interval); preserve ITS order instead of re-sorting.
+      var ids = core.mastery.dueList ? core.mastery.dueList(now) : [];
+      var byId = {};
+      var pool = core.questions.pool();
+      for (var i = 0; i < pool.length; i++) byId[pool[i].id] = pool[i];
+      for (var d = 0; d < ids.length; d++) if (byId[ids[d]]) out.push(byId[ids[d]]);
+    } catch (e) {}
+    return this._duePartition(out, n || 30);   // (v0.172.0, Jason) priority boards the capped queue first
+  };
+
+  Shell.prototype._weakestQuestions = function (n) {
+    var core = StarNix.core, out = [];
+    try {
+      var pool = core.questions.pool();
+      for (var i = 0; i < pool.length; i++) {
+        var m = core.mastery.get(pool[i].id);
+        if (m && m.seen) out.push({ q: pool[i], m: m });
+      }
+      var qsS = core.profile.qstats || {};   // (v0.183.0, Backend#7) the pace feed
+      out.sort(function (a, b) {
+        // slow-but-correct is a REAL study signal: a >=65% window EMA costs one effective
+        // bucket, so slow-mastered cards surface ahead of equally-mastered fast ones.
+        var ea = a.m.bucket - ((qsS[a.q.id] && qsS[a.q.id].pct != null && qsS[a.q.id].pct >= 0.65) ? 1 : 0);
+        var eb2 = b.m.bucket - ((qsS[b.q.id] && qsS[b.q.id].pct != null && qsS[b.q.id].pct >= 0.65) ? 1 : 0);
+        return (ea - eb2) || (a.m.streak - b.m.streak) || (b.m.incorrect - a.m.incorrect) || (a.m.lastSeen - b.m.lastSeen);
+      });
+    } catch (e) {}
+    return out.slice(0, n || 20).map(function (x) { return x.q; });
+  };
+
+  // (v0.51.0) Readiness: an explicitly APPROXIMATE composite against the exam module's own 80% pass
+  // mark — 50% recent Exam-sim average (last 3 completed sims), 30% bank mastery, 20% bank coverage.
+  // With zero sims the score is null (mastery/coverage alone can't stand in for exam conditions).
+  Shell.prototype._readiness = function () {
+    var core = StarNix.core, st = null;
+    try { st = core.questions.stats(); } catch (e) {}
+    var overall = (st && st.overall) || { seen: 0, total: 1, masteredPct: 0 };
+    var coverage = overall.total ? overall.seen / overall.total : 0;
+    var mastered = overall.masteredPct || 0;
+    var hist = [];
+    try { hist = (core.profile.examHistory || []).filter(function (h) { return h.mode === "sim" && h.total; }); } catch (e) {}
+    var last3 = hist.slice(-3);
+    var simAvg = null;
+    if (last3.length) { var acc = 0; for (var i = 0; i < last3.length; i++) acc += (last3[i].pct || 0); simAvg = acc / last3.length; }
+    var score = (simAvg == null) ? null : Math.round(0.5 * simAvg + 30 * mastered + 20 * coverage);
+    var trend = 0;
+    if (hist.length >= 2) trend = (hist[hist.length - 1].pct || 0) - (hist[hist.length - 2].pct || 0);
+    return { score: score, simAvg: simAvg, mastered: mastered, coverage: coverage, sims: hist.length, last: hist.slice(-5), trend: trend, target: 80 };
+  };
+
+  Shell.prototype.showStats = function () {
+    this._clearScreen();
+    this.screen = "stats";
+    var self = this;
+
+    var core = StarNix.core;
+    var s = el("div", "sx-screen sx-panelwrap");
+    // (v0.126.0, Jason playtest) the Codex is a long screen; make LEAVING it easy — a sticky top
+    // back button + Escape-to-menu, not just the ← Menu buried at the bottom.
+    this._on(global, "keydown", function (e) { if (e.key === "Escape" || e.key === "Esc") { e.preventDefault(); self.showMenu(); } });
+    s.innerHTML = '<div class="sx-panel"><button class="sx-btn sx-btn-ghost sx-stats-topback" type="button">← Menu</button><div class="sx-eyebrow">Codex</div><h2 class="sx-h2">Your progress</h2>'
+      + '<div class="sx-ready"></div>'
+      + '<div class="sx-stat-grid"></div>'
+      + '<div class="sx-dom-head">Domain mastery heatmap</div><div class="sx-heatmap"></div>'
+      + '<div class="sx-dom-head">Daily missions</div><div class="sx-daily sx-daily-stats"></div>'
+      + '<div class="sx-dom-head">Achievements <span class="sx-ach-count"></span></div><div class="sx-ach"></div>'
+      + '<div class="sx-dom-head">Rank rewards</div><div class="sx-rewards"></div>'
+      + '<div class="sx-dom-head">By domain · weakest first</div><div class="sx-domain-list"></div>'
+      + '<div class="sx-dom-head">Weakest questions</div><div class="sx-weak"></div>'
+      + '<div class="sx-row"></div></div>';
+
+    // ---- readiness (v0.51.0): sim-anchored composite vs the exam's own 80% pass mark ----
+    (function buildReadiness(box) {
+      var r = self._readiness();
+      var head = el("div", "sx-ready-head");
+      var scoreEl = el("div", "sx-ready-score" + (r.score == null ? " none" : (r.score >= r.target ? " good" : (r.score >= r.target - 15 ? " close" : " far"))));
+      scoreEl.textContent = (r.score == null) ? "—" : (r.score + "%");
+      head.appendChild(scoreEl);
+      var lab = el("div", "sx-ready-lab");
+      lab.innerHTML = '<div class="sx-ready-title">Exam readiness <span class="sx-ready-approx">approximate</span></div>'
+        + '<div class="sx-ready-sub">' + (r.score == null
+          ? "Complete an <b>Exam sim</b> to calibrate — mastery alone can\u2019t stand in for exam conditions."
+          : "vs the " + r.target + "% pass mark \u00b7 sims avg " + Math.round(r.simAvg) + "% \u00b7 mastery " + Math.round(r.mastered * 100) + "% \u00b7 coverage " + Math.round(r.coverage * 100) + "%"
+            + (r.sims >= 2 ? (' \u00b7 trend ' + (r.trend >= 0 ? "+" : "") + Math.round(r.trend) + " pts") : "")) + "</div>";
+      head.appendChild(lab);
+      box.appendChild(head);
+      if (r.last.length) {
+        var strip = el("div", "sx-ready-sims");
+        for (var i = 0; i < r.last.length; i++) {
+          var h = r.last[i];
+          var chip = el("span", "sx-simchip" + ((h.pct || 0) >= r.target ? " pass" : ""), Math.round(h.pct || 0) + "%");
+          chip.title = h.correct + "/" + h.total;
+          strip.appendChild(chip);
+        }
+        box.appendChild(strip);
+      }
+      // (v0.183.0, Backend#7) the pace feed: mastered cards that still run slow
+      try {
+        var qsP = core.profile.qstats || {}, slowN = 0;
+        for (var qk in qsP) { var mP = core.mastery.get(qk); if (mP && mP.bucket >= 4 && qsP[qk].pct != null && qsP[qk].pct >= 0.65) slowN++; }
+        if (slowN > 0) box.appendChild(el("div", "sx-ready-pace", "\ud83d\udc22 " + slowN + " mastered card" + (slowN === 1 ? "" : "s") + " still run" + (slowN === 1 ? "s" : "") + " slow \u2014 the drill boards them first"));
+      } catch (ePc) {}
+      var simBtn = el("button", "sx-btn sx-btn-ghost sx-ready-go", r.sims ? "Run another Exam sim" : "Take an Exam sim");
+      self._on(simBtn, "click", function () { self._examMode = "sim"; self.showExam(75); });   // (v0.84.0, B1) count-less call ran the ENTIRE bank (~6 h)
+      box.appendChild(simBtn);
+    })(s.querySelector(".sx-ready"));
+
+    this._buildStatsSummary(s.querySelector(".sx-stat-grid"), s.querySelector(".sx-domain-list"));
+
+    // ---- per-domain mastery heatmap (v0.51.0): tile color = mastered share; badge = due count ----
+    (function buildHeatmap(box) {
+      var st = null; try { st = core.questions.stats(); } catch (e) {}
+      var doms = (st && st.domains) || [];
+      for (var i = 0; i < doms.length; i++) {
+        var d = doms[i], pct = Math.round((d.masteredPct || 0) * 100);
+        var tier = d.seen === 0 ? "t0" : pct >= 70 ? "t4" : pct >= 45 ? "t3" : pct >= 20 ? "t2" : "t1";
+        // (v0.190.0, V1.1 NIT#8) diagnose -> drill on the SAME screen: every tile launches
+        // Study scoped to exactly its domain's questions.
+        var tile = el("button", "sx-heat " + tier);
+        tile.type = "button";
+        tile.innerHTML = '<div class="sx-heat-dom">' + d.domain + '</div>'
+          + '<div class="sx-heat-pct">' + (d.seen === 0 ? "new" : pct + "%") + "</div>"
+          + (d.due ? '<div class="sx-heat-due">' + d.due + " due</div>" : "");
+        tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen \u00b7 click to study this domain";
+        tile.setAttribute("aria-label", "Study " + d.domain + " \u2014 " + d.total + " questions");
+        (function (domName) {
+          self._on(tile, "click", function () {
+            var qsD = core.questions.pool().filter(function (qD) { return qD.domain === domName; });
+            if (!qsD.length) return;
+            try { core.audio.sfx("click"); } catch (eSf) {}
+            self._examMode = "study";
+            self.showExam(null, { questions: qsD, mode: "study" });
+          });
+        })(d.domain);
+        box.appendChild(tile);
+      }
+    })(s.querySelector(".sx-heatmap"));
+    // (v0.165.0, V1.1 NIT#5) per-domain SIM trend — 'storage: 55% -> 70% -> 85%' beats one
+    // opaque percentage. Needs >= 2 sims that recorded byDomain.
+    try {
+      var histT = (core.profile.examHistory || []).filter(function (h) { return h.mode === "sim" && h.byDomain; }).slice(-3);
+      if (histT.length >= 2) {
+        var trendBox = el("div", "sx-sim-trend");
+        trendBox.appendChild(el("div", "sx-dom-head", "Sim trend \u00b7 last " + histT.length + " sims"));
+        var domsT = {};
+        histT.forEach(function (h) { for (var dk in h.byDomain) if (Object.prototype.hasOwnProperty.call(h.byDomain, dk)) domsT[dk] = 1; });
+        Object.keys(domsT).sort().forEach(function (dk) {
+          var line = histT.map(function (h) {
+            var e2 = h.byDomain[dk];
+            return e2 && e2[1] ? Math.round(100 * e2[0] / e2[1]) + "%" : "\u2013";
+          }).join(" \u2192 ");
+          var rowT = el("div", "sx-sim-trend-row");
+          rowT.appendChild(el("span", "n", dk));
+          rowT.appendChild(el("span", "v", line));
+          trendBox.appendChild(rowT);
+        });
+        s.querySelector(".sx-heatmap").parentNode.insertBefore(trendBox, s.querySelector(".sx-heatmap").nextSibling);
+      }
+    } catch (eTr) {}
+
+    // ---- daily missions row (v0.56.0 unit 6): full rows; the section label above titles it (A3) ----
+    this._renderDaily(s.querySelector(".sx-daily"), { head: false });
+
+    // ---- achievements panel (v0.53.0 unit 3): 12 tiles, locked dim / unlocked gold ----
+    (function buildAch(box) {
+      if (!box || !StarNix.achievements) return;
+      var list = StarNix.achievements.LIST;
+      var un = (core.profile && core.profile.achievements) || {};
+      var got = 0;
+      for (var i = 0; i < list.length; i++) {
+        var d = list[i], has = !!un[d.id];
+        if (has) got++;
+        var tile = el("div", "sx-ach-tile" + (has ? " got" : ""));
+        var hid = d.hidden && !has;   // (v0.94.0, A3) hidden achievements stay a mystery until earned
+        tile.appendChild(el("span", "sx-ach-ic", hid ? "\u2753" : d.icon));
+        var body = el("span", "sx-ach-body");
+        body.appendChild(el("span", "sx-ach-name", hid ? "Hidden achievement" : d.name));
+        body.appendChild(el("span", "sx-ach-desc", hid ? "Keep playing to discover it." : d.desc));
+        tile.appendChild(body);
+        tile.appendChild(el("span", "sx-ach-xp", (has ? "✓ " : "") + "+" + d.xp + " XP"));
+        tile.title = has ? "Unlocked" : "Locked";
+        box.appendChild(tile);
+      }
+      var cnt = s.querySelector(".sx-ach-count");
+      if (cnt) cnt.textContent = got + " / " + list.length;
+    })(s.querySelector(".sx-ach"));
+
+    // (v0.204.0, V1.1 Flow#10) the certificate replays from here, forever
+    try {
+      if (core.profile.certified) {
+        var certBtn = el("button", "sx-btn sx-btn-primary sx-cert-replay", "\u2726 View your certificate \u25b8");
+        this._on(certBtn, "click", function () { self.showFinale({ replay: true }); });
+        s.querySelector(".sx-ready").appendChild(certBtn);
+      }
+    } catch (eCr10) {}
+    // ---- rank rewards (v0.179.0, V1.1 Flow#7): what each rank pays — earned vs ahead ----
+    (function buildRewards(box) {
+      if (!box || !StarNix.xp.REWARDS) return;
+      var idx = StarNix.xp.rankFor((core.profile && core.profile.xp) || 0).index;
+      for (var ri = 0; ri < StarNix.xp.REWARDS.length; ri++) {
+        var rw = StarNix.xp.REWARDS[ri];
+        var row = el("div", "sx-reward" + (idx >= rw.rank ? " got" : ""));
+        row.appendChild(el("span", "sx-reward-rank", "✦ " + StarNix.xp.RANKS[rw.rank].name));
+        row.appendChild(el("span", "sx-reward-label", rw.label));
+        row.title = (idx >= rw.rank) ? "Earned" : "Locked";
+        box.appendChild(row);
+      }
+    })(s.querySelector(".sx-rewards"));
+
+    // ---- weakest-questions drill (v0.51.0): worst-20 by bucket/streak/misses -> Study mode ----
+    (function buildWeak(box) {
+      var weak = self._weakestQuestions(20);
+      if (!weak.length) {
+        box.appendChild(el("div", "sx-weak-empty", "Nothing to drill yet \u2014 answer some questions first."));
+        return;
+      }
+      var list = el("div", "sx-weak-list");
+      var show = Math.min(6, weak.length);
+      for (var i = 0; i < show; i++) {
+        var q = weak[i], m = core.mastery.get(q.id) || {};
+        var qsR = (core.profile.qstats || {})[q.id];
+        var slowR = !!(qsR && qsR.pct != null && qsR.pct >= 0.65);   // (v0.183.0, Backend#7)
+        var row = el("div", "sx-weak-row");
+        row.innerHTML = '<span class="sx-weak-dom">' + (q.domain || "") + '</span>'
+          + '<span class="sx-weak-stem">' + String(q.stem || "").slice(0, 72).replace(/&/g, "&amp;").replace(/</g, "&lt;") + (String(q.stem || "").length > 72 ? "\u2026" : "") + "</span>"
+          + '<span class="sx-weak-miss">' + (slowR ? "\ud83d\udc22 " : "") + (m.incorrect || 0) + "\u2715</span>";
+        list.appendChild(row);
+      }
+      box.appendChild(list);
+      if (weak.length > show) box.appendChild(el("div", "sx-weak-more", "+ " + (weak.length - show) + " more in the drill"));
+      var drill = el("button", "sx-btn sx-btn-primary sx-drill", "Drill these " + weak.length + " in Study mode");
+      self._on(drill, "click", function () { self.showExam(null, { questions: self._weakestQuestions(20), mode: "study" }); });
+      box.appendChild(drill);
+    })(s.querySelector(".sx-weak"));
+
+    var back = el("button", "sx-btn sx-btn-ghost", "← Menu");
+    this._on(back, "click", function () { self.showMenu(); });
+    s.querySelector(".sx-row").appendChild(back);
+    this._on(s.querySelector(".sx-stats-topback"), "click", function () { self.showMenu(); });
+    this.stage.appendChild(s);
+    this._focusScreen(s);
+  };
+
+  /* =================================================================== *
+   * settings  (01 §12)
+   * =================================================================== */
+  /* Ship-trail picker (v0.57.0 unit 7) — one swatch per cosmetic. Unlocked = selectable
+   * (mastery-gated per domain via questions.stats()); locked = dimmed + requirement hint.
+   * Selecting stores BOTH the id (settings.shipTrail) and the resolved hex
+   * (settings.shipTrailColor) so game render paths never need stats() or globals. */
+  Shell.prototype._buildTrailPicker = function (host) {
+    if (!host || !StarNix.cosmetics) { if (host) host.style.display = "none"; return; }
+    var self = this, core = StarNix.core, settings = core.profile.settings;
+    var stats = null; try { stats = core.questions.stats(); } catch (e) {}
+    // (v0.65.0, Jason's ruling) latch any threshold-met variant onto the profile: earned forever
+    try { if (StarNix.cosmetics.latch(core.profile, stats).length) core.persistence.save(core.profile); } catch (eL) {}
+    var current = StarNix.cosmetics.resolve(settings, stats, core.profile);
+    StarNix.cosmetics.LIST.forEach(function (def) {
+      var un = StarNix.cosmetics.unlocked(def, stats, core.profile);
+      var b = el("button", "sx-trail" + (un ? "" : " locked") + (current.id === def.id ? " on" : ""));
+      b.type = "button"; b.setAttribute("data-trail", def.id);
+      var sw = el("span", "sx-trail-swatch"); sw.style.background = def.color;
+      b.appendChild(sw);
+      var body = el("span", "sx-trail-body");
+      body.appendChild(el("span", "sx-trail-name", def.name));
+      body.appendChild(el("span", "sx-trail-req", un ? (current.id === def.id ? "Equipped" : "Unlocked")
+        : (def.rank != null ? "Reach " + StarNix.xp.RANKS[def.rank].name + " rank"   // (v0.179.0, Flow#7)
+          : "Master " + Math.round(StarNix.cosmetics.THRESHOLD * 100) + "% of " + def.domain)));
+      b.appendChild(body);
+      if (un) {
+        self._on(b, "click", function () {
+          settings.shipTrail = def.id;
+          settings.shipTrailColor = def.color;
+          try { core.persistence.save(core.profile); } catch (e2) {}
+          try { core.audio.sfx("click"); } catch (e3) {}
+          var all = host.querySelectorAll(".sx-trail");
+          for (var i = 0; i < all.length; i++) {
+            all[i].classList.toggle("on", all[i].getAttribute("data-trail") === def.id);
+            var req = all[i].querySelector(".sx-trail-req");
+            if (req && !all[i].classList.contains("locked")) req.textContent = (all[i].getAttribute("data-trail") === def.id) ? "Equipped" : "Unlocked";
+          }
+        });
+      } else { b.disabled = true; }
+      host.appendChild(b);
+    });
+  };
+
+  /* (v0.79.0, JB1) Dev Jukebox: audition any track in the library, one click each.
+   * playTrack(id, {exact:true}) bypasses playlist resolution so EVERY id is reachable,
+   * including rotation-only variants. Leaving Settings self-cleans: showMenu replays
+   * the menu bed. Grouped fixed-beds-first, then per-context playlists. */
+  // (v0.136.0, V1.1 FE#2) Upbeat/Chill — extracted from openPause so Settings offers it too.
+  // The retrigger only fires when a game bed is active (menu bed handles itself).
+  Shell.prototype._buildGenreRow = function (host) {
+    var self = this, core = StarNix.core;
+    var st = core.profile.settings;
+    var grow = el("div", "sx-genre-row");
+    grow.appendChild(el("span", "sx-genre-label", "Music style"));
+    var gUp = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Upbeat");
+    var gCh = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Chill");
+    function paintGenre() {
+      var g = st.musicGenre === "chill" ? "chill" : "upbeat";
+      gUp.className = "sx-btn sx-genre-btn" + (g === "upbeat" ? " sx-btn-primary" : " sx-btn-ghost");
+      gCh.className = "sx-btn sx-genre-btn" + (g === "chill" ? " sx-btn-primary" : " sx-btn-ghost");
+    }
+    function pickGenre(g) {
+      try { core.audio.sfx("click"); } catch (e) {}
+      st.musicGenre = g; paintGenre();
+      try { if (core.persistence && core.persistence.save) core.persistence.save(core.profile); } catch (e) {}
+      try { if (core.audio.setMusicGenre) core.audio.setMusicGenre(g); } catch (e) {}
+      // (v0.68.0, J3 fix) resolve UPPERCASE game ids through GAME_META like enterGame does
+      try { if (self.lastGameId) core.audio.playTrack((GAME_META[self.lastGameId] && GAME_META[self.lastGameId].track) || String(self.lastGameId).toLowerCase()); } catch (e) {}
+    }
+    this._on(gUp, "click", function () { pickGenre("upbeat"); });
+    this._on(gCh, "click", function () { pickGenre("chill"); });
+    paintGenre();
+    grow.appendChild(gUp); grow.appendChild(gCh); host.appendChild(grow);
+  };
+  // (v0.147.0, V1.1 Backend#3) dev diagnostics: build label, the field-error ring, and the
+  // telemetry tail — a playtest report becomes a stack head without DevTools.
+  Shell.prototype._buildDiagnostics = function (host) {
+    var core = StarNix.core;
+    host.appendChild(el("div", "sx-diag-build", StarNix.BUILD_LABEL || ("v" + (StarNix.BUILD || "?"))));
+    var ring = (core.profile && core.profile.errors) || [];
+    if (!ring.length) host.appendChild(el("div", "sx-diag-empty", "No field errors recorded."));
+    for (var i = ring.length - 1; i >= 0; i--) {
+      var er = ring[i];
+      var row = el("div", "sx-diag-err");
+      row.appendChild(el("div", "sx-diag-msg", er.msg + (er.n > 1 ? "  \u00d7" + er.n : "")));
+      row.appendChild(el("div", "sx-diag-meta", (er.build || "?") + " \u00b7 " + (er.scr || "?") + (er.stk ? " \u00b7 " + er.stk : "")));
+      host.appendChild(row);
+    }
+    var evs = [];
+    try { evs = core.telemetry.events().slice(-10); } catch (eT) {}
+    if (evs.length) {
+      host.appendChild(el("div", "sx-diag-sub", "Telemetry tail"));
+      for (var t = evs.length - 1; t >= 0; t--) {
+        var evD = evs[t];
+        host.appendChild(el("div", "sx-diag-ev", (evD.t || "?") + (evD.game ? " \u00b7 " + evD.game : "") + (evD.id ? " \u00b7 " + evD.id : "")));
+      }
+    }
+  };
+  Shell.prototype._buildJukebox = function (host) {
+    var self = this, audio = StarNix.core.audio;
+    var ids = (audio.trackIds ? audio.trackIds() : []).slice();
+    if (!ids.length) { host.appendChild(el("div", "sx-note", "No tracks in this build.")); return; }
+    var groups = [
+      { label: "Fixed beds", test: function (id) { return !/^(menu|arm|kbb|cc)(_|$)/.test(id); } },
+      { label: "Menu", test: function (id) { return /^menu(_|$)/.test(id); } },
+      { label: "ARM", test: function (id) { return /^arm(_|$)/.test(id); } },
+      { label: "KBB", test: function (id) { return /^kbb(_|$)/.test(id); } },
+      { label: "CC", test: function (id) { return /^cc(_|$)/.test(id); } }
+    ];
+    var now = el("div", "sx-jb-now", "\u266a not auditioning \u2014 pick a track");
+    host.appendChild(now);
+    var allBtns = [];
+    function play(id, btn) {
+      try { audio.ensure(); audio.playTrack(id, { exact: true }); } catch (e) {}
+      for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove("on");
+      btn.classList.add("on");
+      now.textContent = "\u266a " + id;
+    }
+    for (var g = 0; g < groups.length; g++) {
+      var members = ids.filter(groups[g].test); members.sort();
+      if (!members.length) continue;
+      host.appendChild(el("div", "sx-jb-group", groups[g].label));
+      var grid = el("div", "sx-jb-grid");
+      for (var i = 0; i < members.length; i++) {
+        (function (id) {
+          var b = el("button", "sx-jb-btn", id);
+          self._on(b, "click", function () { play(id, b); });
+          allBtns.push(b); grid.appendChild(b);
+        })(members[i]);
+      }
+      host.appendChild(grid);
+    }
+    var stop = el("button", "sx-btn sx-btn-ghost", "\u25a0 Stop \u2014 back to menu bed");
+    this._on(stop, "click", function () {
+      try { audio.playTrack("menu"); } catch (e) {}
+      for (var i = 0; i < allBtns.length; i++) allBtns[i].classList.remove("on");
+      now.textContent = "\u266a not auditioning \u2014 pick a track";
+    });
+    host.appendChild(stop);
+  };
+
+  Shell.prototype.showSettings = function () {
+    this._clearScreen();
+    this.screen = "settings";
+    var self = this;
+    var core = StarNix.core;
+    var settings = core.profile.settings;
+
+    var s = el("div", "sx-screen sx-panelwrap");
+    s.innerHTML = '<div class="sx-panel"><div class="sx-eyebrow">Settings</div><h2 class="sx-h2">Options</h2>'
+      + '<div class="sx-seclabel">Audio</div><div class="sx-sliders"></div>'
+      + '<div class="sx-seclabel">Display &amp; input</div><div class="sx-toggles"></div>'
+      + '<div class="sx-seclabel">Ship trail</div><div class="sx-trails"></div>'
+      + '<div class="sx-seclabel">Data</div><div class="sx-data"></div>'
+      + (shellDevMode() ? '<div class="sx-seclabel">Dev \u00b7 Jukebox</div><div class="sx-jukebox"></div><div class="sx-seclabel">Dev \u00b7 Diagnostics</div><div class="sx-diag"></div>' : '')
+      + '<div class="sx-row"></div></div>';
+    var sliderBox = s.querySelector(".sx-sliders");
+    var box = s.querySelector(".sx-toggles");
+    var dataBox = s.querySelector(".sx-data");
+
+    this._buildVolumeSliders(sliderBox);
+    this._buildGenreRow(sliderBox);   // (v0.136.0, FE#2) music style reachable without pausing a game
+    this._buildToggles(box);
+    this._buildTrailPicker(s.querySelector(".sx-trails"));
+    if (s.querySelector(".sx-jukebox")) this._buildJukebox(s.querySelector(".sx-jukebox"));   // (v0.79.0, JB1; FE#2: dev mode only)
+    if (s.querySelector(".sx-diag")) this._buildDiagnostics(s.querySelector(".sx-diag"));   // (v0.147.0, Backend#3)
+
+    // ---- reset progress (two-tap confirm; persists a fresh profile, then reloads) ----
+    var resetBtn = el("button", "sx-btn sx-btn-danger", "Reset all progress");
+    var armed = false;
+    self._on(resetBtn, "click", function () {
+      if (!armed) { armed = true; resetBtn.textContent = "Tap again to confirm — erases mastery & best scores"; resetBtn.classList.add("armed"); return; }
+      try {
+        var fresh = StarNix._internal.defaultProfile();
+        fresh.settings = settings;                 // keep preferences; wipe only progress
+        core.persistence.save(fresh);
+        if (core.persistence.flush) core.persistence.flush();
+      } catch (e) {}
+      try { self.root.ownerDocument.defaultView.location.reload(); }
+      catch (e) { resetBtn.textContent = "Progress reset \u2014 restart to apply"; resetBtn.classList.remove("armed"); resetBtn.disabled = true; }
+    });
+    // ---- (v0.130.0, V1.1 Backend#1) portable progress: export / import via a JSON textarea ----
+    (function () {
+      var row = el("div", "sx-btnrow sx-data-row");
+      var exp = el("button", "sx-btn sx-btn-ghost", "Export progress");
+      var imp = el("button", "sx-btn sx-btn-ghost", "Import progress");
+      row.appendChild(exp); row.appendChild(imp); dataBox.appendChild(row);
+      var area = el("textarea", "sx-data-json"); area.rows = 5; area.spellcheck = false; area.style.display = "none";
+      var note = el("div", "sx-data-note"); note.style.display = "none";
+      var apply = el("button", "sx-btn", "Apply import"); apply.style.display = "none";
+      dataBox.appendChild(area); dataBox.appendChild(note); dataBox.appendChild(apply);
+      function show(mode) {
+        area.style.display = ""; note.style.display = "";
+        apply.style.display = (mode === "import") ? "" : "none";
+        if (mode === "export") {
+          var json = "";
+          try { json = core.persistence.exportProfile ? core.persistence.exportProfile() : JSON.stringify(core.profile); } catch (eE) {}
+          area.value = json; area.readOnly = true;
+          note.textContent = "Copy this somewhere safe (it's your whole profile). Paste it into Import on any device.";
+          try { area.focus(); area.select(); } catch (eS) {}
+        } else {
+          area.value = ""; area.readOnly = false;
+          note.textContent = "Paste an exported profile here, then Apply. Your current progress is kept as a backup.";
+          try { area.focus(); } catch (eF) {}
+        }
+      }
+      self._on(exp, "click", function () { show("export"); });
+      self._on(imp, "click", function () { show("import"); });
+      self._on(apply, "click", function () {
+        try {
+          var p2 = core.persistence.importProfile(area.value);
+          // in-place swap so every live reference (menu, games, xp) sees the imported state
+          for (var k in core.profile) { if (Object.prototype.hasOwnProperty.call(core.profile, k)) delete core.profile[k]; }
+          for (var k2 in p2) { if (Object.prototype.hasOwnProperty.call(p2, k2)) core.profile[k2] = p2[k2]; }
+          note.textContent = "Imported \u2713 — progress restored.";
+          self._toast("Profile imported \u2713", "sx-toast-gold");
+        } catch (eI) {
+          note.textContent = "That doesn't parse as a StarNix profile — nothing was changed.";
+        }
+      });
+    })();
+    dataBox.appendChild(resetBtn);
+
+    var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
+    this._on(back, "click", function () { if (core.persistence.flush) core.persistence.flush(); self.showMenu(); });
+    s.querySelector(".sx-row").appendChild(back);
+    this.stage.appendChild(s);
+    this._focusScreen(s);
+  };
+
+  /* =================================================================== *
+   * mount / unmount a game  (strict lifecycle)
+   * =================================================================== */
+  // (v0.106.0, G2, Jason) per-game checkpoints: entering a game with a saved run offers
+  // Resume or New Game. Games write profile.saves[id] at their natural boundaries (sector /
+  // round / gate) via ctx.persistence and clear it on game over; Resume hands the snapshot
+  // back through the additive ctx.resumeData key (01 §9a additive rule).
+  Shell.prototype.enterGame = function (id, resumeChoice) {
+    var module = StarNix.getGame(id);
+    if (!module) { this._toast("Game " + id + " not registered."); return; }
+    var self0 = this, core0 = StarNix.core;
+    var save = null;
+    try { save = core0.profile && core0.profile.saves && core0.profile.saves[id]; } catch (e0) {}
+    if (save && resumeChoice === undefined) {
+      this._clearScreen(); this.screen = "resume:" + id;
+      var rs = el("div", "sx-screen sx-panelwrap");
+      var rp = el("div", "sx-panel");
+      rp.appendChild(el("div", "sx-eyebrow", GAME_META[id].title));
+      rp.appendChild(el("h2", "sx-h2", "A run is waiting"));
+      rp.appendChild(el("div", "sx-note", save.label || "Saved progress found."));
+      var row = el("div", "sx-row");
+      var bR = el("button", "sx-btn sx-btn-iris", "\u25B6 Resume");
+      var bN = el("button", "sx-btn sx-btn-ghost", "New game (discards the save)");
+      this._on(bR, "click", function () { self0.enterGame(id, true); });
+      this._on(bN, "click", function () {
+        try { delete core0.profile.saves[id]; if (core0.persistence && core0.persistence.save) core0.persistence.save(core0.profile); } catch (e1) {}
+        self0.enterGame(id, false);
+      });
+      row.appendChild(bR); row.appendChild(bN); rp.appendChild(row);
+      rs.appendChild(rp); this.stage.appendChild(rs);
+      return;
+    }
+    this._clearScreen();
+    this.screen = "game:" + id;
+    this.lastGameId = id;
+    // (v0.134.0, V1.1 Flow#1) sortie marker: the debrief diffs telemetry + xp from here
+    try { this._sortie = { id: id, evStart: StarNix.core.telemetry.events().length, xp0: StarNix.core.profile.xp | 0 }; } catch (eSo) { this._sortie = null; }
+    // (v0.128.0, V1.1 Menu#1) Continue must survive a reload — persist the last game
+    try {
+      var profLG = StarNix.core.profile;
+      if (profLG && profLG.lastGame !== id) { profLG.lastGame = id; if (StarNix.core.persistence && StarNix.core.persistence.save) StarNix.core.persistence.save(profLG); }
+    } catch (eLG) {}
+
+    var bar = el("div", "sx-gamebar");
+    var back = el("button", "sx-btn sx-btn-ghost sx-back", "← Menu");
+    bar.appendChild(back);
+    var pauseBtn = el("button", "sx-btn sx-btn-ghost sx-pausebtn", "⏸ Pause");
+    bar.appendChild(pauseBtn);
+    bar.appendChild(el("div", "sx-gamebar-title", GAME_META[id].title));
+    this.stage.appendChild(bar);
+
+    var gameRoot = el("div", "sx-game-root");
+    this.stage.appendChild(gameRoot);
+    this.currentGameRoot = gameRoot;
+    this.currentModule = module;
+
+    var self = this;
+    this._on(back, "click", function () { self.exitGame(); });
+    this._paused = false; this._pauseOverlay = null;
+    this._on(pauseBtn, "click", function () { self.togglePause(); });
+    this._on(global, "keydown", function (e) {
+      if (self.screen !== ("game:" + id)) return;
+      if (e.key === "Escape" || e.key === "Esc") { e.preventDefault(); self.togglePause(); }
+    });
+
+    var ctx = StarNix.makeContext(id);
+    if (resumeChoice === true && save) ctx.resumeData = save;   // (v0.106.0, G2)
+    // Menu-return handshake (ARM 02 §D3 / CC): optional callback a game may call
+    // from its own debrief to return to the shell menu. The ← Menu bar above
+    // does the same via exitGame(); this just lets a game request it in-code.
+    ctx.exit = function () { self.exitGame(); };
+    try { StarNix.core.audio.playTrack(GAME_META[id].track); } catch (e) {}
+    try {
+      module.mount(gameRoot, ctx);
+    } catch (err) {
+      try { if (global.console) console.error("mount(" + id + ") threw:", err); } catch (x) {}
+      this.exitGame();
+      this._toast("Failed to start " + id + ".");
+    }
+  };
+
+  /* ---- pause overlay (shell-driven; calls the module's optional pause()/resume()) ----
+   * Menu-styled overlay: Resume + Menu. Entering STOPS the music and resuming
+   * RESTARTS it (fresh scheduler) so an audio glitch self-heals via pause -> resume. */
+  Shell.prototype.togglePause = function () {
+    if (!this.screen || this.screen.indexOf("game:") !== 0) return;
+    if (this._paused) this.closePause(); else this.openPause();
+  };
+  Shell.prototype.openPause = function () {
+    if (this._paused || !this.stage) return;
+    this._paused = true;
+    var self = this, core = StarNix.core;
+    try { if (this.currentModule && this.currentModule.pause) this.currentModule.pause(); } catch (e) {}
+    try { core.audio.setMusic(false); } catch (e) {}
+    var ov = el("div", "sx-pause");
+    var card = el("div", "sx-pause-card");
+    card.appendChild(el("div", "sx-pause-eyebrow", "Mission paused"));
+    card.appendChild(el("div", "sx-pause-title", "Paused"));
+    var dueP = this._dueCount();   // (v0.167.0, Flow#6) the queue reaches into the pause
+    if (dueP > 0) card.appendChild(el("div", "sx-pause-due", "\u23F0 " + dueP + " review" + (dueP === 1 ? "" : "s") + " waiting on the bridge"));
+
+    // live settings — same controls as the Settings screen (audio applies immediately)
+    card.appendChild(el("div", "sx-seclabel", "Audio"));
+    var sliders = el("div", "sx-sliders"); card.appendChild(sliders);
+    try { this._buildVolumeSliders(sliders); } catch (e) {}
+    // (v0.136.0, V1.1 FE#2) music style lives in the shared builder now — pause AND Settings
+    try { this._buildGenreRow(card); } catch (e) {}
+    card.appendChild(el("div", "sx-seclabel", "Display & input"));
+    var toggles = el("div", "sx-toggles"); card.appendChild(toggles);
+    try { this._buildToggles(toggles); } catch (e) {}
+
+    // compact progress — guarded (the questions provider may not expose stats())
+    try {
+      if (core.questions && core.questions.stats) {
+        card.appendChild(el("div", "sx-seclabel", "Progress · weakest domains"));
+        var grid = el("div", "sx-stat-grid"); card.appendChild(grid);
+        var dlist = el("div", "sx-domain-list"); card.appendChild(dlist);
+        this._buildStatsSummary(grid, dlist, { compact: true, maxDomains: 5 });
+      }
+    } catch (e) {}
+
+    var actions = el("div", "sx-pause-actions");
+    var resume = el("button", "sx-btn sx-btn-primary sx-pause-resume", "Resume");
+    var menu = el("button", "sx-btn sx-btn-ghost", "← Menu");
+    actions.appendChild(resume); actions.appendChild(menu);
+    card.appendChild(actions);
+
+    ov.appendChild(card); this.stage.appendChild(ov); this._pauseOverlay = ov;
+    this._on(resume, "click", function () { try { core.audio.sfx("click"); } catch (e) {} self.closePause(); });
+    this._on(menu, "click", function () { try { core.audio.sfx("click"); } catch (e) {} self.exitGame(); });
+    // (v0.135.0, V1.1 FE#1) focus trap: the overlay owns Tab while open; Resume gets focus on
+    // open and the previously-focused element gets it back on close.
+    try { this._pauseReturnFocus = this.root.ownerDocument.activeElement; } catch (ePf) { this._pauseReturnFocus = null; }
+    try { resume.focus(); } catch (eRf) {}
+    this._on(ov, "keydown", function (e) {
+      if (e.key !== "Tab") return;
+      var els = ov.querySelectorAll("button, [tabindex]");
+      if (!els.length) return;
+      var first = els[0], last = els[els.length - 1], act = ov.ownerDocument.activeElement;
+      if (e.shiftKey && act === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && act === last) { e.preventDefault(); first.focus(); }
+      else if (act !== null && !ov.contains(act)) { e.preventDefault(); first.focus(); }
+    });
+  };
+  Shell.prototype.closePause = function () {
+    if (!this._paused) return;
+    this._paused = false;
+    if (this._pauseOverlay && this._pauseOverlay.parentNode) this._pauseOverlay.parentNode.removeChild(this._pauseOverlay);
+    this._pauseOverlay = null;
+    try { if (this._pauseReturnFocus && this._pauseReturnFocus.focus) this._pauseReturnFocus.focus(); } catch (eRb) {}
+    this._pauseReturnFocus = null;
+    try { StarNix.core.audio.setMusic(!!StarNix.core.profile.settings.music); } catch (e) {}
+    try { if (this.currentModule && this.currentModule.resume) this.currentModule.resume(); } catch (e) {}
+  };
+
+  Shell.prototype.exitGame = function () {
+    this._paused = false;
+    if (this._pauseOverlay && this._pauseOverlay.parentNode) this._pauseOverlay.parentNode.removeChild(this._pauseOverlay);
+    this._pauseOverlay = null;
+    try { StarNix.core.audio.setMusic(!!StarNix.core.profile.settings.music); } catch (e) {}
+    if (this.currentModule) {
+      try { this.currentModule.unmount(); }
+      catch (err) { try { if (global.console) console.error("unmount threw:", err); } catch (x) {} }
+      this.currentModule = null;
+    }
+    if (this.currentGameRoot && this.currentGameRoot.parentNode) this.currentGameRoot.parentNode.removeChild(this.currentGameRoot);
+    this.currentGameRoot = null;
+    try { StarNix.core.audio.playTrack("menu"); } catch (e) {}
+    // (v0.134.0, V1.1 Flow#1) post-sortie debrief: answered/correct/XP + the questions you
+    // missed, floated over the menu (screen stays "menu" — every exit path lands home).
+    var deb = null;
+    try {
+      var so = this._sortie; this._sortie = null;
+      if (so) {
+        var evs = StarNix.core.telemetry.events().slice(so.evStart);
+        var qa = []; for (var di = 0; di < evs.length; di++) { var ev = evs[di]; if (ev && ev.t === "question_answered") qa.push(ev); }
+        var correct = 0, missed = [];
+        for (var dj = 0; dj < qa.length; dj++) { if (qa[dj].correct) correct++; else if (qa[dj].id) missed.push(qa[dj].id); }
+        var xpGain = (StarNix.core.profile.xp | 0) - so.xp0;
+        if (qa.length > 0) deb = { id: so.id, answered: qa.length, correct: correct, missed: missed.slice(-3), xp: Math.max(0, xpGain) };
+      }
+    } catch (eDb) { deb = null; }
+    this.showMenu();
+    if (deb) this._showDebrief(deb);
+  };
+  Shell.prototype._showDebrief = function (d) {
+    var self = this;
+    var core = StarNix.core;
+    var ov = el("div", "sx-debrief");
+    var acc = d.answered ? Math.round(d.correct / d.answered * 100) : 0;
+    var title = (GAME_META[d.id] && GAME_META[d.id].title) || d.id;
+    var missedHtml = "";
+    try {
+      if (d.missed.length && core.questions && core.questions.byId) {
+        missedHtml = '<div class="sx-debrief-misslbl">Worth another look</div>';
+        for (var mi = 0; mi < d.missed.length; mi++) {
+          var mq = core.questions.byId(d.missed[mi]);
+          if (mq) missedHtml += '<div class="sx-debrief-miss">' + StarNix._internal.escapeHTML(mq.stem).slice(0, 110) + '\u2026</div>';
+        }
+      }
+    } catch (eMh) {}
+    ov.innerHTML = '<div class="sx-debrief-card">'
+      + '<div class="sx-eyebrow">Sortie debrief \u00b7 ' + title + '</div>'
+      + '<div class="sx-debrief-stats">'
+      + '<span><b>' + d.answered + '</b> answered</span>'
+      + '<span><b class="ok">' + d.correct + '</b> correct</span>'
+      + '<span><b>' + acc + '%</b> accuracy</span>'
+      + '<span><b class="xp">+' + d.xp + '</b> XP</span>'
+      + '</div>' + missedHtml
+      + (function () { var dd = self._dueCount(); return dd > 0 ? '<div class="sx-debrief-due">\u23F0 ' + dd + ' review' + (dd === 1 ? '' : 's') + ' due \u2014 clear them while it\u2019s warm</div>' : ''; })()
+      + '<div class="sx-row"><button class="sx-btn sx-btn-iris sx-debrief-again" type="button">Fly again \u25b8</button>'
+      + (self._dueCount() > 0 ? '<button class="sx-btn sx-btn-ghost sx-debrief-review" type="button">Review due \u25b8</button>' : '')
+      + '<button class="sx-btn sx-btn-ghost sx-debrief-done" type="button">Dismiss</button></div></div>';
+    this.stage.appendChild(ov);
+    var close = function () { if (ov.parentNode) ov.parentNode.removeChild(ov); };
+    this._on(ov.querySelector(".sx-debrief-done"), "click", close);
+    this._on(ov.querySelector(".sx-debrief-again"), "click", function () { close(); self.enterGame(d.id); });
+    var rvBtn = ov.querySelector(".sx-debrief-review");
+    if (rvBtn) this._on(rvBtn, "click", function () { close(); var qs = self._dueQuestions(30); if (qs.length) self.showExam(null, { questions: qs, mode: "study" }); });   // (Flow#6)
+    this._on(ov, "click", function (e) { if (e.target === ov) close(); });
+    this._on(global, "keydown", function (e) { if (e.key === "Escape" || e.key === "Esc") close(); });
+    try { ov.querySelector(".sx-debrief-done").focus(); } catch (eF) {}
+  };
+
+  /* =================================================================== *
+   * teardown (test isolation) — removes ALL residue
+   * =================================================================== */
+  Shell.prototype.destroy = function () {
+    if (this.currentModule) { try { this.currentModule.unmount(); } catch (e) {} this.currentModule = null; }
+    this._cancelRaf();
+    this._clear(this._screenListeners);
+    this._clear(this._shellListeners);
+    if (this.root) { this.root.classList.remove("starnix-shell"); this.root.textContent = ""; }
+    this.stage = null; this.screen = "destroyed";
+  };
+
+  /* ---- toast --------------------------------------------------------- */
+  // (v0.151.0, V1.1 FE#4) toast service: simultaneous unlocks used to render exactly on top
+  // of each other at one absolute position with a flat 2.2s. Now: a vertical bottom-up stack,
+  // duration scaled to length (1800ms + 40ms/char, capped 6s), and an identical message on
+  // top of a live twin dedupes into a xN counter instead of a new pill.
+  Shell.prototype._toast = function (msg, cls) {
+    if (!this.stage) return;
+    var live = this._toasts || (this._toasts = []);
+    var top = live.length ? live[live.length - 1] : null;
+    if (top && top.msg === msg && top.node.parentNode) {                  // dedupe into xN
+      top.n++;
+      top.node.textContent = msg + "  \u00d7" + top.n;
+      return;
+    }
+    var t = el("div", "sx-toast" + (cls ? " " + cls : ""), msg);
+    t.setAttribute("role", "status");   // (v0.164.0, FE#5) achievements/rank-ups announce to SRs
+    var rec = { node: t, msg: msg, n: 1 };
+    live.push(rec);
+    this.stage.appendChild(t);
+    this._layoutToasts();
+    var self = this;
+    var dur = Math.min(6000, 1800 + 40 * String(msg).length);
+    global.setTimeout(function () {
+      if (t.parentNode) t.parentNode.removeChild(t);
+      var ix = live.indexOf(rec); if (ix >= 0) live.splice(ix, 1);
+      self._layoutToasts();
+    }, dur);
+  };
+  Shell.prototype._layoutToasts = function () {                           // bottom-up stack
+    var live = this._toasts || [];
+    var y = 28;
+    for (var i = live.length - 1; i >= 0; i--) {                          // newest sits lowest
+      var n = live[i].node;
+      if (!n.parentNode) continue;
+      n.style.bottom = y + "px";
+      y += (n.offsetHeight || 40) + 8;
+    }
+  };
+
+  /* ---- shell CSS (static; tokens via core theme vars) ---------------- */
+  Shell.prototype._injectShellCSS = function () {
+    if (document.getElementById("starnix-shell-css")) return;
+    var st = document.createElement("style");
+    st.id = "starnix-shell-css";
+    st.textContent = [
+      ".starnix-shell{position:relative;width:100%;height:100%;min-height:480px;overflow:hidden;",
+      "background:radial-gradient(130% 110% at 50% -10%,#15152a 0%,#0a0a16 55%,#050509 100%);",
+      "color:var(--text);font-family:var(--font);}",
+      ".sx-stage{position:absolute;inset:0;}",
+      ".sx-build-badge{position:absolute;right:calc(8px + env(safe-area-inset-right,0px));bottom:calc(7px + env(safe-area-inset-bottom,0px));z-index:9999;pointer-events:none;font-family:var(--font);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--dim);background:rgba(5,5,9,.55);border:1px solid var(--border);border-radius:6px;padding:2px 7px;opacity:.8;}",
+      ".sx-screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;}",
+      ".sx-h1{font-size:46px;font-weight:800;margin:0;letter-spacing:.02em;color:var(--text);text-shadow:0 0 26px rgba(120,85,250,.6);}",
+      ".sx-h2{font-size:22px;font-weight:700;margin:0 0 4px;}",
+      ".sx-sub{color:var(--mid);letter-spacing:.18em;text-transform:uppercase;font-size:12px;}",
+      ".sx-wordmark{color:var(--mid);letter-spacing:.34em;text-transform:lowercase;font-weight:700;font-size:13px;opacity:.8;}",
+      ".sx-wordmark-img{height:26px;width:auto;display:block;opacity:.94;filter:drop-shadow(0 0 14px rgba(120,85,250,.35));}",
+      ".sx-mission{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,88%);background:rgba(13,13,24,.82);border:1px solid var(--border);border-radius:18px;padding:22px 26px;text-align:left;box-shadow:0 0 50px rgba(120,85,250,.25);transition:opacity .5s ease;pointer-events:auto;}",
+      ".sx-mission-eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--aqua);margin-bottom:6px;}",
+      ".sx-mission-title{font-size:23px;font-weight:800;margin:0 0 14px;color:var(--text);}",
+      ".sx-mission-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:11px;}",
+      ".sx-mission-list li{font-size:15px;color:#d6d6e6;padding-left:24px;position:relative;line-height:1.4;opacity:0;transform:translateY(6px);transition:opacity .3s ease,transform .3s ease;}",
+      ".sx-mission-list li.on{opacity:1;transform:none;}",
+      "[data-motion=\"reduced\"] .sx-mission-list li{transition:none;transform:none;}",
+      ".sx-mission-go{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;}",
+      ".sx-mission-go:hover span,.sx-mission-go:focus-visible span{color:var(--text);}",
+      ".sx-mission-list .acc-iris{color:#AC9BFD;}",
+      ".sx-mission-list .acc-aqua{color:#1FDDE9;}",
+      ".sx-mission-list .acc-peach{color:#FF6B5B;}",
+      ".sx-mission-list .acc-gold{color:#FFC857;}",
+      ".sx-mission-list li::before{content:'\\25B8';position:absolute;left:3px;color:var(--mantis);}",
+      ".sx-mission-list b{color:var(--text);}",
+      ".sx-mission-list span{color:var(--mid);font-size:13px;}",
+      ".sx-row{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap;}",
+      ".sx-btn{font-family:inherit;font-weight:700;font-size:15px;padding:12px 22px;border-radius:11px;border:none;cursor:pointer;transition:transform .05s,background .12s,border-color .12s;}",
+      ".sx-btn:active{transform:scale(.98);}",
+      ".sx-btn-iris{background:var(--iris);color:#fff;}.sx-btn-iris:hover{background:var(--iris600);}",
+      ".sx-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--mid);}",
+      ".sx-btn-exam{background:linear-gradient(90deg,#7855FA,#1FDDE9);color:#fff;box-shadow:0 8px 22px rgba(120,85,250,.35);}",
+      ".sx-btn-exam:hover{transform:translateY(-1px);}",
+      ".sx-exam-blurb{color:var(--mid);font-size:13.5px;line-height:1.55;margin:0 0 18px;}",
+      ".sx-exam-lens{display:flex;flex-direction:column;gap:10px;margin-bottom:18px;}",
+      ".sx-exam-modes{display:flex;gap:8px;margin:2px 0 10px;}",
+      ".sx-exam-mode{flex:1;background:rgba(255,255,255,.04);border:1.5px solid var(--border);border-radius:10px;padding:10px 8px;color:var(--dim);font:700 13px Montserrat,Arial,sans-serif;cursor:pointer;transition:border-color .12s,color .12s;}",
+      ".sx-exam-mode.on{border-color:var(--aqua);color:var(--text);background:rgba(31,221,233,.08);}",
+      ".sx-exam-len{display:flex;flex-direction:column;gap:3px;text-align:left;background:rgba(255,255,255,.04);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .12s,background .12s;font-family:inherit;}",
+      ".sx-exam-len:hover{border-color:var(--iris300);background:rgba(120,85,250,.10);}",
+      ".sx-exam-len .t{font-size:16px;font-weight:700;}",
+      ".sx-exam-len .s{font-size:12.5px;color:var(--mid);}",
+      ".sx-exam-len .b{font-size:12px;font-weight:700;color:var(--gold,#FFC857);margin-top:5px;}",
+      ".sx-btn-ghost:hover{border-color:var(--iris);color:var(--text);}",
+      ".sx-cine{padding:0;}.sx-cine-canvas{position:absolute;inset:0;width:100%;height:100%;}",
+      ".sx-cap{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);max-width:620px;width:86%;font-size:16px;font-weight:600;color:#eef;text-shadow:0 0 12px #000,0 0 4px #000;pointer-events:none;line-height:1.4;}",
+      ".sx-skip{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));background:rgba(16,16,24,.7);border:1px solid var(--border);color:var(--mid);border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:600;cursor:pointer;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;}",
+      ".sx-skip:hover{border-color:var(--aqua);color:var(--text);}",
+      ".sx-menu{justify-content:flex-start;padding-top:40px;overflow-y:auto;padding-bottom:40px;}",   // (v0.60.0 P2·1, PLAYTEST A1) the progression head grew the menu past laptop folds — scroll, never clip
+      ".sx-menu-photo,.sx-title-photo{position:absolute;inset:0;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:0;transition:opacity .8s ease;will-change:transform;}",
+      ".sx-menu-photo.on,.sx-title-photo.on{opacity:.62;animation:sx-bg-drift 64s ease-in-out infinite alternate;}",
+      ".sx-title-photo.on{opacity:.55;}",
+      ".sx-title>.sx-wordmark-img,.sx-title>.sx-h1,.sx-title>.sx-sub,.sx-title>.sx-row{position:relative;z-index:2;}",
+      "@keyframes sx-bg-drift{from{transform:scale(1.08) translate3d(-1.6%,-1.1%,0);}to{transform:scale(1.16) translate3d(1.6%,1.1%,0);}}",
+      "@media (prefers-reduced-motion: reduce){.sx-menu-photo.on,.sx-title-photo.on{animation:none;transform:scale(1.04);}}",
+      "[data-motion=reduced] .sx-menu-photo.on,[data-motion=reduced] .sx-title-photo.on{animation:none;transform:scale(1.04);}",
+      ".sx-menu-bg{position:absolute;inset:0;z-index:1;pointer-events:none;background-repeat:repeat;background-position:center;opacity:.10;}",
+      ".sx-menu-head,.sx-cards,.sx-menu-foot{position:relative;z-index:2;}",
+      ".sx-menu-head,.sx-cards,.sx-menu-foot{position:relative;z-index:1;}",
+      ".sx-menu-head{display:flex;flex-direction:column;align-items:center;}",
+      ".sx-crest{display:inline-flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--iris300);margin-bottom:8px;opacity:.9;}",
+      ".sx-crest-x{flex-shrink:0;}",
+      ".sx-menu-top{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:6px 0 18px;}",
+      // (v0.110.0, D2) Bridge command — Menu Proposals #1a, hi-fi per the handoff README
+      ".sx-bridge{display:block;padding:0;overflow-y:auto;}",
+      ".sx-bridge-grad{position:absolute;inset:auto 0 0 0;height:26%;background:linear-gradient(rgba(5,5,9,0), rgba(5,5,9,.88));pointer-events:none;}",
+      ".sx-bridge-top{position:relative;display:flex;align-items:center;justify-content:space-between;padding:18px 28px;z-index:3;}",
+      ".sx-bridge-topright{display:flex;align-items:center;gap:14px;}",
+      ".sx-bridge .sx-rank{margin:0;transform:scale(.92);transform-origin:right center;}",
+      ".sx-bridge .sx-menu-top{margin:0;justify-content:flex-end;}",
+      ".sx-bridge-left{position:relative;z-index:3;margin:8px 28px 0;max-width:600px;}",
+      ".sx-bridge .sx-h2{font-size:38px;font-weight:800;text-align:left;margin:0 0 4px;text-shadow:0 0 26px rgba(120,85,250,.55);}",
+      ".sx-bridge-sub{font-size:14px;color:var(--mid);margin-bottom:14px;text-align:left;}",
+      ".sx-bridge .sx-cards{display:flex;flex-direction:column;gap:8px;}",
+      ".sx-strip{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:rgba(13,13,24,.78);border:1px solid var(--border);border-left:4px solid var(--acc,#7855FA);border-radius:14px;padding:12px 18px;cursor:pointer;font-family:inherit;color:var(--text);transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}",
+      ".sx-strip:hover{transform:translateX(6px);border-color:var(--acc,#7855FA);box-shadow:0 0 28px rgba(120,85,250,.27);}",
+      ".sx-acc-iris.sx-strip{--acc:#7855FA;} .sx-acc-aqua.sx-strip{--acc:#1FDDE9;} .sx-acc-peach.sx-strip{--acc:#FF6B5B;} .sx-acc-gold.sx-strip{--acc:#FFC857;}",
+      ".sx-strip-art{width:46px;height:46px;flex:none;background-size:contain;background-position:center;background-repeat:no-repeat;filter:drop-shadow(0 0 8px rgba(120,85,250,.5));}",
+      ".sx-strip-planet{border-radius:50%;background:radial-gradient(circle at 34% 30%, #2c8ba8, #14495c 62%, #0a2733);box-shadow:0 0 12px rgba(31,221,233,.4);}",
+      ".sx-strip-glyph{display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--gold);}",
+      ".sx-strip-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}",
+      ".sx-strip .sx-card-title{font-size:15.5px;font-weight:800;white-space:nowrap;}",
+      ".sx-strip .sx-card-tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);}",
+      ".sx-strip-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex:none;margin-right:4px;}",
+      ".sx-strip-stat .l{font-size:11px;color:var(--mid);} .sx-strip-stat .v{font-size:14px;font-weight:800;color:var(--acc,#7855FA);}",
+      ".sx-strip-cta{flex:none;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--aqua);border:1px solid rgba(31,221,233,.4);border-radius:999px;padding:7px 14px;}",
+      ".sx-strip-cta.gold{background:var(--gold);color:#131313;border-color:var(--gold);}",
+      ".sx-strip-gold{border-color:rgba(255,200,87,.45);background:linear-gradient(90deg, rgba(255,200,87,.07), rgba(13,13,24,.78) 40%);}",
+      ".sx-strip-divider{display:flex;align-items:center;gap:12px;margin:6px 0 0;}",
+      ".sx-strip-divider i{flex:1;height:1px;background:linear-gradient(90deg, transparent, rgba(255,200,87,.5));}",
+      ".sx-strip-divider i:last-child{background:linear-gradient(90deg, rgba(255,200,87,.5), transparent);}",
+      ".sx-strip-divider span{font-size:10px;letter-spacing:.22em;color:var(--gold);}",
+      // (v0.120.0, Jason) the shattered MCI-station vista was removed from the menu — the photo
+      // background stays; the ARM campaign progress still reads on the ARM mission strip.
+      // bottom dock
+      ".sx-bridge-dock{position:relative;z-index:3;display:flex;align-items:center;gap:16px;margin:22px calc(28px + env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) calc(28px + env(safe-area-inset-left,0px));background:rgba(10,10,18,.72);border:1px solid #26263a;border-radius:14px;padding:12px 18px;backdrop-filter:blur(6px);}",
+      ".sx-dock-lbl{font-size:10.5px;letter-spacing:.18em;color:var(--dim);flex:none;display:flex;flex-direction:column;gap:3px;align-items:flex-start;}",
+      ".sx-dock-reset{font-size:10px;letter-spacing:.04em;color:var(--dim);text-transform:none;font-variant-numeric:tabular-nums;}",   /* (v0.199.0, Menu#10) */
+      ".sx-dock-claimbadge{font-size:10.5px;font-weight:800;color:#04222a;background:var(--gold);border-radius:999px;padding:1px 7px;letter-spacing:0;}",
+      ".sx-bridge-dock .sx-daily{flex:1;margin:0;display:flex;flex-direction:row;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-start;}",
+      ".sx-bridge-dock .sx-daily-row{border:0;background:none;padding:0 6px;font-size:12px;flex:none;}",
+      ".sx-dock-continue{font-family:inherit;font-size:14px;font-weight:800;color:#04222a;background:var(--aqua);border:0;border-radius:10px;padding:11px 18px;cursor:pointer;box-shadow:0 0 22px rgba(31,221,233,.45);}",
+      ".sx-dock-continue:hover{filter:brightness(1.08);}",
+      "@media (max-width:1000px){.sx-bridge-left{max-width:none;}.sx-bridge-right{display:none;}}",
+      /* (v0.182.0, V1.1 FE#7) phones: stack the top-right cluster, collapse the dock to a column,
+       * full-width CTA, 44px claim targets. Headless can't see layout — QA-SHELL-PHONE is the eyes. */
+      "@media (max-width:600px){.sx-bridge-topright{flex-direction:column;align-items:flex-end;gap:8px;}.sx-bridge-dock{flex-direction:column;align-items:stretch;gap:10px;margin:14px calc(12px + env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) calc(12px + env(safe-area-inset-left,0px));padding:12px;}.sx-bridge-dock .sx-daily{flex-direction:column;align-items:stretch;}.sx-bridge-dock .sx-daily-row{display:flex;align-items:center;justify-content:space-between;padding:6px 2px;}.sx-dock-cta,.sx-dock-continue{width:100%;}.sx-daily-claim{min-height:44px;padding:10px 14px;font-size:12px;}}",
+      "@media (pointer:coarse){.sx-daily-claim{min-height:44px;padding:10px 14px;font-size:12px;}}",
+      ".sx-bridge-right{position:absolute;right:28px;top:150px;width:min(320px,25vw);z-index:3;background:rgba(10,10,20,.6);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;max-height:calc(100% - 320px);overflow-y:auto;}",
+      ".sx-bridge-right:hover{border-color:rgba(120,85,250,.6);}",
+      ".sx-br-lbl{font-size:10px;letter-spacing:.18em;color:var(--dim);margin-bottom:8px;}",
+      ".sx-br-grid{display:flex;gap:8px;margin-bottom:8px;}",
+      ".sx-station-vista{width:100%;height:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:#07070e;display:block;}",   /* (v0.186.0, Flow#8) */
+      ".sx-br-grid .sx-stat{flex:1;padding:6px 8px;}",
+      ".sx-br-grid .sx-stat-val{font-size:17px;}",
+      ".sx-br-grid .sx-stat-label{font-size:9.5px;}",
+      ".sx-br-list .sx-dom-row{margin:5px 0;font-size:11.5px;}",
+      ".sx-br-hint{font-size:10.5px;letter-spacing:.1em;color:var(--dim);margin-top:8px;text-transform:uppercase;}",
+      ".sx-reduced .sx-menu-photo.on,.sx-reduced .sx-title-photo.on{animation:none;transform:scale(1.04);}",
+      ".sx-due-chip{border-color:var(--gold);color:var(--gold);}",
+      ".sx-due-chip:hover{background:rgba(255,200,87,.12);}",
+      ".sx-due-dock{flex:none;background:rgba(255,200,87,.1);border:1px solid var(--gold);font-weight:800;}",
+      ".sx-due-strip{display:block;width:100%;text-align:left;margin:0 0 12px;padding:13px 18px;font-size:14px;font-weight:800;background:rgba(255,200,87,.12);border:1px solid var(--gold);border-left:4px solid var(--gold);border-radius:14px;}",
+      ".sx-cards{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:480px;margin:0 auto;}",
+      ".sx-card{width:100%;max-width:440px;text-align:left;background:rgba(20,20,29,.9);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;font-family:inherit;color:var(--text);transition:transform .08s,border-color .12s,box-shadow .12s;}",
+      ".sx-card:hover{transform:translateY(-3px);}",
+      ".sx-acc-iris:hover{border-color:var(--iris);box-shadow:0 0 24px rgba(120,85,250,.25);}",
+      ".sx-acc-peach:hover{border-color:var(--peach);box-shadow:0 0 24px rgba(255,107,91,.25);}",
+      ".sx-acc-aqua:hover{border-color:var(--aqua);box-shadow:0 0 24px rgba(31,221,233,.25);}",
+      ".sx-acc-gold:hover{border-color:var(--gold,#FFC857);box-shadow:0 0 24px rgba(255,200,87,.25);}",
+      ".sx-card-disabled{opacity:.55;}",
+      ".sx-card-title{font-size:18px;font-weight:700;margin-bottom:3px;}",
+      ".sx-card-tag{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);margin-bottom:10px;}",
+      ".sx-card-blurb{font-size:13.5px;line-height:1.5;color:#cfcfe0;margin-bottom:12px;}",
+      ".sx-card-state{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--aqua);}",
+      ".sx-card-disabled .sx-card-state{color:var(--dim);}",
+      ".sx-menu-foot{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:26px;}",
+      ".sx-panelwrap{padding:24px;}",
+      ".sx-panel{width:100%;max-width:560px;background:rgba(18,18,27,.96);border:1px solid var(--border);border-radius:18px;padding:26px;text-align:left;max-height:88vh;overflow:auto;}",
+      ".sx-stats-topback{position:sticky;top:-26px;z-index:4;margin:-26px -26px 14px;padding:12px 26px;width:calc(100% + 52px);text-align:left;border:0;border-bottom:1px solid var(--border);border-radius:18px 18px 0 0;background:rgba(18,18,27,.98);}",
+      ".sx-data-row{display:flex;gap:10px;margin-bottom:10px;}",
+      ".sx-data-json{width:100%;font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--text);background:rgba(10,10,18,.8);border:1px solid var(--border);border-radius:10px;padding:10px;resize:vertical;}",
+      ".sx-data-note{font-size:11.5px;color:var(--mid);margin:6px 0 10px;}",
+      ".sx-plan-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(120,85,250,.10);border:1px solid rgba(120,85,250,.45);border-radius:12px;padding:10px 14px;margin-bottom:10px;}",
+      ".sx-plan-eyebrow{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#AC9BFD;white-space:nowrap;}",
+      ".sx-plan-label{font-size:13px;color:var(--text);flex:1;min-width:180px;}",
+      ".sx-plan-cta{padding:6px 14px;font-size:12px;}",
+      ".sx-exam-len-misses{border-color:rgba(255,107,91,.5);} .sx-exam-len-misses .t{color:var(--peach,#FF6B5B);}",
+      ".sx-exam-len-resume{border-color:rgba(31,221,233,.55);} .sx-exam-len-resume .t{color:var(--aqua,#1FDDE9);}",
+      ".sx-exam-resume-discard{font-size:12px;padding:6px 12px;align-self:flex-start;}",
+      ".sx-diag{font-size:11.5px;color:var(--mid);max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:8px 10px;}",
+      ".sx-diag-build{color:var(--dim);letter-spacing:.08em;margin-bottom:6px;}",
+      ".sx-diag-err{border-left:3px solid var(--peach,#FF6B5B);padding-left:8px;margin:6px 0;}",
+      ".sx-diag-msg{color:var(--text);font-size:11.5px;word-break:break-all;}",
+      ".sx-diag-meta{color:var(--dim);font-size:10.5px;word-break:break-all;}",
+      ".sx-diag-sub{margin-top:8px;color:var(--dim);letter-spacing:.12em;text-transform:uppercase;font-size:10px;}",
+      ".sx-diag-ev{color:var(--mid);font-size:10.5px;}",
+      ".sx-diag-empty{color:var(--dim);}",
+      ".sx-streak-chip{font-size:12px;font-weight:700;color:#FF9857;background:rgba(255,152,87,.12);border:1px solid rgba(255,152,87,.45);border-radius:999px;padding:2px 10px;}",
+      ".sx-rank-crest{font-size:13px;color:var(--gold);border:1px solid rgba(255,200,87,.5);border-radius:6px;padding:0 6px;line-height:18px;}",
+      /* (v0.195.0, V1.1 Flow#9) order ribbons + bridge tour */
+      ".sx-strip-ribbon{position:absolute;top:-8px;left:14px;font-size:10.5px;font-weight:800;letter-spacing:.1em;color:var(--mid);background:#131320;border:1px solid var(--border);border-radius:999px;padding:2px 9px;}",
+      ".sx-strip-ribbon.lead{color:#04222a;background:var(--aqua);border-color:var(--aqua);}",
+      ".sx-tour{position:fixed;left:18px;bottom:18px;z-index:60;width:min(340px,86vw);background:rgba(13,13,24,.96);border:1px solid var(--iris);border-radius:14px;padding:14px 16px;box-shadow:0 0 40px rgba(120,85,250,.35);text-align:left;}",
+      ".sx-tour-name{font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--aqua);margin:2px 0 6px;}",
+      ".sx-tour-txt{font-size:13px;line-height:1.5;color:var(--text);margin-bottom:10px;}",
+      ".sx-tour-row{display:flex;gap:8px;}",
+      ".sx-tour-hi{outline:2px solid var(--aqua);outline-offset:3px;border-radius:10px;box-shadow:0 0 24px rgba(31,221,233,.35);}",
+      /* (v0.204.0, V1.1 Flow#10) the finale + certificate */
+      ".sx-finale{display:flex;align-items:center;justify-content:center;background:#07070e;position:relative;}",
+      ".sx-finale-cv{max-width:92%;max-height:70%;}",
+      ".sx-cert{width:min(560px,92%);background:rgba(13,13,24,.96);border:1.5px solid var(--gold);border-radius:18px;padding:30px 34px;text-align:center;box-shadow:0 0 70px rgba(255,200,87,.25);}",
+      ".sx-cert-rank{font-size:19px;font-weight:800;color:var(--gold);margin:12px 0 8px;letter-spacing:.04em;}",
+      ".sx-cert-line{font-size:13.5px;color:var(--text);margin:5px 0;font-variant-numeric:tabular-nums;}",
+      ".sx-cert-date{font-size:12px;color:var(--mid);margin:12px 0 4px;letter-spacing:.08em;text-transform:uppercase;}",
+      ".sx-cert-note{font-size:13px;color:var(--aqua);margin:14px 0 18px;line-height:1.5;}",
+      ".sx-cert-replay{margin-top:10px;}",
+      ".sx-reward{display:flex;gap:10px;align-items:baseline;border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:4px 0;opacity:.5;}",
+      ".sx-reward.got{opacity:1;border-color:rgba(255,200,87,.5);}",
+      ".sx-reward-rank{color:var(--gold);font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}",
+      ".sx-reward-label{font-size:13px;}",
+      ".sx-sim-trend{margin-top:12px;}",
+      ".sx-pause-due{font-size:12.5px;color:var(--gold);border:1px solid rgba(255,200,87,.4);background:rgba(255,200,87,.08);border-radius:9px;padding:6px 10px;}",
+      ".sx-debrief-due{font-size:12.5px;color:var(--gold);margin-top:8px;}",
+      ".sx-coach-tip{display:flex;align-items:center;gap:10px;background:rgba(120,85,250,.14);border:1px solid rgba(120,85,250,.55);border-radius:11px;padding:9px 12px;margin-bottom:8px;font-size:13px;color:var(--text);}",
+      ".sx-coach-x{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:2px 6px;margin-left:auto;}",
+      ".sx-coach-pulse{animation:sxCoach 1.6s ease-in-out infinite;border-color:rgba(120,85,250,.8) !important;}",
+      "@keyframes sxCoach{0%,100%{box-shadow:0 0 0 0 rgba(120,85,250,.0);}50%{box-shadow:0 0 22px 4px rgba(120,85,250,.45);}}",
+      "@media (prefers-reduced-motion: reduce){.sx-coach-pulse{animation:none;outline:2px solid rgba(120,85,250,.8);}}",
+      "[data-motion=reduced] .sx-coach-pulse{animation:none;outline:2px solid rgba(120,85,250,.8);}",
+      ".sx-sim-trend-row{display:flex;gap:10px;font-size:12.5px;margin:4px 0;} .sx-sim-trend-row .n{flex:0 0 130px;color:var(--mid);} .sx-sim-trend-row .v{color:var(--text);font-variant-numeric:tabular-nums;}",
+      ".sx-debrief{position:absolute;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:rgba(5,5,11,.62);}",
+      ".sx-debrief-card{width:min(480px,92%);background:rgba(16,16,26,.97);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:0 18px 60px rgba(0,0,0,.6);}",
+      ".sx-debrief-stats{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0 6px;font-size:13px;color:var(--mid);}",
+      ".sx-debrief-stats b{font-size:19px;color:var(--text);display:block;font-variant-numeric:tabular-nums;}",
+      ".sx-debrief-stats b.ok{color:var(--mantis);} .sx-debrief-stats b.xp{color:var(--gold);}",
+      ".sx-debrief-misslbl{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:10px 0 6px;}",
+      ".sx-debrief-miss{font-size:12px;color:var(--mid);border-left:3px solid var(--peach);padding:5px 0 5px 10px;margin-bottom:6px;}",
+      ".sx-debrief .sx-row{margin-top:14px;display:flex;gap:10px;}",
+      ".sx-eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;font-weight:700;color:var(--iris300);margin-bottom:8px;}",
+      ".sx-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0;}",
+      ".sx-stat{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}",
+      ".sx-stat-val{font-size:24px;font-weight:800;color:var(--text);}",
+      ".sx-stat-label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mid);margin-top:4px;}",
+      ".sx-dom-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12.5px;}",
+      ".sx-dom-name{width:120px;color:var(--mid);text-transform:capitalize;}",
+      ".sx-dom-bar{flex:1;height:8px;border-radius:5px;border:1px solid var(--border);overflow:hidden;}",
+      ".sx-dom-fill{display:block;height:100%;background:linear-gradient(90deg,var(--mantis),#6fae18);}",
+      ".sx-dom-count{width:48px;text-align:right;color:var(--text);font-weight:700;font-variant-numeric:tabular-nums;}",
+      ".sx-dom-due{width:52px;text-align:right;font-size:10.5px;font-weight:800;letter-spacing:.03em;color:var(--aqua);}",
+      ".sx-dom-due.none{opacity:0;}",
+      ".sx-dom-fill.weak{background:repeating-linear-gradient(135deg,#ff8a7d 0 4px,#b24537 4px 8px);}",   // (v0.170.0, FE#6) dense stripes = weak — pattern, not just hue
+      ".sx-dom-fill.mid{background:repeating-linear-gradient(135deg,#ffc857 0 9px,#b98f34 9px 12px);}",   // (FE#6) sparse stripes = mid; strong stays SOLID
+      ".sx-dom-fill.strong{background:linear-gradient(90deg,var(--mantis),#6fae18);}",
+      ".sx-dom-head{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);margin:18px 0 6px;text-align:left;}",
+      /* (v0.51.0) Progress & readiness */
+      ".sx-ready{display:flex;flex-direction:column;gap:10px;margin:6px 0 14px;padding:14px;border:1px solid rgba(255,255,255,0.10);border-radius:14px;background:rgba(255,255,255,0.03);}",
+      ".sx-ready-head{display:flex;align-items:center;gap:14px;}",
+      ".sx-ready-score{font-size:34px;font-weight:800;min-width:86px;text-align:center;}",
+      ".sx-ready-score.good{color:var(--mantis);} .sx-ready-score.close{color:var(--gold);} .sx-ready-score.far{color:var(--peach);} .sx-ready-score.none{color:var(--mid);}",
+      ".sx-ready-title{font-weight:700;text-align:left;} .sx-ready-approx{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);margin-left:6px;}",
+      ".sx-ready-sub{font-size:12px;color:var(--mid);text-align:left;margin-top:2px;}",
+      ".sx-ready-sims{display:flex;gap:6px;flex-wrap:wrap;}",
+      ".sx-simchip{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.14);color:var(--peach);}",
+      ".sx-simchip::before{content:'\\2715 ';font-size:9px;}",   // (v0.170.0, FE#6) fail = x, pass = check — shape first
+      ".sx-simchip.pass{color:var(--mantis);border-color:rgba(146,221,35,0.4);}",
+      ".sx-simchip.pass::before{content:'\\2713 ';}",
+      ".sx-ready-go{align-self:flex-start;}",
+      ".sx-heatmap{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-start;}",
+      ".sx-heat{min-width:96px;flex:1 1 96px;max-width:150px;padding:9px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.10);text-align:left;}",
+      ".sx-heat-dom{font-size:11px;color:var(--fg);opacity:.9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}",
+      ".sx-heat-pct{font-size:17px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;}",
+      "button.sx-heat{font-family:inherit;cursor:pointer;color:inherit;}",   /* (v0.190.0, NIT#8) tiles launch */
+      "button.sx-heat:hover,button.sx-heat:focus-visible{border-color:var(--aqua);box-shadow:0 0 14px rgba(31,221,233,.25);}",
+      ".sx-domlens-head{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:4px 0 0;}",
+      ".sx-domlens-row{display:flex;flex-wrap:wrap;gap:7px;}",
+      ".sx-domlens-chip{font-family:inherit;font-size:12px;font-weight:700;color:var(--mid);background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:999px;padding:6px 12px;cursor:pointer;transition:border-color .12s,color .12s;}",
+      ".sx-domlens-chip:hover,.sx-domlens-chip:focus-visible{border-color:var(--aqua);color:var(--text);}",
+      ".sx-heat-due{font-size:10px;color:var(--gold);margin-top:1px;}",
+      ".sx-heat.t0{background:rgba(255,255,255,0.03);color:var(--mid);}",
+      ".sx-heat.t1{background:rgba(255,107,91,0.14);border-color:rgba(255,107,91,0.35);border-style:dotted;} .sx-heat.t1 .sx-heat-pct{color:var(--peach);}",
+      ".sx-heat.t2{border-style:dashed;}",   // (v0.170.0, FE#6) tier = border STYLE too: dotted->dashed->solid->double
+      ".sx-heat.t4{border-style:double;border-width:3px;}",
+      ".sx-heat.t2{background:rgba(255,200,87,0.12);border-color:rgba(255,200,87,0.32);} .sx-heat.t2 .sx-heat-pct{color:var(--gold);}",
+      ".sx-heat.t3{background:rgba(146,221,35,0.10);border-color:rgba(146,221,35,0.30);} .sx-heat.t3 .sx-heat-pct{color:var(--mantis);}",
+      ".sx-heat.t4{background:rgba(146,221,35,0.18);border-color:rgba(146,221,35,0.50);} .sx-heat.t4 .sx-heat-pct{color:var(--mantis);}",
+      ".sx-weak-list{display:flex;flex-direction:column;gap:5px;}",
+      ".sx-weak-row{display:flex;gap:10px;align-items:baseline;font-size:12px;text-align:left;}",
+      ".sx-weak-dom{color:var(--aqua);font-size:10px;letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto;}",
+      ".sx-weak-stem{color:var(--fg);opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto;}",
+      ".sx-weak-miss{color:var(--peach);flex:0 0 auto;font-weight:700;}",
+      ".sx-weak-more{font-size:11px;color:var(--mid);margin-top:4px;text-align:left;}",
+      ".sx-ready-pace{font-size:12.5px;color:#FF9857;margin:8px 0 2px;}",   /* (v0.183.0, Backend#7) */
+      ".sx-weak-empty{font-size:12px;color:var(--mid);text-align:left;}",
+      ".sx-drill{margin-top:10px;}",
+      ".sx-stat.good .sx-stat-val{color:var(--mantis);}",
+      ".sx-stat.due .sx-stat-val{color:var(--aqua);}",
+      ".sx-toggles{display:flex;flex-direction:column;gap:4px;margin:10px 0;}",
+      ".sx-seclabel{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--aqua);margin:16px 0 4px;}",
+      ".sx-jb-now{font-size:12px;color:var(--gold);margin:4px 0 6px;font-weight:700;}",
+      ".sx-jb-group{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim,#8b8ba0);margin:10px 0 4px;}",
+      ".sx-jb-grid{display:flex;flex-wrap:wrap;gap:6px;}",
+      ".sx-jb-btn{font-family:inherit;font-size:11px;font-weight:600;padding:6px 10px;border-radius:8px;border:1px solid rgba(120,85,250,.4);background:rgba(28,28,40,.65);color:var(--ink,#EDEDF7);cursor:pointer;}",
+      ".sx-jb-btn:hover{border-color:var(--aqua);}",
+      ".sx-jb-btn.on{border-color:var(--gold);color:var(--gold);box-shadow:0 0 10px rgba(255,200,87,.35);}",
+      ".sx-sliders{display:flex;flex-direction:column;gap:6px;margin:4px 0;}",
+      ".sx-slider{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 10px;padding:8px 4px;}",
+      ".sx-slider-label{font-size:14px;color:var(--text);}",
+      ".sx-slider-val{font-size:13px;color:var(--mid);min-width:42px;text-align:right;font-variant-numeric:tabular-nums;}",
+      ".sx-range{grid-column:1/3;width:100%;height:26px;accent-color:var(--iris);cursor:pointer;}",
+      ".sx-data{margin:4px 0 2px;}",
+      ".sx-btn-danger{background:transparent;border:1px solid var(--peach);color:var(--peach);width:100%;font-size:14px;}",
+      ".sx-btn-danger.armed{background:rgba(255,107,91,.16);}.sx-btn-danger:disabled{opacity:.6;cursor:default;}",
+      ".sx-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.05);}",
+      ".sx-toggle-label{font-size:14.5px;}",
+      ".sx-switch{width:48px;height:27px;border-radius:999px;border:1px solid var(--border);background:#23232f;position:relative;cursor:pointer;transition:background .12s,border-color .12s;}",
+      ".sx-switch::after{content:'';position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--mid);transition:left .12s,background .12s;}",
+      ".sx-switch.on{background:rgba(120,85,250,.35);border-color:var(--iris);}",
+      ".sx-switch.on::after{left:23px;background:var(--iris300);}",
+      ".sx-gamebar{position:absolute;top:0;left:0;right:0;height:calc(48px + env(safe-area-inset-top,0px));display:flex;align-items:center;gap:12px;padding:env(safe-area-inset-top,0px) calc(12px + env(safe-area-inset-right,0px)) 0 calc(12px + env(safe-area-inset-left,0px));z-index:20;background:rgba(8,8,16,.6);border-bottom:1px solid var(--border);}",
+      ".sx-gamebar-title{font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--mid);}",
+      ".sx-back{padding:7px 14px;font-size:13px;min-height:44px;display:inline-flex;align-items:center;}",   /* (v0.182.0, FE#7) 44px touch minimum */
+      ".sx-game-root{position:absolute;top:48px;left:0;right:0;bottom:0;}",
+      ".sx-pausebtn{padding:7px 14px;font-size:13px;min-height:44px;display:inline-flex;align-items:center;}",
+      ".sx-pause{position:absolute;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;background:radial-gradient(120% 100% at 50% 0%,rgba(21,21,42,.86),rgba(5,5,9,.93));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}",
+      ".sx-pause-card{display:flex;flex-direction:column;align-items:stretch;gap:11px;text-align:left;padding:24px 26px;border-radius:18px;background:rgba(13,13,24,.86);border:1px solid var(--border);box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 42px rgba(120,85,250,.18);width:min(380px,92vw);max-height:calc(100vh - 40px);overflow-y:auto;}",
+      ".sx-genre-row{display:flex;align-items:center;gap:8px;}",
+      ".sx-genre-label{font-size:12px;color:var(--dim);margin-right:auto;letter-spacing:.3px;}",
+      ".sx-genre-btn{padding:7px 14px;font-size:12.5px;}",
+      ".sx-pause-eyebrow{font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--iris300);text-align:center;}",
+      ".sx-pause-title{font-size:30px;font-weight:800;margin:0 0 2px;color:var(--text);text-shadow:0 0 22px rgba(120,85,250,.5);text-align:center;}",
+      ".sx-pause-actions{display:flex;gap:10px;margin-top:6px;}",
+      ".sx-pause-actions .sx-btn{flex:1;min-width:0;}",
+      ".sx-pause .sx-stat-grid{gap:8px;margin:4px 0 8px;}",
+      ".sx-pause .sx-stat-val{font-size:20px;}",
+      ".sx-toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(10,10,18,.92);border:1px solid var(--peach);color:#ffe1db;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:600;z-index:40;}",
+      // Commander rank strip (v0.52.0 unit 2) — gold = reward per 07 §1; bar copies the sx-dom-bar pattern.
+      ".sx-rank{display:flex;align-items:center;gap:10px;justify-content:center;margin:2px 0 4px;font-size:13px;}",
+      ".sx-rank-name{color:var(--gold);font-weight:800;letter-spacing:.06em;text-transform:uppercase;font-size:12px;}",
+      ".sx-rank-bar{width:150px;height:8px;border-radius:5px;border:1px solid var(--border);overflow:hidden;display:inline-block;background:rgba(5,5,9,.6);}",
+      ".sx-rank-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--iris),var(--gold));}",
+      ".sx-rank-xp{color:var(--mid);font-size:12px;font-variant-numeric:tabular-nums;}",   /* (v0.187.0, FE#8) */
+      ".sx-rank-up{animation:sxRankPulse 1.6s ease-out 3;}",
+      "@keyframes sxRankPulse{0%{filter:brightness(1);}30%{filter:brightness(1.7);}100%{filter:brightness(1);}}",
+      "@media (prefers-reduced-motion: reduce){.sx-rank-up{animation:none;}}",
+      "[data-motion=reduced] .sx-rank-up{animation:none;}",
+      ".sx-toast-gold{border-color:var(--gold);color:#ffedc2;}",
+      // Achievements panel (v0.53.0 unit 3) — Progress screen grid; locked = dim, unlocked = gold edge.
+      ".sx-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;text-align:left;margin:4px 0 10px;}",
+      ".sx-ach-count{color:var(--mid);font-weight:600;font-size:11px;margin-left:6px;}",
+      ".sx-ach-tile{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;opacity:.45;background:rgba(10,10,18,.5);}",
+      ".sx-ach-tile.got{opacity:1;border-color:var(--gold);box-shadow:0 0 10px rgba(255,200,87,.12);}",
+      ".sx-ach-ic{font-size:17px;width:22px;text-align:center;flex:none;}",
+      ".sx-ach-body{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;}",
+      ".sx-ach-name{font-size:12px;font-weight:700;color:var(--text);}",
+      ".sx-ach-desc{font-size:11px;color:var(--mid);line-height:1.25;}",
+      ".sx-ach-xp{font-size:11px;font-weight:700;color:var(--gold);flex:none;}",
+      // Daily missions strip (v0.56.0 unit 6) — compact rows on the menu head + Progress screen.
+      ".sx-daily{display:flex;flex-direction:column;gap:5px;margin:2px auto 6px;max-width:520px;width:100%;text-align:left;}",
+      ".sx-daily-head{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);text-align:center;margin-bottom:1px;}",
+      ".sx-daily-row{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:5px 10px;background:rgba(10,10,18,.55);font-size:12px;}",
+      ".sx-daily-row.done{border-color:var(--gold);}",
+      ".sx-daily-row.claimed{opacity:.55;}",
+      ".sx-daily-ic{width:20px;text-align:center;flex:none;}",
+      ".sx-daily-body{display:flex;flex-direction:column;gap:0;min-width:0;flex:1;}",
+      ".sx-daily-name{font-weight:700;color:var(--text);font-size:12px;}",
+      ".sx-daily-desc{color:var(--mid);font-size:11px;line-height:1.25;}",
+      ".sx-daily-prog{color:var(--aqua);font-weight:700;font-size:12px;flex:none;}",
+      ".sx-daily-claim{padding:4px 10px;font-size:11px;border:1px solid var(--gold);color:var(--gold);background:transparent;border-radius:8px;cursor:pointer;flex:none;}",
+      ".sx-daily-claimed{color:var(--gold);font-weight:700;font-size:11px;flex:none;}",
+      ".sx-daily-stats{margin:4px 0 10px;max-width:none;}",
+      // Ship-trail picker (v0.57.0 unit 7)
+      ".sx-trails{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;text-align:left;margin:4px 0 10px;}",
+      ".sx-trail{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:rgba(10,10,18,.55);cursor:pointer;color:var(--text);font-family:var(--font);}",
+      ".sx-trail.on{border-color:var(--gold);box-shadow:0 0 10px rgba(255,200,87,.14);}",
+      ".sx-trail.locked{opacity:.4;cursor:default;}",
+      ".sx-trail-swatch{width:18px;height:18px;border-radius:50%;flex:none;box-shadow:0 0 8px rgba(255,255,255,.15) inset;}",
+      ".sx-trail-body{display:flex;flex-direction:column;gap:1px;min-width:0;}",
+      ".sx-trail-name{font-size:12px;font-weight:700;}",
+      ".sx-trail-req{font-size:11px;color:var(--mid);}"
+    ].join("");
+    document.head.appendChild(st);
+  };
+
+  /* =================================================================== *
+   * public API
+   * =================================================================== */
+  var shell = new Shell();
+  StarNix.shell = shell;
+  StarNix.boot = function (root, opts) { return shell.boot(root, opts); };
+
+  /* ---- optional freeze monitor (diagnostic) ----------------------------------
+   * Runs its OWN requestAnimationFrame loop and measures the gap between its own
+   * frames. A main-thread stall (GC pause, heavy frame, sync work) delays this loop
+   * exactly as it delays the running game, no matter which game owns the screen — so
+   * it catches every hitch and reports how long + when + how often. Cost is negligible
+   * and it only console.warns when a stall actually happens.
+   * Enable EITHER way: add ?perf to the URL, OR run StarNix.startPerfMonitor() in the
+   * devtools console at any time. */
+  var _perfRunning = false;
+  function startFreezeMonitor() {
+    if (_perfRunning || !global.requestAnimationFrame) return;
+    _perfRunning = true;
+    var nowFn = (global.performance && global.performance.now) ? function () { return global.performance.now(); } : function () { return Date.now(); };
+    var THRESH = 50, last = nowFn(), t0 = last, count = 0, worst = 0;
+    function tick() {
+      var now = nowFn(), gap = now - last; last = now;
+      if (gap > THRESH) {
+        count++; if (gap > worst) worst = gap;
+        try { console.warn("[StarNix perf] freeze #" + count + ": " + gap.toFixed(0) + "ms  (at +" + ((now - t0) / 1000).toFixed(1) + "s, worst so far " + worst.toFixed(0) + "ms)"); } catch (e) {}
+      }
+      global.requestAnimationFrame(tick);
+    }
+    try { console.log("[StarNix perf] freeze monitor ON — frames slower than " + THRESH + "ms will be logged here. Play until a freeze, then copy the lines."); } catch (e) {}
+    global.requestAnimationFrame(tick);
+  }
+  StarNix.startPerfMonitor = startFreezeMonitor;
+  try { if ((global.location && global.location.search && /[?&]perf\b/.test(global.location.search)) || global.STARNIX_PERF) startFreezeMonitor(); } catch (e) {}
+
+})(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

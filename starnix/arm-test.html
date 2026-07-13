@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>ARM — standalone test harness</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+  html,body{margin:0;height:100%;background:#07070e;color:#F2F2F7;font-family:'Montserrat',Arial,sans-serif;overflow:hidden;}
+  /* Dev shell chrome — stands in for the Core chat's shell. Uses NO official
+     wordmark (brand rule: wordmark is title-screen-only, owned by the real
+     shell). ARM mounts into #stage. */
+  #bar{position:fixed;top:0;left:0;right:0;height:44px;display:flex;align-items:center;gap:12px;
+    padding:0 12px;background:rgba(13,13,19,.92);border-bottom:1px solid #2a2a3a;z-index:50;font-size:13px;}
+  #bar .tag{font-weight:800;letter-spacing:.16em;color:#AC9BFD;text-transform:uppercase;}
+  #bar .muted{color:#8a8a9e;}
+  #bar input{width:74px;background:#15151f;border:1px solid #34344a;color:#F2F2F7;border-radius:7px;padding:5px 8px;font:inherit;font-size:12px;}
+  #bar label{display:inline-flex;align-items:center;gap:5px;color:#9a9aad;font-size:12px;cursor:pointer;}
+  #bar .spacer{margin-left:auto;}
+  #bar button{background:transparent;border:1px solid #34344a;color:#9a9aad;border-radius:8px;
+    padding:6px 12px;font:inherit;font-weight:600;cursor:pointer;}
+  #bar button:hover{border-color:#7855FA;color:#fff;}
+  #pause.on{border-color:#1FDDE9;color:#1FDDE9;}
+  #stage{position:fixed;inset:44px 0 0 0;}
+  #gate{position:fixed;inset:44px 0 0 0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;
+    z-index:40;background:radial-gradient(120% 100% at 50% 0%, #15152a 0%, #0a0a16 60%, #050509 100%);}
+  #gate h1{font-size:26px;font-weight:800;margin:0;letter-spacing:.02em;
+    background:linear-gradient(90deg,#AC9BFD,#1FDDE9);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  #gate p{color:#9a9aad;font-size:13.5px;max-width:420px;text-align:center;margin:0;line-height:1.5;}
+  #gate button{background:#7855FA;border:none;color:#fff;font:inherit;font-weight:700;font-size:15px;
+    padding:12px 26px;border-radius:11px;cursor:pointer;}
+  #gate button:hover{background:#6D40E6;}
+</style>
+</head>
+<body>
+  <div id="bar">
+    <span class="tag">ARM</span>
+    <span class="muted">standalone harness · mock core</span>
+    <span class="muted">seed</span><input id="seed" value="12345" />
+    <label><input type="checkbox" id="rm" /> reduced motion</label>
+    <label><input type="checkbox" id="xt" /> extra time</label>
+    <span class="spacer"></span>
+    <button id="pause" style="display:none">⏸ Pause</button>
+    <button id="menu" style="display:none">← Menu (unmount)</button>
+  </div>
+  <div id="stage"></div>
+  <div id="gate">
+    <h1>Acropolis Rescue Mission</h1>
+    <p>Standalone test build. The real shell (Core &amp; Integration chat) plays the cinematic and menu; this page mounts ARM straight into the briefing. S3: collect all five cores to trigger the escape gauntlet + the oversized Hyperdrive button; Pause exercises the shell-driven pause()/resume().</p>
+    <button id="start">Start ARM ▸</button>
+  </div>
+
+  <!-- The actual deliverable modules, loaded exactly as the shell would. -->
+  <script src="mock-core.js"></script>
+  <script src="arm.js"></script>
+  <script>
+    (function () {
+      var stage = document.getElementById('stage');
+      var gate = document.getElementById('gate');
+      var startBtn = document.getElementById('start');
+      var menuBtn = document.getElementById('menu');
+      var pauseBtn = document.getElementById('pause');
+      var seedInput = document.getElementById('seed');
+      var rm = document.getElementById('rm');
+      var xt = document.getElementById('xt');
+      var mod = null, paused = false;
+
+      function mount() {
+        var seed = parseInt(seedInput.value, 10); if (isNaN(seed)) seed = 12345;
+        var ctx = window.MockCore.makeCtx({
+          seed: seed, test: false, exit: backToGate,
+          settings: { reducedMotion: rm.checked, extraTime: xt.checked, music: true, sfx: true }
+        });
+        mod = window.StarNix.getGame('ARM');
+        mod.mount(stage, ctx);
+        gate.style.display = 'none';
+        menuBtn.style.display = 'inline-block';
+        pauseBtn.style.display = 'inline-block';
+        paused = false; pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('on');
+      }
+      function backToGate() {
+        try { mod && mod.unmount(); } catch (e) {}
+        mod = null;
+        gate.style.display = 'flex';
+        menuBtn.style.display = 'none';
+        pauseBtn.style.display = 'none';
+      }
+      function togglePause() {
+        if (!mod) return;
+        paused = !paused;
+        if (paused) { mod.pause(); pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('on'); }
+        else { mod.resume(); pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('on'); }
+      }
+      startBtn.onclick = mount;        // mount on a real gesture (unlocks audio)
+      menuBtn.onclick = backToGate;    // simulates the shell returning to its menu
+      pauseBtn.onclick = togglePause;  // simulates a shell pause overlay
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StarNix — Audio Bench</title>
+<style>
+  :root {
+    --iris:#7855FA; --aqua:#1FDDE9; --mantis:#92DD23; --peach:#FF6B5B; --gold:#FFC857;
+    --bg:#0a0b1a; --panel:#13152b; --panel2:#1b1e3a; --ink:#e8e9ff; --dim:#9aa0c8; --line:#2a2e52;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:radial-gradient(1200px 700px at 50% -10%, #161a38 0%, var(--bg) 60%);
+    color:var(--ink); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; min-height:100vh;
+  }
+  .wrap { max-width:860px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:22px; margin:0 0 2px; letter-spacing:.3px; }
+  h1 span { color:var(--aqua); }
+  .sub { color:var(--dim); margin:0 0 22px; font-size:13px; }
+  .start {
+    display:block; width:100%; padding:16px; font-size:18px; font-weight:700; cursor:pointer;
+    color:#0a0b1a; border:0; border-radius:14px; background:linear-gradient(90deg,var(--iris),var(--aqua));
+    box-shadow:0 6px 24px rgba(120,85,250,.35); margin-bottom:22px;
+  }
+  .start[disabled] { opacity:.4; cursor:default; box-shadow:none; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 16px 18px; margin-bottom:16px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:1.4px; color:var(--dim); margin:0 0 12px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; }
+  button.b {
+    padding:10px 14px; font-size:14px; font-weight:600; cursor:pointer; color:var(--ink);
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px; transition:.12s;
+  }
+  button.b:hover { border-color:var(--iris); }
+  button.b.on { background:linear-gradient(90deg,var(--iris),var(--aqua)); color:#0a0b1a; border-color:transparent; }
+  button.b.sfx:hover { border-color:var(--gold); }
+  button.b.warn.on { background:linear-gradient(90deg,var(--peach),var(--gold)); }
+  .toggles { margin-top:12px; }
+  .mix label { display:block; margin-bottom:12px; color:var(--dim); font-size:13px; }
+  .mix input { width:100%; accent-color:var(--aqua); }
+  canvas { width:100%; height:120px; display:block; background:#080916; border-radius:10px; border:1px solid var(--line); }
+  .status { font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dim); margin-top:10px; white-space:pre-wrap; }
+  .hint { color:var(--gold); font-size:13px; margin:0 0 16px; }
+  .note { color:var(--dim); font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>StarNix — <span>Audio Bench</span></h1>
+  <p class="sub">Drives the live engine in <code>audio.js</code>. No game, no build — just the sound.</p>
+
+  <button id="start" class="start">▶ Start Audio</button>
+
+  <p class="hint" id="hint" hidden>Tip: hit <b>Melody (lead)</b> to A/B the new lead-melody layer against the old arpeggio-only mix.</p>
+
+  <div class="panel">
+    <h2>Music tracks</h2>
+    <div class="row" id="tracks"></div>
+    <div class="row toggles">
+      <button class="b" data-act="stop">⏸ Stop</button>
+      <button class="b" data-act="resume">▶ Resume</button>
+      <button class="b warn" id="intensity">Boss intensity: OFF</button>
+      <button class="b on" id="lead">Melody (lead): ON</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>SFX</h2>
+    <div class="row" id="sfx"></div>
+    <p class="note">The exam uses <b>correct</b> / <b>wrong</b> / <b>click</b>.</p>
+  </div>
+
+  <div class="panel mix">
+    <h2>Mix</h2>
+    <label>Master <input type="range" id="vmaster" min="0" max="1.2" step="0.01" value="1"></label>
+    <label>Music <input type="range" id="vmusic" min="0" max="1" step="0.01" value="1"></label>
+    <label>SFX <input type="range" id="vsfx" min="0" max="1" step="0.01" value="1"></label>
+  </div>
+
+  <div class="panel">
+    <h2>Live output spectrum</h2>
+    <canvas id="scope" width="820" height="120"></canvas>
+    <div class="status" id="status">idle — press Start Audio</div>
+  </div>
+</div>
+
+<script src="audio.js"></script>
+<script>
+(function () {
+  "use strict";
+  var A = (window.StarNix && window.StarNix.core && window.StarNix.core.audio) || null;
+  var startBtn = document.getElementById("start");
+  var statusEl = document.getElementById("status");
+  var hintEl = document.getElementById("hint");
+  var TRACKS = ["cinematic", "menu", "arm", "kbb", "cc", "boss"];
+  var SFX = ["correct", "wrong", "click", "hyperdrive", "fire", "collect", "hit", "explode"];
+  var current = null, intensity = false, leadOn = true, started = false;
+
+  if (!A) { statusEl.textContent = "ERROR: audio.js did not load (window.StarNix.core.audio missing)."; return; }
+
+  // build track + sfx buttons
+  var trackWrap = document.getElementById("tracks");
+  TRACKS.forEach(function (id) {
+    var b = document.createElement("button");
+    b.className = "b"; b.textContent = id; b.dataset.track = id;
+    b.onclick = function () { selectTrack(id); };
+    trackWrap.appendChild(b);
+  });
+  var sfxWrap = document.getElementById("sfx");
+  SFX.forEach(function (name) {
+    var b = document.createElement("button");
+    b.className = "b sfx"; b.textContent = name;
+    b.onclick = function () { if (started) A.sfx(name); };
+    sfxWrap.appendChild(b);
+  });
+
+  function paintTracks() {
+    [].forEach.call(trackWrap.children, function (b) {
+      b.classList.toggle("on", b.dataset.track === current);
+    });
+  }
+  function selectTrack(id) {
+    if (!started) return;
+    current = id;
+    A.playTrack(id, intensity ? { intensity: true } : undefined);
+    paintTracks();
+  }
+
+  startBtn.onclick = function () {
+    A.ensure(); A.setMusic(true); A.setSfx(true);
+    started = true; startBtn.disabled = true; startBtn.textContent = "● Audio running";
+    hintEl.hidden = false;
+    selectTrack("menu");
+    loop();
+  };
+
+  document.querySelector('[data-act="stop"]').onclick = function () { if (started) A.setMusic(false); };
+  document.querySelector('[data-act="resume"]').onclick = function () { if (started) A.setMusic(true); };
+
+  var intBtn = document.getElementById("intensity");
+  intBtn.onclick = function () {
+    if (!started) return;
+    intensity = !intensity;
+    intBtn.textContent = "Boss intensity: " + (intensity ? "ON" : "OFF");
+    intBtn.classList.toggle("on", intensity);
+    if (current) A.playTrack(current, intensity ? { intensity: true } : undefined);
+  };
+
+  var leadBtn = document.getElementById("lead");
+  leadBtn.onclick = function () {
+    if (!started || !A.setLead) return;
+    leadOn = !leadOn;
+    A.setLead(leadOn);
+    leadBtn.textContent = "Melody (lead): " + (leadOn ? "ON" : "OFF");
+    leadBtn.classList.toggle("on", leadOn);
+  };
+
+  document.getElementById("vmaster").oninput = function () { if (started) A.setMasterVolume(+this.value); };
+  document.getElementById("vmusic").oninput = function () { if (started) A.setMusicVolume(+this.value); };
+  document.getElementById("vsfx").oninput = function () { if (started) A.setSfxVolume(+this.value); };
+
+  // spectrum scope + status
+  var cv = document.getElementById("scope"), g = cv.getContext("2d");
+  var W = cv.width, H = cv.height, bins = null, an = null;
+  function loop() {
+    requestAnimationFrame(loop);
+    if (!an) { an = A.analyser(); if (an) bins = new Uint8Array(an.frequencyBinCount); }
+    g.clearRect(0, 0, W, H);
+    if (an && bins) {
+      an.getByteFrequencyData(bins);
+      var n = 96, step = Math.floor(bins.length / n), bw = W / n;
+      for (var i = 0; i < n; i++) {
+        var v = bins[i * step] / 255, h = v * (H - 6);
+        var hue = 250 - i / n * 130;                 // iris -> aqua/green up the spectrum
+        g.fillStyle = "hsl(" + hue + ",85%," + (45 + v * 20) + "%)";
+        g.fillRect(i * bw + 1, H - h, bw - 2, h);
+      }
+    }
+    var st = A.state();
+    statusEl.textContent =
+      "track: " + (st.trackId || "—") +
+      "   intensity: " + st.intensity +
+      "   melody: " + leadOn +
+      "   music: " + st.musicOn + "   sfx: " + st.sfxOn +
+      "   pending-nodes: " + (A._pendingNodes ? A._pendingNodes() : "?");
+  }
+})();
+</script>
+</body>
+</html>
