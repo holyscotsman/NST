@@ -1,0 +1,57 @@
+# Deploy the Nutanix Study Tool to GitHub Pages.
+# Assembles a dist/ containing ONLY each tool's runtime files — specs, design
+# docs, tests, and dev scripts are never published.
+name: Deploy Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site (runtime files only)
+        run: |
+          set -eu
+          mkdir -p dist
+          touch dist/.nojekyll
+
+          # --- launcher / home ---
+          cp index.html dist/
+          cp -r styles dist/
+          [ -d assets ] && cp -r assets dist/ || true
+
+          # --- WWTBANE (static ES-module app; ship its runtime dirs only) ---
+          mkdir -p dist/wwtbane
+          cp wwtbane/index.html dist/wwtbane/
+          cp -r wwtbane/src wwtbane/styles wwtbane/vendor dist/wwtbane/
+          touch dist/wwtbane/.nojekyll
+
+          # --- StarNix (single generated file) ---
+          mkdir -p dist/starnix
+          cp starnix/index.html dist/starnix/
+          touch dist/starnix/.nojekyll
+
+          # --- Nutanix Practice Exams ---
+          mkdir -p dist/practice-exams
+          cp practice-exams/*.html practice-exams/*.js practice-exams/*.css dist/practice-exams/
+          cp -r practice-exams/data dist/practice-exams/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
