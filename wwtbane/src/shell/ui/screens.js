@@ -28,6 +28,7 @@ export function TitleScreen(ctx) {
     ),
     h('div', { class: 'menu' },
       h('button', { class: 'primary big', type: 'button', onclick: () => ctx.onStart('mastery', null) }, 'Start new game'),
+      h('button', { class: 'secondary', type: 'button', onclick: () => { window.location.href = '../'; } }, '← Main menu'),
     ),
     h('details', { class: 'seed-box' },
       h('summary', {}, 'Enter seed'),

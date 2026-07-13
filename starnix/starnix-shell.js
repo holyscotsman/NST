@@ -130,6 +130,18 @@
     this._injectShellCSS();
     this._wireAudioUnlock();
     return StarNix.initCore(opts || {}).then(function () {
+      // (NST) honor NST-wide preferences set on the launcher (localStorage "nst.prefs")
+      try {
+        var np = JSON.parse((typeof localStorage !== "undefined" && localStorage.getItem("nst.prefs")) || "{}");
+        var st = StarNix.core && StarNix.core.profile && StarNix.core.profile.settings;
+        if (st && np) {
+          if ("reducedMotion" in np) st.reducedMotion = !!np.reducedMotion;
+          if ("highContrast" in np) st.colorblind = !!np.highContrast;   // StarNix's HC key is `colorblind`
+          if (np.audioMuted) st.masterVol = 0; else if (typeof np.audioVolume === "number") st.masterVol = np.audioVolume;
+          if ("devMode" in np) st.dev = !!np.devMode;
+          if (StarNix.core.audio && StarNix.core.audio.setMasterVolume) StarNix.core.audio.setMasterVolume(st.masterVol == null ? 1 : st.masterVol);
+        }
+      } catch (eNST) {}
       self._applyContrast();        // #12: apply saved high-contrast preference on load
       self._applyMotion();          // (v0.150.0) reduced-motion attribute on load
       // v0.53.0 unit 3: achievement unlock toasts. Registered once at boot; fires from the
@@ -198,6 +210,9 @@
       self.showCinematic();
     });
     row.appendChild(start);
+    var menu = el("button", "sx-btn sx-btn-ghost", "← Main menu");
+    this._on(menu, "click", function () { window.location.href = "../"; });
+    row.appendChild(menu);
     this.stage.appendChild(s);
   };
 
