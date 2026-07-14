@@ -1,5 +1,5 @@
 // eventBus.js — tiny synchronous pub/sub. The bridge between quiz logic and the
-// backdrop/audio (CLAUDE.md §5). The event contract is documented in
+// backdrop/audio (the project design rules). The event contract is documented in
 // docs/WWTBANE_CINEMATIC_SPEC.md §10. Pure; usable in Node and the browser.
 
 export function createBus() {

@@ -1,5 +1,5 @@
 // music.js — procedural music engine. ORIGINAL compositions synthesized at
-// runtime with WebAudio (CLAUDE.md §6: original only, never licensed cues, no
+// runtime with WebAudio (the project design rules: original only, never licensed cues, no
 // recreation of any existing show's music). No audio files ship with the game.
 //
 // Tracks (looping):
@@ -169,7 +169,7 @@ const TICK_MS = 60;
 // Selectable arrangements ("music variations"). Each is a transform over the
 // base tracks — tempo, instrument timbre, and dynamics — so the same
 // compositions play in a clearly different voice. Still original synth only
-// (CLAUDE.md §6). 'studio' is the untouched original.
+// (the project design rules). 'studio' is the untouched original.
 export const MUSIC_STYLES = [
   { id: 'studio', label: 'Studio (original)' },
   { id: 'neon',   label: 'Neon synthwave' },

@@ -1,7 +1,7 @@
 # BROWSER_QA.md — visual sign-off queue
 
 Structural/interaction tests (`tests/smoke.mjs`, `tests/e2e.mjs`) prove the app
-boots and plays. **Visual correctness still needs a human** (`CLAUDE.md §6`).
+boots and plays. **Visual correctness still needs a human** (`the project design rules`).
 Items stay **code-complete, visual-pending** until signed off here.
 
 How to look: run `npm run serve` and open http://localhost:8080/ (or just open

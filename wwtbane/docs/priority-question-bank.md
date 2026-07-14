@@ -5,7 +5,7 @@ These are the **priority** set: mastery selection surfaces them first, so the
 player drills and graduates them ahead of the rest of the bank.
 
 - The **answer keys and explanations are owner-authored** — the `[x]` mark is
-  authoritative; the game never uses AI to decide correctness (CLAUDE.md §4).
+  authoritative; the game never uses AI to decide correctness (the project design rules).
 - `Domain` and `Difficulty` tags are an ingestion classification (they slot each
   question into a tier); they are flagged for owner confirmation in `FLAGS.md`.
 - Merge into the shipped bank with:

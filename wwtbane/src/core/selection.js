@@ -10,7 +10,7 @@
 //
 // The extreme final (Q30) is special: the first time a player ever reaches it,
 // it is an "impossible" authored question. That is gated on a persistence flag,
-// NOT on the seed (CLAUDE.md §3).
+// NOT on the seed (the project design rules).
 
 import { TIERS, MASTERY } from './config.js';
 import { makeRng, shuffle, weightedPick } from './rng.js';
@@ -207,7 +207,7 @@ export class SetManager {
   // so a clue paid for last session may not be in this session's rebuilt set.
   // Pin the taught question into the CURRENT set's hard block (play order
   // 21–29, 0-based 20–28 per the 10/10/9/1 shape) so the clue still references
-  // a real, guaranteed-upcoming question (CLAUDE.md §3). No-op if already in.
+  // a real, guaranteed-upcoming question (the project design rules). No-op if already in.
   pinIntoCurrent(q) {
     if (!q || !this._current) return false;
     if (this._current.some((x) => x.id === q.id)) return false;
@@ -220,7 +220,7 @@ export class SetManager {
   // A guaranteed-upcoming hard question from the UPCOMING run (the prebuilt
   // `current` set) for Steve to teach. ONLY a question that carries an authored
   // steveClue AND has not been taught before qualifies — Steve never repeats a
-  // clue (CLAUDE.md §3) and never sells a question he has nothing to say about
+  // clue (the project design rules) and never sells a question he has nothing to say about
   // (the old fallback charged 4,000 coins and rendered an empty tip). When
   // nothing qualifies, null: the green room shows his "nothing new" state.
   peekUpcomingHard(alreadyTaught = new Set()) {

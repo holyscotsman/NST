@@ -1,7 +1,7 @@
 # FLAGS.md — blockers & questions for the human
 
 Things the autonomous loop **cannot** decide. Nothing here blocks a playable
-ship, but each wants a human before it's "done" per `CLAUDE.md`.
+ship, but each wants a human before it's "done" per `the project design rules`.
 
 ## 0. Exam2 interchange bank — 9 quarantined questions need owner decisions
 - **Imported:** 51 questions from `docs/interchange/e1.md` (owner-supplied,
@@ -46,7 +46,7 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
 ## 1b. Steve clue coverage — owner questions have no clues yet
 - **What changed:** Steve now only ever sells a question that carries an
   authored `steveClue` and that he hasn't taught before (`peekUpcomingHard`,
-  CLAUDE.md §3 "never gives the same clue twice"). The old fallback could
+  the project design rules "never gives the same clue twice"). The old fallback could
   charge 4,000 coins and render an empty tip.
 - **Consequence:** none of the owner-supplied questions (25 NPX priority +
   51 interchange) carry `steveClue`, and the priority boost floods early runs
@@ -67,7 +67,7 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
   opener/sign-off only; the middle three bubbles are the authored `q.steveClue`
   split for pacing, not new copy), are the same category — game-mechanics
   banter, AI-drafted at the owner's explicit request, awaiting a human read.
-- **Why flagged:** `CLAUDE.md §7` reserves host dialogue for a human. These
+- **Why flagged:** `the project design rules` reserves host dialogue for a human. These
   lines were AI-drafted at the owner's explicit request ("the host explains how
   to play") — they are game-mechanics narration, not exam teaching — but still
   warrant a human read-through for voice and tone.
@@ -80,7 +80,7 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
 
 ## 3. Palette identity (inherited, unconfirmed)
 - The Iris/Aqua/Mantis/Peach/Gold palette is inherited from StarNix and used
-  throughout. `CLAUDE.md §6/§8` flag it for confirmation: keep it, or define
+  throughout. `the project design rules` flag it for confirmation: keep it, or define
   WWTBANE's own identity?
 
 ## 4. Studio visual sign-off
@@ -98,7 +98,7 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
   rule is original art in code, imported model files carry licensing risk,
   and a static Pages site should stay lean. If the owner still wants imported
   GLB/FBX assets after seeing these, that is an explicit change to the
-  CLAUDE.md §6 brand rule and needs their sign-off (plus a vetted-license
+  the project design rules brand rule and needs their sign-off (plus a vetted-license
   asset source) first.
 
 ## 7. Easy-tier difficulty calibration
@@ -108,7 +108,7 @@ ship, but each wants a human before it's "done" per `CLAUDE.md`.
   The authored `easy` labels are cold-start seeds only; if the owner wants a
   gentler on-ramp, a human pass should re-grade the easy pool (or supply
   replacement questions) — difficulty values are human-authored content per
-  `CLAUDE.md §7`.
+  `the project design rules`.
 
 ## Resolved
 - _none yet._

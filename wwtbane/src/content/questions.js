@@ -1,7 +1,7 @@
 // questions.js — the playable NCP-MCI question bank.
 // ASSEMBLED by scripts/import-questions.mjs (--merge): priority questions from an
 // authored Markdown source are merged AHEAD of the existing bank. Content is
-// human-authored; the runtime never uses AI to grade (CLAUDE.md §4) — the stored
+// human-authored; the runtime never uses AI to grade (the project design rules) — the stored
 // authored key is authoritative. Re-run the importer to regenerate.
 
 export const QUESTIONS = [

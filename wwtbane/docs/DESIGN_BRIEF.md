@@ -1,6 +1,6 @@
 # WWTBANE — UI & animation design brief
 
-*For Claude Designer. This document is the full spec; the short prompt to paste alongside it is at the very end.*
+*For a design agent. This document is the full spec; the short prompt to paste alongside it is at the very end.*
 
 ---
 
@@ -126,7 +126,7 @@ The shipped app already uses these class names — reusing them makes the design
 
 ---
 
-## 8. Prompt to paste into Claude Designer
+## 8. Prompt to paste into a design agent
 
 > Design the game screen for "Who Wants to be a Nutanix Engineer?", a neon game-show quiz, following the attached brief exactly. Build one self-contained HTML/CSS/vanilla-JS page (no frameworks, no external requests) with dummy data showing: the money ladder as a full-height vertical rail on the RIGHT edge (Q1 bottom → Q30 top, tier glyphs, safe-haven shields, current rung glowing), a coins-earned panel and the three lifeline medallions stacked in the UPPER-LEFT corner, and the question card lower-center over a dark stage background. Implement the full animation choreography from §5 — question entrance stagger, gold lock-in suspense pulse, correct/wrong reveals, coin count-ups, the safe-haven banking flourish with coin particles, ladder climb/drop, 50:50 power-down, audience poll bars, phone typewriter — with working demo buttons to trigger each state, plus a reduced-motion mode where every animation becomes an instant cut. Use only the five brand colors on dark glass panels, Montserrat, sentence case. Include a 390px-wide mobile variant (ladder becomes a top horizontal strip). Respect every constraint in §6: no strobing, no timers, glyphs alongside color, visible focus rings.
 

@@ -16,7 +16,7 @@
 //
 // The content is transcribed verbatim from the source exam by the owner — this
 // module only STRUCTURES it. It never decides whether a key is correct
-// (CLAUDE.md §4): the (x) mark is authoritative. @briefing is StarNix commander
+// (the project design rules): the (x) mark is authoritative. @briefing is StarNix commander
 // dialogue and is intentionally dropped — WWTBANE's host/Steve have their own voice.
 
 import { validateQuestion } from '../core/questionSchema.js';

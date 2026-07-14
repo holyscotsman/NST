@@ -1,7 +1,7 @@
 // coins.js — coin economy & banking. Pure.
 // Coins scale with questions answered AND tiers cleared. They bank at each tier
 // boundary; dying mid-tier drops the player to the last banked amount, losing
-// only the current tier's unbanked coins (CLAUDE.md §3).
+// only the current tier's unbanked coins (the project design rules).
 
 import { LADDER, BANK_BOUNDARIES } from './config.js';
 

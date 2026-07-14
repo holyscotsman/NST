@@ -179,7 +179,7 @@ export class Game {
     this._installTestHook();
 
     // Challenge links: ?seed=NTNX-XXXXXX drops straight into that seeded run
-    // (same 30 questions for anyone — CLAUDE.md §3). First-time visitors still
+    // (same 30 questions for anyone — the project design rules). First-time visitors still
     // get the tutorial first.
     const linkSeed = normalizeSeed(params.get('seed') || '');
     if (linkSeed) this.startRun('seeded', linkSeed);
@@ -434,7 +434,7 @@ export class Game {
     });
     this.campaign.init();
     // Steve's paid, not-yet-delivered clue: the rebuilt set almost certainly
-    // dropped that question — pin it back so the promise (CLAUDE.md §3:
+    // dropped that question — pin it back so the promise (the project design rules:
     // "a real, guaranteed-upcoming question") holds across sessions.
     if (this.save.stevePending) {
       const pending = this.bank.find((q) => q.id === this.save.stevePending);

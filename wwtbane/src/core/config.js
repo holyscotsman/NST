@@ -1,5 +1,5 @@
 // config.js — game constants. Pure data, no browser or Node APIs.
-// This is the de-facto core spec (CLAUDE.md §3) expressed as numbers.
+// This is the de-facto core spec (the project design rules) expressed as numbers.
 
 // The game version, shown on the title screen. Keep in lockstep with
 // package.json "version" (tests pin the two together).

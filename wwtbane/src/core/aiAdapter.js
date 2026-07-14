@@ -1,6 +1,6 @@
 // aiAdapter.js — deliberate NO-OP seam.
 //
-// Learning integrity (CLAUDE.md §4/§7): an LLM must NEVER determine correctness
+// Learning integrity (the project design rules): an LLM must NEVER determine correctness
 // at runtime. The authored answer key is authoritative. This module exists only
 // as a stable seam so future OFFLINE ingestion QA (flagging ambiguous keys,
 // drafting explanations) has a place to plug in — always behind mandatory human

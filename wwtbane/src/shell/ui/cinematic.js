@@ -3,7 +3,7 @@
 // real first question and gives away the answer ("on the house").
 //
 // The host's lines are authored copy — flagged in FLAGS.md for human review
-// per CLAUDE.md §7. Skippable at any moment; typewriter collapses under
+// per the project design rules. Skippable at any moment; typewriter collapses under
 // reduced motion; advances on click/Enter or auto after a reading pause.
 
 import { h, clear } from './dom.js';

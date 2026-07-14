@@ -1,5 +1,5 @@
 // mastery.js — per-question Leitner mastery. Pure. Shared learning state that
-// persists across runs and is NEVER wiped by a win (CLAUDE.md §3).
+// persists across runs and is NEVER wiped by a win (the project design rules).
 //
 // Low box  = the question is still hard for this player.
 // High box = mastered; box === GRADUATED_BOX means graduated (rarely resurfaced).
@@ -34,7 +34,7 @@ export function isGraduated(state, id) {
 // Record an answer.
 //  - Always updates exposure counters (seen / correct / lastRun).
 //  - Changes the Leitner box ONLY when the answer was UNAIDED:
-//    a lifeline-assisted correct answer does not promote mastery (CLAUDE.md §3/§4).
+//    a lifeline-assisted correct answer does not promote mastery (the project design rules).
 //    Correct -> box + 1 (capped at GRADUATED_BOX, the graduate-out ceiling).
 //    Wrong   -> box - 1 (floored at MIN_BOX). Bidirectional.
 export function record(state, id, { correct, assisted = false, runIndex = 0, authoredDifficulty = 'medium' }) {

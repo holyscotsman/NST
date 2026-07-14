@@ -2,7 +2,7 @@
 // run (drifting snarky once the attempts pile up) and short read-along quips
 // while a question is revealed. Pure data + pure pickers so the rotation is
 // headless-testable. AUTHORED COPY — flagged in FLAGS.md for human review per
-// CLAUDE.md §7. Questions and answers NEVER appear in these bubbles.
+// the project design rules. Questions and answers NEVER appear in these bubbles.
 
 export const WELCOME_LINES = [
   'Welcome back to the Hot Seat!',
