@@ -67,6 +67,10 @@
   /* ---- adapters: normalized bank -> each tool's native shape ---- */
 
   // Practice Exams / StarNix core global (window.STARNIX_QUESTIONS shape).
+  // StarNix's core validates difficulty on a 1|2|3 scale, so the bank's 1-5 scale is
+  // folded down to match (1,2 -> 1 easy · 3 -> 2 medium · 4,5 -> 3 hard), consistent with
+  // the WWTBANE tiering. Practice Exams treats difficulty as an opaque hint, so this is safe there too.
+  var SX_DIFF = { 1: 1, 2: 1, 3: 2, 4: 3, 5: 3 };
   function toStarNix(bank) {
     if (!bank) return { id: "", name: "", domains: [], questions: [] };
     return {
@@ -76,7 +80,7 @@
       questions: bank.questions.map(function (q) {
         var o = {
           id: q.id, cert: bank.meta.cert || bank.id, domain: q.domain,
-          difficulty: q.difficulty, stem: q.stem, options: q.options.slice(),
+          difficulty: SX_DIFF[q.difficulty] || 2, stem: q.stem, options: q.options.slice(),
           explanation: q.explanation,
         };
         if (Array.isArray(q.correct)) o.correctIndices = q.correct.slice(); else o.correctIndex = q.correct;

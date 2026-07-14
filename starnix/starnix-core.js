@@ -1123,64 +1123,18 @@
   };
 
   /* =================================================================== *
-   * 12. Built-in NCP-MCI fixture (Phase 0).  Verified facts only.
-   *     Real bank arrives from the owner via 06 ingestion.
+   * 12. Built-in question fixture — intentionally EMPTY.
+   *     StarNix is now a bank-agnostic engine: questions arrive at runtime
+   *     from /banks/ via the NST bank loader, which sets window.STARNIX_QUESTIONS
+   *     before boot. With no bank selected the pack stays empty and the shell
+   *     shows a graceful "no question bank" state instead of built-in content.
+   *     (The former NCP-MCI sample lives on in banks/_archive/ for reference.)
    * =================================================================== */
   var SAMPLE_PACK = {
-    id: "NCP-MCI",
-    name: "Nutanix Certified Professional — Multicloud Infrastructure",
+    id: "none",
+    name: "No question bank loaded",
     domains: DOMAINS,
-    questions: [
-      { id: "mci-storage-0001", cert: "NCP-MCI", domain: "storage", difficulty: 2,
-        stem: "What is the primary role of the OpLog in a Nutanix cluster?",
-        options: ["Permanently store all data", "Buffer incoming writes before they drain to the Extent Store", "Cache reads for speed", "Hold cluster metadata"],
-        correctIndex: 1,
-        explanation: "The OpLog is the persistent (SSD-backed) write buffer; writes are coalesced there for a fast acknowledgement, then drained to the Extent Store. It is not the durable capacity tier.",
-        briefing: "The OpLog is a fast, persistent landing zone for writes that later flush to the Extent Store.",
-        tags: ["oplog", "write-path"] },
-      { id: "mci-performance-0001", cert: "NCP-MCI", domain: "performance", difficulty: 2,
-        stem: "Which Nutanix capability keeps a VM's working data on the node where the VM runs, avoiding network reads?",
-        options: ["Data Tiering", "Data Locality", "Erasure Coding", "Deduplication"],
-        correctIndex: 1,
-        explanation: "Data Locality keeps a VM's active working set on its local node so reads are served locally instead of crossing the network.",
-        briefing: "Data Locality keeps the working set on the VM's own node for fast local reads.",
-        tags: ["data-locality"] },
-      { id: "mci-data-protection-0001", cert: "NCP-MCI", domain: "data-protection", difficulty: 2,
-        stem: "At Redundancy Factor 3 (RF3), how many copies of metadata does the cluster keep?",
-        options: ["2", "3", "5", "7"],
-        correctIndex: 2,
-        explanation: "RF3 keeps three data copies but five metadata copies; the higher metadata count maintains quorum and lets the cluster survive two simultaneous failures.",
-        briefing: "RF3 = 3 data copies and 5 metadata copies, to survive two failures.",
-        tags: ["redundancy-factor", "rf3"] },
-      { id: "mci-storage-0002", cert: "NCP-MCI", domain: "storage", difficulty: 3,
-        stem: "Erasure Coding on an RF2 container requires a minimum of how many nodes?",
-        options: ["2", "3", "4", "6"],
-        correctIndex: 2,
-        explanation: "Erasure Coding stores data stripes plus parity instead of full copies. On RF2 it needs at least four nodes so a stripe and its parity can survive a node failure.",
-        briefing: "Erasure Coding trades space for stripes + parity; RF2 needs at least four nodes.",
-        tags: ["erasure-coding"] },
-      { id: "mci-storage-0003", cert: "NCP-MCI", domain: "storage", difficulty: 2,
-        stem: "For a storage container, what does the Advertised Capacity setting define?",
-        options: ["A guaranteed minimum (floor)", "A maximum size the container can grow to (ceiling)", "Its replication factor", "Its cache size"],
-        correctIndex: 1,
-        explanation: "Advertised Capacity is the ceiling — the maximum size a container reports/can grow to. Reserved Capacity is the opposite: a guaranteed floor carved from the shared pool.",
-        briefing: "Advertised = ceiling; Reserved = floor.",
-        tags: ["capacity", "advertised", "reserved"] },
-      { id: "mci-vms-0001", cert: "NCP-MCI", domain: "vms", difficulty: 1,
-        stem: "What is the default virtual disk bus type for VMs running on AHV?",
-        options: ["IDE", "SATA", "SCSI", "NVMe"],
-        correctIndex: 2,
-        explanation: "AHV presents VM virtual disks on the SCSI bus by default, which provides good performance and broad guest OS support.",
-        briefing: "AHV defaults VM disks to the SCSI bus.",
-        tags: ["ahv", "disk-bus"] },
-      { id: "mci-data-protection-0002", cert: "NCP-MCI", domain: "data-protection", difficulty: 2,
-        stem: "What is the minimum number of nodes required for a cluster to self-heal from a single node failure at Redundancy Factor 2 (RF2)?",
-        options: ["2", "3", "4", "5"],
-        correctIndex: 1,
-        explanation: "RF2 keeps two data copies, so three nodes are required: after one node fails, the cluster still has enough remaining nodes to restore a second copy and return to a protected state.",
-        briefing: "RF2 needs a minimum of three nodes to tolerate and rebuild from one failure.",
-        tags: ["redundancy-factor", "rf2", "fault-tolerance"] }
-    ]
+    questions: []
   };
 
   /* =================================================================== *

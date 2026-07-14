@@ -1,15 +1,14 @@
 {
-  "core": 84251,
-  "questions": 391585,
+  "core": 80274,
   "assets": 2689756,
-  "shell": 131158,
+  "shell": 132833,
   "audio": 82228,
   "arm": 270594,
   "cc": 197944,
   "kbb": 222831,
-  "exhibits": 3591312,
+  "exhibits": 90,
   "three": 603445,
   "font": 47776,
-  "total": 8318354,
-  "gzip": 5277292
+  "total": 4334051,
+  "gzip": 2482516
 }

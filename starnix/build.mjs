@@ -25,9 +25,11 @@ function vendored(rel, sha, label) {
 const threeSrc = vendored("./vendor/three-r128.min.js", THREE_SHA, "vendor/three-r128.min.js");
 const fontCss = vendored("./vendor/montserrat.css", FONT_SHA, "vendor/montserrat.css");
 
+// The question bank is NO LONGER inlined: StarNix is a bank-agnostic engine and
+// loads Markdown banks at runtime from /banks/ (shared/bank-loader.js, added to the
+// <head> below). questions.js stays on disk as the lint/test fixture only.
 const modules = [
   ["starnix-core.js", "core"],
-  ["questions.js", "questions"],
   ["assets.js", "assets"],
   ["starnix-shell.js", "shell"],
   ["audio.js", "audio"],
@@ -68,11 +70,15 @@ function exhibitBlock() {
   // (v0.143.0, V1.1 NIT#2) reference-driven: inline ONLY images a live question cites. Orphan
   // files (a4q50.png shipped ~50 KB of dead base64 while its question block sat commented out)
   // stay on disk for later revival but never enter the deploy. Fails open if the bank is absent.
-  let refs = null;
-  try {
-    const qsrc = readFileSync(new URL("./questions.js", import.meta.url), "utf8");
-    refs = new Set([...qsrc.matchAll(/"image":\s*"([^"]+)"/g)].map((m) => m[1]));
-  } catch (e) { refs = null; }
+  // Since the bank is no longer inlined (runtime banks carry their own images via imageSrc), the
+  // reference set is empty and NO exhibits are baked in — unless questions.js is re-added above.
+  let refs = new Set();
+  if (modules.some((m) => m[1] === "questions")) {
+    try {
+      const qsrc = readFileSync(new URL("./questions.js", import.meta.url), "utf8");
+      refs = new Set([...qsrc.matchAll(/"image":\s*"([^"]+)"/g)].map((m) => m[1]));
+    } catch (e) { refs = null; }
+  }
   try {
     for (const f of readdirSync(new URL("./exhibit-images/", import.meta.url))) {
       const ext = (f.split(".").pop() || "").toLowerCase();
@@ -106,15 +112,27 @@ const boot = `<!-- ===== boot ===== -->
     }
     if (window.console) console.error("StarNix boot error:", msg);
   }
+  function launch() {
+    Promise.resolve(window.StarNix.boot(document.getElementById("app"), {})).then(function () {
+      var bs2 = document.getElementById("sx-boot");                 // (v0.198.0, FE#9) the shell has the bridge
+      if (bs2 && bs2.parentNode) bs2.parentNode.removeChild(bs2);
+    }).catch(function (e) {
+      fail((e && e.message) || String(e));
+    });
+  }
   function start() {
     try {
       if (!window.StarNix || typeof window.StarNix.boot !== "function") return fail("core/shell not loaded");
-      Promise.resolve(window.StarNix.boot(document.getElementById("app"), {})).then(function () {
-        var bs2 = document.getElementById("sx-boot");                 // (v0.198.0, FE#9) the shell has the bridge
-        if (bs2 && bs2.parentNode) bs2.parentNode.removeChild(bs2);
-      }).catch(function (e) {
-        fail((e && e.message) || String(e));
-      });
+      // Load the active runtime bank (if any) into window.STARNIX_QUESTIONS before the core
+      // reads it. No bank selected -> resolves null -> the engine boots with an empty pool and
+      // the shell shows its "no question bank" state. A load failure never blocks boot.
+      if (window.NSTBank && typeof window.NSTBank.load === "function") {
+        window.NSTBank.load().then(function (bank) {
+          if (bank && bank.questions && bank.questions.length) {
+            try { window.STARNIX_QUESTIONS = window.NSTBank.toStarNix(bank); } catch (eB) {}
+          }
+        }).catch(function () {}).then(launch);
+      } else { launch(); }
     } catch (e) { fail((e && e.message) || String(e)); }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
@@ -133,6 +151,10 @@ const html = `<!doctype html>
 ${fontCss}</style>
 <!-- Three.js r128 (UMD global window.THREE), VENDORED — no runtime CDN -->
 <script>${threeSrc}</script>
+<!-- NST runtime question-bank engine. External (not inlined) so bank-loader.js can resolve
+     the repo root from its own script URL, then fetch Markdown banks from /banks/ at runtime. -->
+<script src="../shared/bank-parser.js"></script>
+<script src="../shared/bank-loader.js"></script>
 <style>
   html, body { margin: 0; height: 100%; background: #07070e; color: #F2F2F7;
     font-family: 'Montserrat', Arial, sans-serif; overflow: hidden; }
