@@ -19,6 +19,12 @@
   "three/addons/": "./vendor/three/examples/jsm/"
 }}
 </script>
+
+<!-- NST runtime question-bank engine (window.NSTBank). Classic scripts so bank-loader.js can
+     resolve the repo root from its own URL, then fetch Markdown banks from /banks/ at runtime.
+     Loaded before the module entry point below. -->
+<script src="../shared/bank-parser.js"></script>
+<script src="../shared/bank-loader.js"></script>
 </head>
 <body>
   <div id="studio-root" aria-hidden="true"></div>
