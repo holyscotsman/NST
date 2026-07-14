@@ -866,7 +866,7 @@ export class Studio {
     // The stage manager in the wings — headset, clipboard, permanently busy.
     // The "producerReady" scene cuts to them when a new game starts.
     const sm = crewPerson({ clipboard: true });
-    sm.position.set(-6.5, 0, 3.0); sm.rotation.y = 0.9; // facing the stage
+    sm.position.set(-9.2, 0, 1.4); sm.rotation.y = 1.05; // well off to stage-left, out of the hero framing
     s.add(sm);
 
     // Everyone the idle-animation pass drives (blink/breathe/sway/talk/mood).
@@ -1036,12 +1036,16 @@ function person({ skin = 0xd9b48f, hair = 0x2a2118, shirt = 0x2f3a55, pants = 0x
 
   const arms = {};
   for (const sgn of [-1, 1]) {
-    const arm = capsule(0.048, 0.34, shirtM);
-    arm.position.set(sgn * 0.215, 1.16, 0.01);
-    arm.rotation.z = -sgn * 0.16;
-    const hand = sph(0.05, skinM); hand.position.set(sgn * 0.03, -0.24, 0.01); arm.add(hand);
-    g.add(arm);
-    arms[sgn === 1 ? 'armR' : 'armL'] = arm;
+    // Arm hangs from a shoulder joint that overlaps the torso, so it reads as
+    // connected and pivots from the shoulder (not its middle) when animated.
+    const armPivot = new THREE.Group();
+    armPivot.position.set(sgn * 0.165, 1.35, 0.01);
+    const shoulder = sph(0.078, shirtM); armPivot.add(shoulder);          // bridges to the torso
+    const upper = capsule(0.05, 0.30, shirtM); upper.position.set(0, -0.2, 0); armPivot.add(upper);
+    const hand = sph(0.05, skinM); hand.position.set(0, -0.4, 0.01); armPivot.add(hand);
+    armPivot.rotation.z = -sgn * 0.12;
+    g.add(armPivot);
+    arms[sgn === 1 ? 'armR' : 'armL'] = armPivot;
   }
 
   if (seated) {

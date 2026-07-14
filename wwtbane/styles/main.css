@@ -519,7 +519,18 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 
 /* ============================== title screen ============================== */
 .title-screen { max-width: none; align-items: center; text-align: center; padding-top: clamp(20px, 10vh, 110px); }
-.brand { animation: riseIn 0.5s var(--swift) both; }
+.brand {
+  animation: riseIn 0.5s var(--swift) both;
+  display: inline-block;
+  padding: 20px 34px 24px;
+  border-radius: 22px;
+  background: rgba(6, 6, 16, 0.66);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  max-width: min(680px, 92vw);
+}
 .brand-pre { text-transform: uppercase; letter-spacing: 0.3em; font-size: 14px; font-weight: 600; color: var(--muted); }
 .brand-main {
   margin: 10px 0 14px; font-size: clamp(38px, 7.5vw, 78px); font-weight: 800; line-height: 1.02;
@@ -528,7 +539,7 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
   filter: drop-shadow(0 6px 30px rgba(120, 85, 250, 0.45));
   animation: glowBreathe 4s ease-in-out infinite;
 }
-.brand-sub { margin: 0 auto; max-width: 46ch; font-size: 15.5px; line-height: 1.55; color: var(--muted); }
+.brand-sub { margin: 0 auto; max-width: 46ch; font-size: 15.5px; line-height: 1.55; color: #CDD0EE; }
 .wallet-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 26px; animation: riseIn 0.5s var(--swift) 0.12s both; }
 .wallet { font-weight: 700; font-size: 14px; background: var(--panel-2); border: 1px solid var(--line); padding: 9px 16px; border-radius: 999px; backdrop-filter: blur(8px); }
 .badge { font-size: 13px; font-weight: 600; color: var(--gold); border: 1px solid rgba(255, 200, 87, 0.4); padding: 8px 14px; border-radius: 999px; }

@@ -775,6 +775,7 @@
         }
       }
     } catch (ePl) {}
+    topBtn("← Main menu", function () { window.location.href = "../"; });
     topBtn("Stats / Codex", function () { self.showStats(); });
     topBtn("Settings", function () { self.showSettings(); });
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
