@@ -1,5 +1,5 @@
 // audio.js — original synthesized cues via WebAudio. No licensed music, no
-// recreation of any existing show's audio (CLAUDE.md §6). Everything here is
+// recreation of any existing show's audio (the project design rules). Everything here is
 // generated from oscillators + envelopes at runtime, so nothing is shipped as a
 // sound file. Silent until the first user gesture (browser autoplay policy).
 

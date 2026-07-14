@@ -1,5 +1,5 @@
 // studio.js — the persistent WebGL backdrop. Built once; scenes are camera moves
-// and lighting/prop swaps, not rebuilds (CLAUDE.md §5). Owns the single RAF.
+// and lighting/prop swaps, not rebuilds (the project design rules). Owns the single RAF.
 // The quiz itself is a DOM overlay drawn on top of this canvas — never rendered
 // in GL — which is what keeps the game accessible.
 //

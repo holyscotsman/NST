@@ -1,5 +1,5 @@
 // questionSchema.js — validates authored questions. Pure, no I/O.
-// The authored answer key is authoritative (CLAUDE.md §4). This validator only
+// The authored answer key is authoritative (the project design rules). This validator only
 // checks STRUCTURE; it never decides whether a key is factually correct.
 
 import { DOMAINS, DIFFICULTIES } from './config.js';

@@ -1,6 +1,6 @@
 // persistence.js — browser save state in localStorage. Degrades to in-memory if
 // storage is unavailable (private mode, etc.). Mastery is shared learning state
-// and is NEVER wiped by a prestige/win (CLAUDE.md §3).
+// and is NEVER wiped by a prestige/win (the project design rules).
 
 import { STORAGE_KEY, LIFELINE_DEFAULT_SLOTS, SAVE_VERSION } from '../core/config.js';
 import { emptyMastery } from '../core/mastery.js';

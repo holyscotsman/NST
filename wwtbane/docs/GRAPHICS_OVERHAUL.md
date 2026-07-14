@@ -6,13 +6,13 @@ The full audit is in `docs/GRAPHICS_AUDIT.md`.
 
 ## Adaptations (why this differs from the uploaded directive)
 
-- **Modular, not single-file.** `CLAUDE.md §5` mandates plain-JS modules; the
+- **Modular, not single-file.** `the project design rules` mandates plain-JS modules; the
   directive's own escape clause defers to it. Delivery stays modular.
-- **Three.js vendored, never CDN** (`CLAUDE.md §5`). Effects that would need
+- **Three.js vendored, never CDN** (`the project design rules`). Effects that would need
   un-vendored addons (`Reflector`, `RoomEnvironment`, stock post shaders) are
   built from **core Three.js** (`PMREMGenerator`, procedural env) and **inline
   custom shaders** instead.
-- **Original art, no cloned trade dress** (`CLAUDE.md §6`). The stage medallion
+- **Original art, no cloned trade dress** (`the project design rules`). The stage medallion
   is the show's own mark, **not** the Nutanix corporate logo.
 - **FPS not benchmarkable in CI.** A dev FPS meter (`?fps=1` / Alt+F) is provided
   for the owner to verify the 60/≥45 budget on real hardware; perf principles
@@ -77,4 +77,4 @@ the geometry work in Phase 1 read; camera/UI polish last.)
   columns + floor medallion, reflective disc, soft shadows + rim, vignette/grain,
   dust motes) with the hexagonal lozenges on top. The remaining gate is the
   human on-hardware FPS + look sign-off, queued in `BROWSER_QA.md`
-  (`CLAUDE.md §6` — structural proof ≠ visual observation).
+  (`the project design rules` — structural proof ≠ visual observation).

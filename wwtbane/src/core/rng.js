@@ -1,5 +1,5 @@
 // rng.js — deterministic seeded PRNG. Pure. Used for shareable/replayable seeds.
-// A seed string reproduces the same sequence for anyone (CLAUDE.md §3).
+// A seed string reproduces the same sequence for anyone (the project design rules).
 
 // xmur3 string hash -> 32-bit seed generator.
 export function xmur3(str) {

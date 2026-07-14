@@ -8,7 +8,7 @@ retired single-file prototype the directive was written against. See
 
 - **Three.js r160, vendored** at `vendor/three/` and loaded via an import map in
   `index.html` (`three` → `./vendor/three/build/three.module.js`, `three/addons/`
-  → `./vendor/three/examples/jsm/`). **No CDN** (CLAUDE.md §5 hard rule).
+  → `./vendor/three/examples/jsm/`). **No CDN** (the project design rules hard rule).
 - Only a **minimal subset of addons is vendored**: the postprocessing chain
   (`EffectComposer`, `RenderPass`, `UnrealBloomPass`, `OutputPass`, `ShaderPass`).
   `Reflector`, `RoomEnvironment`, and the stock `FilmShader`/`VignetteShader` are

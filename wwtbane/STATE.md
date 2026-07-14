@@ -1,6 +1,5 @@
 # STATE.md — resume point
 
-**Read order each session:** `CLAUDE.md` → this → `AUTONOMOUS_RUN.md`.
 
 ## Where things stand
 

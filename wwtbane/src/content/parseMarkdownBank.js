@@ -3,7 +3,7 @@
 // format is documented in docs/QUESTION_AUTHORING.md.
 //
 // The content is HUMAN-authored — this module only *structures* it. It never
-// decides whether an answer is correct (CLAUDE.md §4): the author marks the
+// decides whether an answer is correct (the project design rules): the author marks the
 // key with [x], and that mark is authoritative.
 
 import { validateQuestion } from '../core/questionSchema.js';

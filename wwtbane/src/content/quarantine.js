@@ -1,6 +1,6 @@
 // quarantine.js — questions held back from play, awaiting human rework
 // AUTO-ASSEMBLED from human-guided authoring + independent AI verification
-// (offline ingestion QA per CLAUDE.md §4). Every key was re-derived by a second
+// (offline ingestion QA per the project design rules). Every key was re-derived by a second
 // agent and marked reviewStatus:"verified". These remain pending final HUMAN
 // sign-off — see docs/CONTENT_QA_REPORT.md and FLAGS.md.
 // Do not hand-edit for content; edit the source and re-run assembly, or curate

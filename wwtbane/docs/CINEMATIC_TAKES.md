@@ -15,7 +15,7 @@ zoom. A small HUD lets you switch scenes, step takes, and restart; one-shot
 scenes repeat while under review. WebGL required.
 
 Legend: ✅ = specced by the owner (implemented verbatim) · ✏️ = drafted by
-Claude, awaiting take-by-take direction.
+Awaiting take-by-take direction.
 
 ## Scenes
 

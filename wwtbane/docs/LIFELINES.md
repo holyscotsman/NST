@@ -46,7 +46,7 @@ Approximate "top bar is correct" rates by difficulty (seeded Monte-Carlo, in
 the tests): **easy ≈ 95%+, medium ≈ 80%, hard ≈ 65%, extreme ≈ 55%.** It
 always *helps*, but it is not a guarantee.
 
-> **Design change:** the original spec (`CLAUDE.md §3`) said the plurality
+> **Design change:** the original spec (`the project design rules`) said the plurality
 > could *never* land on a wrong option. The owner asked for a statistic that
 > "helps but cannot always be correct," so the audience is now genuinely
 > fallible. It still never *grades* — it only shows what the room thinks.
@@ -69,7 +69,7 @@ bubbles, and blurts a guess, which tags the option they named.
 ## Integrity that did not change
 
 - The **authored answer key alone decides correctness** — no lifeline and no
-  LLM ever grades (`CLAUDE.md §4`).
+  LLM ever grades (`the project design rules`).
 - A **lifeline-assisted correct answer does not promote mastery**
   (`runController` marks the question assisted).
 - Lifeline outcomes are **deterministic under a seed** (the rng is keyed by

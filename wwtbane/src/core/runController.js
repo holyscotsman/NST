@@ -2,7 +2,7 @@
 // backdrop/audio via an injected `emit`. Owns: current set, progress, lifelines,
 // coin banking, permadeath, and mastery updates.
 //
-// Rules enforced here (CLAUDE.md §3/§4):
+// Rules enforced here (the project design rules):
 //   - Permadeath: a wrong answer ends the run.
 //   - Multi-answer is all-or-nothing.
 //   - Coins bank at tier boundaries; death drops to the last banked amount.

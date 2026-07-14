@@ -1,6 +1,6 @@
 // docs.test.mjs — the docs-drift gate. Player-facing copy (README + in-game
 // help) must describe the SHIPPED game: the fallible lifelines pinned by the
-// CLAUDE.md §3 owner revision (docs/LIFELINES.md), the real safe havens, and
+// the project design rules owner revision (docs/LIFELINES.md), the real safe havens, and
 // the real bank size. Retired claims are pinned as forbidden strings so stale
 // copy cannot quietly return.
 
@@ -14,7 +14,7 @@ const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
 const state = readFileSync(new URL('../STATE.md', import.meta.url), 'utf8');
 const screens = readFileSync(new URL('../src/shell/ui/screens.js', import.meta.url), 'utf8');
 
-// Retired by the CLAUDE.md §3 owner revision (docs/LIFELINES.md): the audience
+// Retired by the the project design rules owner revision (docs/LIFELINES.md): the audience
 // can be wrong, the friend guesses. The removed mastery board must not be sold.
 const FORBIDDEN = [
   'never points you at a wrong answer',

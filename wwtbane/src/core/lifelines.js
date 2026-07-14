@@ -1,7 +1,7 @@
 // lifelines.js — 50:50, Ask the Audience, Phone a Friend. Pure; rng injected so
 // results are reproducible under a seed.
 //
-// Integrity that still holds (CLAUDE.md §3/§4):
+// Integrity that still holds (the project design rules):
 //   - 50:50 removes only distractors, never a correct option, always leaves >=1.
 //   - The authored key alone decides GRADING — a lifeline never grades.
 //   - A lifeline-assisted correct answer does not promote mastery (runController).
