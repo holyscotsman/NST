@@ -38,12 +38,14 @@
         domain: q.domain || "general",
         difficulty: q.difficulty || 1,
         image: q.image || null,
+        imageSrc: q.imageSrc || null,
         imageAlt: q.imageAlt || "",
         optionNotes: q.optionNotes ? q.optionNotes.slice() : null,
       };
     }).filter(function (q) { return q.prompt && q.options.length >= 2 && q.correct != null; });
     return _bank;
   }
+  function resetCache() { _bank = null; }
 
   function bankMeta() {
     var b = normalizeBank();
@@ -166,6 +168,7 @@
 
   PE.engine = {
     normalizeBank: normalizeBank,
+    resetCache: resetCache,
     bankMeta: bankMeta,
     rng: rng,
     shuffle: shuffle,

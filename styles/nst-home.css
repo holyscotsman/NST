@@ -527,3 +527,18 @@ body {
 .nst-larger-text .nst-card-title { font-size: 25px; }
 .nst-larger-text .nst-card-desc { font-size: 16.5px; }
 .nst-larger-text .nst-set-label, .nst-larger-text .nst-modal-body-text { font-size: 16px; }
+
+/* ---------- Question-bank picker ---------- */
+.nst-bank-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.nst-bank-empty { font-size: 13px; color: var(--faint); line-height: 1.5; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; }
+.nst-bank-row { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); cursor: pointer; transition: border-color 0.15s var(--ease), background 0.15s var(--ease); }
+.nst-bank-row:hover { border-color: var(--purple); }
+.nst-bank-row.on { border-color: rgba(124, 77, 255, 0.6); background: rgba(124, 77, 255, 0.12); }
+.nst-bank-row input { accent-color: var(--purple); width: 16px; height: 16px; flex-shrink: 0; }
+.nst-bank-rowtitle { font-weight: 600; font-size: 14px; color: var(--text); }
+.nst-bank-rowsub { font-size: 12px; color: var(--faint); margin-top: 1px; }
+.nst-bank-apply { color: var(--purple-light) !important; }
+
+.nst-bankchip { margin-top: 6px; align-self: center; font-family: var(--font-ui); font-size: 12.5px; font-weight: 600; color: var(--muted-2); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: color 0.15s var(--ease), border-color 0.15s var(--ease); }
+.nst-bankchip:hover { color: var(--purple-hover); border-color: var(--purple); }
+.nst-bankchip.empty { color: var(--warn-text); border-color: rgba(255, 176, 32, 0.4); }

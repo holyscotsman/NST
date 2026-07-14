@@ -124,14 +124,36 @@
     else PE.exam.start(container, opts);
   }
 
+  function showNoBank(container) {
+    var el = ui.el;
+    container.innerHTML = "";
+    var root = el("div", "pe-entry");
+    var header = el("div", "pe-entry-head");
+    var back = el("a", "pe-back", "&#8592; Nutanix Study Tool");
+    back.href = HOME;
+    header.appendChild(back);
+    header.appendChild(el("h1", "pe-entry-title", "Nutanix Practice Exams"));
+    root.appendChild(header);
+    var box = el("div", "pe-nobank");
+    box.appendChild(el("h2", null, "No question bank loaded"));
+    box.appendChild(el("p", null, "Choose a question bank from the launcher (Settings → Question bank), then come back. Banks live in /banks/ — see banks/README.md to add one."));
+    var cta = el("a", "pe-btn pe-btn-primary", "Choose a bank →");
+    cta.href = HOME;
+    box.appendChild(cta);
+    root.appendChild(box);
+    container.appendChild(root);
+  }
+
   function boot() {
     var container = document.getElementById("pe-root");
     if (!container) return;
-    if (!window.STARNIX_QUESTIONS || !engine.normalizeBank().length) {
-      container.innerHTML = '<div class="pe-fatal">Could not load the question bank.</div>';
-      return;
-    }
-    showEntry(container);
+    container.innerHTML = '<div class="pe-loading">Loading question bank…</div>';
+    window.NSTBank.load().then(function (bank) {
+      if (!bank || !bank.questions.length) { showNoBank(container); return; }
+      window.STARNIX_QUESTIONS = window.NSTBank.toStarNix(bank);
+      engine.resetCache();
+      showEntry(container);
+    }).catch(function () { showNoBank(container); });
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

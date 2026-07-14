@@ -30,8 +30,7 @@
 
   // Renders an exhibit image block for a question, or null if none / missing.
   function exhibit(q) {
-    if (!q.image) return null;
-    var src = engine.exhibitSrc(q.image);
+    var src = q.imageSrc || (q.image && engine.exhibitSrc(q.image));
     if (!src) return null;
     var wrap = el("figure", "pe-exhibit");
     var img = el("img");

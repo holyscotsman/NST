@@ -300,3 +300,10 @@ body {
 .pe-seg:hover { border-color: var(--purple); color: var(--purple-hover); }
 .pe-seg:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 2px; }
 .pe-seg.on { border-color: rgba(124, 77, 255, 0.6); background: rgba(124, 77, 255, 0.16); color: #fff; }
+
+/* ---------- No-bank / loading states ---------- */
+.pe-loading { color: var(--muted); text-align: center; padding: 80px 20px; font-weight: 600; }
+.pe-nobank { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 18px; padding: 32px; margin-top: 12px; }
+.pe-nobank h2 { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--heading); }
+.pe-nobank p { color: var(--muted); margin: 10px 0 20px; line-height: 1.6; font-size: 14.5px; }
+.pe-nobank .pe-btn { text-decoration: none; display: inline-flex; }

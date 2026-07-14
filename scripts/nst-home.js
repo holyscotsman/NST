@@ -83,6 +83,64 @@
     return wrap;
   }
 
+  // Question-bank picker section (async — the manifest is fetched).
+  function buildBankSection() {
+    var s = section("Question bank");
+    s.appendChild(el("p", "nst-set-note", "The tools load questions from the active bank at runtime — nothing is baked in. Add banks to /banks/ (see banks/README.md)."));
+    var list = el("div", "nst-bank-list");
+    list.appendChild(el("div", "nst-set-note", "Loading…"));
+    s.appendChild(list);
+    var Bank = window.NSTBank;
+    if (!Bank) { list.innerHTML = ""; list.appendChild(el("div", "nst-bank-empty", "Bank loader unavailable.")); return s; }
+    Bank.list().then(function (banks) {
+      list.innerHTML = "";
+      if (!banks.length) {
+        list.appendChild(el("div", "nst-bank-empty", "No question banks found. Drop a Markdown bank into /banks/, list it in manifest.json, then reload."));
+        return;
+      }
+      var applyHint = el("p", "nst-set-note nst-bank-apply", "Selected — reopen a tool to load it.");
+      applyHint.style.display = "none";
+      var activeId = Bank.active() || "";
+      var choices = [{ id: "", cert: "None", title: "No bank (tools stay empty)" }].concat(banks);
+      choices.forEach(function (b) {
+        var on = (b.id || "") === activeId;
+        var row = el("label", "nst-bank-row" + (on ? " on" : ""));
+        var r = el("input"); r.type = "radio"; r.name = "nst-bank"; r.checked = on;
+        r.addEventListener("change", function () {
+          Bank.setActive(b.id || null);
+          [].forEach.call(list.querySelectorAll(".nst-bank-row"), function (x) { x.classList.remove("on"); });
+          row.classList.add("on");
+          applyHint.style.display = "";
+        });
+        row.appendChild(r);
+        var txt = el("div", "nst-bank-rowtext");
+        txt.appendChild(el("div", "nst-bank-rowtitle", esc(b.title || b.cert || b.id)));
+        if (b.id) txt.appendChild(el("div", "nst-bank-rowsub", esc(b.cert || "") + (b.count ? " · " + b.count + " questions" : "")));
+        row.appendChild(txt);
+        list.appendChild(row);
+      });
+      list.appendChild(applyHint);
+    });
+    return s;
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+
+  // A small chip on the hero showing the active bank (or that none is chosen).
+  function renderBankStatus() {
+    var Bank = window.NSTBank; if (!Bank) return;
+    var host = document.querySelector(".nst-hero"); if (!host) return;
+    var chip = el("button", "nst-bankchip");
+    chip.type = "button";
+    chip.addEventListener("click", buildModal);
+    host.appendChild(chip);
+    var id = Bank.active() || "";
+    Bank.list().then(function (banks) {
+      var b = banks.filter(function (x) { return x.id === id; })[0];
+      chip.textContent = b ? ("Question bank: " + (b.title || b.cert || b.id)) : "No question bank selected — choose one";
+      chip.classList.toggle("empty", !b);
+    });
+  }
+
   function buildModal() {
     var prefs = P.get();
     var overlay = el("div", "nst-modal-overlay");
@@ -100,6 +158,9 @@
     modal.appendChild(head);
 
     var body = el("div", "nst-modal-body");
+
+    // --- Question bank ---
+    body.appendChild(buildBankSection());
 
     // --- Accessibility ---
     var acc = section("Accessibility");
@@ -194,6 +255,7 @@
   function init() {
     var btn = document.getElementById("nst-settings-btn");
     if (btn) btn.addEventListener("click", buildModal);
+    renderBankStatus();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
