@@ -1,3 +1,10 @@
 {
-  "banks": []
+  "banks": [
+    {
+      "id": "ncp-mci",
+      "cert": "NCP-MCI",
+      "title": "Nutanix Certified Professional — Multicloud Infrastructure",
+      "file": "ncp-mci/ncp-mci.md"
+    }
+  ]
 }

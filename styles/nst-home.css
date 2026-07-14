@@ -539,6 +539,16 @@ body {
 .nst-bank-rowsub { font-size: 12px; color: var(--faint); margin-top: 1px; }
 .nst-bank-apply { color: var(--purple-light) !important; }
 
-.nst-bankchip { margin-top: 6px; align-self: center; font-family: var(--font-ui); font-size: 12.5px; font-weight: 600; color: var(--muted-2); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: color 0.15s var(--ease), border-color 0.15s var(--ease); }
-.nst-bankchip:hover { color: var(--purple-hover); border-color: var(--purple); }
-.nst-bankchip.empty { color: var(--warn-text); border-color: rgba(255, 176, 32, 0.4); }
+/* Certification selector on the hero */
+.nst-cert { margin-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.nst-cert-label { font-family: var(--font-ui); font-weight: 700; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--purple-light); }
+.nst-cert-control { position: relative; display: inline-flex; }
+.nst-cert-control::after { content: ""; position: absolute; right: 17px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); pointer-events: none; transition: border-color 0.15s var(--ease); }
+.nst-cert-control:hover::after { border-color: var(--purple-light); }
+.nst-cert-select { appearance: none; -webkit-appearance: none; font-family: var(--font-ui); font-size: 15px; font-weight: 600; color: var(--heading); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 12px; padding: 11px 44px 11px 18px; min-width: 264px; cursor: pointer; text-align: center; transition: border-color 0.15s var(--ease), background 0.15s var(--ease), box-shadow 0.15s var(--ease); }
+.nst-cert-select:hover { border-color: var(--purple); }
+.nst-cert-select:focus-visible { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.3); }
+.nst-cert-select option { color: var(--text); background: #14101F; font-weight: 500; }
+.nst-cert-hint { font-family: var(--font-ui); font-size: 12.5px; color: var(--faint); }
+/* No certification chosen yet — nudge the selector so it reads as the next step. */
+.nst-cert.empty .nst-cert-select { border-color: rgba(124, 77, 255, 0.5); box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.1); }

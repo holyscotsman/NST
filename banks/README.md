@@ -3,21 +3,26 @@
 Each `.md` file here is one certification's question bank. The tools (WWTBANE, StarNix,
 Practice Exams) load the **active** bank at runtime — nothing is baked into the apps.
 
+Each bank lives in its own folder (e.g. `ncp-mci/`) with the Markdown file and an
+`images/` folder for any exhibits. The bundled `ncp-mci/` bank is a working example.
+
 ## Add a bank
 
-1. Write `your-cert.md` in the format below (or in [`docs/BANK_FORMAT.md`](../docs/BANK_FORMAT.md)).
-2. Put any exhibit images next to it (e.g. `images/…`).
+1. Make a folder `your-cert/` with `your-cert.md` in the format below (or in
+   [`docs/BANK_FORMAT.md`](../docs/BANK_FORMAT.md)).
+2. Put any exhibit images in `your-cert/images/` and reference them as `images/…`.
 3. Register it in `manifest.json`:
 
 ```json
 {
   "banks": [
-    { "id": "ncp-mci", "file": "ncp-mci.md", "cert": "NCP-MCI", "title": "Nutanix Certified Professional — Multicloud Infrastructure" }
+    { "id": "ncp-mci", "file": "ncp-mci/ncp-mci.md", "cert": "NCP-MCI", "title": "Nutanix Certified Professional — Multicloud Infrastructure" }
   ]
 }
 ```
 
-4. Open the Study Tool and pick the bank from the launcher (**Settings → Question bank**).
+4. Reload the Study Tool — it appears in the **Certification** selector on the home page
+   (also under Settings → Question bank). Pick it, then open any tool.
 
 ## Format (short version)
 
@@ -46,7 +51,7 @@ Explain: A storage container needs only a name; other settings inherit cluster d
 
 Full spec + all optional fields: [`docs/BANK_FORMAT.md`](../docs/BANK_FORMAT.md).
 
-## `_archive/`
+## Bundled bank
 
-Old banks kept for reference. Files here are **not** loaded (they're not in `manifest.json`).
-Move one up a level and add it to the manifest to use it.
+`ncp-mci/` is a 255-question NCP-MCI bank (with exhibit images) — the working example. Remove
+its entry from `manifest.json` if you want the tools to start with no certification selected.
