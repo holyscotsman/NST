@@ -134,8 +134,11 @@ body {
 .pe-progress-meta { font-size: 13px; color: var(--muted-2); font-weight: 600; white-space: nowrap; }
 
 /* Palette */
-.pe-palette { display: flex; flex-wrap: wrap; gap: 6px; }
-.pe-pal { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); color: var(--muted-2); font-weight: 700; font-size: 12px; cursor: pointer; font-family: var(--font-ui); transition: border-color 0.12s, background 0.12s; position: relative; }
+.pe-palette { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overflow-y: hidden; position: relative; padding: 2px 2px 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.pe-palette::-webkit-scrollbar { height: 7px; }
+.pe-palette::-webkit-scrollbar-track { background: transparent; }
+.pe-palette::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.pe-pal { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); color: var(--muted-2); font-weight: 700; font-size: 12px; cursor: pointer; font-family: var(--font-ui); transition: border-color 0.12s, background 0.12s; position: relative; }
 .pe-pal:hover { border-color: var(--purple); color: var(--purple-hover); }
 .pe-pal:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 1px; }
 .pe-pal.current { border-color: var(--purple-light); box-shadow: 0 0 0 1px var(--purple-light); color: var(--heading); }
@@ -284,3 +287,16 @@ body {
 .nst-larger-text .pe-explain p { font-size: 16px; }
 .nst-larger-text .pe-review-prompt { font-size: 17px; }
 .nst-larger-text .pe-modecard-desc { font-size: 16px; }
+
+/* ---------- Question-set picker (entry screen) ---------- */
+.pe-setpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+.pe-setpick-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.pe-seg {
+  font-family: var(--font-ui); font-weight: 700; font-size: 13.5px;
+  padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); color: var(--muted-2);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.pe-seg:hover { border-color: var(--purple); color: var(--purple-hover); }
+.pe-seg:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 2px; }
+.pe-seg.on { border-color: rgba(124, 77, 255, 0.6); background: rgba(124, 77, 255, 0.16); color: #fff; }

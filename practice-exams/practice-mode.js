@@ -9,7 +9,7 @@
   function start(container, opts) {
     opts = opts || {};
     var el = ui.el, esc = ui.esc;
-    var questions = engine.buildPractice();
+    var questions = engine.buildPractice(opts.count);
     var N = questions.length;
     var idx = 0;
     // per-index state: { chosen:(number|number[]|null), checked:bool, correct:bool }
@@ -67,6 +67,7 @@
         b.addEventListener("click", function () { idx = i; renderCard(); });
         paletteEl.appendChild(b);
       });
+      ui.centerPalette(paletteEl);
     }
 
     function selectOption(i) {

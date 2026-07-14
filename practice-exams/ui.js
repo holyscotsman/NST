@@ -98,8 +98,17 @@
     return wrap;
   }
 
+  // Horizontal question strip: scroll the current chip (.pe-pal.current) to center.
+  function centerPalette(host) {
+    if (!host) return;
+    var cur = host.querySelector(".pe-pal.current");
+    if (!cur) return;
+    host.scrollLeft = cur.offsetLeft - host.clientWidth / 2 + cur.offsetWidth / 2;
+  }
+
   PE.ui = {
     el: el, esc: esc, ICONS: ICONS, LETTERS: LETTERS,
     exhibit: exhibit, option: option, domainBreakdown: domainBreakdown,
+    centerPalette: centerPalette,
   };
 })();

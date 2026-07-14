@@ -18,8 +18,9 @@
   function showEntry(container) {
     var el = ui.el, esc = ui.esc, cfg = window.PE_CONFIG;
     var meta = engine.bankMeta();
-    var examCount = Math.min(cfg.EXAM_QUESTION_COUNT, meta.total);
+    var randomCount = Math.min(cfg.EXAM_QUESTION_COUNT, meta.total);
     var passN = Math.round(cfg.PASS_THRESHOLD * 100);
+    var useFull = false;   // question-set choice: false = 75 random, true = full bank
     container.innerHTML = "";
     var root = el("div", "pe-entry");
 
@@ -33,6 +34,33 @@
       esc(meta.name) + " · " + meta.total + " questions in the bank"));
     root.appendChild(header);
 
+    // Question-set picker (applies to whichever mode you start)
+    var pick = el("div", "pe-setpick");
+    pick.setAttribute("role", "radiogroup");
+    pick.setAttribute("aria-label", "Question set");
+    pick.appendChild(el("span", "pe-setpick-label", "Question set"));
+    var segRandom = el("button", "pe-seg on", randomCount + " random");
+    var segFull = el("button", "pe-seg", "Full bank · " + meta.total);
+    [segRandom, segFull].forEach(function (b) { b.type = "button"; b.setAttribute("role", "radio"); });
+    segRandom.setAttribute("aria-checked", "true");
+    segFull.setAttribute("aria-checked", "false");
+    function selectSet(full) {
+      useFull = full;
+      segRandom.classList.toggle("on", !full);
+      segFull.classList.toggle("on", full);
+      segRandom.setAttribute("aria-checked", String(!full));
+      segFull.setAttribute("aria-checked", String(full));
+      updateFacts();
+    }
+    segRandom.addEventListener("click", function () { selectSet(false); });
+    segFull.addEventListener("click", function () { selectSet(true); });
+    pick.appendChild(segRandom);
+    pick.appendChild(segFull);
+    root.appendChild(pick);
+
+    function chosenCount() { return useFull ? meta.total : randomCount; }
+    function examMinutes() { return Math.round(cfg.EXAM_TIME_LIMIT_MIN * chosenCount() / cfg.EXAM_QUESTION_COUNT); }
+
     // Mode cards
     var modes = el("div", "pe-modes");
 
@@ -42,9 +70,9 @@
       '<div class="pe-modecard-tag">PRACTICE</div>' +
       '<h2 class="pe-modecard-title">Practice Mode</h2>' +
       '<p class="pe-modecard-desc">Instant feedback after every question, the correct answer and explanation revealed, unlimited retries. Untimed — move at your own pace with free navigation.</p>' +
-      '<ul class="pe-modecard-facts"><li>Instant feedback</li><li>Unlimited retries</li><li>Untimed</li></ul>' +
+      '<ul class="pe-modecard-facts"><li class="pe-fact-count"></li><li>Instant feedback</li><li>Untimed</li></ul>' +
       '<span class="pe-modecard-cta">Start practicing ' + ui.ICONS.arrowRight + '</span>';
-    pcard.addEventListener("click", function () { launch("practice", container); });
+    pcard.addEventListener("click", function () { launch("practice", container, chosenCount()); });
     modes.appendChild(pcard);
 
     var ecard = el("button", "pe-modecard pe-modecard-exam");
@@ -53,13 +81,19 @@
       '<div class="pe-modecard-tag">EXAM</div>' +
       '<h2 class="pe-modecard-title">Exam Mode</h2>' +
       '<p class="pe-modecard-desc">A timed, exam-like sitting: randomized questions and answer order, flag-for-review, and no feedback until you submit. Pass at ' + passN + '%.</p>' +
-      '<ul class="pe-modecard-facts"><li>' + examCount + ' questions</li><li>' + cfg.EXAM_TIME_LIMIT_MIN + ' minutes</li><li>' + passN + '% to pass</li></ul>' +
+      '<ul class="pe-modecard-facts"><li class="pe-fact-count"></li><li class="pe-fact-time"></li><li>' + passN + '% to pass</li></ul>' +
       '<span class="pe-modecard-cta">Start exam ' + ui.ICONS.arrowRight + '</span>';
-    ecard.addEventListener("click", function () {
-      launch("exam", container);
-    });
+    ecard.addEventListener("click", function () { launch("exam", container, chosenCount()); });
     modes.appendChild(ecard);
     root.appendChild(modes);
+
+    function updateFacts() {
+      var n = chosenCount();
+      pcard.querySelector(".pe-fact-count").textContent = n + " questions";
+      ecard.querySelector(".pe-fact-count").textContent = n + " questions";
+      ecard.querySelector(".pe-fact-time").textContent = examMinutes() + " minutes";
+    }
+    updateFacts();
 
     // Recent attempts
     var history = engine.loadHistory();
@@ -80,13 +114,14 @@
     try { window.scrollTo(0, 0); } catch (e) {}
   }
 
-  function launch(mode, container) {
-    var handlers = {
+  function launch(mode, container, count) {
+    var opts = {
+      count: count,
       onExit: function () { showEntry(container); },
       onHome: function () { window.location.href = HOME; },
     };
-    if (mode === "practice") PE.practice.start(container, handlers);
-    else PE.exam.start(container, handlers);
+    if (mode === "practice") PE.practice.start(container, opts);
+    else PE.exam.start(container, opts);
   }
 
   function boot() {

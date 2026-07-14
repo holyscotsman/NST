@@ -99,18 +99,25 @@
     return dq;
   }
 
-  /* ---- exam assembly ------------------------------------------------------- */
-  function buildExam() {
+  /* ---- exam assembly -------------------------------------------------------
+   * count: how many questions to draw (defaults to EXAM_QUESTION_COUNT; pass the
+   * bank size for a full-bank exam). Questions and options are shuffled. */
+  function buildExam(count) {
     var cfg = window.PE_CONFIG;
     var pool = normalizeBank().slice();
     if (cfg.SHUFFLE_QUESTIONS) pool = shuffle(pool);
-    var n = Math.min(cfg.EXAM_QUESTION_COUNT, pool.length);
+    var n = Math.min(count || cfg.EXAM_QUESTION_COUNT, pool.length);
     var chosen = pool.slice(0, n);
     if (cfg.SHUFFLE_OPTIONS) chosen = chosen.map(shuffleOptions);
     return chosen;
   }
-  // Practice Mode: the full bank in authored order, options unshuffled for a stable study view.
-  function buildPractice() { return normalizeBank().slice(); }
+  // Practice Mode: the full bank in authored order (stable study view), OR a random
+  // subset of `count` when count is smaller than the bank. Options stay unshuffled.
+  function buildPractice(count) {
+    var pool = normalizeBank().slice();
+    if (count && count < pool.length) return shuffle(pool).slice(0, count);
+    return pool;
+  }
 
   /* ---- scoring ------------------------------------------------------------- */
   // results: [{ q, chosen, correct }]
