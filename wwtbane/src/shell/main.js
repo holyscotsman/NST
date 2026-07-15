@@ -25,7 +25,9 @@ import { playSteveCutscene } from './ui/steveCutscene.js';
 import { TitleScreen, GreenRoom, ResultScreen, HelpScreen, SettingsScreen } from './ui/screens.js';
 import { h, clear, money } from './ui/dom.js';
 
-import { QUESTIONS } from '../content/questions.js';
+// (NST) Questions are loaded at runtime from the bank chosen in the launcher (see
+// _loadRuntimeBank) — nothing is baked into the app. src/content/questions.js remains
+// on disk as the schema/docs test fixture only.
 
 export class Game {
   constructor(roots) {
@@ -85,12 +87,16 @@ export class Game {
     // a convenience shortcut that flips the same persisted flag.
     if (params.get('dev') === '1' && !this.save.settings.dev) { this.save.settings.dev = true; this.persist(); }
 
-    // Validate the shipped bank; play with whatever is structurally valid.
-    const res = validateBank(QUESTIONS);
+    // (NST) Questions come from the bank chosen in the launcher, loaded at runtime from
+    // /banks/ — nothing is baked into the app. No bank selected -> the friendly "no bank"
+    // screen. The game runs a full 30-rung ladder, so a bank under 30 valid questions is
+    // shown the same screen with a count-specific message.
+    const source = await this._loadRuntimeBank();
+    const res = validateBank(source, { runtime: true });
     this.bank = res.valid;
     if (res.rejected.length) console.warn('[wwtbane] rejected questions:', res.rejected);
     if (this.bank.length < 30) {
-      this._fatal(`The question bank is too small to play (${this.bank.length} valid). Need at least 30.`);
+      this._noBank(this.bank.length);
       return;
     }
 
@@ -869,5 +875,30 @@ export class Game {
     this._swap(h('section', { class: 'screen fatal' },
       h('h2', {}, 'Could not start'),
       h('p', {}, msg)));
+  }
+
+  // (NST) Load the active runtime bank (window.NSTBank) and adapt it to WWTBANE's shape.
+  // Returns [] when no bank is selected or the loader/global is absent — the caller then
+  // shows the friendly "no bank" screen. Never throws.
+  async _loadRuntimeBank() {
+    try {
+      if (window.NSTBank && typeof window.NSTBank.load === 'function') {
+        const bank = await window.NSTBank.load();
+        if (bank && bank.questions && bank.questions.length) return window.NSTBank.toWWTBANE(bank);
+      }
+    } catch (e) { console.warn('[wwtbane] bank load failed:', e); }
+    return [];
+  }
+
+  // (NST) Shown when no playable bank is loaded: no bank selected, or the selected bank has
+  // fewer than the 30 valid questions the ladder needs. Links back to the launcher to choose one.
+  _noBank(count) {
+    const msg = count > 0
+      ? `This question bank has only ${count} valid question${count === 1 ? '' : 's'}. Who Wants to be a Nutanix Engineer needs at least 30 to run the full ladder.`
+      : 'No question bank is loaded yet. Choose one in the Nutanix Study Tool launcher (Settings → Question bank), then come back to play.';
+    this._swap(h('section', { class: 'screen fatal' },
+      h('h2', {}, 'No question bank'),
+      h('p', {}, msg),
+      h('button', { class: 'secondary', type: 'button', onclick: () => { window.location.href = '../'; } }, 'Choose a bank →')));
   }
 }

@@ -775,6 +775,7 @@
         }
       }
     } catch (ePl) {}
+    topBtn("← Main menu", function () { window.location.href = "../"; });
     topBtn("Stats / Codex", function () { self.showStats(); });
     topBtn("Settings", function () { self.showSettings(); });
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
@@ -1355,9 +1356,39 @@
   // Resume or New Game. Games write profile.saves[id] at their natural boundaries (sector /
   // round / gate) via ctx.persistence and clear it on game over; Resume hands the snapshot
   // back through the additive ctx.resumeData key (01 §9a additive rule).
+  /* (bank engine) Graceful state when no question bank is loaded. The shell and every
+   * game are question-driven, so with an empty pool we explain how to choose a bank
+   * instead of launching a mission that would have nothing to ask. */
+  Shell.prototype.showNoBank = function () {
+    this._clearScreen();
+    this.screen = "nobank";
+    var self = this;
+    var s = el("div", "sx-screen sx-panelwrap");
+    var p = el("div", "sx-panel");
+    p.appendChild(el("div", "sx-eyebrow", "No question bank"));
+    p.appendChild(el("h2", "sx-h2", "No question bank loaded"));
+    p.appendChild(el("div", "sx-note",
+      "StarNix is the game engine — the questions come from a bank you choose in the Nutanix Study Tool launcher (Settings → Question bank). Pick a bank, then come back and launch a mission."));
+    var row = el("div", "sx-row");
+    var bMenu = el("button", "sx-btn sx-btn-ghost", "← Bridge menu");
+    this._on(bMenu, "click", function () { self.showMenu(); });
+    var bHome = el("button", "sx-btn sx-btn-iris", "Choose a bank →");
+    this._on(bHome, "click", function () { window.location.href = "../"; });
+    row.appendChild(bMenu); row.appendChild(bHome);
+    p.appendChild(row);
+    s.appendChild(p);
+    this.stage.appendChild(s);
+    this._focusScreen(s);
+  };
+
   Shell.prototype.enterGame = function (id, resumeChoice) {
     var module = StarNix.getGame(id);
     if (!module) { this._toast("Game " + id + " not registered."); return; }
+    // (bank engine) an empty pool means no bank is loaded — send the player to pick one
+    // rather than mounting a game whose question provider would throw on next().
+    var poolN = 0;
+    try { poolN = (StarNix.core.questions && StarNix.core.questions.count) ? StarNix.core.questions.count() : 0; } catch (eQ) { poolN = 0; }
+    if (!poolN) { this.showNoBank(); return; }
     var self0 = this, core0 = StarNix.core;
     var save = null;
     try { save = core0.profile && core0.profile.saves && core0.profile.saves[id]; } catch (e0) {}

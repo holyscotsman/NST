@@ -83,6 +83,99 @@
     return wrap;
   }
 
+  // Question-bank picker section (async — the manifest is fetched).
+  function buildBankSection() {
+    var s = section("Question bank");
+    s.appendChild(el("p", "nst-set-note", "The tools load questions from the active bank at runtime — nothing is baked in. Add banks to /banks/ (see banks/README.md)."));
+    var list = el("div", "nst-bank-list");
+    list.appendChild(el("div", "nst-set-note", "Loading…"));
+    s.appendChild(list);
+    var Bank = window.NSTBank;
+    if (!Bank) { list.innerHTML = ""; list.appendChild(el("div", "nst-bank-empty", "Bank loader unavailable.")); return s; }
+    Bank.list().then(function (banks) {
+      list.innerHTML = "";
+      if (!banks.length) {
+        list.appendChild(el("div", "nst-bank-empty", "No question banks found. Drop a Markdown bank into /banks/, list it in manifest.json, then reload."));
+        return;
+      }
+      var applyHint = el("p", "nst-set-note nst-bank-apply", "Selected — reopen a tool to load it.");
+      applyHint.style.display = "none";
+      var activeId = Bank.active() || "";
+      var choices = [{ id: "", cert: "None", title: "No bank (tools stay empty)" }].concat(banks);
+      choices.forEach(function (b) {
+        var on = (b.id || "") === activeId;
+        var row = el("label", "nst-bank-row" + (on ? " on" : ""));
+        var r = el("input"); r.type = "radio"; r.name = "nst-bank"; r.checked = on;
+        r.addEventListener("change", function () {
+          Bank.setActive(b.id || null);
+          [].forEach.call(list.querySelectorAll(".nst-bank-row"), function (x) { x.classList.remove("on"); });
+          row.classList.add("on");
+          applyHint.style.display = "";
+        });
+        row.appendChild(r);
+        var txt = el("div", "nst-bank-rowtext");
+        txt.appendChild(el("div", "nst-bank-rowtitle", esc(b.title || b.cert || b.id)));
+        if (b.id) txt.appendChild(el("div", "nst-bank-rowsub", esc(b.cert || "") + (b.count ? " · " + b.count + " questions" : "")));
+        row.appendChild(txt);
+        list.appendChild(row);
+      });
+      list.appendChild(applyHint);
+    });
+    return s;
+  }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+
+  // Certification selector on the hero: pick which certification's question bank the
+  // three tools load. Writes nst.activeBank (via NSTBank.setActive); every tool reads it
+  // at boot. Populated from banks/manifest.json, so adding a bank adds a certification here.
+  function renderCertSelector() {
+    var Bank = window.NSTBank; if (!Bank) return;
+    var host = document.querySelector(".nst-hero"); if (!host) return;
+
+    var wrap = el("div", "nst-cert");
+    wrap.setAttribute("role", "group");
+    wrap.setAttribute("aria-label", "Certification");
+    var lab = el("label", "nst-cert-label", "Certification");
+    lab.setAttribute("for", "nst-cert-select");
+    var control = el("div", "nst-cert-control");
+    var sel = el("select", "nst-cert-select");
+    sel.id = "nst-cert-select";
+    control.appendChild(sel);
+    var hint = el("span", "nst-cert-hint", "");
+    wrap.appendChild(lab);
+    wrap.appendChild(control);
+    wrap.appendChild(hint);
+    host.appendChild(wrap);
+
+    var activeId = Bank.active() || "";
+    Bank.list().then(function (banks) {
+      sel.innerHTML = "";
+      var ph = el("option", null, banks.length ? "Choose a certification…" : "No certifications available");
+      ph.value = "";
+      sel.appendChild(ph);
+      banks.forEach(function (b) {
+        var o = el("option", null, esc(b.cert || b.title || b.id));
+        o.value = b.id;
+        o.title = b.title || "";
+        if (b.id === activeId) o.selected = true;
+        sel.appendChild(o);
+      });
+      if (!banks.length) { sel.disabled = true; wrap.classList.add("empty"); }
+      function updateHint() {
+        var b = banks.filter(function (x) { return x.id === sel.value; })[0];
+        if (!banks.length) { hint.textContent = "Add a bank to /banks/ to get started."; return; }
+        hint.textContent = b ? (b.title || b.cert || b.id) + " — open a tool below to study it."
+                             : "Pick a certification to load its questions.";
+        wrap.classList.toggle("empty", !sel.value);
+      }
+      updateHint();
+      sel.addEventListener("change", function () {
+        Bank.setActive(sel.value || null);
+        updateHint();
+      });
+    });
+  }
+
   function buildModal() {
     var prefs = P.get();
     var overlay = el("div", "nst-modal-overlay");
@@ -100,6 +193,9 @@
     modal.appendChild(head);
 
     var body = el("div", "nst-modal-body");
+
+    // --- Question bank ---
+    body.appendChild(buildBankSection());
 
     // --- Accessibility ---
     var acc = section("Accessibility");
@@ -194,6 +290,7 @@
   function init() {
     var btn = document.getElementById("nst-settings-btn");
     if (btn) btn.addEventListener("click", buildModal);
+    renderCertSelector();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();

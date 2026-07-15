@@ -30,8 +30,7 @@
 
   // Renders an exhibit image block for a question, or null if none / missing.
   function exhibit(q) {
-    if (!q.image) return null;
-    var src = engine.exhibitSrc(q.image);
+    var src = q.imageSrc || (q.image && engine.exhibitSrc(q.image));
     if (!src) return null;
     var wrap = el("figure", "pe-exhibit");
     var img = el("img");
@@ -98,8 +97,17 @@
     return wrap;
   }
 
+  // Horizontal question strip: scroll the current chip (.pe-pal.current) to center.
+  function centerPalette(host) {
+    if (!host) return;
+    var cur = host.querySelector(".pe-pal.current");
+    if (!cur) return;
+    host.scrollLeft = cur.offsetLeft - host.clientWidth / 2 + cur.offsetWidth / 2;
+  }
+
   PE.ui = {
     el: el, esc: esc, ICONS: ICONS, LETTERS: LETTERS,
     exhibit: exhibit, option: option, domainBreakdown: domainBreakdown,
+    centerPalette: centerPalette,
   };
 })();

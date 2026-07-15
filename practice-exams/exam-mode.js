@@ -10,12 +10,14 @@
   function start(container, opts) {
     opts = opts || {};
     var el = ui.el, esc = ui.esc, cfg = window.PE_CONFIG;
-    var questions = engine.buildExam();
+    var questions = engine.buildExam(opts.count);
     var N = questions.length;
     var idx = 0;
     var answers = questions.map(function () { return null; });
     var flags = questions.map(function () { return false; });
-    var endTime = Date.now() + cfg.EXAM_TIME_LIMIT_MIN * 60 * 1000;
+    // Scale the time limit to the number of questions (constant per-question budget).
+    var limitMin = Math.round(cfg.EXAM_TIME_LIMIT_MIN * N / cfg.EXAM_QUESTION_COUNT);
+    var endTime = Date.now() + limitMin * 60 * 1000;
     var timerId = null;
     var finished = false;
 
@@ -103,6 +105,7 @@
         b.addEventListener("click", function () { idx = i; renderCard(); });
         paletteEl.appendChild(b);
       });
+      ui.centerPalette(paletteEl);
     }
 
     function renderCard() {

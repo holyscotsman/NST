@@ -29,10 +29,11 @@
 
   <noscript><div class="pe-fatal">Nutanix Practice Exams needs JavaScript enabled.</div></noscript>
 
-  <!-- Config + data (bank ported verbatim from StarNix's Interrogation Test) -->
+  <!-- Config -->
   <script src="./config.js"></script>
-  <script src="./data/questions.js"></script>
-  <script src="./data/exhibits.js"></script>
+  <!-- Question-bank framework: questions load at runtime from the active bank -->
+  <script src="../shared/bank-parser.js"></script>
+  <script src="../shared/bank-loader.js"></script>
   <!-- Engine + UI + modes -->
   <script src="./engine.js"></script>
   <script src="./ui.js"></script>

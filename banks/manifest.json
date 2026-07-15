@@ -1,0 +1,16 @@
+{
+  "banks": [
+    {
+      "id": "ncp-mci",
+      "cert": "NCP-MCI",
+      "title": "Nutanix Certified Professional — Multicloud Infrastructure",
+      "file": "ncp-mci/ncp-mci.md"
+    },
+    {
+      "id": "ncp-mci-25",
+      "cert": "NCP-MCI · 25-Question Set",
+      "title": "Nutanix Practice — 25-Question Set",
+      "file": "ncp-mci-25/ncp-mci-25.md"
+    }
+  ]
+}

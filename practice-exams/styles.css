@@ -134,8 +134,11 @@ body {
 .pe-progress-meta { font-size: 13px; color: var(--muted-2); font-weight: 600; white-space: nowrap; }
 
 /* Palette */
-.pe-palette { display: flex; flex-wrap: wrap; gap: 6px; }
-.pe-pal { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); color: var(--muted-2); font-weight: 700; font-size: 12px; cursor: pointer; font-family: var(--font-ui); transition: border-color 0.12s, background 0.12s; position: relative; }
+.pe-palette { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; overflow-y: hidden; position: relative; padding: 2px 2px 8px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.pe-palette::-webkit-scrollbar { height: 7px; }
+.pe-palette::-webkit-scrollbar-track { background: transparent; }
+.pe-palette::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+.pe-pal { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); color: var(--muted-2); font-weight: 700; font-size: 12px; cursor: pointer; font-family: var(--font-ui); transition: border-color 0.12s, background 0.12s; position: relative; }
 .pe-pal:hover { border-color: var(--purple); color: var(--purple-hover); }
 .pe-pal:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 1px; }
 .pe-pal.current { border-color: var(--purple-light); box-shadow: 0 0 0 1px var(--purple-light); color: var(--heading); }
@@ -284,3 +287,41 @@ body {
 .nst-larger-text .pe-explain p { font-size: 16px; }
 .nst-larger-text .pe-review-prompt { font-size: 17px; }
 .nst-larger-text .pe-modecard-desc { font-size: 16px; }
+
+/* ---------- Question-set picker (entry screen) ---------- */
+.pe-setpick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 24px; }
+.pe-setpick-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.pe-seg {
+  font-family: var(--font-ui); font-weight: 700; font-size: 13.5px;
+  padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02); color: var(--muted-2);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.pe-seg:hover { border-color: var(--purple); color: var(--purple-hover); }
+.pe-seg:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 2px; }
+.pe-seg.on { border-color: rgba(124, 77, 255, 0.6); background: rgba(124, 77, 255, 0.16); color: #fff; }
+
+/* ---------- Question-bank picker (entry screen) ---------- */
+.pe-bankpick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 22px; }
+.pe-bankpick-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.pe-bankpick-select {
+  appearance: none; -webkit-appearance: none;
+  font-family: var(--font-ui); font-weight: 600; font-size: 14px; color: var(--heading);
+  padding: 9px 40px 9px 14px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A98BFF' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  min-width: 240px; max-width: 100%;
+}
+.pe-bankpick-select:hover { border-color: var(--purple); }
+.pe-bankpick-select:focus-visible { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.3); }
+.pe-bankpick-select option { color: var(--text); background: #14121F; }
+.pe-pickprompt { margin-top: 22px; padding: 16px 18px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 15px; }
+
+/* ---------- No-bank / loading states ---------- */
+.pe-loading { color: var(--muted); text-align: center; padding: 80px 20px; font-weight: 600; }
+.pe-nobank { background: var(--glass); border: 1px solid var(--glass-border); border-radius: 18px; padding: 32px; margin-top: 12px; }
+.pe-nobank h2 { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--heading); }
+.pe-nobank p { color: var(--muted); margin: 10px 0 20px; line-height: 1.6; font-size: 14.5px; }
+.pe-nobank .pe-btn { text-decoration: none; display: inline-flex; }

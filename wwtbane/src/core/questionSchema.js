@@ -12,19 +12,27 @@ export const REVIEW_STATUSES = ['ai-drafted', 'verified', 'human-reviewed', 'qua
 const ID_RE = /^(?:[A-Z]+-[EMHX]-\d{3}|[a-z0-9]+(?:-[a-z0-9]+)*-q\d+)$/;
 
 // Validate a single question object. Returns { ok, errors: string[] }.
-export function validateQuestion(q, seenIds) {
+//
+// opts.runtime relaxes the checks that are specific to WWTBANE's *authored* bank —
+// the native id shape, the NCP-MCI domain whitelist, and the local-only image path.
+// A runtime bank supplied through the NST launcher (shared/bank-loader.js) is authored
+// in the neutral cross-tool format with its own id/domain vocabulary and same-origin
+// image URLs; those fields are only ever used by WWTBANE as opaque keys/labels, so
+// runtime mode checks structure (options/answers/stem) without imposing WWTBANE's taxonomy.
+export function validateQuestion(q, seenIds, opts = {}) {
+  const runtime = !!opts.runtime;
   const errors = [];
   const push = (m) => errors.push(m);
 
   if (!q || typeof q !== 'object') return { ok: false, errors: ['not an object'] };
 
-  if (typeof q.id !== 'string' || !ID_RE.test(q.id)) push(`bad id: ${JSON.stringify(q.id)}`);
+  if (typeof q.id !== 'string' || !(runtime ? q.id.trim().length > 0 : ID_RE.test(q.id))) push(`bad id: ${JSON.stringify(q.id)}`);
   if (seenIds && q.id) {
     if (seenIds.has(q.id)) push(`duplicate id: ${q.id}`);
     else seenIds.add(q.id);
   }
 
-  if (!DOMAINS.includes(q.domain)) push(`bad domain: ${q.domain}`);
+  if (runtime ? (typeof q.domain !== 'string' || !q.domain.trim()) : !DOMAINS.includes(q.domain)) push(`bad domain: ${q.domain}`);
   if (!DIFFICULTIES.includes(q.authoredDifficulty)) push(`bad authoredDifficulty: ${q.authoredDifficulty}`);
   if (q.type !== 'single' && q.type !== 'multi') push(`bad type: ${q.type}`);
   if (typeof q.stem !== 'string' || q.stem.trim().length < 8) push('stem too short/missing');
@@ -69,7 +77,9 @@ export function validateQuestion(q, seenIds) {
       push('image must be an object { src, alt }');
     } else {
       if (typeof q.image.src !== 'string' || q.image.src.trim().length === 0) push('image.src must be a non-empty string');
-      else if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(q.image.src.trim())) push('image.src must be a local path, not an external URL');
+      // Runtime banks are served from the same origin as the app; the loader resolves images
+      // to same-origin URLs. Only the authored bank must be a local (schemeless) path for offline play.
+      else if (!runtime && /^[a-z][a-z0-9+.-]*:|^\/\//i.test(q.image.src.trim())) push('image.src must be a local path, not an external URL');
       if (typeof q.image.alt !== 'string' || q.image.alt.trim().length < 3) push('image.alt (description) is required');
       if (typeof q.image.caption !== 'undefined' && typeof q.image.caption !== 'string') push('image.caption must be a string');
     }
@@ -96,13 +106,14 @@ export function validateQuestion(q, seenIds) {
 }
 
 // Validate a whole bank. Returns { ok, valid: [...], rejected: [{id, errors}], summary }.
-export function validateBank(bank) {
+// Pass { runtime: true } for banks loaded through the NST launcher (see validateQuestion).
+export function validateBank(bank, opts = {}) {
   const seen = new Set();
   const valid = [];
   const rejected = [];
   if (!Array.isArray(bank)) return { ok: false, valid, rejected, summary: 'bank is not an array' };
   for (const q of bank) {
-    const { ok, errors } = validateQuestion(q, seen);
+    const { ok, errors } = validateQuestion(q, seen, opts);
     if (ok) valid.push(q);
     else rejected.push({ id: q && q.id, errors });
   }
