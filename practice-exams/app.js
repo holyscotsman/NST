@@ -18,6 +18,7 @@
   function showEntry(container) {
     var el = ui.el, esc = ui.esc, cfg = window.PE_CONFIG;
     var meta = engine.bankMeta();
+    var hasQ = meta.total > 0;
     var randomCount = Math.min(cfg.EXAM_QUESTION_COUNT, meta.total);
     var passN = Math.round(cfg.PASS_THRESHOLD * 100);
     var useFull = false;   // question-set choice: false = 75 random, true = full bank
@@ -31,8 +32,22 @@
     header.appendChild(back);
     header.appendChild(el("h1", "pe-entry-title", "Nutanix Practice Exams"));
     header.appendChild(el("p", "pe-entry-sub",
-      esc(meta.name) + " · " + meta.total + " questions in the bank"));
+      hasQ ? (esc(meta.name) + " · " + meta.total + " questions in the bank")
+           : "Choose a question bank to begin."));
     root.appendChild(header);
+
+    // Question-bank picker — switch certifications/banks without leaving Practice Exams.
+    root.appendChild(buildBankPicker(container));
+
+    // No bank selected yet: prompt to pick one above (the picker is already rendered).
+    if (!hasQ) {
+      var prompt = el("div", "pe-pickprompt");
+      prompt.appendChild(el("p", null, "Select a question bank above, then start a practice test or exam."));
+      root.appendChild(prompt);
+      container.appendChild(root);
+      try { window.scrollTo(0, 0); } catch (e) {}
+      return;
+    }
 
     // Question-set picker (applies to whichever mode you start)
     var pick = el("div", "pe-setpick");
@@ -124,6 +139,48 @@
     else PE.exam.start(container, opts);
   }
 
+  // A "Question bank" <select> that lists every bank in the manifest and lets the player
+  // switch the active bank right here (mirrors the launcher's certification selector).
+  function buildBankPicker(container) {
+    var el = ui.el, esc = ui.esc;
+    var wrap = el("div", "pe-bankpick");
+    var lab = el("label", "pe-bankpick-label", "Question bank");
+    lab.setAttribute("for", "pe-bank-select");
+    var sel = el("select", "pe-bankpick-select");
+    sel.id = "pe-bank-select";
+    sel.setAttribute("aria-label", "Question bank");
+    wrap.appendChild(lab);
+    wrap.appendChild(sel);
+    var active = window.NSTBank.active() || "";
+    window.NSTBank.list().then(function (banks) {
+      sel.innerHTML = "";
+      var ph = el("option", null, banks.length ? "Choose a bank…" : "No banks available");
+      ph.value = "";
+      sel.appendChild(ph);
+      banks.forEach(function (b) {
+        var o = el("option", null, esc(b.cert || b.title || b.id));
+        o.value = b.id;
+        if (b.id === active) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.disabled = !banks.length;
+    });
+    sel.addEventListener("change", function () { switchBank(sel.value, container); });
+    return wrap;
+  }
+
+  // Switch the active bank, reload it, and re-render the entry screen with the new counts.
+  function switchBank(id, container) {
+    window.NSTBank.setActive(id || null);
+    container.innerHTML = '<div class="pe-loading">Loading question bank…</div>';
+    function done(bank) {
+      window.STARNIX_QUESTIONS = (bank && bank.questions.length) ? window.NSTBank.toStarNix(bank) : { questions: [] };
+      engine.resetCache();
+      showEntry(container);
+    }
+    window.NSTBank.load().then(done).catch(function () { done(null); });
+  }
+
   function showNoBank(container) {
     var el = ui.el;
     container.innerHTML = "";
@@ -147,12 +204,18 @@
   function boot() {
     var container = document.getElementById("pe-root");
     if (!container) return;
-    container.innerHTML = '<div class="pe-loading">Loading question bank…</div>';
-    window.NSTBank.load().then(function (bank) {
-      if (!bank || !bank.questions.length) { showNoBank(container); return; }
-      window.STARNIX_QUESTIONS = window.NSTBank.toStarNix(bank);
-      engine.resetCache();
-      showEntry(container);
+    container.innerHTML = '<div class="pe-loading">Loading…</div>';
+    // If the manifest has any banks, always render the entry screen (it carries the bank
+    // picker, so the player can switch banks here). Only a truly empty manifest is a dead end.
+    window.NSTBank.list().then(function (banks) {
+      if (!banks || !banks.length) { showNoBank(container); return; }
+      window.NSTBank.load().then(function (bank) {
+        if (bank && bank.questions.length) {
+          window.STARNIX_QUESTIONS = window.NSTBank.toStarNix(bank);
+          engine.resetCache();
+        }
+        showEntry(container);
+      }).catch(function () { showEntry(container); });
     }).catch(function () { showNoBank(container); });
   }
 
