@@ -125,54 +125,51 @@
   }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
 
-  // Certification selector on the hero: pick which certification's question bank the
-  // three tools load. Writes nst.activeBank (via NSTBank.setActive); every tool reads it
-  // at boot. Populated from banks/manifest.json, so adding a bank adds a certification here.
+  // Question-bank chooser on the hero: one button per bank in banks/manifest.json.
+  // Clicking a button writes nst.activeBank (via NSTBank.setActive); every tool reads it
+  // at boot. Adding a bank to the manifest adds a button here — no code change needed.
   function renderCertSelector() {
     var Bank = window.NSTBank; if (!Bank) return;
     var host = document.querySelector(".nst-hero"); if (!host) return;
 
     var wrap = el("div", "nst-cert");
     wrap.setAttribute("role", "group");
-    wrap.setAttribute("aria-label", "Certification");
-    var lab = el("label", "nst-cert-label", "Certification");
-    lab.setAttribute("for", "nst-cert-select");
-    var control = el("div", "nst-cert-control");
-    var sel = el("select", "nst-cert-select");
-    sel.id = "nst-cert-select";
-    control.appendChild(sel);
+    wrap.setAttribute("aria-label", "Question bank");
+    wrap.appendChild(el("div", "nst-cert-label", "Question bank"));
+    var group = el("div", "nst-cert-btns");
     var hint = el("span", "nst-cert-hint", "");
-    wrap.appendChild(lab);
-    wrap.appendChild(control);
+    wrap.appendChild(group);
     wrap.appendChild(hint);
     host.appendChild(wrap);
 
-    var activeId = Bank.active() || "";
     Bank.list().then(function (banks) {
-      sel.innerHTML = "";
-      var ph = el("option", null, banks.length ? "Choose a certification…" : "No certifications available");
-      ph.value = "";
-      sel.appendChild(ph);
-      banks.forEach(function (b) {
-        var o = el("option", null, esc(b.cert || b.title || b.id));
-        o.value = b.id;
-        o.title = b.title || "";
-        if (b.id === activeId) o.selected = true;
-        sel.appendChild(o);
-      });
-      if (!banks.length) { sel.disabled = true; wrap.classList.add("empty"); }
-      function updateHint() {
-        var b = banks.filter(function (x) { return x.id === sel.value; })[0];
-        if (!banks.length) { hint.textContent = "Add a bank to /banks/ to get started."; return; }
-        hint.textContent = b ? (b.title || b.cert || b.id) + " — open a tool below to study it."
-                             : "Pick a certification to load its questions.";
-        wrap.classList.toggle("empty", !sel.value);
+      group.innerHTML = "";
+      if (!banks.length) {
+        wrap.classList.add("empty");
+        group.appendChild(el("div", "nst-cert-empty", "No question banks yet. Add one to /banks/."));
+        hint.textContent = "";
+        return;
       }
-      updateHint();
-      sel.addEventListener("change", function () {
-        Bank.setActive(sel.value || null);
-        updateHint();
+      function refresh() {
+        var active = Bank.active() || "";
+        [].forEach.call(group.querySelectorAll(".nst-cert-btn"), function (btn) {
+          var on = btn.getAttribute("data-id") === active;
+          btn.classList.toggle("on", on);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        var b = banks.filter(function (x) { return x.id === active; })[0];
+        hint.textContent = b ? (b.title || b.cert || b.id) + " — open a tool below to study it."
+                             : "Pick a question bank to load its questions.";
+        wrap.classList.toggle("empty", !b);
+      }
+      banks.forEach(function (b) {
+        var btn = el("button", "nst-cert-btn", esc(b.title || b.cert || b.id));
+        btn.type = "button";
+        btn.setAttribute("data-id", b.id);
+        btn.addEventListener("click", function () { Bank.setActive(b.id); refresh(); });
+        group.appendChild(btn);
       });
+      refresh();
     });
   }
 

@@ -1,6 +1,6 @@
 # Nutanix Practice — 25-Question Set
 cert: NCP-MCI
-title: Nutanix Practice — 25-Question Set
+title: NCP-MCI - 25 Question Bank
 pass: 0.80
 domains: architecture, storage, networking, security, vms, lifecycle, monitoring, performance
 
