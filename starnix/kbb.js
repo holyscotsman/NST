@@ -3058,9 +3058,17 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
       renderMain(s); renderSquad(s); renderArtifacts(s); renderCoins(s); renderLog(s);
     }
     function onBuyConsumable(s, oi) { shopBuyConsumable(s.run, oi); renderMain(s); renderSquad(s); renderArtifacts(s); renderCoins(s); }
+    // (GX) named depth zones — entering a new section announces where in the belt you are,
+    // giving the endless descent a sense of place and progression.
+    var ZONE_NAMES = ['The Shallows', 'The Scattered Disk', 'The Deep Belt', 'The Dark Drift', 'The Anomaly Fields', 'The Warship’s Wake'];
+    function zoneNameFor(section) { return ZONE_NAMES[Math.min(section - 1, ZONE_NAMES.length - 1)]; }
     function onLeaveShop(s) {
       s.ui.replaceOffer = -1;
+      var prevSection = s.run.section;
       if (s.run._preRun) { startDungeon(s.run); } else { leaveShop(s.run); }
+      if (!s.run._preRun && s.run.section !== prevSection) {
+        pushFx(s, { type: 'banner', side: 'enemy', dur: 1800, text: 'ENTERING ' + zoneNameFor(s.run.section).toUpperCase(), col: PALETTE.gold, static: !!s.reduced });
+      }
       saveCheckpointKBB(s);   // (v0.114.0, D6) same G2 checkpoint, shared with the map's Embark
       drawQuestion(s.run); renderAll(s);
     }

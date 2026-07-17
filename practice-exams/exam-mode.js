@@ -141,13 +141,23 @@
       try { cardEl.scrollIntoView({ block: "nearest" }); } catch (e) {}
     }
 
+    // Jump to the next flagged question (wrapping), so "review flagged" is one click.
+    function jumpToFlagged() {
+      for (var s = 1; s <= N; s++) {
+        var j = (idx + s) % N;
+        if (flags[j]) { idx = j; renderCard(); return; }
+      }
+    }
+
     function promptSubmit() {
       var unanswered = N - answeredCount();
       var flagged = flaggedCount();
       var msg = answeredCount() + " of " + N + " answered"
         + (unanswered ? " · " + unanswered + " unanswered" : "")
         + (flagged ? " · " + flagged + " flagged" : "") + ".";
-      confirmModal("Submit exam?", msg + " You can't change answers after submitting.", "Submit", function () { doSubmit(false); });
+      confirmModal("Submit exam?", msg + " You can't change answers after submitting.", "Submit",
+        function () { doSubmit(false); },
+        flagged ? { label: "Review flagged first", onClick: jumpToFlagged } : null);
     }
 
     function doSubmit(timedOut) {
@@ -174,8 +184,8 @@
       });
     }
 
-    /* ---- tiny confirm modal ---- */
-    function confirmModal(title, body, confirmLabel, onConfirm) {
+    /* ---- tiny confirm modal (optional extra action, e.g. "Review flagged first") ---- */
+    function confirmModal(title, body, confirmLabel, onConfirm, extra) {
       var overlay = el("div", "pe-modal-overlay");
       var modal = el("div", "pe-modal");
       modal.setAttribute("role", "dialog");
@@ -191,7 +201,14 @@
       cancel.addEventListener("click", close);
       ok.addEventListener("click", function () { close(); onConfirm(); });
       overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
-      row.appendChild(cancel); row.appendChild(ok);
+      row.appendChild(cancel);
+      if (extra) {
+        var xb = el("button", "pe-btn pe-btn-ghost", esc(extra.label));
+        xb.type = "button";
+        xb.addEventListener("click", function () { close(); extra.onClick(); });
+        row.appendChild(xb);
+      }
+      row.appendChild(ok);
       modal.appendChild(row);
       overlay.appendChild(modal);
       root.appendChild(overlay);

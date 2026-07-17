@@ -263,7 +263,12 @@
       try { StarNix.core.audio.sfx("click"); } catch (eS) {}
       self.enterGame(gid);
     });
-    wrap.appendChild(canvas); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip);
+    // (GX) beat progress dots — viewers see how far along the intro is at a glance.
+    var dots = el("div", "sx-cine-dots");
+    dots.setAttribute("aria-hidden", "true");
+    var beatTimes = [];
+    var dotEls = [];
+    wrap.appendChild(canvas); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip); wrap.appendChild(dots);
     this.stage.appendChild(wrap);
 
     var ctx = canvas.getContext("2d");
@@ -345,6 +350,10 @@
       [B.mission, ""]
     ];
     function caption(t) { var c = ""; for (var k = 0; k < CAPS.length; k++) { if (t >= CAPS[k][0]) c = CAPS[k][1]; } return c; }
+    // (GX) one dot per beat, filled as the timeline passes each beat.
+    beatTimes = [B.station, B.beam, B.shatter, B.belt, B.planet, B.mission];
+    for (var bd = 0; bd < beatTimes.length; bd++) { var d0 = el("span", "sx-cine-dot"); dots.appendChild(d0); dotEls.push(d0); }
+    var lastBeatDot = -1;
 
     // -------- draw helpers (no per-frame allocation) --------
     function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
@@ -589,6 +598,9 @@
       if (capNow !== lastCap) { lastCap = capNow; capStart = T; capShown = -1; }
       var capWant = (reduced || !capNow) ? capNow.length : Math.min(capNow.length, Math.ceil(((T - capStart) / 0.6) * capNow.length));
       if (capWant !== capShown) { capShown = capWant; cap.textContent = capNow.slice(0, capWant); }
+      // (GX) fill the beat dots as the timeline advances — DOM write only on beat change.
+      var bi = -1; for (var bD = 0; bD < beatTimes.length; bD++) { if (T >= beatTimes[bD]) bi = bD; }
+      if (bi !== lastBeatDot) { for (var bE = 0; bE < dotEls.length; bE++) dotEls[bE].classList.toggle("on", bE <= bi); lastBeatDot = bi; }
       if (T >= B.end) { self._endCinematic(); return; }
       self._raf = global.requestAnimationFrame(frame);
     }
@@ -734,7 +746,7 @@
       else if (id === "CC") artHtml = '<span class="sx-strip-art sx-strip-planet"></span>';
       else artHtml = '<span class="sx-strip-art sx-strip-glyph">\u2B21</span>';
       card.innerHTML = artHtml +
-        '<span class="sx-strip-body"><span class="sx-card-title">' + m.title + '</span><span class="sx-card-tag">' + id + ' \u00b7 ' + m.tag + '</span></span>' +
+        '<span class="sx-strip-body"><span class="sx-card-title">' + m.title + '</span><span class="sx-card-tag">' + id + ' \u00b7 ' + m.tag + '</span><span class="sx-strip-hook">' + m.blurb + '</span></span>' +
         '<span class="sx-strip-stat"><span class="l">' + sm.stat + '</span><span class="v">' + sm.val + '</span></span>' +
         '<span class="sx-strip-cta">LAUNCH \u25b8</span>' +
         '<span class="sx-card-state" style="display:none">' + (loaded ? "Ready" : "Not in this build") + '</span>';
@@ -1743,6 +1755,11 @@
       ".sx-strip-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}",
       ".sx-strip .sx-card-title{font-size:15.5px;font-weight:800;white-space:nowrap;}",
       ".sx-strip .sx-card-tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);}",
+      ".sx-strip-hook{font-size:12px;color:var(--mid);line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;}",
+      "@media (max-width:640px){.sx-strip-hook{display:none;}}",
+      ".sx-cine-dots{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px;}",
+      ".sx-cine-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.16);transition:background .3s ease;}",
+      ".sx-cine-dot.on{background:var(--aqua,#1FDDE9);}",
       ".sx-strip-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex:none;margin-right:4px;}",
       ".sx-strip-stat .l{font-size:11px;color:var(--mid);} .sx-strip-stat .v{font-size:14px;font-weight:800;color:var(--acc,#7855FA);}",
       ".sx-strip-cta{flex:none;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--aqua);border:1px solid rgba(31,221,233,.4);border-radius:999px;padding:7px 14px;}",

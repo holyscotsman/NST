@@ -292,7 +292,7 @@
     this.boostCharge = 0;              // (v0.139.0, V1.1 CC#1) knowledge fuels the boost: corrects charge it
     this._rowExtra = 0;                // (v0.160.0, CC#5) chain spacing carry
     this.lastMilestone = 0;            // (v0.144.0, V1.1 CC#3) the most recent 25 km mark crossed
-    this._nextMile = 25000;
+    this._nextMile = 10000;   // (GX) first milestone at 10 km, then the 25 km grid
     this._boostTargetScore = 0; this._boostCalmUntil = 0;
     this._nextCoinAt = cfg.BASE_GAP * 0.5;
     // (v0.102.0, C9, Jason) squeeze stretches: the canyon narrows to TWO lanes for 1-2 km
@@ -356,7 +356,10 @@
     this.scoreSpeed = this.boostActive ? ((cfg.BOOST_KM + (this._up ? this._up.boostKm : 0)) * 1000 / cfg.BOOST_TIME) : cfg.SCORE_SPEED;
     this.scoreDistance += this.scoreSpeed * dt;
     while (this.scoreDistance >= this._nextMile) {   // (v0.144.0, CC#3) 25 km milestone clock —
-      this.lastMilestone = this._nextMile; this._nextMile += 25000;   // a 100 km boost lands on the LATEST mark, not four stacked banners
+      this.lastMilestone = this._nextMile;           // a 100 km boost lands on the LATEST mark, not four stacked banners
+      // (GX) the first milestone lands early (10 km) so a new run gets its first "deeper" beat
+      // within the opening minute; after that the clock snaps to the classic 25 km grid.
+      this._nextMile = this._nextMile < 25000 ? 25000 : this._nextMile + 25000;
     }
     // (v0.202.0, V1.1 CC#10) the catch-up arc: every 50 km (offset 3 km past the biome handoff
     // so the two moments never collide) one BCM straggler falls back and is OVERTAKEN — derived

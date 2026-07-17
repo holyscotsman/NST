@@ -229,6 +229,24 @@ button:disabled { opacity: 0.45; }
 .coin-amt.playing { font-size: 21px; color: var(--gold); text-shadow: 0 0 18px rgba(255, 200, 87, 0.35); }
 .coin-hint { font-size: 10.5px; color: var(--muted); margin-top: 6px; }
 
+/* Safe-haven crossing: an unmistakable centered banner (auto-removed by the HUD) */
+.haven-banner {
+  position: fixed; left: 50%; top: 18%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; pointer-events: none; z-index: 60;
+  padding: 12px 26px; border-radius: 14px; white-space: nowrap;
+  background: linear-gradient(180deg, rgba(40, 32, 8, 0.92), rgba(24, 18, 4, 0.92));
+  border: 1px solid rgba(255, 200, 87, 0.55); box-shadow: 0 8px 40px rgba(255, 200, 87, 0.25);
+  color: var(--gold); font-weight: 800; font-size: clamp(16px, 2.6vw, 24px); letter-spacing: 0.06em;
+  animation: havenIn 2.1s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.haven-banner .haven-shield { font-size: 1.2em; }
+@keyframes havenIn {
+  0% { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.92); }
+  12%, 78% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(0.98); }
+}
+.reduced-motion .haven-banner { animation: none; }
+
 .bank-fx { position: absolute; right: 74px; top: 58px; pointer-events: none; }
 .bank-fx span { position: absolute; border-radius: 50%; background: var(--gold); box-shadow: 0 0 10px rgba(255, 200, 87, 0.9); animation: bankArc 0.7s cubic-bezier(0.3, 0, 0.6, 1) both; }
 .bank-fx span:nth-child(1) { width: 7px; height: 7px; }
@@ -559,6 +577,14 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 .green-room > .muted { text-align: center; max-width: 62ch; margin: 0 auto; color: #b8ab8e; }
 .green-room .wallet-row { margin-top: 4px; }
 .green-room .wallet { background: rgba(26, 20, 10, 0.72); border-color: rgba(255, 200, 87, 0.28); color: var(--gold); }
+/* First-visit guidance box (shown once, latched by the shell) */
+.green-hint {
+  margin: 0 auto; max-width: 62ch; padding: 12px 18px; border-radius: 12px;
+  background: rgba(255, 200, 87, 0.08); border: 1px solid rgba(255, 200, 87, 0.35);
+  color: var(--text); font-size: 14.5px; line-height: 1.5; text-align: center;
+}
+.green-hint b { color: var(--gold); }
+
 .green-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .green-room .panel { background: rgba(22, 17, 9, 0.74); border-color: rgba(255, 200, 87, 0.22); padding: 22px 24px; border-radius: 16px; backdrop-filter: blur(12px); box-shadow: 0 16px 50px rgba(0, 0, 0, 0.5); animation: riseIn 0.5s var(--swift) 0.1s both; }
 .green-room .panel.steve { background: rgba(20, 16, 10, 0.8); border-color: rgba(255, 200, 87, 0.3); box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55), 0 0 50px rgba(255, 200, 87, 0.07); animation-delay: 0.18s; }

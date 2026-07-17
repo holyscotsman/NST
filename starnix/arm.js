@@ -979,7 +979,10 @@
         asteroids.push({ x: p.x, y: p.y, vx: rnd(-16, 16), vy: rnd(-16, 16), r: r, verts: verts, rot: runRng.next() * TAU, vrot: rnd(-0.5, 0.5), hp: Math.max(1, Math.round(r / 12)) });
       }
       enemies = []; clearProjectiles(); clearParticles();
-      for (var e = 0; e < (bossActive ? 0 : 5); e++) spawnRoamer();
+      // (GX) gentler on-ramp: sector 1 opens with 3 roamers instead of 5 so new pilots
+      // learn fly/collect/answer before the field pressure arrives. Sector 2+ unchanged.
+      var roamersAtStart = bossActive ? 0 : (sector <= 1 ? 3 : 5);
+      for (var e = 0; e < roamersAtStart; e++) spawnRoamer();
       // (v0.197.0, V1.1 ARM#9) the field wears the tier — nebula + star tint shift so sector 11
       // stops being pixel-cousin to sector 1 (cached gradients invalidated for the re-tint)
       var tierP = Math.max(0, Math.min(2, tierOf(sector)));

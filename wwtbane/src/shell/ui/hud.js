@@ -180,9 +180,16 @@ export class Hud {
     setTimeout(() => t.remove(), 600);
   }
 
-  // safe-haven celebration: coin particles, shield stamp, rung pulse
+  // safe-haven celebration: coin particles, shield stamp, rung pulse — plus a centered
+  // "SAFE HAVEN" banner so crossing a haven is unmistakable, not just a corner flourish.
   bank(justClearedIndex) {
     const shield = this.bankedVal.querySelector('.shield');
+    const amount = LADDER[justClearedIndex] != null ? money(LADDER[justClearedIndex]) : null;
+    const banner = h('div', { class: 'haven-banner', 'aria-hidden': 'true' },
+      h('span', { class: 'haven-shield' }, '🛡'),
+      h('span', {}, `SAFE HAVEN${amount ? ` — ${amount} BANKED` : ''}`));
+    this.el.append(banner);
+    setTimeout(() => banner.remove(), reduced() ? 1400 : 2100);
     if (!reduced()) {
       const fx = h('div', { class: 'bank-fx', 'aria-hidden': 'true' },
         h('span'), h('span'), h('span'), h('span'), h('span'));

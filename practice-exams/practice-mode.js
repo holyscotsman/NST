@@ -50,8 +50,13 @@
     function answeredCount() { var n = 0; state.forEach(function (s) { if (s.checked) n++; }); return n; }
     function correctCount() { var n = 0; state.forEach(function (s) { if (s.checked && s.correct) n++; }); return n; }
 
+    // Study streak: consecutive correct checks reward momentum. Shown from 3 up so the
+    // chip stays quiet during warm-up; any miss resets it.
+    var streak = 0;
     function updateScore() {
-      scoreChip.textContent = correctCount() + " correct · " + answeredCount() + " answered";
+      var s = correctCount() + " correct · " + answeredCount() + " answered";
+      if (streak >= 3) s += " · 🔥 " + streak + " streak";
+      scoreChip.textContent = s;
     }
 
     function buildPalette() {
@@ -96,6 +101,7 @@
       if (!engine.isAnswered(st.chosen)) return;
       st.checked = true;
       st.correct = engine.gradeAnswer(q, st.chosen);
+      streak = st.correct ? streak + 1 : 0;
       updateScore();
       renderCard();
     }

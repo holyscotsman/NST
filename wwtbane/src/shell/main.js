@@ -348,9 +348,12 @@ export class Game {
   }
 
   _renderGreenRoom() {
+    const firstVisit = !this.save.flags.greenRoomSeen;
+    if (firstVisit && !this._greenReveal) { this.save.flags.greenRoomSeen = true; this.persist(); }
     this._swap(GreenRoom({
       wallet: this.save.wallet,
       lifelines: this.save.lifelines,
+      firstVisit,
       reveal: this._greenReveal, // set after a loss: the answer + explanation first
       onAckReveal: () => { this._greenReveal = null; this._renderGreenRoom(); },
       steve: {

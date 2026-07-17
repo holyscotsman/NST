@@ -96,6 +96,11 @@ export function GreenRoom(ctx) {
   return h('section', { class: 'screen green-room' },
     h('h2', { class: 'screen-title' }, '🛋 The green room'),
     h('p', { class: 'muted' }, 'Between runs. Spend your banked coins on lifelines, or let Steve tip you off about a hard question coming up.'),
+    // First visit: one clear hint about the loop — earn coins on the ladder, spend them
+    // here on lifelines, then head back out. Shown once; the flag is latched by the shell.
+    ctx.firstVisit ? h('div', { class: 'green-hint' },
+      h('b', {}, 'New here? '),
+      'Coins you bank at safe havens are spent in this room — recharge or expand your lifelines below, then hit “Start next round” when you’re ready.') : null,
     h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins`)),
 
     h('div', { class: 'green-grid' },
