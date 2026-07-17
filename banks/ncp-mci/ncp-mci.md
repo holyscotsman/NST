@@ -1,6 +1,6 @@
 # Nutanix Certified Professional — Multicloud Infrastructure
 cert: NCP-MCI
-title: Nutanix Certified Professional — Multicloud Infrastructure
+title: NCP-MCI Practice Exam Question Bank
 pass: 0.80
 domains: architecture, storage, networking, security, vms, data-protection, lifecycle, monitoring, performance
 

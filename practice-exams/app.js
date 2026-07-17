@@ -139,33 +139,32 @@
     else PE.exam.start(container, opts);
   }
 
-  // A "Question bank" <select> that lists every bank in the manifest and lets the player
-  // switch the active bank right here (mirrors the launcher's certification selector).
+  // A "Question bank" button group: one button per bank in the manifest. Clicking one
+  // switches the active bank here (mirrors the launcher's chooser). Adding a bank to the
+  // manifest adds a button — no code change needed.
   function buildBankPicker(container) {
     var el = ui.el, esc = ui.esc;
     var wrap = el("div", "pe-bankpick");
-    var lab = el("label", "pe-bankpick-label", "Question bank");
-    lab.setAttribute("for", "pe-bank-select");
-    var sel = el("select", "pe-bankpick-select");
-    sel.id = "pe-bank-select";
-    sel.setAttribute("aria-label", "Question bank");
-    wrap.appendChild(lab);
-    wrap.appendChild(sel);
+    wrap.setAttribute("role", "group");
+    wrap.setAttribute("aria-label", "Question bank");
+    wrap.appendChild(el("span", "pe-bankpick-label", "Question bank"));
+    var group = el("div", "pe-bankpick-btns");
+    wrap.appendChild(group);
     var active = window.NSTBank.active() || "";
     window.NSTBank.list().then(function (banks) {
-      sel.innerHTML = "";
-      var ph = el("option", null, banks.length ? "Choose a bank…" : "No banks available");
-      ph.value = "";
-      sel.appendChild(ph);
+      group.innerHTML = "";
+      if (!banks.length) { group.appendChild(el("span", "pe-bankpick-empty", "No banks available.")); return; }
       banks.forEach(function (b) {
-        var o = el("option", null, esc(b.cert || b.title || b.id));
-        o.value = b.id;
-        if (b.id === active) o.selected = true;
-        sel.appendChild(o);
+        var on = b.id === active;
+        var btn = el("button", "pe-bankbtn" + (on ? " on" : ""), esc(b.title || b.cert || b.id));
+        btn.type = "button";
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        btn.addEventListener("click", function () {
+          if (b.id !== (window.NSTBank.active() || "")) switchBank(b.id, container);
+        });
+        group.appendChild(btn);
       });
-      sel.disabled = !banks.length;
     });
-    sel.addEventListener("change", function () { switchBank(sel.value, container); });
     return wrap;
   }
 
