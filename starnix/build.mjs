@@ -146,6 +146,8 @@ const html = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
+<!-- (QA) inline favicon: without one the browser requests /favicon.ico and 404s -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FFD24A'%3E%3Cpath d='M12 2l2.6 6.9L22 9.3l-5.4 4.6 1.8 7.1L12 17l-6.4 4 1.8-7.1L2 9.3l7.4-.4z'/%3E%3C/svg%3E" />
 <title>StarNix — Starlight Rescue Crew</title>
 <style>/* ===== Montserrat, vendored (no fonts CDN) ===== */
 ${fontCss}</style>
@@ -229,5 +231,13 @@ sizeLedger.total = bytes;
   for (const k of rows) console.log("  " + k.padEnd(10) + (sizeLedger[k] / 1024).toFixed(1).padStart(9));
   console.log("  " + "TOTAL".padEnd(10) + (bytes / 1024).toFixed(1).padStart(9) + "   gzip " + (gz / 1024).toFixed(1));
   writeFileSync(new URL("./build-size.json", import.meta.url), JSON.stringify(sizeLedger, null, 2));
+  // (QA) hard size budget — the report above is informational; THIS is the gate.
+  // Current build is ~4352 KB (2489 gzip); the budget leaves ~6% headroom for
+  // normal feature work while catching an accidental asset/vendor drop going red.
+  const BUDGET_KB = 4600;
+  if (bytes > BUDGET_KB * 1024) {
+    console.error("BUILD FAIL: bundle " + (bytes / 1024).toFixed(1) + " KB exceeds the " + BUDGET_KB + " KB budget — trim or consciously raise BUDGET_KB.");
+    process.exit(1);
+  }
 }
 console.log("Wrote index.html (" + (bytes / 1024).toFixed(1) + " KB, " + modules.length + " modules + boot + " + exhibits.n + " exhibits)");

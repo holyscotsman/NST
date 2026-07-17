@@ -239,7 +239,23 @@
       cancel.type = "button";
       var ok = el("button", "pe-btn pe-btn-primary", confirmLabel);
       ok.type = "button";
-      function close() { try { overlay.remove(); } catch (e) {} }
+      // (QA/a11y) dialog contract: Escape cancels, Tab stays inside, and focus
+      // returns to whatever opened the dialog once it closes.
+      var opener = document.activeElement;
+      function close() {
+        try { overlay.remove(); } catch (e) {}
+        document.removeEventListener("keydown", onModalKey, true);
+        if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+      }
+      function onModalKey(e) {
+        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+        if (e.key !== "Tab") return;
+        var items = modal.querySelectorAll("button");
+        var first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+      document.addEventListener("keydown", onModalKey, true);
       cancel.addEventListener("click", close);
       ok.addEventListener("click", function () { close(); onConfirm(); });
       overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });

@@ -31,8 +31,10 @@
   function manifest(force) {
     if (_manifest && !force) return Promise.resolve(_manifest);
     return fetchText(MANIFEST).then(function (t) {
-      var j = {};
-      try { j = JSON.parse(t); } catch (e) { j = {}; }
+      var j;
+      // (QA) malformed JSON is an ERROR, not an empty library — callers offer a
+      // real Retry instead of quietly showing the "no banks" empty state.
+      try { j = JSON.parse(t); } catch (e) { throw new Error("manifest is not valid JSON"); }
       _manifestError = null;
       _manifest = Array.isArray(j.banks) ? j.banks : [];
       return _manifest;

@@ -286,8 +286,25 @@
     modal.appendChild(body);
     overlay.appendChild(modal);
 
-    function close() { try { overlay.remove(); } catch (e) {} document.removeEventListener("keydown", onKey); }
-    function onKey(e) { if (e.key === "Escape") close(); }
+    // (QA/a11y) dialog contract: Escape closes, Tab cycles inside the dialog,
+    // and focus returns to the gear button (or whatever opened it) on close.
+    var opener = document.activeElement;
+    function close() {
+      try { overlay.remove(); } catch (e) {}
+      document.removeEventListener("keydown", onKey);
+      if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { close(); return; }
+      if (e.key !== "Tab" || !overlay.isConnected) return;
+      if (overlay.nextElementSibling && overlay.nextElementSibling.classList &&
+          overlay.nextElementSibling.classList.contains("nst-modal-overlay-top")) return; // reset confirm owns focus
+      var items = modal.querySelectorAll("button, input, select, [tabindex]:not([tabindex='-1'])");
+      if (!items.length) return;
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
     x.addEventListener("click", close);
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
     document.addEventListener("keydown", onKey);
@@ -308,7 +325,23 @@
     cancel.type = "button";
     var ok = el("button", "nst-btn nst-btn-danger", "Reset everything");
     ok.type = "button";
-    function close() { try { overlay.remove(); } catch (e) {} }
+    // (QA/a11y) same dialog contract as Settings: Escape cancels, Tab stays
+    // inside, focus returns to the reset button that opened this confirm.
+    var opener = document.activeElement;
+    function close() {
+      try { overlay.remove(); } catch (e) {}
+      document.removeEventListener("keydown", onConfirmKey, true);
+      if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+    }
+    function onConfirmKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key !== "Tab") return;
+      var items = modal.querySelectorAll("button");
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", onConfirmKey, true);
     cancel.addEventListener("click", close);
     ok.addEventListener("click", function () {
       try {
