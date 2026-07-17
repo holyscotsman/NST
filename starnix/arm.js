@@ -682,11 +682,23 @@
         var r = runRng.next(), d = r < 0.35 ? 0.25 : (r < 0.65 ? 0.5 : (r < 0.9 ? 0.8 : 1.25));
         stars.push({ x: runRng.next() * MAP_W, y: runRng.next() * MAP_H, a: (runRng.next() * 0.6 + 0.2) * (0.45 + 0.55 * Math.min(d, 1)), s: (runRng.next() * 1.5 + 0.4) * (0.55 + 0.6 * Math.min(d, 1.1)), t: runRng.next() * TAU, d: d });
       }
-      // P6a: a few soft parallax nebula blobs for depth (gradients cached lazily)
+      // P6a: soft parallax nebula blobs for depth (gradients cached lazily).
+      // (TX) depth variation: 4-6 blobs per sector across a wider size + parallax spread —
+      // a couple of huge slow far-field washes behind smaller, nearer wisps, so the field
+      // reads layered instead of four same-distance clouds.
       var cols = ["rgba(120,85,250,0.22)", "rgba(31,221,233,0.16)", "rgba(146,221,35,0.10)", "rgba(255,107,91,0.12)"];
       NEBULA = [];
-      for (i = 0; i < 4; i++) {
-        NEBULA.push({ fx: runRng.next() * 1.1 - 0.05, fy: runRng.next() * 1.1 - 0.05, r: 160 + runRng.next() * 220, c0: cols[i % cols.length], a: 0.5 + runRng.next() * 0.4, p: 0.12 + runRng.next() * 0.22, grad: null });
+      var nebN = 4 + ((runRng.next() * 3) | 0);
+      for (i = 0; i < nebN; i++) {
+        var far = i < 2;   // first two are the far-field washes
+        NEBULA.push({
+          fx: runRng.next() * 1.1 - 0.05, fy: runRng.next() * 1.1 - 0.05,
+          r: far ? (320 + runRng.next() * 260) : (140 + runRng.next() * 180),
+          c0: cols[i % cols.length],
+          a: far ? (0.30 + runRng.next() * 0.2) : (0.5 + runRng.next() * 0.4),
+          p: far ? (0.05 + runRng.next() * 0.06) : (0.16 + runRng.next() * 0.2),
+          grad: null
+        });
       }
     }
 

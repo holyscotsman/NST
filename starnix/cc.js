@@ -1634,6 +1634,12 @@
     var frac = (speed - cfg.BASE_SPEED) / (cfg.MAX_SPEED - cfg.BASE_SPEED);
     if (frac < 0) frac = 0; else if (frac > 1) frac = 1;
     var fov = 62 + frac * 10;                                   // 62 -> 72 with speed
+    // (TX) speed haze: as speed builds the fog's near plane eases closer, so velocity reads
+    // through thickening atmosphere as well as FOV. Duck-checked for the test stubs.
+    if (this.scene && this.scene.fog && typeof this.scene.fog.near === 'number') {
+      var fogNearT = cfg.DRAW_DIST * (0.34 - frac * 0.05);
+      this.scene.fog.near += (fogNearT - this.scene.fog.near) * (dt > 0 ? Math.min(1, dt * 3) : 1);
+    }
     if (typeof cam.fov === 'number') {
       // (PH) the FOV glides toward its speed target instead of snapping — boost activation
       // (an instant speed jump) now reads as the camera "catching up" over ~0.3s.

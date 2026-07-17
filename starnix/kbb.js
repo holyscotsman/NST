@@ -2066,7 +2066,10 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       var roids = [];
       for (i = 0; i < 9; i++) {
         var ak = ASSET_ASTEROIDS[i % ASSET_ASTEROIDS.length];
-        var sp = spriteOf(THREE, texFor(s, THREE, ak, 'rock', 0x46465c, false, created), 0xffffff);
+        // (TX) mineral variety: each rock carries a subtle tint from a small ore palette
+        // (iron-grey, rust, ice-blue, olive) so the belt reads mined-from, not cloned.
+        var ORE_TINTS = [0xffffff, 0xe8d8cc, 0xd2e2ee, 0xdde8d0, 0xcfc4bc];
+        var sp = spriteOf(THREE, texFor(s, THREE, ak, 'rock', 0x46465c, false, created), ORE_TINTS[(Math.random() * ORE_TINTS.length) | 0]);
         var sc = 0.35 + Math.random() * 0.7; sp.scale.set(sc, sc, sc);
         sp.position.set((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 5.4, -Math.random() * 4 + 0.5);
         // (PH) mass variance: big rocks drift and spin slowly (heavy), small ones skitter.

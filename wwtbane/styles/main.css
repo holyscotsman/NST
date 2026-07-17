@@ -316,7 +316,13 @@ button:disabled { opacity: 0.45; }
 .rung.tier-hard .rung-glyph { color: var(--peach); }
 .rung.tier-extreme .rung-glyph { color: var(--gold); }
 .rung.tier-extreme .rung-val { color: var(--gold); }
-.rung.safe { background: linear-gradient(90deg, rgba(146, 221, 35, 0.10), rgba(146, 221, 35, 0.02)); }
+/* (TX) haven rungs read as forged metal — brushed gradient + edge light, not just a green wash */
+.rung.safe {
+  background: linear-gradient(90deg, rgba(146, 221, 35, 0.14), rgba(255, 200, 87, 0.05) 55%, rgba(146, 221, 35, 0.02));
+  border: 1px solid rgba(146, 221, 35, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.rung.safe .rung-val { color: #dbe9c8; }
 .rung.safe .rung-safe { opacity: 0.55; }
 .rung.safe.cleared .rung-safe, .rung.safe.current .rung-safe { opacity: 0.9; }
 .rung.cleared { opacity: 0.5; }

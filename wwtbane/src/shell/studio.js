@@ -620,6 +620,12 @@ export class Studio {
     discMat.map = floorTex; discMat.roughnessMap = floorTex; discMat.envMapIntensity = 1.5;
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.4, 64), discMat); disc.position.y = -0.2; disc.receiveShadow = true; s.add(disc);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(9, 0.08, 12, 96), mat(0x000000, PAL.aqua, 2.2)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.02; s.add(rim);
+    // (TX) center medallion: a lit inlay under the podiums — the broadcast-floor focal point
+    // the glossy disc was missing. Soft iris glow ringed in gold, sitting just proud of the floor.
+    const medallion = new THREE.Mesh(new THREE.CircleGeometry(1.6, 48), mat(0x0c0c1c, PAL.iris, 0.5));
+    medallion.rotation.x = -Math.PI / 2; medallion.position.y = 0.011; s.add(medallion);
+    const medRing = new THREE.Mesh(new THREE.TorusGeometry(1.64, 0.05, 10, 64), mat(0x000000, PAL.gold, 1.5));
+    medRing.rotation.x = Math.PI / 2; medRing.position.y = 0.012; s.add(medRing);
 
     const spokeGeo = new THREE.BoxGeometry(0.1, 0.05, 6);
     const spokeMat = mat(0x000000, PAL.gold, 1.3);

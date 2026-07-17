@@ -268,7 +268,12 @@
     dots.setAttribute("aria-hidden", "true");
     var beatTimes = [];
     var dotEls = [];
-    wrap.appendChild(canvas); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip); wrap.appendChild(dots);
+    // (TX) filmic grade: vignette + faint animated grain over the canvas (pure CSS, cheap;
+    // the grain flicker is disabled under reduced motion, the vignette stays).
+    var grade = el("div", "sx-cine-grade");
+    grade.setAttribute("aria-hidden", "true");
+    if (reduced) grade.className += " still";
+    wrap.appendChild(canvas); wrap.appendChild(grade); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip); wrap.appendChild(dots);
     this.stage.appendChild(wrap);
 
     var ctx = canvas.getContext("2d");
@@ -1772,6 +1777,11 @@
       ".sx-bridge .sx-cards{display:flex;flex-direction:column;gap:8px;}",
       ".sx-strip{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:rgba(13,13,24,.78);border:1px solid var(--border);border-left:4px solid var(--acc,#7855FA);border-radius:14px;padding:12px 18px;cursor:pointer;font-family:inherit;color:var(--text);transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}",
       ".sx-strip:hover{transform:translateX(6px);border-color:var(--acc,#7855FA);box-shadow:0 0 28px rgba(120,85,250,.27);}",
+      // (TX) console-panel material: a faint scanline weave at rest, plus a light sweep on hover
+      ".sx-strip{position:relative;overflow:hidden;background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);}",
+      ".sx-strip::after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:34%;background:linear-gradient(105deg, transparent, rgba(172,155,253,.10), transparent);transform:skewX(-18deg);transition:left .5s ease;pointer-events:none;}",
+      ".sx-strip:hover::after{left:110%;}",
+      ".sx-reduced .sx-strip::after{display:none;}",
       ".sx-acc-iris.sx-strip{--acc:#7855FA;} .sx-acc-aqua.sx-strip{--acc:#1FDDE9;} .sx-acc-peach.sx-strip{--acc:#FF6B5B;} .sx-acc-gold.sx-strip{--acc:#FFC857;}",
       ".sx-strip-art{width:46px;height:46px;flex:none;background-size:contain;background-position:center;background-repeat:no-repeat;filter:drop-shadow(0 0 8px rgba(120,85,250,.5));}",
       ".sx-strip-planet{border-radius:50%;background:radial-gradient(circle at 34% 30%, #2c8ba8, #14495c 62%, #0a2733);box-shadow:0 0 12px rgba(31,221,233,.4);}",
@@ -1782,6 +1792,11 @@
       ".sx-strip-hook{font-size:12px;color:var(--mid);line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;}",
       "@media (max-width:640px){.sx-strip-hook{display:none;}}",
       ".sx-cine-dots{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px;}",
+      // (TX) cinematic grade: radial vignette + a whisper of animated grain
+      ".sx-cine-grade{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,.34) 100%);}",
+      ".sx-cine-grade::before{content:'';position:absolute;inset:0;opacity:.05;background-image:radial-gradient(rgba(255,255,255,.9) 0.5px, transparent 0.6px);background-size:3px 3px;animation:sxGrain .35s steps(3) infinite;}",
+      "@keyframes sxGrain{0%{transform:translate(0,0);}33%{transform:translate(-1px,1px);}66%{transform:translate(1px,-1px);}100%{transform:translate(0,0);}}",
+      ".sx-cine-grade.still::before{animation:none;}",
       ".sx-cine-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.16);transition:background .3s ease;}",
       ".sx-cine-dot.on{background:var(--aqua,#1FDDE9);}",
       ".sx-strip-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex:none;margin-right:4px;}",
