@@ -14,6 +14,7 @@ import { letter } from '../core/lifelines.js';
 import { pickWelcome, pickQuestionLine, pickBankLine, pickTierLine } from './hostLines.js';
 
 import * as persistence from './persistence.js';
+import { ladderProfile, setActiveLadder, activeLadder, MIN_BANK } from '../core/config.js';
 import { GameAudio } from './audio.js';
 import { Music, MUSIC_STYLES } from './music.js';
 import { installFpsMeter } from './fpsMeter.js';
@@ -95,10 +96,16 @@ export class Game {
     const res = validateBank(source, { runtime: true });
     this.bank = res.valid;
     if (res.rejected.length) console.warn('[wwtbane] rejected questions:', res.rejected);
-    if (this.bank.length < 30) {
+    // A short bank (MIN_BANK..29 valid questions) plays a proportionally scaled
+    // ladder instead of being locked out — same tiers, havens and 50,000 top
+    // prize, fewer rungs. Only under MIN_BANK is unplayable.
+    const profile = ladderProfile(this.bank.length);
+    if (!profile) {
       this._noBank(this.bank.length);
       return;
     }
+    setActiveLadder(profile);
+    this.hud.rebuildLadder(); // the rail was built pre-boot with the classic shape
 
     this._applyBodyClasses();
 
@@ -154,7 +161,7 @@ export class Game {
     // Audio reacts to the same event stream. Big musical moments (right/wrong/
     // final-wrong/win) are the music engine's stingers; small UI cues stay sfx.
     this.bus.on('answer:correct', (d) => { this.music.stinger('right'); if (d.boundary) this.audio.play('bank'); });
-    this.bus.on('answer:wrong', (d) => this.music.stinger(d.index === 29 ? 'finalWrong' : 'wrong'));
+    this.bus.on('answer:wrong', (d) => this.music.stinger(d.index === activeLadder().runLength - 1 ? 'finalWrong' : 'wrong'));
     // (S) each lifeline announces itself with its own signature sound (fifty/audience/phone).
     this.bus.on('lifeline:use', (d) => {
       const sig = d && d.type ? `lifeline-${d.type}` : 'lifeline';
@@ -525,7 +532,7 @@ export class Game {
       const cur = devJump && devJump > 1 ? this.rc.devJumpTo(devJump) : this.rc.current();
       this.quiz.showQuestion(cur, this.rc.snapshot());
       this.hud.update(this.rc.snapshot());
-      this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
+      this._announce(`Question ${cur.number} of ${activeLadder().runLength}. ${cur.q.stem}`);
       // (UI) first quiz ever: a one-time transient hint that Esc pauses (latched).
       if (!this.save.flags.pauseHintSeen) {
         this.save.flags.pauseHintSeen = true; this.persist();
@@ -729,7 +736,7 @@ export class Game {
     const cur = this.rc.devJumpTo(n);
     this.quiz.showQuestion(cur, this.rc.snapshot());
     this.hud.update(this.rc.snapshot());
-    this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
+    this._announce(`Question ${cur.number} of ${activeLadder().runLength}. ${cur.q.stem}`);
   }
 
   answer(indices) {
@@ -762,7 +769,7 @@ export class Game {
     this.hud.update(this.rc.snapshot());
     this.hud.trail(prev, 'up'); // gold streak as the highlight climbs
     this.audio.play('climb');   // (S) the ratchet tick rides the climb
-    this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
+    this._announce(`Question ${cur.number} of ${activeLadder().runLength}. ${cur.q.stem}`);
   }
 
   endRun(won, result) {
@@ -915,7 +922,7 @@ export class Game {
   // fewer than the 30 valid questions the ladder needs. Links back to the launcher to choose one.
   _noBank(count) {
     const msg = count > 0
-      ? `This question bank has only ${count} valid question${count === 1 ? '' : 's'}. Who Wants to be a Nutanix Engineer needs at least 30 to run the full ladder.`
+      ? `This question bank has only ${count} valid question${count === 1 ? '' : 's'}. Who Wants to be a Nutanix Engineer needs at least ${MIN_BANK} to build a ladder.`
       : 'No question bank is loaded yet. Choose one in the Nutanix Study Tool launcher (Settings → Question bank), then come back to play.';
     this._swap(h('section', { class: 'screen fatal' },
       h('h2', {}, 'No question bank'),

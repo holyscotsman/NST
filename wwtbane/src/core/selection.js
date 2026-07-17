@@ -12,7 +12,7 @@
 // it is an "impossible" authored question. That is gated on a persistence flag,
 // NOT on the seed (the project design rules).
 
-import { TIERS, MASTERY } from './config.js';
+import { MASTERY, activeLadder } from './config.js';
 import { makeRng, shuffle, weightedPick } from './rng.js';
 import { effectiveTier, selectionWeight, isGraduated } from './mastery.js';
 
@@ -24,8 +24,9 @@ export function tierOfQuestion(q, mastery, mode) {
   return effectiveTier(mastery, q); // may be 'graduated' or 'extreme'
 }
 
-// Build one 30-question set. Returns an array of question objects in play order.
-// Guarantees 30 distinct questions or throws with a clear message.
+// Build one run-length set (the ACTIVE ladder profile's length — classic 30, or
+// a scaled short ladder for a small bank). Returns question objects in play
+// order. Guarantees run-length distinct questions or throws with a clear message.
 export function buildSet(opts) {
   const {
     bank,
@@ -55,8 +56,9 @@ export function buildSet(opts) {
   }
   const ctx = { mode, rng, mastery, currentRun, chosen, soft };
 
-  // Fill the three main tiers.
-  for (const tier of TIERS) {
+  // Fill the three main tiers (counts from the active ladder profile).
+  const tiers = activeLadder().tiers;
+  for (const tier of tiers) {
     if (tier.key === 'extreme') continue; // handled last
     let need = tier.count;
 
@@ -74,10 +76,10 @@ export function buildSet(opts) {
     fillTier(need, pools, ctx, out);
   }
 
-  // Fill the extreme final (Q30).
+  // Fill the extreme final (the last rung).
   commit(out, pickFinal({ bank, buckets, reachedFinalBefore, ctx }), ctx);
 
-  const target = TIERS.reduce((a, t) => a + t.count, 0);
+  const target = tiers.reduce((a, t) => a + t.count, 0);
   if (out.length !== target) {
     throw new Error(`selection: built ${out.length} of ${target}; bank too small (need at least ${target} distinct playable questions).`);
   }
@@ -205,13 +207,15 @@ export class SetManager {
 
   // Honor Steve's promise across sessions: the campaign sets are memory-only,
   // so a clue paid for last session may not be in this session's rebuilt set.
-  // Pin the taught question into the CURRENT set's hard block (play order
-  // 21–29, 0-based 20–28 per the 10/10/9/1 shape) so the clue still references
-  // a real, guaranteed-upcoming question (the project design rules). No-op if already in.
+  // Pin the taught question into the CURRENT set's hard block (the first hard
+  // slot = easy + medium counts of the active ladder profile; 0-based 20 on the
+  // classic 10/10/9/1 shape) so the clue still references a real,
+  // guaranteed-upcoming question (the project design rules). No-op if already in.
   pinIntoCurrent(q) {
     if (!q || !this._current) return false;
     if (this._current.some((x) => x.id === q.id)) return false;
-    const slot = 20; // first hard slot
+    let slot = 0; // first hard slot: skip past the easy + medium blocks
+    for (const t of activeLadder().tiers) { if (t.key === 'hard') break; slot += t.count; }
     this._current = this._current.slice();
     this._current[slot] = q;
     return true;

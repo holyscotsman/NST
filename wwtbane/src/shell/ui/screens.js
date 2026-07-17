@@ -3,7 +3,7 @@
 // gold-tinted green room, gold-takeover win / subdued loss results.
 
 import { h, money } from './dom.js';
-import { LIFELINE_TYPES, LIFELINE_META, LIFELINE_MAX_SLOTS, SHOP, VERSION } from '../../core/config.js';
+import { LIFELINE_TYPES, LIFELINE_META, LIFELINE_MAX_SLOTS, SHOP, VERSION, activeLadder } from '../../core/config.js';
 import { letter } from '../../core/lifelines.js';
 import { MUSIC_STYLES } from '../music.js';
 
@@ -19,7 +19,7 @@ export function TitleScreen(ctx) {
     h('div', { class: 'brand' },
       h('p', { class: 'brand-pre' }, 'Who wants to be a'),
       h('h1', { class: 'brand-main' }, 'Nutanix Engineer?'),
-      h('p', { class: 'brand-sub' }, 'A game-show quiz to learn and drill the Nutanix NCP-MCI exam. Answer 30 in a row to win.'),
+      h('p', { class: 'brand-sub' }, `A game-show quiz to learn and drill the Nutanix NCP-MCI exam. Answer ${activeLadder().runLength} in a row to win.`),
     ),
     h('div', { class: 'wallet-row' },
       h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins`),
@@ -32,7 +32,7 @@ export function TitleScreen(ctx) {
     ),
     h('details', { class: 'seed-box' },
       h('summary', {}, 'Enter seed'),
-      h('p', {}, 'A seed plays the exact same 30 questions for anyone — great for challenging a friend. Leave blank for a fresh random seed. You can also share a link like ?seed=NTNX-XXXXXX (the pause menu copies it for you).'),
+      h('p', {}, 'A seed plays the exact same questions for anyone — great for challenging a friend. Leave blank for a fresh random seed. You can also share a link like ?seed=NTNX-XXXXXX (the pause menu copies it for you).'),
       h('div', { class: 'seed-controls' },
         seedInput,
         h('button', { class: 'secondary', type: 'button', onclick: () => ctx.onStart('seeded', seedInput.value.trim() || null) }, 'Play seed'),
@@ -170,10 +170,10 @@ export function ResultScreen(ctx) {
     h('h2', { class: 'screen-title' }, win ? 'You are a Nutanix Engineer!' : (ctx.impossibleFinal ? 'The impossible final' : 'Run over')),
 
     win
-      ? h('p', { class: 'result-msg' }, `You answered all 30 and took home ${money(ctx.payout)} coins. Winning banks your learning but resets coins and purchased slots — a fresh climb awaits.`)
+      ? h('p', { class: 'result-msg' }, `You answered all ${activeLadder().runLength} and took home ${money(ctx.payout)} coins. Winning banks your learning but resets coins and purchased slots — a fresh climb awaits.`)
       : h('p', { class: 'result-msg' }, ctx.impossibleFinal
           ? `You reached the final — and almost nobody wins it the first time. That was by design. Here is the answer it was hiding:`
-          : `You got to question ${ctx.reached} of 30. You bank ${money(ctx.payout)} coins.`),
+          : `You got to question ${ctx.reached} of ${activeLadder().runLength}. You bank ${money(ctx.payout)} coins.`),
 
     (!win && ctx.correctText) ? h('div', { class: 'reveal' },
       h('div', { class: 'reveal-label' }, 'The correct answer was'),
@@ -197,13 +197,13 @@ export function HelpScreen(onClose) {
   return h('section', { class: 'screen help-screen' },
     h('h2', { class: 'screen-title' }, 'How to play'),
     h('ul', { class: 'help-list' },
-      rule('Answer 30 in a row.', 'Ten easy, ten medium, nine hard, then one brutal final for the top prize.'),
+      rule(`Answer ${activeLadder().runLength} in a row.`, 'Easy questions first, then medium, then hard, then one brutal final for the top prize.'),
       rule('One wrong answer ends the run.', 'But coins bank at the safe havens (Q5, Q10, Q17 and Q25) — pass one and that money is yours to keep even if you fall later.'),
       rule('Three lifelines,', 'one use each: 50:50 removes two wrong answers. Ask the Audience runs a real, fallible poll — the crowd is usually right, but a tempting wrong answer can win the room, especially on hard questions. Phone a Friend is a panicked guess, right about two times in three. Lifelines advise, they never grade — and a lifeline-assisted correct answer will not mark that topic as mastered.'),
       rule('Keyboard works everywhere.', 'Number keys or A–F pick an answer, arrow keys (or Home/End) move between them, Enter locks it in, and Escape pauses. Touch and screen readers are first-class too.'),
       rule('You learn as you play.', 'Every question tracks your personal mastery. Ones you miss come back sooner and harder; ones you nail drift away. Your learning is saved and never wiped — even by winning.'),
       rule('The green room', 'is where you spend banked coins between runs: buy a second slot for a lifeline, recharge them, or pay Steve for an inside tip on a hard question you are about to face.'),
-      rule('Seeds', 'let you replay the exact same 30 questions, or challenge a friend to the same run.'),
+      rule('Seeds', 'let you replay the exact same set of questions, or challenge a friend to the same run.'),
     ),
     h('p', { class: 'muted small' }, 'Every answer key is human-authored or human-reviewed. This game never asks an AI whether your answer is right — it checks the authored key.'),
     h('button', { class: 'primary', type: 'button', onclick: onClose }, 'Got it'),

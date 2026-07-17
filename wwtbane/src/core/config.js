@@ -57,6 +57,63 @@ function buildLadder() {
 // lost: Q5 (idx 4), Q10 (idx 9), Q17 (idx 16), Q25 (idx 24).
 export const BANK_BOUNDARIES = [4, 9, 16, 24];
 
+/* ---- Ladder profiles (short-bank support) ---------------------------------
+ * The classic run is 30 questions, but a bank with MIN_BANK..29 valid questions
+ * gets a proportionally scaled ladder — same tier feel, same safe-haven rhythm,
+ * same 50,000 top prize — instead of being locked out. ladderProfile() is pure;
+ * the ACTIVE profile is a module singleton set once at boot from the loaded
+ * bank's size. Everything that used to read the 30-rung constants reads
+ * activeLadder() instead; with no profile set it IS the classic shape, so
+ * existing behavior (and every pinned test) is unchanged. */
+export const MIN_BANK = 10;
+
+const TIER_INCREMENT = { easy: 100, medium: 500, hard: 2000 };
+const TOP_PRIZE = 50000;
+const CLASSIC_HAVEN_QUESTIONS = [5, 10, 17, 25]; // 1-based, of a 30-rung run
+
+function buildProfile(tiers) {
+  const runLength = tiers.reduce((a, t) => a + t.count, 0);
+  const ladder = [];
+  let total = 0;
+  for (const t of tiers) {
+    if (t.key === 'extreme') continue;
+    for (let i = 0; i < t.count; i++) { total += TIER_INCREMENT[t.key]; ladder.push(total); }
+  }
+  ladder.push(TOP_PRIZE); // the final always plays for the same top prize
+  const bankBoundaries = [];
+  for (const q of CLASSIC_HAVEN_QUESTIONS) {
+    const pos = Math.round((q / RUN_LENGTH) * runLength);
+    const idx = Math.min(runLength - 2, Math.max(0, pos - 1)); // never on the final
+    if (!bankBoundaries.includes(idx)) bankBoundaries.push(idx);
+  }
+  return { runLength, tiers, ladder, bankBoundaries };
+}
+
+// The classic 30-rung profile — identical numbers to LADDER/BANK_BOUNDARIES
+// above (pinned by tests so the two sources can never drift).
+export const CLASSIC_LADDER = buildProfile(TIERS);
+
+// The profile for a bank of `bankSize` valid questions. >=30 -> classic;
+// MIN_BANK..29 -> scaled (tier split proportional to 10/10/9, one final);
+// under MIN_BANK -> null (unplayable, show the friendly bank screen).
+export function ladderProfile(bankSize) {
+  if (bankSize >= RUN_LENGTH) return CLASSIC_LADDER;
+  if (bankSize < MIN_BANK) return null;
+  const easy = Math.round(bankSize * 10 / RUN_LENGTH);
+  const medium = Math.round(bankSize * 10 / RUN_LENGTH);
+  const hard = bankSize - easy - medium - 1;
+  return buildProfile([
+    { key: 'easy', count: easy },
+    { key: 'medium', count: medium },
+    { key: 'hard', count: hard },
+    { key: 'extreme', count: 1 },
+  ]);
+}
+
+let ACTIVE_LADDER = CLASSIC_LADDER;
+export function setActiveLadder(profile) { ACTIVE_LADDER = profile || CLASSIC_LADDER; }
+export function activeLadder() { return ACTIVE_LADDER; }
+
 export const LIFELINE_TYPES = ['fifty', 'audience', 'phone'];
 
 // Per-option colours for the Ask-the-Audience vote: the crowd raises cards in
