@@ -5,7 +5,7 @@
 // Colorblind-safe: every state carries a glyph or text, never color alone.
 
 import { h, clear, money } from './dom.js';
-import { LADDER, BANK_BOUNDARIES, LIFELINE_TYPES, LIFELINE_META } from '../../core/config.js';
+import { activeLadder, LIFELINE_TYPES, LIFELINE_META } from '../../core/config.js';
 import { positionTier } from '../../core/runController.js';
 
 const TIER_GLYPH = { easy: '●', medium: '◆', hard: '▲', extreme: '★' };
@@ -76,6 +76,7 @@ export class Hud {
     this.highlight = h('div', { class: 'rung-highlight', 'aria-hidden': 'true' }, h('span', { class: 'glow' }));
     this.track.append(this.highlight);
     // Q30 at the top, Q1 at the bottom — the player climbs upward.
+    const { ladder: LADDER, bankBoundaries: BANK_BOUNDARIES } = activeLadder();
     for (let i = LADDER.length - 1; i >= 0; i--) {
       const tier = positionTier(i);
       const safe = BANK_BOUNDARIES.includes(i);
@@ -88,9 +89,18 @@ export class Hud {
       this.rungs[i] = li;
       this.track.append(li);
     }
-    this.ladderEl = h('ol', { class: 'ladder', 'aria-label': 'Money ladder, question 1 to 30' },
+    this.ladderEl = h('ol', { class: 'ladder', 'aria-label': `Money ladder, question 1 to ${LADDER.length}` },
       h('div', { class: 'ladder-head', 'aria-hidden': 'true' }, 'Money ladder'),
       this.track);
+  }
+
+  // (short-bank) The Hud is constructed before boot has loaded the bank and
+  // installed the active ladder profile. Once it is known, rebuild the rail so
+  // a scaled profile shows its real rung count instead of the classic 30.
+  rebuildLadder() {
+    const old = this.ladderEl;
+    this._buildLadder();
+    if (old.parentNode) old.replaceWith(this.ladderEl);
   }
 
   _buildSeed() {
@@ -189,7 +199,8 @@ export class Hud {
   // "SAFE HAVEN" banner so crossing a haven is unmistakable, not just a corner flourish.
   bank(justClearedIndex) {
     const shield = this.bankedVal.querySelector('.shield');
-    const amount = LADDER[justClearedIndex] != null ? money(LADDER[justClearedIndex]) : null;
+    const ladder = activeLadder().ladder;
+    const amount = ladder[justClearedIndex] != null ? money(ladder[justClearedIndex]) : null;
     const banner = h('div', { class: 'haven-banner', 'aria-hidden': 'true' },
       h('span', { class: 'haven-shield' }, '🛡'),
       h('span', {}, `SAFE HAVEN${amount ? ` — ${amount} BANKED` : ''}`));

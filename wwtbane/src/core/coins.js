@@ -3,12 +3,17 @@
 // boundary; dying mid-tier drops the player to the last banked amount, losing
 // only the current tier's unbanked coins (the project design rules).
 
-import { LADDER, BANK_BOUNDARIES } from './config.js';
+import { activeLadder } from './config.js';
+
+// All math reads the ACTIVE ladder profile (classic 30 rungs unless a short
+// bank installed a scaled profile at boot) — see config.js ladderProfile().
+const L = () => activeLadder().ladder;
+const B = () => activeLadder().bankBoundaries;
 
 // Cumulative coins after answering the question at 0-based index correctly.
 export function ladderValue(qIndex) {
   if (qIndex < 0) return 0;
-  return LADDER[Math.min(qIndex, LADDER.length - 1)];
+  return L()[Math.min(qIndex, L().length - 1)];
 }
 
 // The running (not-yet-guaranteed) total after clearing `clearedCount` questions.
@@ -21,7 +26,7 @@ export function runningTotal(clearedCount) {
 // the ladder value at the highest tier boundary the player has passed.
 export function bankedAfter(clearedCount) {
   let banked = 0;
-  for (const b of BANK_BOUNDARIES) {
+  for (const b of B()) {
     if (b + 1 <= clearedCount) banked = ladderValue(b);
   }
   return banked;
@@ -29,21 +34,21 @@ export function bankedAfter(clearedCount) {
 
 // True if clearing the question at 0-based qIndex crosses a bank boundary.
 export function isBankBoundary(qIndex) {
-  return BANK_BOUNDARIES.includes(qIndex);
+  return B().includes(qIndex);
 }
 
 // Coins the player walks away with when a run ends.
-//   won  -> the full top prize (finished all 30).
+//   won  -> the full top prize (finished the whole ladder).
 //   dead -> whatever was banked at the last tier boundary passed.
 export function payout({ clearedCount, won }) {
-  if (won) return ladderValue(LADDER.length - 1);
+  if (won) return ladderValue(L().length - 1);
   return bankedAfter(clearedCount);
 }
 
 // The next safe haven ahead of the player (for HUD "guaranteed at" hints).
 // Returns { qIndex, amount } or null if past the last boundary.
 export function nextBoundary(clearedCount) {
-  for (const b of BANK_BOUNDARIES) {
+  for (const b of B()) {
     if (b + 1 > clearedCount) return { qIndex: b, amount: ladderValue(b) };
   }
   return null;

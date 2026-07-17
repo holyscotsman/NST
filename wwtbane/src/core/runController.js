@@ -12,12 +12,16 @@
 import { record as recordMastery } from './mastery.js';
 import { fiftyFifty, askAudience, phoneFriend } from './lifelines.js';
 import { runningTotal, bankedAfter, payout, isBankBoundary, nextBoundary } from './coins.js';
-import { LIFELINE_TYPES } from './config.js';
+import { LIFELINE_TYPES, activeLadder } from './config.js';
 
 export function positionTier(index) {
-  if (index < 10) return 'easy';
-  if (index < 20) return 'medium';
-  if (index < 29) return 'hard';
+  // Tier by play position under the ACTIVE ladder profile (classic: easy <10,
+  // medium <20, hard <29, extreme last).
+  let acc = 0;
+  for (const t of activeLadder().tiers) {
+    acc += t.count;
+    if (index < acc) return t.key;
+  }
   return 'extreme';
 }
 
@@ -62,7 +66,7 @@ export class RunController {
       index: this.index,
       number: this.index + 1,
       tier: positionTier(this.index),
-      isFinal: this.index === 29,
+      isFinal: this.index === activeLadder().runLength - 1,
     };
   }
 
