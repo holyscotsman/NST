@@ -229,6 +229,10 @@ button:disabled { opacity: 0.45; }
 .coin-amt.playing { font-size: 21px; color: var(--gold); text-shadow: 0 0 18px rgba(255, 200, 87, 0.35); }
 .coin-hint { font-size: 10.5px; color: var(--muted); margin-top: 6px; }
 
+/* Win confetti (JS-simulated physics; elements only carry transform) */
+.confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 70; overflow: hidden; }
+.confetti-bit { position: absolute; left: 0; top: 0; width: 9px; height: 14px; border-radius: 2px; will-change: transform; }
+
 /* Safe-haven crossing: an unmistakable centered banner (auto-removed by the HUD) */
 .haven-banner {
   position: fixed; left: 50%; top: 18%; transform: translateX(-50%);

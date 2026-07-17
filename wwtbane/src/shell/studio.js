@@ -301,7 +301,9 @@ export class Studio {
 
   _tick = () => {
     if (this.disposed) return;
-    const dt = this.clock.getDelta();
+    // (PH) delta-time audit: clamp the frame delta so a backgrounded tab doesn't return
+    // with a multi-second dt that teleports camera moves and mood envelopes.
+    const dt = Math.min(0.05, this.clock.getDelta());
     this.director.reduced = this.reduced;
     const pose = this.director.update(dt);
     if (pose) {
@@ -455,7 +457,13 @@ export class Studio {
       P.head.rotation.z = Math.sin(t * 0.5 + ph * 1.3) * 0.03;
       // A very slow whole-body weight shift so nobody stands like a statue
       // (skip the crowd actor — the crowd-moment animation owns its transform).
-      if (a.role !== 'extra') a.g.rotation.z = Math.sin(t * 0.6 + ph) * 0.008;
+      // (PH) plus a hair of vertical bob coupled to the breath, so the shift reads
+      // as weight moving through the legs rather than a hinge at the floor.
+      if (a.role !== 'extra') {
+        a.g.rotation.z = Math.sin(t * 0.6 + ph) * 0.008;
+        if (a.baseY === undefined) a.baseY = a.g.position.y;
+        a.g.position.y = a.baseY + breath * 0.005;
+      }
       // Blinking: a smooth lid close-and-open (a sine hump over ~0.14s, many
       // frames) instead of a hard 1-frame drop, with an occasional double blink.
       const bt = (t + ph * 1.31) % 3.4;

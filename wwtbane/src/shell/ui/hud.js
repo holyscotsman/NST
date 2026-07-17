@@ -204,12 +204,47 @@ export class Hud {
     }
   }
 
-  // gold ★ ring burst at the top of the ladder on a win
+  // gold ★ ring burst at the top of the ladder on a win — plus physics confetti:
+  // simulated pieces with launch velocity, gravity, air drag and tumble (PH).
   burst() {
     if (reduced()) return;
     const b = h('div', { class: 'ladder-burst', 'aria-hidden': 'true' });
     this.track.append(b);
     setTimeout(() => b.remove(), 1000);
+    this._confetti();
+  }
+
+  _confetti() {
+    const host = h('div', { class: 'confetti-layer', 'aria-hidden': 'true' });
+    document.body.append(host);
+    const W = window.innerWidth, colors = ['#FFC857', '#7C4DFF', '#35D07F', '#5AB0FF', '#FF6B5B'];
+    const N = 70, ps = [];
+    for (let i = 0; i < N; i++) {
+      const e = h('span', { class: 'confetti-bit' });
+      e.style.background = colors[i % colors.length];
+      host.append(e);
+      const a = (-Math.PI / 2) + (Math.random() - 0.5) * 1.5; // launch upward-ish from bottom center
+      const sp = 520 + Math.random() * 620;
+      ps.push({ e, x: W / 2 + (Math.random() - 0.5) * 160, y: window.innerHeight + 10,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: Math.random() * 360, vr: (Math.random() - 0.5) * 720 });
+    }
+    const G = 1350, DRAG = 0.55; // px/s² gravity, per-second drag factor
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.04, (now - last) / 1000); last = now;
+      const damp = Math.exp(-DRAG * dt);
+      let alive = 0;
+      for (const p of ps) {
+        p.vy += G * dt; p.vx *= damp;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+        if (p.y < window.innerHeight + 40) alive++;
+        p.e.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.rot}deg)`;
+      }
+      if (alive > 0 && now - t0 < 4000) requestAnimationFrame(step);
+      else host.remove();
+    };
+    const t0 = performance.now();
+    requestAnimationFrame(step);
   }
 
   /* ---------------- count-up tween ---------------- */

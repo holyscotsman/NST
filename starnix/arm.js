@@ -2491,17 +2491,21 @@
     function updateSector(dt) {
       var R = shipR();
       if (bossActive) {
-        // Galaga arena: ship flies 4-directionally inside a narrow channel, always faces up (no turning)
+        // Galaga arena: ship flies 4-directionally inside a narrow channel, always faces up (no turning).
+        // (PH) inertial feel: velocity eases toward the input direction (~90ms response) instead of
+        // teleport-stepping, so the ship carries a hint of weight. Frame-rate independent.
         ship.angle = -Math.PI / 2;
-        var asp = 372 * dt;
-        if (input.left) ship.x -= asp;
-        if (input.right) ship.x += asp;
-        if (input.thrust) ship.y -= asp;   // Up / W / ▲
-        if (input.down) ship.y += asp;     // Down / S
+        var tvx = (((input.right ? 1 : 0) - (input.left ? 1 : 0))) * 372;
+        var tvy = (((input.down ? 1 : 0) - (input.thrust ? 1 : 0))) * 372;
+        var ka = 1 - Math.exp(-dt * 11);
+        ship.vx += (tvx - ship.vx) * ka;
+        ship.vy += (tvy - ship.vy) * ka;
+        ship.x += ship.vx * dt; ship.y += ship.vy * dt;
         var AR = bossArena();
-        ship.x = clamp(ship.x, AR.l + R, AR.r - R);
-        ship.y = clamp(ship.y, AR.top + R, AR.bot - R);
-        ship.vx = ship.vy = 0;
+        var bx = clamp(ship.x, AR.l + R, AR.r - R), by = clamp(ship.y, AR.top + R, AR.bot - R);
+        if (bx !== ship.x) ship.vx = 0;   // kill the wall-ward component so edges don't feel sticky
+        if (by !== ship.y) ship.vy = 0;
+        ship.x = bx; ship.y = by;
         camX = 0; camY = 0;
       } else {
         if (input.left) ship.angle -= shipTurn * dt;
@@ -2648,7 +2652,9 @@
       }
       if (!bossActive) camera(dt);
     }
-    function damage(n) { shields -= n; invuln = 0.7; regenT = 0; sfx("hit"); burst(ship.x, ship.y, COL.aqua, 6); hud(); if (shields <= 0) { shields = 0; gameOver(); } }
+    // (PH) every hit shakes the screen in proportion to the blow (small tick for chip
+    // damage, real jolt for heavy hits); reduced-motion players get none (draw-side guard).
+    function damage(n) { shields -= n; invuln = 0.7; regenT = 0; sfx("hit"); burst(ship.x, ship.y, COL.aqua, 6); shakeAmt = Math.max(shakeAmt, Math.min(14, 2 + n * 0.45)); hud(); if (shields <= 0) { shields = 0; gameOver(); } }
     function updateParticles(dt) { for (var i = 0; i < particles.length; i++) { var p = particles[i]; if (!p.active) continue; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; p.life -= dt; if (p.life <= 0) p.active = false; } }
     var AIM_ASSIST = 0.1;   // (v0.94.0, A2, Jason) whisper-level: 10% of the angle error, capped at ~3 degrees
     function shoot() {

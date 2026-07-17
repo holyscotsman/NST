@@ -810,6 +810,30 @@
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
 
     this.stage.appendChild(s);
+    // (PH) damped pointer parallax: the bridge photo drifts a few px toward the cursor with
+    // inertia (exponential follow), so the backdrop reads as a window, not a poster.
+    // Reduced motion (either toggle) skips it; _clearScreen cancels the RAF on any screen swap.
+    (function () {
+      var photoP = s.querySelector(".sx-menu-photo");
+      var reducedP = !!(prof0.settings && prof0.settings.reducedMotion);
+      if (!photoP || reducedP) return;
+      photoP.style.willChange = "transform";
+      var txP = 0, tyP = 0, oxP = 0, oyP = 0, lastP = 0;
+      self._on(s, "pointermove", function (e) {
+        var r = s.getBoundingClientRect();
+        txP = ((e.clientX - r.left) / Math.max(1, r.width) - 0.5) * -14;
+        tyP = ((e.clientY - r.top) / Math.max(1, r.height) - 0.5) * -8;
+      });
+      function stepP(tsP) {
+        if (self.screen !== "menu") return;
+        var dtP = lastP ? Math.min(0.05, (tsP - lastP) / 1000) : 0.016; lastP = tsP;
+        var kP = 1 - Math.exp(-dtP * 4);
+        oxP += (txP - oxP) * kP; oyP += (tyP - oyP) * kP;
+        photoP.style.transform = "translate(" + oxP.toFixed(2) + "px," + oyP.toFixed(2) + "px) scale(1.05)";
+        self._raf = global.requestAnimationFrame(stepP);
+      }
+      self._raf = global.requestAnimationFrame(stepP);
+    })();
     // (v0.168.0, V1.1 Menu#6) first-run coach mark: one flag, one pulse, one dismissible tip.
     // A new recruit faces four strips + a divider + rank + dock with zero guidance otherwise.
     try {

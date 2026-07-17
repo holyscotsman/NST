@@ -2069,7 +2069,12 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         var sp = spriteOf(THREE, texFor(s, THREE, ak, 'rock', 0x46465c, false, created), 0xffffff);
         var sc = 0.35 + Math.random() * 0.7; sp.scale.set(sc, sc, sc);
         sp.position.set((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 5.4, -Math.random() * 4 + 0.5);
-        sp.userData = { vx: -(0.15 + Math.random() * 0.35) * (0.4 + sp.position.z * 0.1 + 1) };
+        // (PH) mass variance: big rocks drift and spin slowly (heavy), small ones skitter.
+        var mass = (sc - 0.35) / 0.7;   // 0 = smallest, 1 = biggest
+        sp.userData = {
+          vx: -(0.15 + Math.random() * 0.35) * (0.4 + sp.position.z * 0.1 + 1) * (1.3 - mass * 0.75),
+          spin: (0.62 - mass * 0.42) * ((i % 2) ? 1 : -1)
+        };
         scene.add(sp); roids.push(sp);
       }
       // heroes
@@ -2097,7 +2102,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         var spr2 = Math.max(1, ((T.camera && T.camera.aspect) || 1.9) / 1.9);
         for (i = 0; i < T.roids.length; i++) {
           sp = T.roids[i]; sp.position.x += sp.userData.vx * dt; if (sp.position.x < -5.2 * spr2) sp.position.x = 5.2 * spr2;
-          sp.material.rotation += dt * 0.4 * ((i % 2) ? 1 : -1);
+          sp.material.rotation += dt * (sp.userData.spin != null ? sp.userData.spin : 0.4 * ((i % 2) ? 1 : -1));   // (PH) per-rock mass spin
         }
         T.stars.rotation.z += dt * 0.01;
         var plunge = fxActive(s, ts, 'lunge', 'player'), elunge = fxActive(s, ts, 'lunge', 'enemy');
@@ -2117,8 +2122,11 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         if (hasEnemy) {
           var boss = !!b.enemy.boss;
           if (T.enemyBoss !== boss) { T.enemy.material.map = boss ? T.enemyTexB : T.enemyTexN; T.enemy.material.needsUpdate = true; T.enemy.scale.setScalar(boss ? 2.3 : 1.9); T.enemyBoss = boss; }
-          T.enemy.position.x = 2.4 * spr - eoff + (1 - kIn3) * 9; T.enemy.position.y = Math.sin(ts / 520) * 0.1;
           var flash = fxActive(s, ts, 'flash', 'enemy');
+          // (PH) hit knockback: a landed strike shoves the enemy back with a decaying recoil,
+          // so shots read as impacts rather than color changes alone.
+          var recoil = flash ? Math.pow(1 - (ts - flash.start) / flash.dur, 2) * 0.45 : 0;
+          T.enemy.position.x = 2.4 * spr - eoff + (1 - kIn3) * 9 + recoil; T.enemy.position.y = Math.sin(ts / 520) * 0.1;
           T.enemy.material.color.setScalar(flash ? 1.0 + (1 - (ts - flash.start) / flash.dur) * 1.4 : 1.0);
         }
         T.camera.position.x = Math.sin(ts / 4000) * 0.15;

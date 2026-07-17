@@ -471,10 +471,17 @@
       if (!o.tested && o.z <= 0) {                  // closest-approach test (once)
         o.tested = true;
         if (!invinc && this._hitsObstacle(o, p)) {
-          this.collisions++;
-          this._onCrash();
-          this.obstacles.release(o);
-          continue;
+          // (PH) commitment forgiveness: if the player is mid lane-change and the lane they've
+          // committed to is clear of this obstacle, the dodge counts — near-misses feel earned
+          // instead of punishing input that was already in flight. Uses only x/y/topY, matching
+          // _hitsObstacle's contract.
+          var committedClear = p.laneT < 1 && !this._hitsObstacle(o, { x: p.targetX, y: p.y, topY: p.topY });
+          if (!committedClear) {
+            this.collisions++;
+            this._onCrash();
+            this.obstacles.release(o);
+            continue;
+          }
         }
       }
       if (o.z < cfg.CULL_BEHIND) this.obstacles.release(o);
@@ -1628,7 +1635,11 @@
     if (frac < 0) frac = 0; else if (frac > 1) frac = 1;
     var fov = 62 + frac * 10;                                   // 62 -> 72 with speed
     if (typeof cam.fov === 'number') {
-      if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; if (cam.updateProjectionMatrix) cam.updateProjectionMatrix(); }
+      // (PH) the FOV glides toward its speed target instead of snapping — boost activation
+      // (an instant speed jump) now reads as the camera "catching up" over ~0.3s.
+      if (this._fovS == null) this._fovS = fov;
+      this._fovS += (fov - this._fovS) * (dt > 0 ? Math.min(1, dt * 6) : 1);
+      if (Math.abs(cam.fov - this._fovS) > 0.01) { cam.fov = this._fovS; if (cam.updateProjectionMatrix) cam.updateProjectionMatrix(); }
     }
     // (v0.77.0, JB5) the speed shake now CYCLES: it builds across each 40 km window of scored
     // distance (quadratic — calm early, alive late) then resets at the boundary, so intensity
