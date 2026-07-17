@@ -247,8 +247,9 @@
 
     // --- Audio ---
     var aud = section("Audio");
-    aud.appendChild(el("p", "nst-set-note", "Applies to the WWTBANE and StarNix games (the launcher and Practice Exams are silent)."));
-    aud.appendChild(toggle("Mute all", "Silence game audio.", prefs.audioMuted, function (v) { P.set({ audioMuted: v }); }));
+    aud.appendChild(el("p", "nst-set-note", "Applies to the WWTBANE and StarNix games. Practice Exams stays silent unless you opt in below."));
+    aud.appendChild(toggle("Mute all", "Silence all audio, including Practice Exams sounds.", prefs.audioMuted, function (v) { P.set({ audioMuted: v }); }));
+    aud.appendChild(toggle("Practice Exams sounds", "Subtle feedback cues (select, correct/incorrect, submit). Off by default.", prefs.peSound, function (v) { P.set({ peSound: v }); }));
     var volRow = el("div", "nst-set-row");
     var volText = el("div", "nst-set-text");
     volText.appendChild(el("div", "nst-set-label", "Volume"));

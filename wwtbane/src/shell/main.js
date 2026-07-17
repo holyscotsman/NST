@@ -155,7 +155,12 @@ export class Game {
     // final-wrong/win) are the music engine's stingers; small UI cues stay sfx.
     this.bus.on('answer:correct', (d) => { this.music.stinger('right'); if (d.boundary) this.audio.play('bank'); });
     this.bus.on('answer:wrong', (d) => this.music.stinger(d.index === 29 ? 'finalWrong' : 'wrong'));
-    this.bus.on('lifeline:use', () => { this.audio.play('lifeline'); this.music.push('lifeline'); });
+    // (S) each lifeline announces itself with its own signature sound (fifty/audience/phone).
+    this.bus.on('lifeline:use', (d) => {
+      const sig = d && d.type ? `lifeline-${d.type}` : 'lifeline';
+      this.audio.play(sig);
+      this.music.push('lifeline');
+    });
     this.bus.on('run:win', () => { this.music.stop(); this.music.stinger('win'); });
     this.bus.on('run:dead', () => this.music.stop());
     this.bus.on('question:show', (d) => {
@@ -751,6 +756,7 @@ export class Game {
     this.quiz.showQuestion(cur, this.rc.snapshot());
     this.hud.update(this.rc.snapshot());
     this.hud.trail(prev, 'up'); // gold streak as the highlight climbs
+    this.audio.play('climb');   // (S) the ratchet tick rides the climb
     this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
   }
 

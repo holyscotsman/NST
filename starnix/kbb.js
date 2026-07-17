@@ -2644,6 +2644,11 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
           pushFx(s, { type: 'flash', side: 'enemy', dur: 320, delay: 620, flashR: en && en.boss ? 82 : 66 });
           pushFx(s, { type: 'sparks', side: 'enemy', dur: 620, delay: 620, col: ecol, count: 12, seed: 3 });
           pushFx(s, { type: 'sfx', name: 'hit', side: 'enemy', dur: 60, delay: 640 });
+          // (S) impact weight scales with the blow: a strike worth a quarter of the enemy's
+          // hull (or more) layers a deeper boom under the hit crack.
+          if (en && en.maxHp && res.damage >= en.maxHp * 0.25 && !res.win) {
+            pushFx(s, { type: 'sfx', name: 'explode', side: 'enemy', dur: 60, delay: 660 });
+          }
           pushFx(s, { type: 'dmg', side: 'enemy', amount: res.damage, dur: 760, delay: 660, big: res.win });
           if (!res.win) pushFx(s, { type: 'quake', side: 'enemy', dur: 220, delay: 620, amt: 0.16 });
         } else if (res.correct && res.blocked) {

@@ -106,6 +106,7 @@
       } else {
         st.chosen = i;
       }
+      if (PE.sfx) PE.sfx.play("select");
       renderCard();
     }
 
@@ -121,6 +122,7 @@
       st.checked = true;
       st.correct = engine.gradeAnswer(q, st.chosen);
       streak = st.correct ? streak + 1 : 0;
+      if (PE.sfx) PE.sfx.play(st.correct ? "correct" : "incorrect");
       updateScore();
       renderCard();
     }

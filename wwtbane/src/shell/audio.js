@@ -78,6 +78,22 @@ export class GameAudio {
         this._tone(NOTES.G4, t, 0.1, { type: 'triangle', gain: 0.3 });
         this._tone(NOTES.C5, t + 0.08, 0.14, { type: 'triangle', gain: 0.3 });
         break;
+      // (S) each lifeline gets a short signature so the ear knows which fired.
+      case 'lifeline-fifty':   // the slice: a quick high-low chop
+        this._tone(NOTES.C6, t, 0.05, { type: 'square', gain: 0.22 });
+        this._tone(NOTES.G4, t + 0.06, 0.09, { type: 'square', gain: 0.22 });
+        break;
+      case 'lifeline-audience': // the crowd shimmer: three staggered soft tones
+        [NOTES.E5, NOTES.G5, NOTES.C6].forEach((f, i) => this._tone(f, t + i * 0.045, 0.12, { type: 'sine', gain: 0.16 }));
+        break;
+      case 'lifeline-phone':    // ring-ring
+        [0, 0.16].forEach((d) => { this._tone(NOTES.C6, t + d, 0.06, { type: 'sine', gain: 0.2 }); this._tone(NOTES.E5, t + d + 0.05, 0.06, { type: 'sine', gain: 0.2 }); });
+        break;
+      // (S) ladder ratchet: a tiny two-step tick as the highlight climbs a rung.
+      case 'climb':
+        this._tone(NOTES.G5, t, 0.045, { type: 'square', gain: 0.13 });
+        this._tone(NOTES.C6, t + 0.035, 0.04, { type: 'square', gain: 0.1 });
+        break;
       case 'correct': // rising major arpeggio
         [NOTES.C5, NOTES.E5, NOTES.G5].forEach((f, i) => this._tone(f, t + i * 0.07, 0.18, { type: 'triangle', gain: 0.34 }));
         break;

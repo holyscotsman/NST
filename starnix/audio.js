@@ -1005,7 +1005,9 @@
     if (type === "explode" || type === "hit") {
       var s = AC.createBufferSource(); s.buffer = noiseBuf;
       var f = AC.createBiquadFilter(); f.type = "lowpass";
-      f.frequency.value = type === "explode" ? 900 : 1600;
+      // (S) ±10% filter variance on the high-repetition impacts — same anti-fatigue idea as
+      // the tonal cues; explosions keep a hint of variance too so chained kills don't stack flat.
+      f.frequency.value = (type === "explode" ? 900 : 1600) * (0.9 + Math.random() * 0.2);
       s.connect(f); f.connect(g);
       var dur = type === "explode" ? 0.34 : 0.09;
       g.gain.setValueAtTime(type === "explode" ? 0.5 : 0.25, t);
@@ -1065,6 +1067,15 @@
       cbf.frequency.setValueAtTime(400, t); cbf.frequency.exponentialRampToValueAtTime(3200, t + 0.55);
       var cbng = AC.createGain(); cbng.gain.setValueAtTime(0.0001, t); cbng.gain.linearRampToValueAtTime(0.2, t + 0.3); cbng.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
       cbn.connect(cbf); cbf.connect(cbng); cbng.connect(sfxBus); cbn.start(t); cbn.stop(t + 0.62); return;
+    }
+    if (type === "ccnear") {                      // (S) near-miss: a short airy whoosh, doppler-ish downward sweep
+      var nmS = AC.createBufferSource(); nmS.buffer = noiseBuf;
+      var nmF = AC.createBiquadFilter(); nmF.type = "bandpass"; nmF.Q.value = 1.4;
+      nmF.frequency.setValueAtTime(2400, t); nmF.frequency.exponentialRampToValueAtTime(700, t + 0.22);
+      var nmG = AC.createGain(); nmG.gain.setValueAtTime(0.0001, t);
+      nmG.gain.linearRampToValueAtTime(0.22, t + 0.04); nmG.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+      nmS.connect(nmF); nmF.connect(nmG); nmG.connect(sfxBus); nmS.start(t); nmS.stop(t + 0.26);
+      return;
     }
     if (type === "ccklaxon") {                    // turn-warning KLAXON: two two-tone barks (the banner finally has an audio channel)
       for (var ck = 0; ck < 2; ck++) {
@@ -1286,8 +1297,12 @@
     }
 
     var osc = AC.createOscillator(); osc.connect(g);
+    // (S) anti-fatigue: the high-repetition combat/pickup cues get ±6% pitch variance so a
+    // full sector of firing doesn't hammer one identical sample. Cosmetic only (Math.random
+    // is allowed for non-gameplay effects); one-shot cues (correct/wrong/click) stay stable.
+    var pv = (type === "fire" || type === "collect" || type === "hit") ? (0.94 + Math.random() * 0.12) : 1;
     function set(wave, f0, f1, dur, vol) {
-      osc.type = wave; osc.frequency.setValueAtTime(f0, t); osc.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      osc.type = wave; osc.frequency.setValueAtTime(f0 * pv, t); osc.frequency.exponentialRampToValueAtTime(f1 * pv, t + dur);
       g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
       osc.start(t); osc.stop(t + dur);
     }

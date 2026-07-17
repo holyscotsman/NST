@@ -470,6 +470,12 @@
       o.z -= adv;
       if (!o.tested && o.z <= 0) {                  // closest-approach test (once)
         o.tested = true;
+        // (S) near-miss: cleared a lane-blocking obstacle from the lane right beside it —
+        // an airy whoosh sells the closeness. Only for x-tested obstacle types, at speed.
+        if (!this._hitsObstacle(o, p) && (o.type === OB_NARROW || o.type === OB_ROCKFALL) &&
+            Math.abs(p.x - o.x) < cfg.LANE_W * 1.5 && this.speed > cfg.BASE_SPEED * 1.15) {
+          this._emit && this._emit('nearmiss');
+        }
         if (!invinc && this._hitsObstacle(o, p)) {
           // (PH) commitment forgiveness: if the player is mid lane-change and the lane they've
           // committed to is clear of this obstacle, the dodge counts — near-misses feel earned
@@ -2201,6 +2207,7 @@
         else if (name === 'boost') ctx.audio.sfx('ccboost');
         else if (name === 'turnwarn') ctx.audio.sfx('ccklaxon');
         else if (name === 'crash') ctx.audio.sfx('cccrunch');
+        else if (name === 'nearmiss') ctx.audio.sfx('ccnear');   // (S) airy whoosh on a close shave
         else if (name === 'turnauto') ctx.audio.sfx('click');
         else if (name === 'squeeze') {   // (v0.175.0, CC#6) CANYON NARROWS entry cue
           try {

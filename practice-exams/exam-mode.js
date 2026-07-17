@@ -58,7 +58,7 @@
     });
     prevBtn.addEventListener("click", function () { if (idx > 0) { idx--; renderCard(); } });
     nextBtn.addEventListener("click", function () { if (idx < N - 1) { idx++; renderCard(); } });
-    flagBtn.addEventListener("click", function () { flags[idx] = !flags[idx]; renderCard(); });
+    flagBtn.addEventListener("click", function () { flags[idx] = !flags[idx]; if (PE.sfx) PE.sfx.play("flag"); renderCard(); });
     submitBtn.addEventListener("click", function () { promptSubmit(); });
 
     // (UI) keyboard play: A-D/1-9 selects, ←/→ navigates, F flags. Self-removes when the
@@ -72,7 +72,7 @@
       var q = questions[idx], k = e.key;
       var li = "abcdefghij".indexOf(k.toLowerCase());
       var ni = "123456789".indexOf(k);
-      if (k.toLowerCase() === "f") { e.preventDefault(); flags[idx] = !flags[idx]; renderCard(); }
+      if (k.toLowerCase() === "f") { e.preventDefault(); flags[idx] = !flags[idx]; if (PE.sfx) PE.sfx.play("flag"); renderCard(); }
       else if (li >= 0 && li < q.options.length) { e.preventDefault(); selectOption(li); }
       else if (ni >= 0 && ni < q.options.length) { e.preventDefault(); selectOption(ni); }
       else if (k === "ArrowLeft" && idx > 0) { e.preventDefault(); idx--; renderCard(); }
@@ -90,6 +90,7 @@
       } else {
         answers[idx] = i;
       }
+      if (PE.sfx) PE.sfx.play("select");
       renderCard();
     }
 
@@ -208,6 +209,7 @@
         return { q: q, chosen: answers[i], correct: engine.gradeAnswer(q, answers[i]) };
       });
       var summary = engine.summarize(results);
+      if (PE.sfx) PE.sfx.play(summary.pass ? "pass" : "fail");
       engine.saveAttempt({
         mode: "exam",
         at: Date.now(),

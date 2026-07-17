@@ -535,6 +535,7 @@
       { at: B.beam + 1.0, name: "lasercharge", done: false },
       { at: B.beam + 2.0, name: "laserfire", done: false },
       { at: B.shatter, name: "explode", done: false },
+      { at: B.belt - 0.55, name: "warp", done: false },   // (S) the jump INTO the belt gets its whoosh
       { at: B.belt, name: "laserhit", done: false },
       { at: B.planet, name: "collect", done: false },
       // (v0.188.0, Menu#8) a soft tick as each caption starts typing
@@ -784,7 +785,8 @@
     })();
 
     var top = s.querySelector(".sx-menu-top");
-    function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", fn); top.appendChild(b); }
+    // (S) every top-bar control clicks audibly, matching the mission strips.
+    function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", function () { try { StarNix.core.audio.sfx("click"); } catch (eC) {} fn(); }); top.appendChild(b); }
     // (v0.128.0, V1.1 Menu#1) the top Continue deduped away — the dock CTA is the one Continue
     // (v0.141.0, V1.1 Flow#2) Today's flight plan — ONE ranked "do this next" card at the
     // top of the dock, from the pure core planner.
