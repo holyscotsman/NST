@@ -15,19 +15,33 @@
     } catch (e) { return ""; }
   }
 
+  // Session continuity: remember the question-set choice so returning players pick up
+  // where they left off. Parse-guarded — a corrupt value falls back to defaults.
+  var PREFS_KEY = "nst.practice-exams.prefs.v1";
+  function loadPrefs() {
+    try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; }
+  }
+  function savePrefs(patch) {
+    try {
+      var p = loadPrefs();
+      for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) p[k] = patch[k];
+      localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+    } catch (e) { /* storage unavailable */ }
+  }
+
   function showEntry(container) {
     var el = ui.el, esc = ui.esc, cfg = window.PE_CONFIG;
     var meta = engine.bankMeta();
     var hasQ = meta.total > 0;
     var randomCount = Math.min(cfg.EXAM_QUESTION_COUNT, meta.total);
     var passN = Math.round(cfg.PASS_THRESHOLD * 100);
-    var useFull = false;   // question-set choice: false = 75 random, true = full bank
+    var useFull = loadPrefs().useFull === true;   // question-set choice, remembered across visits
     container.innerHTML = "";
     var root = el("div", "pe-entry");
 
     // Header
     var header = el("div", "pe-entry-head");
-    var back = el("a", "pe-back", "&#8592; Nutanix Study Tool");
+    var back = el("a", "pe-back", "&#8592; Main menu");
     back.href = HOME;
     header.appendChild(back);
     header.appendChild(el("h1", "pe-entry-title", "Nutanix Practice Exams"));
@@ -54,13 +68,14 @@
     pick.setAttribute("role", "radiogroup");
     pick.setAttribute("aria-label", "Question set");
     pick.appendChild(el("span", "pe-setpick-label", "Question set"));
-    var segRandom = el("button", "pe-seg on", randomCount + " random");
-    var segFull = el("button", "pe-seg", "Full bank · " + meta.total);
+    var segRandom = el("button", "pe-seg" + (useFull ? "" : " on"), randomCount + " random");
+    var segFull = el("button", "pe-seg" + (useFull ? " on" : ""), "Full bank · " + meta.total);
     [segRandom, segFull].forEach(function (b) { b.type = "button"; b.setAttribute("role", "radio"); });
-    segRandom.setAttribute("aria-checked", "true");
-    segFull.setAttribute("aria-checked", "false");
+    segRandom.setAttribute("aria-checked", String(!useFull));
+    segFull.setAttribute("aria-checked", String(useFull));
     function selectSet(full) {
       useFull = full;
+      savePrefs({ useFull: full });
       segRandom.classList.toggle("on", !full);
       segFull.classList.toggle("on", full);
       segRandom.setAttribute("aria-checked", String(!full));
@@ -125,6 +140,7 @@
       root.appendChild(list);
     }
 
+    root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v1.1.0"));
     container.appendChild(root);
     try { window.scrollTo(0, 0); } catch (e) {}
   }
@@ -185,7 +201,7 @@
     container.innerHTML = "";
     var root = el("div", "pe-entry");
     var header = el("div", "pe-entry-head");
-    var back = el("a", "pe-back", "&#8592; Nutanix Study Tool");
+    var back = el("a", "pe-back", "&#8592; Main menu");
     back.href = HOME;
     header.appendChild(back);
     header.appendChild(el("h1", "pe-entry-title", "Nutanix Practice Exams"));

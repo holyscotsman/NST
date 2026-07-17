@@ -197,7 +197,7 @@
       '<div class="sx-title-photo" aria-hidden="true"></div>' +
       '<img class="sx-wordmark-img" alt="Nutanix" src="' + ((global.STARNIX_ASSETS && global.STARNIX_ASSETS.wordmark) || '') + '">' +
       '<h1 class="sx-h1">StarNix</h1>' +
-      '<div class="sx-sub">NCP-MCI · Starlight Rescue Crew</div>' +
+      '<div class="sx-sub">Starlight Rescue Crew</div>' +
       '<div class="sx-row"></div>';
     var tphoto = s.querySelector(".sx-title-photo");
     var neb = global.STARNIX_ASSETS && global.STARNIX_ASSETS.nebulaBg;
@@ -205,9 +205,18 @@
     var row = s.querySelector(".sx-row");
     var start = el("button", "sx-btn sx-btn-iris", "Start");
     var self = this;
+    // Returning crew (intro already seen) go straight to the bridge — the intro stays
+    // one click away via the menu's "Replay intro". First-timers get the full cold open.
+    var seenIntro = false;
+    try { seenIntro = !!(StarNix.core.profile && StarNix.core.profile.introSeen); } catch (eI) {}
     this._on(start, "click", function () {
-      try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {}
-      self.showCinematic();
+      if (seenIntro) {
+        try { StarNix.core.audio.playTrack("menu"); } catch (e) {}
+        self.showMenu();
+      } else {
+        try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {}
+        self.showCinematic();
+      }
     });
     row.appendChild(start);
     var menu = el("button", "sx-btn sx-btn-ghost", "← Main menu");
@@ -595,6 +604,14 @@
   };
   Shell.prototype._endCinematic = function () {
     this._cancelRaf();
+    // Latch intro-seen so future visits offer the quick title -> bridge path.
+    try {
+      var pIS = StarNix.core.profile;
+      if (pIS && !pIS.introSeen && StarNix.core.persistence && StarNix.core.persistence.update) {
+        pIS.introSeen = true;
+        StarNix.core.persistence.update(function (p) { p.introSeen = true; });
+      }
+    } catch (eIS) {}
     try { StarNix.core.audio.playTrack("menu"); } catch (e) {}
     this.showMenu();
   };

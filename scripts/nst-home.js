@@ -4,7 +4,7 @@
  * at boot. Groups: Accessibility, Audio, Developer Mode, Reset saved data. */
 (function () {
   "use strict";
-  var NST_VERSION = "1.0.0";
+  var NST_VERSION = "1.1.0";
   var P = window.NSTPrefs;
 
   function el(tag, cls, html) {
@@ -128,6 +128,8 @@
   // Question-bank chooser on the hero: one button per bank in banks/manifest.json.
   // Clicking a button writes nst.activeBank (via NSTBank.setActive); every tool reads it
   // at boot. Adding a bank to the manifest adds a button here — no code change needed.
+  var _navBadgeUpdate = null;   // set by renderNavBadge; called when the active bank changes
+
   function renderCertSelector() {
     var Bank = window.NSTBank; if (!Bank) return;
     var host = document.querySelector(".nst-hero"); if (!host) return;
@@ -142,8 +144,24 @@
     wrap.appendChild(hint);
     host.appendChild(wrap);
 
-    Bank.list().then(function (banks) {
+    function populate(banks) {
       group.innerHTML = "";
+      // Manifest fetch failed (offline / bad deploy): say so and offer a real retry
+      // instead of pretending there are no banks.
+      if (!banks.length && Bank.manifestError && Bank.manifestError()) {
+        wrap.classList.add("empty");
+        group.appendChild(el("div", "nst-cert-empty", "Couldn't load the question banks — check your connection."));
+        var retry = el("button", "nst-cert-btn", "Retry");
+        retry.type = "button";
+        retry.addEventListener("click", function () {
+          group.innerHTML = "";
+          group.appendChild(el("div", "nst-cert-loading", "Loading banks…"));
+          Bank.manifest(true).then(populate);
+        });
+        group.appendChild(retry);
+        hint.textContent = "";
+        return;
+      }
       if (!banks.length) {
         wrap.classList.add("empty");
         group.appendChild(el("div", "nst-cert-empty", "No question banks yet. Add one to /banks/."));
@@ -161,6 +179,7 @@
         hint.textContent = b ? (b.title || b.cert || b.id) + " — open a tool below to study it."
                              : "Pick a question bank to load its questions.";
         wrap.classList.toggle("empty", !b);
+        if (_navBadgeUpdate) _navBadgeUpdate(b || null);
       }
       banks.forEach(function (b) {
         var btn = el("button", "nst-cert-btn", esc(b.title || b.cert || b.id));
@@ -170,7 +189,29 @@
         group.appendChild(btn);
       });
       refresh();
+    }
+
+    group.appendChild(el("div", "nst-cert-loading", "Loading banks…"));
+    Bank.list().then(populate);
+  }
+
+  // Small nav chip showing the active bank at a glance; clicking scrolls to the chooser.
+  function renderNavBadge() {
+    var Bank = window.NSTBank; if (!Bank) return;
+    var utils = document.querySelector(".nst-nav-utils"); if (!utils) return;
+    var chip = el("button", "nst-nav-bank", "");
+    chip.type = "button";
+    chip.title = "Question bank — click to choose";
+    chip.addEventListener("click", function () {
+      var t = document.querySelector(".nst-cert");
+      if (t && t.scrollIntoView) t.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+    utils.insertBefore(chip, utils.firstChild);
+    _navBadgeUpdate = function (bank) {
+      chip.textContent = bank ? (bank.cert || bank.id) : "No bank";
+      chip.classList.toggle("none", !bank);
+    };
+    _navBadgeUpdate(null);
   }
 
   function buildModal() {
@@ -287,6 +328,7 @@
   function init() {
     var btn = document.getElementById("nst-settings-btn");
     if (btn) btn.addEventListener("click", buildModal);
+    renderNavBadge();
     renderCertSelector();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

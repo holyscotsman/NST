@@ -316,6 +316,7 @@ body {
 .pe-bankbtn.on { border-color: rgba(124, 77, 255, 0.6); background: rgba(124, 77, 255, 0.16); color: #fff; }
 .pe-bankpick-empty { color: var(--faint); font-size: 13px; }
 .pe-pickprompt { margin-top: 22px; padding: 16px 18px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 15px; }
+.pe-version { margin-top: 34px; font-size: 11.5px; color: var(--fainter, #6E6890); text-align: center; letter-spacing: 0.04em; }
 
 /* ---------- No-bank / loading states ---------- */
 .pe-loading { color: var(--muted); text-align: center; padding: 80px 20px; font-weight: 600; }
