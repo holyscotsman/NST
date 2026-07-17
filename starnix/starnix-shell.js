@@ -550,7 +550,21 @@
     var capStart = 0, capShown = -1;               // (v0.188.0, V1.1 Menu#8) type-on caption state
     function frame(ts) {
       var dt = (ts - last) / 1000; last = ts; if (dt > 0.05) dt = 0.05; T += dt;
-      for (var sfb = 0; sfb < SFX_BEATS.length; sfb++) { var fb = SFX_BEATS[sfb]; if (!fb.done && T >= fb.at) { fb.done = true; try { StarNix.core.audio.sfx(fb.name); } catch (eFb) {} } }
+      for (var sfb = 0; sfb < SFX_BEATS.length; sfb++) {
+        var fb = SFX_BEATS[sfb];
+        if (!fb.done && T >= fb.at) {
+          fb.done = true;
+          try {
+            StarNix.core.audio.sfx(fb.name);
+            // (M) the score dips under the big story beats so the punctuation lands on top,
+            // then swells back — the mission reveal gets the deepest dip + longest recovery.
+            if (StarNix.core.audio.duck) {
+              if (fb.name === "laserfire" || fb.name === "explode" || fb.name === "warp") StarNix.core.audio.duck(0.7, 0.45);
+              else if (fb.name === "correct") StarNix.core.audio.duck(1.2, 0.55);
+            }
+          } catch (eFb) {}
+        }
+      }
       ctx.clearRect(0, 0, W, H);
       var inBelt = (T >= B.belt && T < B.planet);
       // (G3) projected starfield: depth drift always, hard streaks during the beam + jump

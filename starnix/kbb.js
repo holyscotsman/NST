@@ -2305,9 +2305,19 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       try {
         var b0 = s.run && s.run.battle;
         var wantTrack = (b0 && b0.enemy && !b0.over && b0.enemy.boss) ? 'boss' : 'kbb';
-        if (s._musicCtx !== wantTrack && s.ctx && s.ctx.audio && s.ctx.audio.playTrack) {
-          s._musicCtx = wantTrack;
-          s.ctx.audio.playTrack(wantTrack, wantTrack === 'boss' ? { intensity: true } : undefined);
+        // (M5) depth timbre: past the Flagship (section 3+) the kbb bed raises its
+        // intensity layer, so deep runs sound heavier. A depth flip on the SAME bed
+        // uses setIntensity (live, no crossfade); only real kbb<->boss switches
+        // go through playTrack and its playlist rotation.
+        var deep = !!(s.run && s.run.section >= 3);
+        var wantOn = wantTrack === 'boss' ? true : deep;
+        var au = s.ctx && s.ctx.audio;
+        if (s._musicCtx !== wantTrack && au && au.playTrack) {
+          s._musicCtx = wantTrack; s._musicHot = wantOn;
+          au.playTrack(wantTrack, { intensity: wantOn });
+        } else if (s._musicHot !== wantOn && au && au.setIntensity) {
+          s._musicHot = wantOn;
+          au.setIntensity(wantOn);
         }
       } catch (e0) {}
 

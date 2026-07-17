@@ -19,7 +19,10 @@
   function level() {
     var v = prefs().audioVolume;
     v = (typeof v === "number" && v >= 0 && v <= 1) ? v : 0.7;
-    return v * 0.35;   // (S9) feedback cues sit well under music level; hard cap
+    // (S9/M10) LOUDNESS CONTRACT — cues: tone gain (<=0.5) x this 0.35 scale
+    // (~0.175 peak at default volume); the ambient pad caps its master at ~0.1,
+    // deliberately below every cue so feedback always reads over the pad.
+    return v * 0.35;
   }
   function ac() {
     if (!ctx) {
@@ -54,6 +57,57 @@
     fail: function (c, t) { [392, 330, 262].forEach(function (f, i) { tone(c, t + i * 0.14, f, 0.2, "sine", 0.35); }); },
   };
 
+  // (M1) optional study-room ambience: a whisper-quiet generative pad behind
+  // Practice mode ONLY (Exam mode never starts it). Same opt-in gate as the cues.
+  // Overlapping 14 s chord swells on a 12 s clock crossfade into each other; the
+  // interval re-checks enabled() so flipping the pref or muting kills it live.
+  var pad = null;
+  var PAD_CHORDS = [
+    [196.0, 246.94, 293.66],   // G
+    [174.61, 220.0, 261.63],   // F
+    [164.81, 196.0, 246.94],   // Em
+    [146.83, 220.0, 293.66],   // Dsus
+  ];
+  function ambientStart() {
+    if (pad || !enabled()) return;
+    var c = ac();
+    if (!c) return;
+    var master = c.createGain();
+    master.gain.setValueAtTime(0.0001, c.currentTime);
+    master.gain.linearRampToValueAtTime(Math.min(0.1, level() * 0.35), c.currentTime + 2.5);
+    master.connect(c.destination);
+    var step = 0;
+    function chord() {
+      if (!pad) return;
+      if (!enabled()) { ambientStop(); return; }
+      var t = c.currentTime;
+      PAD_CHORDS[step % PAD_CHORDS.length].forEach(function (f, i) {
+        var o = c.createOscillator(), g = c.createGain();
+        o.type = i === 0 ? "sine" : "triangle";
+        o.frequency.setValueAtTime(f * (1 + (i - 1) * 0.0006), t);   // hair of detune = width
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(i === 0 ? 0.5 : 0.22, t + 4);
+        g.gain.linearRampToValueAtTime(0.0001, t + 14);
+        o.connect(g); g.connect(master);
+        o.start(t); o.stop(t + 14.2);
+      });
+      step++;
+    }
+    pad = { master: master, timer: setInterval(chord, 12000) };
+    chord();
+  }
+  function ambientStop() {
+    if (!pad) return;
+    var p = pad; pad = null;
+    clearInterval(p.timer);
+    try {
+      var t = ctx ? ctx.currentTime : 0;
+      p.master.gain.cancelScheduledValues(t);
+      p.master.gain.setTargetAtTime(0.0001, t, 0.4);
+      setTimeout(function () { try { p.master.disconnect(); } catch (e) {} }, 2200);
+    } catch (e) {}
+  }
+
   PE.sfx = {
     enabled: enabled,
     play: function (name) {
@@ -62,5 +116,7 @@
       if (!c) return;
       try { CUES[name](c, c.currentTime); } catch (e) { /* audio is never load-bearing */ }
     },
+    ambientStart: ambientStart,
+    ambientStop: ambientStop,
   };
 })();

@@ -43,7 +43,12 @@
     var prevBtn = root.querySelector(".pe-prev");
     var nextBtn = root.querySelector(".pe-next");
 
-    root.querySelector(".pe-exit").addEventListener("click", function () { opts.onExit && opts.onExit(); });
+    root.querySelector(".pe-exit").addEventListener("click", function () {
+      if (PE.sfx && PE.sfx.ambientStop) PE.sfx.ambientStop();
+      opts.onExit && opts.onExit();
+    });
+    // (M1) opt-in study ambience for Practice mode only (entry click is the gesture).
+    if (PE.sfx && PE.sfx.ambientStart) PE.sfx.ambientStart();
     prevBtn.addEventListener("click", function () { if (idx > 0) { idx--; renderCard(); } });
     nextBtn.addEventListener("click", function () { if (idx < N - 1) { idx++; renderCard(); } });
     checkBtn.addEventListener("click", onCheckOrRetry);
@@ -51,7 +56,11 @@
     // (UI) keyboard play: A-D (or 1-9) selects, ←/→ navigates, Enter checks. The listener
     // self-removes once this mode's DOM is replaced (root disconnects).
     function onKey(e) {
-      if (!root.isConnected) { document.removeEventListener("keydown", onKey); return; }
+      if (!root.isConnected) {
+        document.removeEventListener("keydown", onKey);
+        if (PE.sfx && PE.sfx.ambientStop) PE.sfx.ambientStop();   // safety net for non-exit navigation
+        return;
+      }
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       var tag = (e.target && e.target.tagName) || "";
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;

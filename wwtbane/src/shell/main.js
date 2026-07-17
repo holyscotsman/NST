@@ -162,7 +162,10 @@ export class Game {
       this.music.push('lifeline');
     });
     this.bus.on('run:win', () => { this.music.stop(); this.music.stinger('win'); });
-    this.bus.on('run:dead', () => this.music.stop());
+    // (M) loss theme: the tier loop dies with the run, then a hushed minor resolve
+    // emerges from the wrong-stinger's tail — the defeat arrangement, distinct
+    // from the win fanfare above.
+    this.bus.on('run:dead', () => { this.music.stop(); this.music.stinger('lost'); });
     this.bus.on('question:show', (d) => {
       if (d.isFinal) this._markFinalReached();
       // Tier loops: quicker and brighter on easy, slower and lower as tiers rise.
@@ -172,8 +175,10 @@ export class Game {
       const tierLine = (!d.isFinal && this._lastShownTier && d.tier !== this._lastShownTier)
         ? pickTierLine(d.tier) : null;
       this._lastShownTier = d.tier;
-      if (tierLine) this._hostSay(tierLine, { announce: true });
-      else this._hostQuip(d);
+      if (tierLine) {
+        this.music.riser();   // (M) mark the step up under the host's congrats/warning
+        this._hostSay(tierLine, { announce: true });
+      } else this._hostQuip(d);
     });
     this.bus.on('scene:green', () => this.music.play('lounge'));
     this.bus.on('scene:studio', () => { if (this.screen !== 'quiz') this.music.play('lounge'); });

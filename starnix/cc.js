@@ -2516,6 +2516,7 @@
 
       // ---- HUD ----
       var hudCache = { shields: -1, score: -1, dist: -1, buffs: '', cells: -1, mile: 0 };
+      var musicHot = false;   // (M6) speed-pulse state for the music bed's drive layer
       var pbBest = 0, pbBeaten = false, mileHideAt = 0;   // (v0.144.0, CC#3)
       var bioHideAt = 0; hudCache.bio = 0;                // (v0.194.0, CC#9) dusk at launch, no banner
       function updateHud() {
@@ -2569,6 +2570,14 @@
         if (spd !== hudCache.dist) { hudCache.dist = spd; el.dist.textContent = sim.boostActive ? 'BOOST \u26A1' : spd + ' m/s'; }
         var bOn = !!sim.boostActive;
         if (hudCache.boostOvr !== bOn) { hudCache.boostOvr = bOn; el.boostOvr.style.display = bOn ? 'flex' : 'none'; }   // (v0.103.0, C7)
+        // (M6) speed pulse: a boost or high cruise speed raises the music bed's drive
+        // layer live (extra percussion/sub — no track switch); easing off relaxes it.
+        // Hysteresis (on >70 m/s, off <64) keeps it from flapping around the line.
+        var mhWant = bOn || sim.speed > CONFIG.BASE_SPEED + (CONFIG.MAX_SPEED - CONFIG.BASE_SPEED) * (musicHot ? 0.5 : 0.65);
+        if (mhWant !== musicHot) {
+          musicHot = mhWant;
+          try { ctx.audio && ctx.audio.setIntensity && ctx.audio.setIntensity(musicHot); } catch (eMh) {}
+        }
         var tp = sim.turnPending ? sim.turnPending.dir : '';
         if (hudCache.turn !== tp) {
           hudCache.turn = tp;

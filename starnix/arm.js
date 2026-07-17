@@ -288,8 +288,25 @@
     function sectorMusic() {                              // boss sectors get the boss track; tier 2+ layers intensity onto "arm"
       try {
         if (bossActive) AUD.playTrack("boss", { intensity: 1 });
-        else AUD.playTrack("arm", { intensity: tierOf(sector) >= 2 ? 1 : 0 });
+        else AUD.playTrack("arm", { intensity: (tierOf(sector) >= 2 || musicDanger) ? 1 : 0 });
       } catch (e) {}
+    }
+    // (M) danger layer: shields at/below a quarter raise the music's intensity layer live
+    // via setIntensity (playTrack would rotate the playlist and crossfade to a new song);
+    // recovering above ~35% relaxes it. Hysteresis keeps it from flapping while shields
+    // hover at the line. Boss sectors already run hot.
+    var musicDanger = false;
+    function updateDangerMusic() {
+      if (bossActive || maxShields <= 0) return;
+      var frac = shields / maxShields;
+      var want = musicDanger ? (frac <= 0.35) : (frac <= 0.25);
+      if (want !== musicDanger) {
+        musicDanger = want;
+        try {
+          if (AUD.setIntensity) AUD.setIntensity(tierOf(sector) >= 2 || musicDanger);
+          else sectorMusic();
+        } catch (e) {}
+      }
     }
     function sfx(name) { if (!sfxOn) return; try { AUD.sfx(name === "warp" ? "hyperdrive" : name); } catch (e) {} }
 
@@ -2529,7 +2546,7 @@
       }
       if (charges < maxCharges) { rechargeTimer -= dt; if (rechargeTimer <= 0) { charges++; rechargeTimer += rechargeTime; } if (charges < 1) hud(); }   // (v0.93.0, A9) live bar while empty
       if (invuln > 0) invuln -= dt; if (input.fire) shoot();
-      regenT += dt; if (regenT > shieldRegenDelay && shields < maxShields && shields > 0) { shields = Math.min(maxShields, shields + shieldRegenRate * dt); hud(); }   // (v0.93.0, A8)
+      regenT += dt; if (regenT > shieldRegenDelay && shields < maxShields && shields > 0) { shields = Math.min(maxShields, shields + shieldRegenRate * dt); hud(); updateDangerMusic(); }   // (v0.93.0, A8)
 
       var i, j;
       for (i = 0; i < enemies.length; i++) {
@@ -2666,7 +2683,7 @@
     }
     // (PH) every hit shakes the screen in proportion to the blow (small tick for chip
     // damage, real jolt for heavy hits); reduced-motion players get none (draw-side guard).
-    function damage(n) { shields -= n; invuln = 0.7; regenT = 0; sfx("hit"); burst(ship.x, ship.y, COL.aqua, 6); shakeAmt = Math.max(shakeAmt, Math.min(14, 2 + n * 0.45)); hud(); if (shields <= 0) { shields = 0; gameOver(); } }
+    function damage(n) { shields -= n; invuln = 0.7; regenT = 0; sfx("hit"); burst(ship.x, ship.y, COL.aqua, 6); shakeAmt = Math.max(shakeAmt, Math.min(14, 2 + n * 0.45)); hud(); if (shields <= 0) { shields = 0; gameOver(); return; } updateDangerMusic(); }
     function updateParticles(dt) { for (var i = 0; i < particles.length; i++) { var p = particles[i]; if (!p.active) continue; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; p.life -= dt; if (p.life <= 0) p.active = false; } }
     var AIM_ASSIST = 0.1;   // (v0.94.0, A2, Jason) whisper-level: 10% of the angle error, capped at ~3 degrees
     function shoot() {

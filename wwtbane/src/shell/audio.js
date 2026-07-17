@@ -19,6 +19,9 @@ export class GameAudio {
       if (!AC) return false;
       this.ctx = new AC();
       this.master = this.ctx.createGain();
+      // (M10) LOUDNESS CONTRACT — cue chain: per-tone gains (<=0.34 typical) x this
+      // master. Sits just above the Music engine's 0.16 loop bed so feedback cues
+      // read over the tier loops without ducking. Keep new cues' gains <=0.35.
       this.master.gain.value = 0.22;
       this.master.connect(this.ctx.destination);
       return true;
