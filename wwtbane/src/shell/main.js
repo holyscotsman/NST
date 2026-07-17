@@ -516,6 +516,13 @@ export class Game {
       this.quiz.showQuestion(cur, this.rc.snapshot());
       this.hud.update(this.rc.snapshot());
       this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
+      // (UI) first quiz ever: a one-time transient hint that Esc pauses (latched).
+      if (!this.save.flags.pauseHintSeen) {
+        this.save.flags.pauseHintSeen = true; this.persist();
+        const hint = h('div', { class: 'pause-hint' }, 'Press ', h('kbd', {}, 'Esc'), ' to pause at any time');
+        document.body.append(hint);
+        setTimeout(() => hint.remove(), 5200);
+      }
     };
 
     // First run ever: the host gives a tour of the soundstage, then walks the

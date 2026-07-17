@@ -111,6 +111,7 @@
           [].forEach.call(list.querySelectorAll(".nst-bank-row"), function (x) { x.classList.remove("on"); });
           row.classList.add("on");
           applyHint.style.display = "";
+          if (_certRefresh) _certRefresh();   // (UI) hero buttons + nav badge stay in sync
         });
         row.appendChild(r);
         var txt = el("div", "nst-bank-rowtext");
@@ -129,6 +130,7 @@
   // Clicking a button writes nst.activeBank (via NSTBank.setActive); every tool reads it
   // at boot. Adding a bank to the manifest adds a button here — no code change needed.
   var _navBadgeUpdate = null;   // set by renderNavBadge; called when the active bank changes
+  var _certRefresh = null;      // set by the hero chooser; re-syncs its buttons + the badge
 
   function renderCertSelector() {
     var Bank = window.NSTBank; if (!Bank) return;
@@ -188,6 +190,7 @@
         btn.addEventListener("click", function () { Bank.setActive(b.id); refresh(); });
         group.appendChild(btn);
       });
+      _certRefresh = refresh;   // (UI) Settings' bank section calls this to stay in sync
       refresh();
     }
 

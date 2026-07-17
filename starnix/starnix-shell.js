@@ -1027,14 +1027,18 @@
   };
   Shell.prototype._buildToggles = function (container) {
     var self = this, core = StarNix.core, settings = core.profile.settings;
+    // (UI) each toggle carries a one-line description so its effect is clear before flipping it.
     var TOGGLES = [
-      { key: "reducedMotion", label: "Reduced motion", apply: function () { self._applyMotion(); } },
-      { key: "extraTime", label: "Extra time on timed questions" },
-      { key: "colorblind", label: "High contrast", apply: function () { self._applyContrast(); } }
+      { key: "reducedMotion", label: "Reduced motion", desc: "Minimize shakes, parallax and animation everywhere.", apply: function () { self._applyMotion(); } },
+      { key: "extraTime", label: "Extra time on timed questions", desc: "Longer question timers in every game (accessibility)." },
+      { key: "colorblind", label: "High contrast", desc: "Stronger text and border contrast across screens.", apply: function () { self._applyContrast(); } }
     ];
     TOGGLES.forEach(function (t) {
       var row = el("label", "sx-toggle");
-      row.appendChild(el("span", "sx-toggle-label", t.label));
+      var textWrap = el("span", "sx-toggle-text");
+      textWrap.appendChild(el("span", "sx-toggle-label", t.label));
+      if (t.desc) textWrap.appendChild(el("span", "sx-toggle-desc", t.desc));
+      row.appendChild(textWrap);
       var btn = el("button", "sx-switch" + (settings[t.key] ? " on" : ""));
       btn.setAttribute("role", "switch");
       btn.setAttribute("aria-checked", settings[t.key] ? "true" : "false");
@@ -1740,8 +1744,10 @@
       ".sx-mission-list b{color:var(--text);}",
       ".sx-mission-list span{color:var(--mid);font-size:13px;}",
       ".sx-row{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap;}",
-      ".sx-btn{font-family:inherit;font-weight:700;font-size:15px;padding:12px 22px;border-radius:11px;border:none;cursor:pointer;transition:transform .05s,background .12s,border-color .12s;}",
+      ".sx-btn{font-family:inherit;font-weight:700;font-size:15px;padding:12px 22px;border-radius:11px;border:none;cursor:pointer;transition:transform .05s,background .12s,border-color .12s;min-height:44px;}",
       ".sx-btn:active{transform:scale(.98);}",
+      // (UI) keyboard visibility: every interactive control shows a clear focus ring
+      ".sx-btn:focus-visible,.sx-strip:focus-visible,.sx-skip:focus-visible,.sx-mission-go:focus-visible{outline:2px solid var(--aqua,#1FDDE9);outline-offset:2px;}",
       ".sx-btn-iris{background:var(--iris);color:#fff;}.sx-btn-iris:hover{background:var(--iris600);}",
       ".sx-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--mid);}",
       ".sx-btn-ghost:hover{border-color:var(--iris);color:var(--text);}",
@@ -1945,8 +1951,10 @@
       ".sx-data{margin:4px 0 2px;}",
       ".sx-btn-danger{background:transparent;border:1px solid var(--peach);color:var(--peach);width:100%;font-size:14px;}",
       ".sx-btn-danger.armed{background:rgba(255,107,91,.16);}.sx-btn-danger:disabled{opacity:.6;cursor:default;}",
-      ".sx-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.05);}",
+      ".sx-toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.05);}",
+      ".sx-toggle-text{display:flex;flex-direction:column;gap:2px;min-width:0;}",
       ".sx-toggle-label{font-size:14.5px;}",
+      ".sx-toggle-desc{font-size:12px;color:var(--mid);line-height:1.4;}",
       ".sx-switch{width:48px;height:27px;border-radius:999px;border:1px solid var(--border);background:#23232f;position:relative;cursor:pointer;transition:background .12s,border-color .12s;}",
       ".sx-switch::after{content:'';position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--mid);transition:left .12s,background .12s;}",
       ".sx-switch.on{background:rgba(120,85,250,.35);border-color:var(--iris);}",

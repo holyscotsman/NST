@@ -22,14 +22,15 @@
         '<div class="pe-bar-title">Practice Mode</div>' +
         '<div class="pe-score-chip" aria-live="polite"></div>' +
       '</div>' +
-      '<div class="pe-progress"><div class="pe-progress-bar"><span></span></div><div class="pe-progress-meta"></div></div>' +
+      '<div class="pe-progress"><div class="pe-progress-bar"><span></span><i class="pe-progress-pos"></i></div><div class="pe-progress-meta"></div></div>' +
       '<div class="pe-palette" role="group" aria-label="Jump to question"></div>' +
       '<div class="pe-card"></div>' +
       '<div class="pe-foot">' +
         '<button type="button" class="pe-btn pe-btn-ghost pe-prev">Prev</button>' +
         '<button type="button" class="pe-btn pe-btn-primary pe-check">Check answer</button>' +
         '<button type="button" class="pe-btn pe-btn-ghost pe-next">Next</button>' +
-      '</div>';
+      '</div>' +
+      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>D</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>Enter</kbd> check</p>';
     container.innerHTML = "";
     container.appendChild(root);
 
@@ -46,6 +47,24 @@
     prevBtn.addEventListener("click", function () { if (idx > 0) { idx--; renderCard(); } });
     nextBtn.addEventListener("click", function () { if (idx < N - 1) { idx++; renderCard(); } });
     checkBtn.addEventListener("click", onCheckOrRetry);
+
+    // (UI) keyboard play: A-D (or 1-9) selects, ←/→ navigates, Enter checks. The listener
+    // self-removes once this mode's DOM is replaced (root disconnects).
+    function onKey(e) {
+      if (!root.isConnected) { document.removeEventListener("keydown", onKey); return; }
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      var tag = (e.target && e.target.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      var q = questions[idx], k = e.key;
+      var li = "abcdefghij".indexOf(k.toLowerCase());
+      var ni = "123456789".indexOf(k);
+      if (li >= 0 && li < q.options.length) { e.preventDefault(); selectOption(li); }
+      else if (ni >= 0 && ni < q.options.length) { e.preventDefault(); selectOption(ni); }
+      else if (k === "ArrowLeft" && idx > 0) { e.preventDefault(); idx--; renderCard(); }
+      else if (k === "ArrowRight" && idx < N - 1) { e.preventDefault(); idx++; renderCard(); }
+      else if (k === "Enter" && !checkBtn.disabled && tag !== "BUTTON") { e.preventDefault(); onCheckOrRetry(); }
+    }
+    document.addEventListener("keydown", onKey);
 
     function answeredCount() { var n = 0; state.forEach(function (s) { if (s.checked) n++; }); return n; }
     function correctCount() { var n = 0; state.forEach(function (s) { if (s.checked && s.correct) n++; }); return n; }
@@ -155,7 +174,10 @@
       prevBtn.disabled = idx === 0;
       nextBtn.disabled = idx === N - 1;
 
-      progFill.style.width = ((idx + 1) / N * 100) + "%";
+      // (UI) answered share fills the bar; the thin tick is your position in the set.
+      progFill.style.width = (answeredCount() / N * 100) + "%";
+      var posT = root.querySelector(".pe-progress-pos");
+      if (posT) posT.style.left = (((idx + 1) / N) * 100) + "%";
       progMeta.textContent = "Question " + (idx + 1) + " of " + N;
       buildPalette();
       updateScore();

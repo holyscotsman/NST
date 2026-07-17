@@ -63,8 +63,24 @@
     actions.appendChild(home);
     root.appendChild(actions);
 
-    // Per-question review
-    root.appendChild(el("h3", "pe-h3", "Review — every question"));
+    // Per-question review — with a one-click filter to just the misses (UI).
+    var wrongN = summary.total - summary.correct;
+    var revHead = el("div", "pe-review-head");
+    revHead.appendChild(el("h3", "pe-h3", "Review — every question"));
+    if (wrongN > 0 && wrongN < summary.total) {
+      var filterBtn = el("button", "pe-btn pe-btn-ghost pe-review-filter", "Show " + wrongN + " incorrect only");
+      filterBtn.type = "button";
+      filterBtn.setAttribute("aria-pressed", "false");
+      var filtered = false;
+      filterBtn.addEventListener("click", function () {
+        filtered = !filtered;
+        list.classList.toggle("wrong-only", filtered);
+        filterBtn.setAttribute("aria-pressed", String(filtered));
+        filterBtn.textContent = filtered ? "Show all questions" : ("Show " + wrongN + " incorrect only");
+      });
+      revHead.appendChild(filterBtn);
+    }
+    root.appendChild(revHead);
     var list = el("div", "pe-review");
     summary.results.forEach(function (r, i) {
       list.appendChild(reviewItem(r, i));

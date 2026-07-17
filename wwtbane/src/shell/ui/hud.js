@@ -134,7 +134,12 @@ export class Hud {
       btn.disabled = !available;
       btn.classList.toggle('empty', empty);
       slot.classList.toggle('empty', empty);
-      btn.setAttribute('aria-label', `${LIFELINE_META[type].name}. ${available ? `${l.charges} of ${l.slots} charges` : (used ? 'used this question' : 'no charges left')}`);
+      // (UI) the hover tooltip states availability or the exact reason it's disabled,
+      // mirroring the screen-reader label so sighted players get the same answer.
+      const reason = available ? `${l.charges} of ${l.slots} charges ready`
+        : (used ? 'already used on this question' : 'no charges left — recharge in the green room');
+      btn.setAttribute('aria-label', `${LIFELINE_META[type].name}. ${reason}`);
+      btn.title = `${LIFELINE_META[type].name} — ${reason}`;
       if (l && l.slots > 1) {
         pip.classList.remove('hidden');
         const txt = `${l.charges}/${l.slots}`;
