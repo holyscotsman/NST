@@ -14,8 +14,14 @@
   "use strict";
 
   // ----------------------------------------------------------------- constants
+  // (M10) LOUDNESS CONTRACT — music chain: def.level (upbeat 0.42-0.52, chill
+  // 0.34-0.40 by design, ~2-3 dB under) x MUSIC_LEVEL x musicVol -> limiter.
+  // SFX chain: per-voice gains x sfxVol -> the same limiter, sitting just above
+  // the beds so gameplay cues always read. Intensity/boss modes ADD layers, not
+  // level. New tracks: pick level from the band above; new sfx: match the
+  // per-voice gains of the closest existing cue.
   var MUSIC_LEVEL = 0.54;  // master music ceiling (per-track mix scales under it) — P3: +bass headroom
-  var XFADE = 0.9;         // crossfade seconds
+  var XFADE = 1.2;         // crossfade seconds — (M) widened so context handoffs breathe instead of cutting
   var SMOOTH = 0.12;       // music on/off smoothing seconds
   var LOOKAHEAD = 0.12;    // scheduler horizon seconds
   var TICK_MS = 25;        // scheduler timer
@@ -1005,7 +1011,9 @@
     if (type === "explode" || type === "hit") {
       var s = AC.createBufferSource(); s.buffer = noiseBuf;
       var f = AC.createBiquadFilter(); f.type = "lowpass";
-      f.frequency.value = type === "explode" ? 900 : 1600;
+      // (S) ±10% filter variance on the high-repetition impacts — same anti-fatigue idea as
+      // the tonal cues; explosions keep a hint of variance too so chained kills don't stack flat.
+      f.frequency.value = (type === "explode" ? 900 : 1600) * (0.9 + Math.random() * 0.2);
       s.connect(f); f.connect(g);
       var dur = type === "explode" ? 0.34 : 0.09;
       g.gain.setValueAtTime(type === "explode" ? 0.5 : 0.25, t);
@@ -1065,6 +1073,15 @@
       cbf.frequency.setValueAtTime(400, t); cbf.frequency.exponentialRampToValueAtTime(3200, t + 0.55);
       var cbng = AC.createGain(); cbng.gain.setValueAtTime(0.0001, t); cbng.gain.linearRampToValueAtTime(0.2, t + 0.3); cbng.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
       cbn.connect(cbf); cbf.connect(cbng); cbng.connect(sfxBus); cbn.start(t); cbn.stop(t + 0.62); return;
+    }
+    if (type === "ccnear") {                      // (S) near-miss: a short airy whoosh, doppler-ish downward sweep
+      var nmS = AC.createBufferSource(); nmS.buffer = noiseBuf;
+      var nmF = AC.createBiquadFilter(); nmF.type = "bandpass"; nmF.Q.value = 1.4;
+      nmF.frequency.setValueAtTime(2400, t); nmF.frequency.exponentialRampToValueAtTime(700, t + 0.22);
+      var nmG = AC.createGain(); nmG.gain.setValueAtTime(0.0001, t);
+      nmG.gain.linearRampToValueAtTime(0.22, t + 0.04); nmG.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+      nmS.connect(nmF); nmF.connect(nmG); nmG.connect(sfxBus); nmS.start(t); nmS.stop(t + 0.26);
+      return;
     }
     if (type === "ccklaxon") {                    // turn-warning KLAXON: two two-tone barks (the banner finally has an audio channel)
       for (var ck = 0; ck < 2; ck++) {
@@ -1286,8 +1303,12 @@
     }
 
     var osc = AC.createOscillator(); osc.connect(g);
+    // (S) anti-fatigue: the high-repetition combat/pickup cues get ±6% pitch variance so a
+    // full sector of firing doesn't hammer one identical sample. Cosmetic only (Math.random
+    // is allowed for non-gameplay effects); one-shot cues (correct/wrong/click) stay stable.
+    var pv = (type === "fire" || type === "collect" || type === "hit") ? (0.94 + Math.random() * 0.12) : 1;
     function set(wave, f0, f1, dur, vol) {
-      osc.type = wave; osc.frequency.setValueAtTime(f0, t); osc.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      osc.type = wave; osc.frequency.setValueAtTime(f0 * pv, t); osc.frequency.exponentialRampToValueAtTime(f1 * pv, t + dur);
       g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
       osc.start(t); osc.stop(t + dur);
     }
@@ -1347,13 +1368,27 @@
       }
     } else {
       musicBus.gain.setTargetAtTime(0, AC.currentTime, SMOOTH);
-      if (current) current.stop();
+      // (M) let the bus ramp ring out before halting the scheduler — no clipped tail.
+      // Guarded: if music was re-enabled (or the track changed) in the meantime, don't stop it.
+      var stopping = current;
+      setTimeout(function () {
+        if (!musicOn && stopping && current === stopping) stopping.stop();
+      }, SMOOTH * 3 * 1000);
       for (var i = 0; i < outgoing.length; i++) outgoing[i].dispose();
       outgoing.length = 0;
     }
   }
 
   function setSfx(on) { sfxOn = !!on; }
+
+  // (M) momentary duck: dip the music bus under a foreground beat, then recover.
+  // Non-contract convenience — cinematics/big stings call it so speech-level moments read.
+  function duck(secs, depth) {
+    if (!ready || !musicOn) return;
+    var lvl = MUSIC_LEVEL * musicVol;
+    musicBus.gain.setTargetAtTime(lvl * (1 - Math.max(0, Math.min(0.8, depth == null ? 0.4 : depth))), AC.currentTime, 0.06);
+    musicBus.gain.setTargetAtTime(lvl, AC.currentTime + Math.max(0.15, secs || 0.6), 0.3);
+  }
 
   // additive convenience (non-contract): master trim for the audition harness / settings
   function setMasterVolume(v) {
@@ -1443,6 +1478,14 @@
     current = next;
   }
 
+  // (M6) live intensity toggle on whatever bed is already playing: flips the drive
+  // layer (extra hats, sub-bass, octave arp) at the next scheduled step without
+  // touching playlist rotation — unlike playTrack, which would re-resolve and
+  // crossfade to a different song mid-run.
+  function setIntensity(on) {
+    if (current) current.intensity = !!on;
+  }
+
   function isReady() { return ready; }
   function state() {
     return {
@@ -1463,6 +1506,8 @@
     setMusicVolume: setMusicVolume,
     setSfxVolume: setSfxVolume,
     sfx: sfx,
+    duck: duck,                     // (M) momentary music dip under foreground beats
+    setIntensity: setIntensity,     // (M) speed/danger layer on the current bed, no track switch
     playTrack: playTrack,
     setMusicGenre: setMusicGenre,   // (v0.49.0) 'upbeat' | 'chill' — the pause-menu toggle
     getMusicGenre: getMusicGenre,

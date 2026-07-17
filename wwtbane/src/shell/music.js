@@ -230,6 +230,11 @@ export class Music {
       if (!AC) return false;
       this.ctx = new AC();
       this.master = this.ctx.createGain();
+      // (M10) LOUDNESS CONTRACT — loop chain: voice gains x track.gain (0.70-0.74;
+      // 'final' runs 0.8 to offset its sparse texture) x this master. Stingers and
+      // the riser connect to master directly and duck() the loop bus for headroom.
+      // GameAudio's sfx master sits at 0.22, just above this bed, so UI cues read
+      // over the music. Keep new tracks inside the 0.70-0.80 gain band.
       this.master.gain.value = 0.16;
       this.master.connect(this.ctx.destination);
       this.bus = this.ctx.createGain(); // loop bus (ducked under stingers)
@@ -343,6 +348,30 @@ export class Music {
     src.connect(band); band.connect(g); g.connect(this.master);
     src.start(t); src.stop(t + seconds + 0.2);
     lfo.start(t); lfo.stop(t + seconds + 0.2);
+  }
+
+  // (M) tier-crossing riser: a short filtered sweep upward as the run steps into a
+  // harder tier — plays under the host's congrats/warning line, kept quiet so the
+  // tier loop change (not the riser) stays the main event.
+  riser(seconds = 1.5) {
+    if (!this.enabled || !this._ensure()) return;
+    this.resume();
+    const ctx = this.ctx, t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(N('C3'), t);
+    o.frequency.exponentialRampToValueAtTime(N('C5'), t + seconds);
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass'; f.Q.value = 5;
+    f.frequency.setValueAtTime(320, t);
+    f.frequency.exponentialRampToValueAtTime(3200, t + seconds);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.045, t + seconds * 0.85);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + seconds + 0.1);
+    o.connect(f); f.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t + seconds + 0.15);
+    this._sting(N('C6'), t + seconds - 0.1, 0.45, { type: 'sine', gain: 0.11 }); // sparkle cap
   }
 
   duck(seconds = 1.2, depth = 0.3) {
@@ -483,6 +512,15 @@ export class Music {
       this._sting(N('C#4'), t + 0.9, 2.6, { type: 'sawtooth', gain: 0.12, glideTo: N('G#3') });
       this._sting(N('C#2'), t + 1.2, 2.8, { type: 'sine', gain: 0.32, glideTo: N('C#1') });
       [N('C#3'), N('E3'), N('G#3')].forEach((f) => this._sting(f, t + 3.1, 0.9, { type: 'triangle', gain: 0.1 }));
+    } else if (name === 'lost') {
+      // (M) the loss resolve: a hushed C-minor cadence (i — VI — resolve over a low
+      // pedal) that emerges from the tail of the wrong/finalWrong fall. Scheduled
+      // ~2.4s late so the rumble finishes first; unmistakably not the win fanfare.
+      const t0 = t + 2.4;
+      [N('C4'), N('Eb4'), N('G4')].forEach((f) => this._sting(f, t0, 1.1, { gain: 0.12 }));
+      [N('Ab3'), N('C4'), N('Eb4')].forEach((f) => this._sting(f, t0 + 0.95, 1.2, { gain: 0.11 }));
+      [N('G3'), N('C4'), N('Eb4')].forEach((f) => this._sting(f, t0 + 2.0, 2.2, { type: 'sine', gain: 0.12 }));
+      this._sting(N('C3'), t0 + 2.0, 2.4, { type: 'sine', gain: 0.16 });
     } else if (name === 'win') {
       this.duck(3.5, 0.12);
       [N('C5'), N('E5'), N('G5'), N('C6')].forEach((f, i) => this._sting(f, t + i * 0.12, 0.5, { gain: 0.3 }));

@@ -2066,10 +2066,18 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       var roids = [];
       for (i = 0; i < 9; i++) {
         var ak = ASSET_ASTEROIDS[i % ASSET_ASTEROIDS.length];
-        var sp = spriteOf(THREE, texFor(s, THREE, ak, 'rock', 0x46465c, false, created), 0xffffff);
+        // (TX) mineral variety: each rock carries a subtle tint from a small ore palette
+        // (iron-grey, rust, ice-blue, olive) so the belt reads mined-from, not cloned.
+        var ORE_TINTS = [0xffffff, 0xe8d8cc, 0xd2e2ee, 0xdde8d0, 0xcfc4bc];
+        var sp = spriteOf(THREE, texFor(s, THREE, ak, 'rock', 0x46465c, false, created), ORE_TINTS[(Math.random() * ORE_TINTS.length) | 0]);
         var sc = 0.35 + Math.random() * 0.7; sp.scale.set(sc, sc, sc);
         sp.position.set((Math.random() - 0.5) * 9, (Math.random() - 0.5) * 5.4, -Math.random() * 4 + 0.5);
-        sp.userData = { vx: -(0.15 + Math.random() * 0.35) * (0.4 + sp.position.z * 0.1 + 1) };
+        // (PH) mass variance: big rocks drift and spin slowly (heavy), small ones skitter.
+        var mass = (sc - 0.35) / 0.7;   // 0 = smallest, 1 = biggest
+        sp.userData = {
+          vx: -(0.15 + Math.random() * 0.35) * (0.4 + sp.position.z * 0.1 + 1) * (1.3 - mass * 0.75),
+          spin: (0.62 - mass * 0.42) * ((i % 2) ? 1 : -1)
+        };
         scene.add(sp); roids.push(sp);
       }
       // heroes
@@ -2097,7 +2105,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         var spr2 = Math.max(1, ((T.camera && T.camera.aspect) || 1.9) / 1.9);
         for (i = 0; i < T.roids.length; i++) {
           sp = T.roids[i]; sp.position.x += sp.userData.vx * dt; if (sp.position.x < -5.2 * spr2) sp.position.x = 5.2 * spr2;
-          sp.material.rotation += dt * 0.4 * ((i % 2) ? 1 : -1);
+          sp.material.rotation += dt * (sp.userData.spin != null ? sp.userData.spin : 0.4 * ((i % 2) ? 1 : -1));   // (PH) per-rock mass spin
         }
         T.stars.rotation.z += dt * 0.01;
         var plunge = fxActive(s, ts, 'lunge', 'player'), elunge = fxActive(s, ts, 'lunge', 'enemy');
@@ -2117,8 +2125,11 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         if (hasEnemy) {
           var boss = !!b.enemy.boss;
           if (T.enemyBoss !== boss) { T.enemy.material.map = boss ? T.enemyTexB : T.enemyTexN; T.enemy.material.needsUpdate = true; T.enemy.scale.setScalar(boss ? 2.3 : 1.9); T.enemyBoss = boss; }
-          T.enemy.position.x = 2.4 * spr - eoff + (1 - kIn3) * 9; T.enemy.position.y = Math.sin(ts / 520) * 0.1;
           var flash = fxActive(s, ts, 'flash', 'enemy');
+          // (PH) hit knockback: a landed strike shoves the enemy back with a decaying recoil,
+          // so shots read as impacts rather than color changes alone.
+          var recoil = flash ? Math.pow(1 - (ts - flash.start) / flash.dur, 2) * 0.45 : 0;
+          T.enemy.position.x = 2.4 * spr - eoff + (1 - kIn3) * 9 + recoil; T.enemy.position.y = Math.sin(ts / 520) * 0.1;
           T.enemy.material.color.setScalar(flash ? 1.0 + (1 - (ts - flash.start) / flash.dur) * 1.4 : 1.0);
         }
         T.camera.position.x = Math.sin(ts / 4000) * 0.15;
@@ -2294,9 +2305,19 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       try {
         var b0 = s.run && s.run.battle;
         var wantTrack = (b0 && b0.enemy && !b0.over && b0.enemy.boss) ? 'boss' : 'kbb';
-        if (s._musicCtx !== wantTrack && s.ctx && s.ctx.audio && s.ctx.audio.playTrack) {
-          s._musicCtx = wantTrack;
-          s.ctx.audio.playTrack(wantTrack, wantTrack === 'boss' ? { intensity: true } : undefined);
+        // (M5) depth timbre: past the Flagship (section 3+) the kbb bed raises its
+        // intensity layer, so deep runs sound heavier. A depth flip on the SAME bed
+        // uses setIntensity (live, no crossfade); only real kbb<->boss switches
+        // go through playTrack and its playlist rotation.
+        var deep = !!(s.run && s.run.section >= 3);
+        var wantOn = wantTrack === 'boss' ? true : deep;
+        var au = s.ctx && s.ctx.audio;
+        if (s._musicCtx !== wantTrack && au && au.playTrack) {
+          s._musicCtx = wantTrack; s._musicHot = wantOn;
+          au.playTrack(wantTrack, { intensity: wantOn });
+        } else if (s._musicHot !== wantOn && au && au.setIntensity) {
+          s._musicHot = wantOn;
+          au.setIntensity(wantOn);
         }
       } catch (e0) {}
 
@@ -2633,6 +2654,11 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
           pushFx(s, { type: 'flash', side: 'enemy', dur: 320, delay: 620, flashR: en && en.boss ? 82 : 66 });
           pushFx(s, { type: 'sparks', side: 'enemy', dur: 620, delay: 620, col: ecol, count: 12, seed: 3 });
           pushFx(s, { type: 'sfx', name: 'hit', side: 'enemy', dur: 60, delay: 640 });
+          // (S) impact weight scales with the blow: a strike worth a quarter of the enemy's
+          // hull (or more) layers a deeper boom under the hit crack.
+          if (en && en.maxHp && res.damage >= en.maxHp * 0.25 && !res.win) {
+            pushFx(s, { type: 'sfx', name: 'explode', side: 'enemy', dur: 60, delay: 660 });
+          }
           pushFx(s, { type: 'dmg', side: 'enemy', amount: res.damage, dur: 760, delay: 660, big: res.win });
           if (!res.win) pushFx(s, { type: 'quake', side: 'enemy', dur: 220, delay: 620, amt: 0.16 });
         } else if (res.correct && res.blocked) {
@@ -3058,9 +3084,17 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
       renderMain(s); renderSquad(s); renderArtifacts(s); renderCoins(s); renderLog(s);
     }
     function onBuyConsumable(s, oi) { shopBuyConsumable(s.run, oi); renderMain(s); renderSquad(s); renderArtifacts(s); renderCoins(s); }
+    // (GX) named depth zones — entering a new section announces where in the belt you are,
+    // giving the endless descent a sense of place and progression.
+    var ZONE_NAMES = ['The Shallows', 'The Scattered Disk', 'The Deep Belt', 'The Dark Drift', 'The Anomaly Fields', 'The Warship’s Wake'];
+    function zoneNameFor(section) { return ZONE_NAMES[Math.min(section - 1, ZONE_NAMES.length - 1)]; }
     function onLeaveShop(s) {
       s.ui.replaceOffer = -1;
+      var prevSection = s.run.section;
       if (s.run._preRun) { startDungeon(s.run); } else { leaveShop(s.run); }
+      if (!s.run._preRun && s.run.section !== prevSection) {
+        pushFx(s, { type: 'banner', side: 'enemy', dur: 1800, text: 'ENTERING ' + zoneNameFor(s.run.section).toUpperCase(), col: PALETTE.gold, static: !!s.reduced });
+      }
       saveCheckpointKBB(s);   // (v0.114.0, D6) same G2 checkpoint, shared with the map's Embark
       drawQuestion(s.run); renderAll(s);
     }

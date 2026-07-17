@@ -1,6 +1,7 @@
 # CI for the Nutanix Study Tool.
-# Runs each tool's dependency-free checks: WWTBANE's unit tests, and StarNix's
-# build + pure logic harnesses (scheduler, grading, shuffle, timer, bank lint).
+# Runs each tool's dependency-free checks: WWTBANE's unit tests, StarNix's
+# build + pure logic harnesses (scheduler, grading, shuffle, timer, bank lint),
+# and the Practice Exams engine harness (grading, shuffle mapping, summarize).
 name: CI
 on:
   push:
@@ -40,3 +41,17 @@ jobs:
       - run: node multi-answer-test.mjs
       - run: node shuffle-test.mjs
       - run: node timer-test.mjs
+
+  practice-exams:
+    name: Practice Exams engine harness
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: practice-exams
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Pure-logic harness against a shimmed window — no browser, no install.
+      - run: node engine-test.mjs

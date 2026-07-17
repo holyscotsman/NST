@@ -301,7 +301,9 @@ export class Studio {
 
   _tick = () => {
     if (this.disposed) return;
-    const dt = this.clock.getDelta();
+    // (PH) delta-time audit: clamp the frame delta so a backgrounded tab doesn't return
+    // with a multi-second dt that teleports camera moves and mood envelopes.
+    const dt = Math.min(0.05, this.clock.getDelta());
     this.director.reduced = this.reduced;
     const pose = this.director.update(dt);
     if (pose) {
@@ -455,7 +457,13 @@ export class Studio {
       P.head.rotation.z = Math.sin(t * 0.5 + ph * 1.3) * 0.03;
       // A very slow whole-body weight shift so nobody stands like a statue
       // (skip the crowd actor — the crowd-moment animation owns its transform).
-      if (a.role !== 'extra') a.g.rotation.z = Math.sin(t * 0.6 + ph) * 0.008;
+      // (PH) plus a hair of vertical bob coupled to the breath, so the shift reads
+      // as weight moving through the legs rather than a hinge at the floor.
+      if (a.role !== 'extra') {
+        a.g.rotation.z = Math.sin(t * 0.6 + ph) * 0.008;
+        if (a.baseY === undefined) a.baseY = a.g.position.y;
+        a.g.position.y = a.baseY + breath * 0.005;
+      }
       // Blinking: a smooth lid close-and-open (a sine hump over ~0.14s, many
       // frames) instead of a hard 1-frame drop, with an occasional double blink.
       const bt = (t + ph * 1.31) % 3.4;
@@ -612,6 +620,12 @@ export class Studio {
     discMat.map = floorTex; discMat.roughnessMap = floorTex; discMat.envMapIntensity = 1.5;
     const disc = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 0.4, 64), discMat); disc.position.y = -0.2; disc.receiveShadow = true; s.add(disc);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(9, 0.08, 12, 96), mat(0x000000, PAL.aqua, 2.2)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.02; s.add(rim);
+    // (TX) center medallion: a lit inlay under the podiums — the broadcast-floor focal point
+    // the glossy disc was missing. Soft iris glow ringed in gold, sitting just proud of the floor.
+    const medallion = new THREE.Mesh(new THREE.CircleGeometry(1.6, 48), mat(0x0c0c1c, PAL.iris, 0.5));
+    medallion.rotation.x = -Math.PI / 2; medallion.position.y = 0.011; s.add(medallion);
+    const medRing = new THREE.Mesh(new THREE.TorusGeometry(1.64, 0.05, 10, 64), mat(0x000000, PAL.gold, 1.5));
+    medRing.rotation.x = Math.PI / 2; medRing.position.y = 0.012; s.add(medRing);
 
     const spokeGeo = new THREE.BoxGeometry(0.1, 0.05, 6);
     const spokeMat = mat(0x000000, PAL.gold, 1.3);

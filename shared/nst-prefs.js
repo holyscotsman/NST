@@ -15,6 +15,7 @@
     largerText: false,
     audioMuted: false,
     audioVolume: 0.7,   // 0..1
+    peSound: false,     // Practice Exams feedback sounds — OFF by default (opt-in)
     devMode: false,
   };
 

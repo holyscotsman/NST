@@ -4,6 +4,10 @@
  * visible focus rings, reduced-motion aware. All selectors are .pe- scoped. */
 
 :root {
+  /* (TX) shared elevation scale — one shadow language across launcher + PE */
+  --elev-1: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --elev-3: 0 34px 85px rgba(0, 0, 0, 0.58);
   --bg: #08060F;
   --glass: rgba(20, 18, 33, 0.62);
   --raised: #1C1830;
@@ -94,7 +98,7 @@ body {
   padding: 26px; cursor: pointer; color: inherit; font-family: var(--font-ui);
   transition: transform 0.18s var(--ease), border-color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
-.pe-modecard:hover { transform: translateY(-6px); border-color: rgba(169, 139, 255, 0.55); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+.pe-modecard:hover { transform: translateY(-6px); border-color: rgba(169, 139, 255, 0.55); box-shadow: var(--elev-2); }
 .pe-modecard:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 3px; }
 .pe-modecard-tag { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; color: #C9C2E6; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.04); padding: 5px 11px; border-radius: 10px; }
 .pe-modecard-title { font-family: var(--font-display); font-weight: 600; font-size: 24px; color: var(--heading); margin-top: 16px; }
@@ -125,6 +129,17 @@ body {
 .pe-timer { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-display); font-weight: 700; font-size: 17px; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); border-radius: 999px; padding: 7px 15px; font-variant-numeric: tabular-nums; }
 .pe-timer svg { width: 16px; height: 16px; }
 .pe-timer.low { color: var(--warn-text); background: rgba(255, 176, 32, 0.12); border-color: rgba(255, 176, 32, 0.5); animation: pe-pulse 1s var(--ease) infinite; }
+.pe-timer.danger { color: var(--bad-text); background: rgba(229, 72, 77, 0.14); border-color: rgba(229, 72, 77, 0.55); animation: pe-pulse 0.7s var(--ease) infinite; }
+/* (UI) progress: answered share fills the bar; the tick marks current position */
+.pe-progress-bar { position: relative; }
+.pe-progress-pos { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--purple-light); border-radius: 2px; transition: left 0.25s var(--ease); box-shadow: 0 0 6px rgba(169, 139, 255, 0.8); }
+/* (UI) keyboard hint under the footer */
+.pe-keys { text-align: center; font-size: 12px; color: var(--faint); }
+.pe-keys kbd { font-family: var(--font-ui); font-size: 11px; font-weight: 700; color: var(--muted-2); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+/* (UI) results review filter */
+.pe-review-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pe-review-head .pe-h3 { margin-bottom: 0; }
+.pe-review.wrong-only .pe-review-item.ok { display: none; }
 @keyframes pe-pulse { 50% { opacity: 0.6; } }
 
 /* Progress */
@@ -163,7 +178,10 @@ body {
   font-family: var(--font-ui); font-size: 15px; cursor: pointer;
   transition: border-color 0.14s, background 0.14s, color 0.14s;
 }
-.pe-opt:hover:not(:disabled) { border-color: var(--purple); background: var(--raised); color: var(--purple-hover); }
+/* (TX) material: hover lifts the row with a soft elevation shadow, not just a color change */
+.pe-opt:hover:not(:disabled) { border-color: var(--purple); background: var(--raised); color: var(--purple-hover); transform: translateY(-1px); box-shadow: var(--elev-1), 0 0 0 1px rgba(124, 77, 255, 0.12); }
+.pe-opt { transition: border-color 0.14s, background 0.14s, color 0.14s, transform 0.14s var(--ease), box-shadow 0.14s var(--ease); }
+.nst-reduced-motion .pe-opt:hover:not(:disabled) { transform: none; }
 .pe-opt:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 2px; }
 .pe-opt:disabled { cursor: default; }
 .pe-opt-marker { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: var(--muted-2); flex-shrink: 0; }
@@ -174,10 +192,12 @@ body {
 
 .pe-opt.is-selected { border-color: var(--purple); background: rgba(124, 77, 255, 0.12); color: var(--text); }
 .pe-opt.is-selected .pe-opt-marker { border-color: var(--purple); color: var(--purple-hover); background: rgba(124, 77, 255, 0.2); }
-.pe-opt.is-correct { border-color: rgba(53, 208, 127, 0.45); background: rgba(53, 208, 127, 0.12); color: var(--ok-text); }
+/* (TX) revealed states carry a directional gradient so correct/incorrect read as lit panels
+   (color is never alone — the icon + text state chip stays the primary signal) */
+.pe-opt.is-correct { border-color: rgba(53, 208, 127, 0.45); background: linear-gradient(135deg, rgba(53, 208, 127, 0.16), rgba(53, 208, 127, 0.06) 70%); color: var(--ok-text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
 .pe-opt.is-correct .pe-opt-marker { border-color: rgba(53, 208, 127, 0.5); color: var(--ok-text); }
 .pe-opt.is-correct .pe-opt-state { color: var(--ok-text); }
-.pe-opt.is-incorrect { border-color: rgba(229, 72, 77, 0.45); background: rgba(229, 72, 77, 0.12); color: var(--bad-text); }
+.pe-opt.is-incorrect { border-color: rgba(229, 72, 77, 0.45); background: linear-gradient(135deg, rgba(229, 72, 77, 0.16), rgba(229, 72, 77, 0.06) 70%); color: var(--bad-text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
 .pe-opt.is-incorrect .pe-opt-marker { border-color: rgba(229, 72, 77, 0.5); color: var(--bad-text); }
 .pe-opt.is-incorrect .pe-opt-state { color: var(--bad-text); }
 
@@ -242,7 +262,7 @@ body {
 
 /* ---------- Modal ---------- */
 .pe-modal-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(4, 4, 10, 0.7); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.pe-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 26px; max-width: 440px; width: 100%; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); }
+.pe-modal { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 26px; max-width: 440px; width: 100%; box-shadow: var(--elev-3); }
 .pe-modal-title { font-family: var(--font-display); font-weight: 600; font-size: 20px; color: var(--heading); }
 .pe-modal-body { color: var(--muted); margin-top: 10px; font-size: 14.5px; line-height: 1.55; }
 .pe-modal-actions { display: flex; gap: 10px; margin-top: 22px; }
@@ -316,6 +336,10 @@ body {
 .pe-bankbtn.on { border-color: rgba(124, 77, 255, 0.6); background: rgba(124, 77, 255, 0.16); color: #fff; }
 .pe-bankpick-empty { color: var(--faint); font-size: 13px; }
 .pe-pickprompt { margin-top: 22px; padding: 16px 18px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 15px; }
+.pe-version { margin-top: 34px; font-size: 11.5px; color: var(--fainter, #6E6890); text-align: center; letter-spacing: 0.04em; }
+/* Results: weakest-domain focus recommendation */
+.pe-focus { margin-top: 14px; padding: 12px 16px; border-radius: 12px; font-size: 14.5px; line-height: 1.5; color: var(--text); background: rgba(124, 77, 255, 0.10); border: 1px solid rgba(124, 77, 255, 0.35); }
+.pe-focus b { color: var(--purple-light); }
 
 /* ---------- No-bank / loading states ---------- */
 .pe-loading { color: var(--muted); text-align: center; padding: 80px 20px; font-weight: 600; }

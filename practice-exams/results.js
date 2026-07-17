@@ -34,6 +34,21 @@
     if (Object.keys(summary.byDomain).length) {
       root.appendChild(el("h3", "pe-h3", "By domain"));
       root.appendChild(ui.domainBreakdown(summary.byDomain));
+      // Focus recommendation: name the weakest domain (lowest %, ties broken by most misses)
+      // so the next study session has a target. Skipped when everything scored 100%.
+      var weakest = null, weakPct = 101, weakMiss = -1;
+      Object.keys(summary.byDomain).forEach(function (d) {
+        var s = summary.byDomain[d];
+        if (!s.total) return;
+        var pct = s.correct / s.total * 100, miss = s.total - s.correct;
+        if (pct < weakPct || (pct === weakPct && miss > weakMiss)) { weakest = d; weakPct = pct; weakMiss = miss; }
+      });
+      if (weakest && weakPct < 100) {
+        var focus = el("p", "pe-focus");
+        focus.innerHTML = "🎯 <b>Focus next on “" + esc(weakest) + "”</b> — " +
+          Math.round(weakPct) + "% there (" + weakMiss + " missed). A Practice Mode pass over its explanations is the fastest gain.";
+        root.appendChild(focus);
+      }
     }
 
     // Actions
@@ -48,8 +63,24 @@
     actions.appendChild(home);
     root.appendChild(actions);
 
-    // Per-question review
-    root.appendChild(el("h3", "pe-h3", "Review — every question"));
+    // Per-question review — with a one-click filter to just the misses (UI).
+    var wrongN = summary.total - summary.correct;
+    var revHead = el("div", "pe-review-head");
+    revHead.appendChild(el("h3", "pe-h3", "Review — every question"));
+    if (wrongN > 0 && wrongN < summary.total) {
+      var filterBtn = el("button", "pe-btn pe-btn-ghost pe-review-filter", "Show " + wrongN + " incorrect only");
+      filterBtn.type = "button";
+      filterBtn.setAttribute("aria-pressed", "false");
+      var filtered = false;
+      filterBtn.addEventListener("click", function () {
+        filtered = !filtered;
+        list.classList.toggle("wrong-only", filtered);
+        filterBtn.setAttribute("aria-pressed", String(filtered));
+        filterBtn.textContent = filtered ? "Show all questions" : ("Show " + wrongN + " incorrect only");
+      });
+      revHead.appendChild(filterBtn);
+    }
+    root.appendChild(revHead);
     var list = el("div", "pe-review");
     summary.results.forEach(function (r, i) {
       list.appendChild(reviewItem(r, i));

@@ -155,9 +155,17 @@ export class Game {
     // final-wrong/win) are the music engine's stingers; small UI cues stay sfx.
     this.bus.on('answer:correct', (d) => { this.music.stinger('right'); if (d.boundary) this.audio.play('bank'); });
     this.bus.on('answer:wrong', (d) => this.music.stinger(d.index === 29 ? 'finalWrong' : 'wrong'));
-    this.bus.on('lifeline:use', () => { this.audio.play('lifeline'); this.music.push('lifeline'); });
+    // (S) each lifeline announces itself with its own signature sound (fifty/audience/phone).
+    this.bus.on('lifeline:use', (d) => {
+      const sig = d && d.type ? `lifeline-${d.type}` : 'lifeline';
+      this.audio.play(sig);
+      this.music.push('lifeline');
+    });
     this.bus.on('run:win', () => { this.music.stop(); this.music.stinger('win'); });
-    this.bus.on('run:dead', () => this.music.stop());
+    // (M) loss theme: the tier loop dies with the run, then a hushed minor resolve
+    // emerges from the wrong-stinger's tail — the defeat arrangement, distinct
+    // from the win fanfare above.
+    this.bus.on('run:dead', () => { this.music.stop(); this.music.stinger('lost'); });
     this.bus.on('question:show', (d) => {
       if (d.isFinal) this._markFinalReached();
       // Tier loops: quicker and brighter on easy, slower and lower as tiers rise.
@@ -167,8 +175,10 @@ export class Game {
       const tierLine = (!d.isFinal && this._lastShownTier && d.tier !== this._lastShownTier)
         ? pickTierLine(d.tier) : null;
       this._lastShownTier = d.tier;
-      if (tierLine) this._hostSay(tierLine, { announce: true });
-      else this._hostQuip(d);
+      if (tierLine) {
+        this.music.riser();   // (M) mark the step up under the host's congrats/warning
+        this._hostSay(tierLine, { announce: true });
+      } else this._hostQuip(d);
     });
     this.bus.on('scene:green', () => this.music.play('lounge'));
     this.bus.on('scene:studio', () => { if (this.screen !== 'quiz') this.music.play('lounge'); });
@@ -348,9 +358,12 @@ export class Game {
   }
 
   _renderGreenRoom() {
+    const firstVisit = !this.save.flags.greenRoomSeen;
+    if (firstVisit && !this._greenReveal) { this.save.flags.greenRoomSeen = true; this.persist(); }
     this._swap(GreenRoom({
       wallet: this.save.wallet,
       lifelines: this.save.lifelines,
+      firstVisit,
       reveal: this._greenReveal, // set after a loss: the answer + explanation first
       onAckReveal: () => { this._greenReveal = null; this._renderGreenRoom(); },
       steve: {
@@ -513,6 +526,13 @@ export class Game {
       this.quiz.showQuestion(cur, this.rc.snapshot());
       this.hud.update(this.rc.snapshot());
       this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
+      // (UI) first quiz ever: a one-time transient hint that Esc pauses (latched).
+      if (!this.save.flags.pauseHintSeen) {
+        this.save.flags.pauseHintSeen = true; this.persist();
+        const hint = h('div', { class: 'pause-hint' }, 'Press ', h('kbd', {}, 'Esc'), ' to pause at any time');
+        document.body.append(hint);
+        setTimeout(() => hint.remove(), 5200);
+      }
     };
 
     // First run ever: the host gives a tour of the soundstage, then walks the
@@ -741,6 +761,7 @@ export class Game {
     this.quiz.showQuestion(cur, this.rc.snapshot());
     this.hud.update(this.rc.snapshot());
     this.hud.trail(prev, 'up'); // gold streak as the highlight climbs
+    this.audio.play('climb');   // (S) the ratchet tick rides the climb
     this._announce(`Question ${cur.number} of 30. ${cur.q.stem}`);
   }
 

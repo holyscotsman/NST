@@ -16,6 +16,7 @@
   var ACTIVE_KEY = "nst.activeBank";
 
   var _manifest = null;      // cached manifest
+  var _manifestError = null; // Error from the last failed manifest fetch (null = ok)
   var _cache = {};           // id -> parsed+adapted bank
 
   function fetchText(url) {
@@ -25,15 +26,21 @@
     });
   }
 
-  function manifest() {
-    if (_manifest) return Promise.resolve(_manifest);
+  // Fetch (and cache) the manifest. Pass force=true to refetch after a failure —
+  // callers can offer a Retry that actually retries instead of returning the cached miss.
+  function manifest(force) {
+    if (_manifest && !force) return Promise.resolve(_manifest);
     return fetchText(MANIFEST).then(function (t) {
-      var j = {};
-      try { j = JSON.parse(t); } catch (e) { j = {}; }
+      var j;
+      // (QA) malformed JSON is an ERROR, not an empty library — callers offer a
+      // real Retry instead of quietly showing the "no banks" empty state.
+      try { j = JSON.parse(t); } catch (e) { throw new Error("manifest is not valid JSON"); }
+      _manifestError = null;
       _manifest = Array.isArray(j.banks) ? j.banks : [];
       return _manifest;
-    }).catch(function () { _manifest = []; return _manifest; });
+    }).catch(function (e) { _manifestError = e || new Error("manifest fetch failed"); _manifest = []; return _manifest; });
   }
+  function manifestError() { return _manifestError; }
 
   function active() { try { return localStorage.getItem(ACTIVE_KEY) || null; } catch (e) { return null; } }
   function setActive(id) { try { if (id) localStorage.setItem(ACTIVE_KEY, id); else localStorage.removeItem(ACTIVE_KEY); } catch (e) {} }
@@ -118,6 +125,7 @@
     ROOT: ROOT, BANKS: BANKS,
     manifest: manifest,
     list: manifest,
+    manifestError: manifestError,
     active: active,
     setActive: setActive,
     load: load,

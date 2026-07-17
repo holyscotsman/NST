@@ -134,7 +134,12 @@ export class Hud {
       btn.disabled = !available;
       btn.classList.toggle('empty', empty);
       slot.classList.toggle('empty', empty);
-      btn.setAttribute('aria-label', `${LIFELINE_META[type].name}. ${available ? `${l.charges} of ${l.slots} charges` : (used ? 'used this question' : 'no charges left')}`);
+      // (UI) the hover tooltip states availability or the exact reason it's disabled,
+      // mirroring the screen-reader label so sighted players get the same answer.
+      const reason = available ? `${l.charges} of ${l.slots} charges ready`
+        : (used ? 'already used on this question' : 'no charges left — recharge in the green room');
+      btn.setAttribute('aria-label', `${LIFELINE_META[type].name}. ${reason}`);
+      btn.title = `${LIFELINE_META[type].name} — ${reason}`;
       if (l && l.slots > 1) {
         pip.classList.remove('hidden');
         const txt = `${l.charges}/${l.slots}`;
@@ -180,9 +185,16 @@ export class Hud {
     setTimeout(() => t.remove(), 600);
   }
 
-  // safe-haven celebration: coin particles, shield stamp, rung pulse
+  // safe-haven celebration: coin particles, shield stamp, rung pulse — plus a centered
+  // "SAFE HAVEN" banner so crossing a haven is unmistakable, not just a corner flourish.
   bank(justClearedIndex) {
     const shield = this.bankedVal.querySelector('.shield');
+    const amount = LADDER[justClearedIndex] != null ? money(LADDER[justClearedIndex]) : null;
+    const banner = h('div', { class: 'haven-banner', 'aria-hidden': 'true' },
+      h('span', { class: 'haven-shield' }, '🛡'),
+      h('span', {}, `SAFE HAVEN${amount ? ` — ${amount} BANKED` : ''}`));
+    this.el.append(banner);
+    setTimeout(() => banner.remove(), reduced() ? 1400 : 2100);
     if (!reduced()) {
       const fx = h('div', { class: 'bank-fx', 'aria-hidden': 'true' },
         h('span'), h('span'), h('span'), h('span'), h('span'));
@@ -197,12 +209,47 @@ export class Hud {
     }
   }
 
-  // gold ★ ring burst at the top of the ladder on a win
+  // gold ★ ring burst at the top of the ladder on a win — plus physics confetti:
+  // simulated pieces with launch velocity, gravity, air drag and tumble (PH).
   burst() {
     if (reduced()) return;
     const b = h('div', { class: 'ladder-burst', 'aria-hidden': 'true' });
     this.track.append(b);
     setTimeout(() => b.remove(), 1000);
+    this._confetti();
+  }
+
+  _confetti() {
+    const host = h('div', { class: 'confetti-layer', 'aria-hidden': 'true' });
+    document.body.append(host);
+    const W = window.innerWidth, colors = ['#FFC857', '#7C4DFF', '#35D07F', '#5AB0FF', '#FF6B5B'];
+    const N = 70, ps = [];
+    for (let i = 0; i < N; i++) {
+      const e = h('span', { class: 'confetti-bit' });
+      e.style.background = colors[i % colors.length];
+      host.append(e);
+      const a = (-Math.PI / 2) + (Math.random() - 0.5) * 1.5; // launch upward-ish from bottom center
+      const sp = 520 + Math.random() * 620;
+      ps.push({ e, x: W / 2 + (Math.random() - 0.5) * 160, y: window.innerHeight + 10,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: Math.random() * 360, vr: (Math.random() - 0.5) * 720 });
+    }
+    const G = 1350, DRAG = 0.55; // px/s² gravity, per-second drag factor
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.04, (now - last) / 1000); last = now;
+      const damp = Math.exp(-DRAG * dt);
+      let alive = 0;
+      for (const p of ps) {
+        p.vy += G * dt; p.vx *= damp;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+        if (p.y < window.innerHeight + 40) alive++;
+        p.e.style.transform = `translate(${p.x}px, ${p.y}px) rotate(${p.rot}deg)`;
+      }
+      if (alive > 0 && now - t0 < 4000) requestAnimationFrame(step);
+      else host.remove();
+    };
+    const t0 = performance.now();
+    requestAnimationFrame(step);
   }
 
   /* ---------------- count-up tween ---------------- */

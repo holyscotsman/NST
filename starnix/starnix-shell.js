@@ -197,7 +197,7 @@
       '<div class="sx-title-photo" aria-hidden="true"></div>' +
       '<img class="sx-wordmark-img" alt="Nutanix" src="' + ((global.STARNIX_ASSETS && global.STARNIX_ASSETS.wordmark) || '') + '">' +
       '<h1 class="sx-h1">StarNix</h1>' +
-      '<div class="sx-sub">NCP-MCI · Starlight Rescue Crew</div>' +
+      '<div class="sx-sub">Starlight Rescue Crew</div>' +
       '<div class="sx-row"></div>';
     var tphoto = s.querySelector(".sx-title-photo");
     var neb = global.STARNIX_ASSETS && global.STARNIX_ASSETS.nebulaBg;
@@ -205,9 +205,18 @@
     var row = s.querySelector(".sx-row");
     var start = el("button", "sx-btn sx-btn-iris", "Start");
     var self = this;
+    // Returning crew (intro already seen) go straight to the bridge — the intro stays
+    // one click away via the menu's "Replay intro". First-timers get the full cold open.
+    var seenIntro = false;
+    try { seenIntro = !!(StarNix.core.profile && StarNix.core.profile.introSeen); } catch (eI) {}
     this._on(start, "click", function () {
-      try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {}
-      self.showCinematic();
+      if (seenIntro) {
+        try { StarNix.core.audio.playTrack("menu"); } catch (e) {}
+        self.showMenu();
+      } else {
+        try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {}
+        self.showCinematic();
+      }
     });
     row.appendChild(start);
     var menu = el("button", "sx-btn sx-btn-ghost", "← Main menu");
@@ -254,7 +263,17 @@
       try { StarNix.core.audio.sfx("click"); } catch (eS) {}
       self.enterGame(gid);
     });
-    wrap.appendChild(canvas); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip);
+    // (GX) beat progress dots — viewers see how far along the intro is at a glance.
+    var dots = el("div", "sx-cine-dots");
+    dots.setAttribute("aria-hidden", "true");
+    var beatTimes = [];
+    var dotEls = [];
+    // (TX) filmic grade: vignette + faint animated grain over the canvas (pure CSS, cheap;
+    // the grain flicker is disabled under reduced motion, the vignette stays).
+    var grade = el("div", "sx-cine-grade");
+    grade.setAttribute("aria-hidden", "true");
+    if (reduced) grade.className += " still";
+    wrap.appendChild(canvas); wrap.appendChild(grade); wrap.appendChild(cap); wrap.appendChild(mission); wrap.appendChild(skip); wrap.appendChild(dots);
     this.stage.appendChild(wrap);
 
     var ctx = canvas.getContext("2d");
@@ -336,6 +355,10 @@
       [B.mission, ""]
     ];
     function caption(t) { var c = ""; for (var k = 0; k < CAPS.length; k++) { if (t >= CAPS[k][0]) c = CAPS[k][1]; } return c; }
+    // (GX) one dot per beat, filled as the timeline passes each beat.
+    beatTimes = [B.station, B.beam, B.shatter, B.belt, B.planet, B.mission];
+    for (var bd = 0; bd < beatTimes.length; bd++) { var d0 = el("span", "sx-cine-dot"); dots.appendChild(d0); dotEls.push(d0); }
+    var lastBeatDot = -1;
 
     // -------- draw helpers (no per-frame allocation) --------
     function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
@@ -512,6 +535,7 @@
       { at: B.beam + 1.0, name: "lasercharge", done: false },
       { at: B.beam + 2.0, name: "laserfire", done: false },
       { at: B.shatter, name: "explode", done: false },
+      { at: B.belt - 0.55, name: "warp", done: false },   // (S) the jump INTO the belt gets its whoosh
       { at: B.belt, name: "laserhit", done: false },
       { at: B.planet, name: "collect", done: false },
       // (v0.188.0, Menu#8) a soft tick as each caption starts typing
@@ -526,7 +550,21 @@
     var capStart = 0, capShown = -1;               // (v0.188.0, V1.1 Menu#8) type-on caption state
     function frame(ts) {
       var dt = (ts - last) / 1000; last = ts; if (dt > 0.05) dt = 0.05; T += dt;
-      for (var sfb = 0; sfb < SFX_BEATS.length; sfb++) { var fb = SFX_BEATS[sfb]; if (!fb.done && T >= fb.at) { fb.done = true; try { StarNix.core.audio.sfx(fb.name); } catch (eFb) {} } }
+      for (var sfb = 0; sfb < SFX_BEATS.length; sfb++) {
+        var fb = SFX_BEATS[sfb];
+        if (!fb.done && T >= fb.at) {
+          fb.done = true;
+          try {
+            StarNix.core.audio.sfx(fb.name);
+            // (M) the score dips under the big story beats so the punctuation lands on top,
+            // then swells back — the mission reveal gets the deepest dip + longest recovery.
+            if (StarNix.core.audio.duck) {
+              if (fb.name === "laserfire" || fb.name === "explode" || fb.name === "warp") StarNix.core.audio.duck(0.7, 0.45);
+              else if (fb.name === "correct") StarNix.core.audio.duck(1.2, 0.55);
+            }
+          } catch (eFb) {}
+        }
+      }
       ctx.clearRect(0, 0, W, H);
       var inBelt = (T >= B.belt && T < B.planet);
       // (G3) projected starfield: depth drift always, hard streaks during the beam + jump
@@ -580,6 +618,9 @@
       if (capNow !== lastCap) { lastCap = capNow; capStart = T; capShown = -1; }
       var capWant = (reduced || !capNow) ? capNow.length : Math.min(capNow.length, Math.ceil(((T - capStart) / 0.6) * capNow.length));
       if (capWant !== capShown) { capShown = capWant; cap.textContent = capNow.slice(0, capWant); }
+      // (GX) fill the beat dots as the timeline advances — DOM write only on beat change.
+      var bi = -1; for (var bD = 0; bD < beatTimes.length; bD++) { if (T >= beatTimes[bD]) bi = bD; }
+      if (bi !== lastBeatDot) { for (var bE = 0; bE < dotEls.length; bE++) dotEls[bE].classList.toggle("on", bE <= bi); lastBeatDot = bi; }
       if (T >= B.end) { self._endCinematic(); return; }
       self._raf = global.requestAnimationFrame(frame);
     }
@@ -595,6 +636,14 @@
   };
   Shell.prototype._endCinematic = function () {
     this._cancelRaf();
+    // Latch intro-seen so future visits offer the quick title -> bridge path.
+    try {
+      var pIS = StarNix.core.profile;
+      if (pIS && !pIS.introSeen && StarNix.core.persistence && StarNix.core.persistence.update) {
+        pIS.introSeen = true;
+        StarNix.core.persistence.update(function (p) { p.introSeen = true; });
+      }
+    } catch (eIS) {}
     try { StarNix.core.audio.playTrack("menu"); } catch (e) {}
     this.showMenu();
   };
@@ -717,7 +766,7 @@
       else if (id === "CC") artHtml = '<span class="sx-strip-art sx-strip-planet"></span>';
       else artHtml = '<span class="sx-strip-art sx-strip-glyph">\u2B21</span>';
       card.innerHTML = artHtml +
-        '<span class="sx-strip-body"><span class="sx-card-title">' + m.title + '</span><span class="sx-card-tag">' + id + ' \u00b7 ' + m.tag + '</span></span>' +
+        '<span class="sx-strip-body"><span class="sx-card-title">' + m.title + '</span><span class="sx-card-tag">' + id + ' \u00b7 ' + m.tag + '</span><span class="sx-strip-hook">' + m.blurb + '</span></span>' +
         '<span class="sx-strip-stat"><span class="l">' + sm.stat + '</span><span class="v">' + sm.val + '</span></span>' +
         '<span class="sx-strip-cta">LAUNCH \u25b8</span>' +
         '<span class="sx-card-state" style="display:none">' + (loaded ? "Ready" : "Not in this build") + '</span>';
@@ -750,7 +799,8 @@
     })();
 
     var top = s.querySelector(".sx-menu-top");
-    function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", fn); top.appendChild(b); }
+    // (S) every top-bar control clicks audibly, matching the mission strips.
+    function topBtn(label, fn) { var b = el("button", "sx-btn sx-btn-ghost", label); self._on(b, "click", function () { try { StarNix.core.audio.sfx("click"); } catch (eC) {} fn(); }); top.appendChild(b); }
     // (v0.128.0, V1.1 Menu#1) the top Continue deduped away — the dock CTA is the one Continue
     // (v0.141.0, V1.1 Flow#2) Today's flight plan — ONE ranked "do this next" card at the
     // top of the dock, from the pure core planner.
@@ -781,6 +831,30 @@
     topBtn("Replay intro", function () { try { StarNix.core.audio.playTrack("cinematic"); } catch (e) {} self.showCinematic(); });
 
     this.stage.appendChild(s);
+    // (PH) damped pointer parallax: the bridge photo drifts a few px toward the cursor with
+    // inertia (exponential follow), so the backdrop reads as a window, not a poster.
+    // Reduced motion (either toggle) skips it; _clearScreen cancels the RAF on any screen swap.
+    (function () {
+      var photoP = s.querySelector(".sx-menu-photo");
+      var reducedP = !!(prof0.settings && prof0.settings.reducedMotion);
+      if (!photoP || reducedP) return;
+      photoP.style.willChange = "transform";
+      var txP = 0, tyP = 0, oxP = 0, oyP = 0, lastP = 0;
+      self._on(s, "pointermove", function (e) {
+        var r = s.getBoundingClientRect();
+        txP = ((e.clientX - r.left) / Math.max(1, r.width) - 0.5) * -14;
+        tyP = ((e.clientY - r.top) / Math.max(1, r.height) - 0.5) * -8;
+      });
+      function stepP(tsP) {
+        if (self.screen !== "menu") return;
+        var dtP = lastP ? Math.min(0.05, (tsP - lastP) / 1000) : 0.016; lastP = tsP;
+        var kP = 1 - Math.exp(-dtP * 4);
+        oxP += (txP - oxP) * kP; oyP += (tyP - oyP) * kP;
+        photoP.style.transform = "translate(" + oxP.toFixed(2) + "px," + oyP.toFixed(2) + "px) scale(1.05)";
+        self._raf = global.requestAnimationFrame(stepP);
+      }
+      self._raf = global.requestAnimationFrame(stepP);
+    })();
     // (v0.168.0, V1.1 Menu#6) first-run coach mark: one flag, one pulse, one dismissible tip.
     // A new recruit faces four strips + a divider + rank + dock with zero guidance otherwise.
     try {
@@ -969,14 +1043,18 @@
   };
   Shell.prototype._buildToggles = function (container) {
     var self = this, core = StarNix.core, settings = core.profile.settings;
+    // (UI) each toggle carries a one-line description so its effect is clear before flipping it.
     var TOGGLES = [
-      { key: "reducedMotion", label: "Reduced motion", apply: function () { self._applyMotion(); } },
-      { key: "extraTime", label: "Extra time on timed questions" },
-      { key: "colorblind", label: "High contrast", apply: function () { self._applyContrast(); } }
+      { key: "reducedMotion", label: "Reduced motion", desc: "Minimize shakes, parallax and animation everywhere.", apply: function () { self._applyMotion(); } },
+      { key: "extraTime", label: "Extra time on timed questions", desc: "Longer question timers in every game (accessibility)." },
+      { key: "colorblind", label: "High contrast", desc: "Stronger text and border contrast across screens.", apply: function () { self._applyContrast(); } }
     ];
     TOGGLES.forEach(function (t) {
       var row = el("label", "sx-toggle");
-      row.appendChild(el("span", "sx-toggle-label", t.label));
+      var textWrap = el("span", "sx-toggle-text");
+      textWrap.appendChild(el("span", "sx-toggle-label", t.label));
+      if (t.desc) textWrap.appendChild(el("span", "sx-toggle-desc", t.desc));
+      row.appendChild(textWrap);
       var btn = el("button", "sx-switch" + (settings[t.key] ? " on" : ""));
       btn.setAttribute("role", "switch");
       btn.setAttribute("aria-checked", settings[t.key] ? "true" : "false");
@@ -1682,8 +1760,10 @@
       ".sx-mission-list b{color:var(--text);}",
       ".sx-mission-list span{color:var(--mid);font-size:13px;}",
       ".sx-row{display:flex;gap:10px;justify-content:center;margin-top:8px;flex-wrap:wrap;}",
-      ".sx-btn{font-family:inherit;font-weight:700;font-size:15px;padding:12px 22px;border-radius:11px;border:none;cursor:pointer;transition:transform .05s,background .12s,border-color .12s;}",
+      ".sx-btn{font-family:inherit;font-weight:700;font-size:15px;padding:12px 22px;border-radius:11px;border:none;cursor:pointer;transition:transform .05s,background .12s,border-color .12s;min-height:44px;}",
       ".sx-btn:active{transform:scale(.98);}",
+      // (UI) keyboard visibility: every interactive control shows a clear focus ring
+      ".sx-btn:focus-visible,.sx-strip:focus-visible,.sx-skip:focus-visible,.sx-mission-go:focus-visible{outline:2px solid var(--aqua,#1FDDE9);outline-offset:2px;}",
       ".sx-btn-iris{background:var(--iris);color:#fff;}.sx-btn-iris:hover{background:var(--iris600);}",
       ".sx-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--mid);}",
       ".sx-btn-ghost:hover{border-color:var(--iris);color:var(--text);}",
@@ -1719,6 +1799,11 @@
       ".sx-bridge .sx-cards{display:flex;flex-direction:column;gap:8px;}",
       ".sx-strip{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:rgba(13,13,24,.78);border:1px solid var(--border);border-left:4px solid var(--acc,#7855FA);border-radius:14px;padding:12px 18px;cursor:pointer;font-family:inherit;color:var(--text);transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}",
       ".sx-strip:hover{transform:translateX(6px);border-color:var(--acc,#7855FA);box-shadow:0 0 28px rgba(120,85,250,.27);}",
+      // (TX) console-panel material: a faint scanline weave at rest, plus a light sweep on hover
+      ".sx-strip{position:relative;overflow:hidden;background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);}",
+      ".sx-strip::after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:34%;background:linear-gradient(105deg, transparent, rgba(172,155,253,.10), transparent);transform:skewX(-18deg);transition:left .5s ease;pointer-events:none;}",
+      ".sx-strip:hover::after{left:110%;}",
+      ".sx-reduced .sx-strip::after{display:none;}",
       ".sx-acc-iris.sx-strip{--acc:#7855FA;} .sx-acc-aqua.sx-strip{--acc:#1FDDE9;} .sx-acc-peach.sx-strip{--acc:#FF6B5B;} .sx-acc-gold.sx-strip{--acc:#FFC857;}",
       ".sx-strip-art{width:46px;height:46px;flex:none;background-size:contain;background-position:center;background-repeat:no-repeat;filter:drop-shadow(0 0 8px rgba(120,85,250,.5));}",
       ".sx-strip-planet{border-radius:50%;background:radial-gradient(circle at 34% 30%, #2c8ba8, #14495c 62%, #0a2733);box-shadow:0 0 12px rgba(31,221,233,.4);}",
@@ -1726,6 +1811,16 @@
       ".sx-strip-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}",
       ".sx-strip .sx-card-title{font-size:15.5px;font-weight:800;white-space:nowrap;}",
       ".sx-strip .sx-card-tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mid);}",
+      ".sx-strip-hook{font-size:12px;color:var(--mid);line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;}",
+      "@media (max-width:640px){.sx-strip-hook{display:none;}}",
+      ".sx-cine-dots{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;gap:8px;}",
+      // (TX) cinematic grade: radial vignette + a whisper of animated grain
+      ".sx-cine-grade{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,.34) 100%);}",
+      ".sx-cine-grade::before{content:'';position:absolute;inset:0;opacity:.05;background-image:radial-gradient(rgba(255,255,255,.9) 0.5px, transparent 0.6px);background-size:3px 3px;animation:sxGrain .35s steps(3) infinite;}",
+      "@keyframes sxGrain{0%{transform:translate(0,0);}33%{transform:translate(-1px,1px);}66%{transform:translate(1px,-1px);}100%{transform:translate(0,0);}}",
+      ".sx-cine-grade.still::before{animation:none;}",
+      ".sx-cine-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.16);transition:background .3s ease;}",
+      ".sx-cine-dot.on{background:var(--aqua,#1FDDE9);}",
       ".sx-strip-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex:none;margin-right:4px;}",
       ".sx-strip-stat .l{font-size:11px;color:var(--mid);} .sx-strip-stat .v{font-size:14px;font-weight:800;color:var(--acc,#7855FA);}",
       ".sx-strip-cta{flex:none;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--aqua);border:1px solid rgba(31,221,233,.4);border-radius:999px;padding:7px 14px;}",
@@ -1872,8 +1967,10 @@
       ".sx-data{margin:4px 0 2px;}",
       ".sx-btn-danger{background:transparent;border:1px solid var(--peach);color:var(--peach);width:100%;font-size:14px;}",
       ".sx-btn-danger.armed{background:rgba(255,107,91,.16);}.sx-btn-danger:disabled{opacity:.6;cursor:default;}",
-      ".sx-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.05);}",
+      ".sx-toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.05);}",
+      ".sx-toggle-text{display:flex;flex-direction:column;gap:2px;min-width:0;}",
       ".sx-toggle-label{font-size:14.5px;}",
+      ".sx-toggle-desc{font-size:12px;color:var(--mid);line-height:1.4;}",
       ".sx-switch{width:48px;height:27px;border-radius:999px;border:1px solid var(--border);background:#23232f;position:relative;cursor:pointer;transition:background .12s,border-color .12s;}",
       ".sx-switch::after{content:'';position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--mid);transition:left .12s,background .12s;}",
       ".sx-switch.on{background:rgba(120,85,250,.35);border-color:var(--iris);}",

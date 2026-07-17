@@ -4,7 +4,7 @@
  * at boot. Groups: Accessibility, Audio, Developer Mode, Reset saved data. */
 (function () {
   "use strict";
-  var NST_VERSION = "1.0.0";
+  var NST_VERSION = "1.1.0";
   var P = window.NSTPrefs;
 
   function el(tag, cls, html) {
@@ -111,6 +111,7 @@
           [].forEach.call(list.querySelectorAll(".nst-bank-row"), function (x) { x.classList.remove("on"); });
           row.classList.add("on");
           applyHint.style.display = "";
+          if (_certRefresh) _certRefresh();   // (UI) hero buttons + nav badge stay in sync
         });
         row.appendChild(r);
         var txt = el("div", "nst-bank-rowtext");
@@ -128,6 +129,9 @@
   // Question-bank chooser on the hero: one button per bank in banks/manifest.json.
   // Clicking a button writes nst.activeBank (via NSTBank.setActive); every tool reads it
   // at boot. Adding a bank to the manifest adds a button here — no code change needed.
+  var _navBadgeUpdate = null;   // set by renderNavBadge; called when the active bank changes
+  var _certRefresh = null;      // set by the hero chooser; re-syncs its buttons + the badge
+
   function renderCertSelector() {
     var Bank = window.NSTBank; if (!Bank) return;
     var host = document.querySelector(".nst-hero"); if (!host) return;
@@ -142,8 +146,24 @@
     wrap.appendChild(hint);
     host.appendChild(wrap);
 
-    Bank.list().then(function (banks) {
+    function populate(banks) {
       group.innerHTML = "";
+      // Manifest fetch failed (offline / bad deploy): say so and offer a real retry
+      // instead of pretending there are no banks.
+      if (!banks.length && Bank.manifestError && Bank.manifestError()) {
+        wrap.classList.add("empty");
+        group.appendChild(el("div", "nst-cert-empty", "Couldn't load the question banks — check your connection."));
+        var retry = el("button", "nst-cert-btn", "Retry");
+        retry.type = "button";
+        retry.addEventListener("click", function () {
+          group.innerHTML = "";
+          group.appendChild(el("div", "nst-cert-loading", "Loading banks…"));
+          Bank.manifest(true).then(populate);
+        });
+        group.appendChild(retry);
+        hint.textContent = "";
+        return;
+      }
       if (!banks.length) {
         wrap.classList.add("empty");
         group.appendChild(el("div", "nst-cert-empty", "No question banks yet. Add one to /banks/."));
@@ -161,6 +181,7 @@
         hint.textContent = b ? (b.title || b.cert || b.id) + " — open a tool below to study it."
                              : "Pick a question bank to load its questions.";
         wrap.classList.toggle("empty", !b);
+        if (_navBadgeUpdate) _navBadgeUpdate(b || null);
       }
       banks.forEach(function (b) {
         var btn = el("button", "nst-cert-btn", esc(b.title || b.cert || b.id));
@@ -169,8 +190,31 @@
         btn.addEventListener("click", function () { Bank.setActive(b.id); refresh(); });
         group.appendChild(btn);
       });
+      _certRefresh = refresh;   // (UI) Settings' bank section calls this to stay in sync
       refresh();
+    }
+
+    group.appendChild(el("div", "nst-cert-loading", "Loading banks…"));
+    Bank.list().then(populate);
+  }
+
+  // Small nav chip showing the active bank at a glance; clicking scrolls to the chooser.
+  function renderNavBadge() {
+    var Bank = window.NSTBank; if (!Bank) return;
+    var utils = document.querySelector(".nst-nav-utils"); if (!utils) return;
+    var chip = el("button", "nst-nav-bank", "");
+    chip.type = "button";
+    chip.title = "Question bank — click to choose";
+    chip.addEventListener("click", function () {
+      var t = document.querySelector(".nst-cert");
+      if (t && t.scrollIntoView) t.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+    utils.insertBefore(chip, utils.firstChild);
+    _navBadgeUpdate = function (bank) {
+      chip.textContent = bank ? (bank.cert || bank.id) : "No bank";
+      chip.classList.toggle("none", !bank);
+    };
+    _navBadgeUpdate(null);
   }
 
   function buildModal() {
@@ -203,8 +247,9 @@
 
     // --- Audio ---
     var aud = section("Audio");
-    aud.appendChild(el("p", "nst-set-note", "Applies to the WWTBANE and StarNix games (the launcher and Practice Exams are silent)."));
-    aud.appendChild(toggle("Mute all", "Silence game audio.", prefs.audioMuted, function (v) { P.set({ audioMuted: v }); }));
+    aud.appendChild(el("p", "nst-set-note", "Applies to the WWTBANE and StarNix games. Practice Exams stays silent unless you opt in below."));
+    aud.appendChild(toggle("Mute all", "Silence all audio, including Practice Exams sounds.", prefs.audioMuted, function (v) { P.set({ audioMuted: v }); }));
+    aud.appendChild(toggle("Practice Exams sounds", "Subtle feedback cues (select, correct/incorrect, submit). Off by default.", prefs.peSound, function (v) { P.set({ peSound: v }); }));
     var volRow = el("div", "nst-set-row");
     var volText = el("div", "nst-set-text");
     volText.appendChild(el("div", "nst-set-label", "Volume"));
@@ -241,8 +286,25 @@
     modal.appendChild(body);
     overlay.appendChild(modal);
 
-    function close() { try { overlay.remove(); } catch (e) {} document.removeEventListener("keydown", onKey); }
-    function onKey(e) { if (e.key === "Escape") close(); }
+    // (QA/a11y) dialog contract: Escape closes, Tab cycles inside the dialog,
+    // and focus returns to the gear button (or whatever opened it) on close.
+    var opener = document.activeElement;
+    function close() {
+      try { overlay.remove(); } catch (e) {}
+      document.removeEventListener("keydown", onKey);
+      if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { close(); return; }
+      if (e.key !== "Tab" || !overlay.isConnected) return;
+      if (overlay.nextElementSibling && overlay.nextElementSibling.classList &&
+          overlay.nextElementSibling.classList.contains("nst-modal-overlay-top")) return; // reset confirm owns focus
+      var items = modal.querySelectorAll("button, input, select, [tabindex]:not([tabindex='-1'])");
+      if (!items.length) return;
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
     x.addEventListener("click", close);
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
     document.addEventListener("keydown", onKey);
@@ -263,7 +325,23 @@
     cancel.type = "button";
     var ok = el("button", "nst-btn nst-btn-danger", "Reset everything");
     ok.type = "button";
-    function close() { try { overlay.remove(); } catch (e) {} }
+    // (QA/a11y) same dialog contract as Settings: Escape cancels, Tab stays
+    // inside, focus returns to the reset button that opened this confirm.
+    var opener = document.activeElement;
+    function close() {
+      try { overlay.remove(); } catch (e) {}
+      document.removeEventListener("keydown", onConfirmKey, true);
+      if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+    }
+    function onConfirmKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key !== "Tab") return;
+      var items = modal.querySelectorAll("button");
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", onConfirmKey, true);
     cancel.addEventListener("click", close);
     ok.addEventListener("click", function () {
       try {
@@ -287,6 +365,7 @@
   function init() {
     var btn = document.getElementById("nst-settings-btn");
     if (btn) btn.addEventListener("click", buildModal);
+    renderNavBadge();
     renderCertSelector();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

@@ -292,7 +292,7 @@
     this.boostCharge = 0;              // (v0.139.0, V1.1 CC#1) knowledge fuels the boost: corrects charge it
     this._rowExtra = 0;                // (v0.160.0, CC#5) chain spacing carry
     this.lastMilestone = 0;            // (v0.144.0, V1.1 CC#3) the most recent 25 km mark crossed
-    this._nextMile = 25000;
+    this._nextMile = 10000;   // (GX) first milestone at 10 km, then the 25 km grid
     this._boostTargetScore = 0; this._boostCalmUntil = 0;
     this._nextCoinAt = cfg.BASE_GAP * 0.5;
     // (v0.102.0, C9, Jason) squeeze stretches: the canyon narrows to TWO lanes for 1-2 km
@@ -356,7 +356,10 @@
     this.scoreSpeed = this.boostActive ? ((cfg.BOOST_KM + (this._up ? this._up.boostKm : 0)) * 1000 / cfg.BOOST_TIME) : cfg.SCORE_SPEED;
     this.scoreDistance += this.scoreSpeed * dt;
     while (this.scoreDistance >= this._nextMile) {   // (v0.144.0, CC#3) 25 km milestone clock —
-      this.lastMilestone = this._nextMile; this._nextMile += 25000;   // a 100 km boost lands on the LATEST mark, not four stacked banners
+      this.lastMilestone = this._nextMile;           // a 100 km boost lands on the LATEST mark, not four stacked banners
+      // (GX) the first milestone lands early (10 km) so a new run gets its first "deeper" beat
+      // within the opening minute; after that the clock snaps to the classic 25 km grid.
+      this._nextMile = this._nextMile < 25000 ? 25000 : this._nextMile + 25000;
     }
     // (v0.202.0, V1.1 CC#10) the catch-up arc: every 50 km (offset 3 km past the biome handoff
     // so the two moments never collide) one BCM straggler falls back and is OVERTAKEN — derived
@@ -467,11 +470,24 @@
       o.z -= adv;
       if (!o.tested && o.z <= 0) {                  // closest-approach test (once)
         o.tested = true;
+        // (S) near-miss: cleared a lane-blocking obstacle from the lane right beside it —
+        // an airy whoosh sells the closeness. Only for x-tested obstacle types, at speed.
+        if (!this._hitsObstacle(o, p) && (o.type === OB_NARROW || o.type === OB_ROCKFALL) &&
+            Math.abs(p.x - o.x) < cfg.LANE_W * 1.5 && this.speed > cfg.BASE_SPEED * 1.15) {
+          this._emit && this._emit('nearmiss');
+        }
         if (!invinc && this._hitsObstacle(o, p)) {
-          this.collisions++;
-          this._onCrash();
-          this.obstacles.release(o);
-          continue;
+          // (PH) commitment forgiveness: if the player is mid lane-change and the lane they've
+          // committed to is clear of this obstacle, the dodge counts — near-misses feel earned
+          // instead of punishing input that was already in flight. Uses only x/y/topY, matching
+          // _hitsObstacle's contract.
+          var committedClear = p.laneT < 1 && !this._hitsObstacle(o, { x: p.targetX, y: p.y, topY: p.topY });
+          if (!committedClear) {
+            this.collisions++;
+            this._onCrash();
+            this.obstacles.release(o);
+            continue;
+          }
         }
       }
       if (o.z < cfg.CULL_BEHIND) this.obstacles.release(o);
@@ -1624,8 +1640,18 @@
     var frac = (speed - cfg.BASE_SPEED) / (cfg.MAX_SPEED - cfg.BASE_SPEED);
     if (frac < 0) frac = 0; else if (frac > 1) frac = 1;
     var fov = 62 + frac * 10;                                   // 62 -> 72 with speed
+    // (TX) speed haze: as speed builds the fog's near plane eases closer, so velocity reads
+    // through thickening atmosphere as well as FOV. Duck-checked for the test stubs.
+    if (this.scene && this.scene.fog && typeof this.scene.fog.near === 'number') {
+      var fogNearT = cfg.DRAW_DIST * (0.34 - frac * 0.05);
+      this.scene.fog.near += (fogNearT - this.scene.fog.near) * (dt > 0 ? Math.min(1, dt * 3) : 1);
+    }
     if (typeof cam.fov === 'number') {
-      if (Math.abs(cam.fov - fov) > 0.01) { cam.fov = fov; if (cam.updateProjectionMatrix) cam.updateProjectionMatrix(); }
+      // (PH) the FOV glides toward its speed target instead of snapping — boost activation
+      // (an instant speed jump) now reads as the camera "catching up" over ~0.3s.
+      if (this._fovS == null) this._fovS = fov;
+      this._fovS += (fov - this._fovS) * (dt > 0 ? Math.min(1, dt * 6) : 1);
+      if (Math.abs(cam.fov - this._fovS) > 0.01) { cam.fov = this._fovS; if (cam.updateProjectionMatrix) cam.updateProjectionMatrix(); }
     }
     // (v0.77.0, JB5) the speed shake now CYCLES: it builds across each 40 km window of scored
     // distance (quadratic — calm early, alive late) then resets at the boundary, so intensity
@@ -2181,6 +2207,7 @@
         else if (name === 'boost') ctx.audio.sfx('ccboost');
         else if (name === 'turnwarn') ctx.audio.sfx('ccklaxon');
         else if (name === 'crash') ctx.audio.sfx('cccrunch');
+        else if (name === 'nearmiss') ctx.audio.sfx('ccnear');   // (S) airy whoosh on a close shave
         else if (name === 'turnauto') ctx.audio.sfx('click');
         else if (name === 'squeeze') {   // (v0.175.0, CC#6) CANYON NARROWS entry cue
           try {
@@ -2489,6 +2516,7 @@
 
       // ---- HUD ----
       var hudCache = { shields: -1, score: -1, dist: -1, buffs: '', cells: -1, mile: 0 };
+      var musicHot = false;   // (M6) speed-pulse state for the music bed's drive layer
       var pbBest = 0, pbBeaten = false, mileHideAt = 0;   // (v0.144.0, CC#3)
       var bioHideAt = 0; hudCache.bio = 0;                // (v0.194.0, CC#9) dusk at launch, no banner
       function updateHud() {
@@ -2542,6 +2570,14 @@
         if (spd !== hudCache.dist) { hudCache.dist = spd; el.dist.textContent = sim.boostActive ? 'BOOST \u26A1' : spd + ' m/s'; }
         var bOn = !!sim.boostActive;
         if (hudCache.boostOvr !== bOn) { hudCache.boostOvr = bOn; el.boostOvr.style.display = bOn ? 'flex' : 'none'; }   // (v0.103.0, C7)
+        // (M6) speed pulse: a boost or high cruise speed raises the music bed's drive
+        // layer live (extra percussion/sub — no track switch); easing off relaxes it.
+        // Hysteresis (on >70 m/s, off <64) keeps it from flapping around the line.
+        var mhWant = bOn || sim.speed > CONFIG.BASE_SPEED + (CONFIG.MAX_SPEED - CONFIG.BASE_SPEED) * (musicHot ? 0.5 : 0.65);
+        if (mhWant !== musicHot) {
+          musicHot = mhWant;
+          try { ctx.audio && ctx.audio.setIntensity && ctx.audio.setIntensity(musicHot); } catch (eMh) {}
+        }
         var tp = sim.turnPending ? sim.turnPending.dir : '';
         if (hudCache.turn !== tp) {
           hudCache.turn = tp;

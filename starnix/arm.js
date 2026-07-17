@@ -288,8 +288,25 @@
     function sectorMusic() {                              // boss sectors get the boss track; tier 2+ layers intensity onto "arm"
       try {
         if (bossActive) AUD.playTrack("boss", { intensity: 1 });
-        else AUD.playTrack("arm", { intensity: tierOf(sector) >= 2 ? 1 : 0 });
+        else AUD.playTrack("arm", { intensity: (tierOf(sector) >= 2 || musicDanger) ? 1 : 0 });
       } catch (e) {}
+    }
+    // (M) danger layer: shields at/below a quarter raise the music's intensity layer live
+    // via setIntensity (playTrack would rotate the playlist and crossfade to a new song);
+    // recovering above ~35% relaxes it. Hysteresis keeps it from flapping while shields
+    // hover at the line. Boss sectors already run hot.
+    var musicDanger = false;
+    function updateDangerMusic() {
+      if (bossActive || maxShields <= 0) return;
+      var frac = shields / maxShields;
+      var want = musicDanger ? (frac <= 0.35) : (frac <= 0.25);
+      if (want !== musicDanger) {
+        musicDanger = want;
+        try {
+          if (AUD.setIntensity) AUD.setIntensity(tierOf(sector) >= 2 || musicDanger);
+          else sectorMusic();
+        } catch (e) {}
+      }
     }
     function sfx(name) { if (!sfxOn) return; try { AUD.sfx(name === "warp" ? "hyperdrive" : name); } catch (e) {} }
 
@@ -682,11 +699,23 @@
         var r = runRng.next(), d = r < 0.35 ? 0.25 : (r < 0.65 ? 0.5 : (r < 0.9 ? 0.8 : 1.25));
         stars.push({ x: runRng.next() * MAP_W, y: runRng.next() * MAP_H, a: (runRng.next() * 0.6 + 0.2) * (0.45 + 0.55 * Math.min(d, 1)), s: (runRng.next() * 1.5 + 0.4) * (0.55 + 0.6 * Math.min(d, 1.1)), t: runRng.next() * TAU, d: d });
       }
-      // P6a: a few soft parallax nebula blobs for depth (gradients cached lazily)
+      // P6a: soft parallax nebula blobs for depth (gradients cached lazily).
+      // (TX) depth variation: 4-6 blobs per sector across a wider size + parallax spread —
+      // a couple of huge slow far-field washes behind smaller, nearer wisps, so the field
+      // reads layered instead of four same-distance clouds.
       var cols = ["rgba(120,85,250,0.22)", "rgba(31,221,233,0.16)", "rgba(146,221,35,0.10)", "rgba(255,107,91,0.12)"];
       NEBULA = [];
-      for (i = 0; i < 4; i++) {
-        NEBULA.push({ fx: runRng.next() * 1.1 - 0.05, fy: runRng.next() * 1.1 - 0.05, r: 160 + runRng.next() * 220, c0: cols[i % cols.length], a: 0.5 + runRng.next() * 0.4, p: 0.12 + runRng.next() * 0.22, grad: null });
+      var nebN = 4 + ((runRng.next() * 3) | 0);
+      for (i = 0; i < nebN; i++) {
+        var far = i < 2;   // first two are the far-field washes
+        NEBULA.push({
+          fx: runRng.next() * 1.1 - 0.05, fy: runRng.next() * 1.1 - 0.05,
+          r: far ? (320 + runRng.next() * 260) : (140 + runRng.next() * 180),
+          c0: cols[i % cols.length],
+          a: far ? (0.30 + runRng.next() * 0.2) : (0.5 + runRng.next() * 0.4),
+          p: far ? (0.05 + runRng.next() * 0.06) : (0.16 + runRng.next() * 0.2),
+          grad: null
+        });
       }
     }
 
@@ -979,7 +1008,10 @@
         asteroids.push({ x: p.x, y: p.y, vx: rnd(-16, 16), vy: rnd(-16, 16), r: r, verts: verts, rot: runRng.next() * TAU, vrot: rnd(-0.5, 0.5), hp: Math.max(1, Math.round(r / 12)) });
       }
       enemies = []; clearProjectiles(); clearParticles();
-      for (var e = 0; e < (bossActive ? 0 : 5); e++) spawnRoamer();
+      // (GX) gentler on-ramp: sector 1 opens with 3 roamers instead of 5 so new pilots
+      // learn fly/collect/answer before the field pressure arrives. Sector 2+ unchanged.
+      var roamersAtStart = bossActive ? 0 : (sector <= 1 ? 3 : 5);
+      for (var e = 0; e < roamersAtStart; e++) spawnRoamer();
       // (v0.197.0, V1.1 ARM#9) the field wears the tier — nebula + star tint shift so sector 11
       // stops being pixel-cousin to sector 1 (cached gradients invalidated for the re-tint)
       var tierP = Math.max(0, Math.min(2, tierOf(sector)));
@@ -2488,17 +2520,21 @@
     function updateSector(dt) {
       var R = shipR();
       if (bossActive) {
-        // Galaga arena: ship flies 4-directionally inside a narrow channel, always faces up (no turning)
+        // Galaga arena: ship flies 4-directionally inside a narrow channel, always faces up (no turning).
+        // (PH) inertial feel: velocity eases toward the input direction (~90ms response) instead of
+        // teleport-stepping, so the ship carries a hint of weight. Frame-rate independent.
         ship.angle = -Math.PI / 2;
-        var asp = 372 * dt;
-        if (input.left) ship.x -= asp;
-        if (input.right) ship.x += asp;
-        if (input.thrust) ship.y -= asp;   // Up / W / ▲
-        if (input.down) ship.y += asp;     // Down / S
+        var tvx = (((input.right ? 1 : 0) - (input.left ? 1 : 0))) * 372;
+        var tvy = (((input.down ? 1 : 0) - (input.thrust ? 1 : 0))) * 372;
+        var ka = 1 - Math.exp(-dt * 11);
+        ship.vx += (tvx - ship.vx) * ka;
+        ship.vy += (tvy - ship.vy) * ka;
+        ship.x += ship.vx * dt; ship.y += ship.vy * dt;
         var AR = bossArena();
-        ship.x = clamp(ship.x, AR.l + R, AR.r - R);
-        ship.y = clamp(ship.y, AR.top + R, AR.bot - R);
-        ship.vx = ship.vy = 0;
+        var bx = clamp(ship.x, AR.l + R, AR.r - R), by = clamp(ship.y, AR.top + R, AR.bot - R);
+        if (bx !== ship.x) ship.vx = 0;   // kill the wall-ward component so edges don't feel sticky
+        if (by !== ship.y) ship.vy = 0;
+        ship.x = bx; ship.y = by;
         camX = 0; camY = 0;
       } else {
         if (input.left) ship.angle -= shipTurn * dt;
@@ -2510,7 +2546,7 @@
       }
       if (charges < maxCharges) { rechargeTimer -= dt; if (rechargeTimer <= 0) { charges++; rechargeTimer += rechargeTime; } if (charges < 1) hud(); }   // (v0.93.0, A9) live bar while empty
       if (invuln > 0) invuln -= dt; if (input.fire) shoot();
-      regenT += dt; if (regenT > shieldRegenDelay && shields < maxShields && shields > 0) { shields = Math.min(maxShields, shields + shieldRegenRate * dt); hud(); }   // (v0.93.0, A8)
+      regenT += dt; if (regenT > shieldRegenDelay && shields < maxShields && shields > 0) { shields = Math.min(maxShields, shields + shieldRegenRate * dt); hud(); updateDangerMusic(); }   // (v0.93.0, A8)
 
       var i, j;
       for (i = 0; i < enemies.length; i++) {
@@ -2645,7 +2681,9 @@
       }
       if (!bossActive) camera(dt);
     }
-    function damage(n) { shields -= n; invuln = 0.7; regenT = 0; sfx("hit"); burst(ship.x, ship.y, COL.aqua, 6); hud(); if (shields <= 0) { shields = 0; gameOver(); } }
+    // (PH) every hit shakes the screen in proportion to the blow (small tick for chip
+    // damage, real jolt for heavy hits); reduced-motion players get none (draw-side guard).
+    function damage(n) { shields -= n; invuln = 0.7; regenT = 0; sfx("hit"); burst(ship.x, ship.y, COL.aqua, 6); shakeAmt = Math.max(shakeAmt, Math.min(14, 2 + n * 0.45)); hud(); if (shields <= 0) { shields = 0; gameOver(); return; } updateDangerMusic(); }
     function updateParticles(dt) { for (var i = 0; i < particles.length; i++) { var p = particles[i]; if (!p.active) continue; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; p.life -= dt; if (p.life <= 0) p.active = false; } }
     var AIM_ASSIST = 0.1;   // (v0.94.0, A2, Jason) whisper-level: 10% of the angle error, capped at ~3 degrees
     function shoot() {

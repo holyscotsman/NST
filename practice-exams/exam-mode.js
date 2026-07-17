@@ -28,7 +28,7 @@
         '<div class="pe-bar-title">Exam Mode</div>' +
         '<div class="pe-timer" role="timer" aria-live="off"></div>' +
       '</div>' +
-      '<div class="pe-progress"><div class="pe-progress-bar"><span></span></div><div class="pe-progress-meta"></div></div>' +
+      '<div class="pe-progress"><div class="pe-progress-bar"><span></span><i class="pe-progress-pos"></i></div><div class="pe-progress-meta"></div></div>' +
       '<div class="pe-palette" role="group" aria-label="Jump to question"></div>' +
       '<div class="pe-card"></div>' +
       '<div class="pe-foot">' +
@@ -36,7 +36,8 @@
         '<button type="button" class="pe-btn pe-btn-flag">&#9873; Flag</button>' +
         '<button type="button" class="pe-btn pe-btn-primary pe-next">Next</button>' +
       '</div>' +
-      '<div class="pe-foot pe-foot-submit"><button type="button" class="pe-btn pe-btn-submit">Submit exam</button></div>';
+      '<div class="pe-foot pe-foot-submit"><button type="button" class="pe-btn pe-btn-submit">Submit exam</button></div>' +
+      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>D</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>F</kbd> flag</p>';
     container.innerHTML = "";
     container.appendChild(root);
 
@@ -57,8 +58,27 @@
     });
     prevBtn.addEventListener("click", function () { if (idx > 0) { idx--; renderCard(); } });
     nextBtn.addEventListener("click", function () { if (idx < N - 1) { idx++; renderCard(); } });
-    flagBtn.addEventListener("click", function () { flags[idx] = !flags[idx]; renderCard(); });
+    flagBtn.addEventListener("click", function () { flags[idx] = !flags[idx]; if (PE.sfx) PE.sfx.play("flag"); renderCard(); });
     submitBtn.addEventListener("click", function () { promptSubmit(); });
+
+    // (UI) keyboard play: A-D/1-9 selects, ←/→ navigates, F flags. Self-removes when the
+    // exam DOM is replaced; inert while the confirm modal is open (it owns focus).
+    function onKey(e) {
+      if (!root.isConnected) { document.removeEventListener("keydown", onKey); return; }
+      if (finished || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (root.querySelector(".pe-modal-overlay")) return;
+      var tag = (e.target && e.target.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      var q = questions[idx], k = e.key;
+      var li = "abcdefghij".indexOf(k.toLowerCase());
+      var ni = "123456789".indexOf(k);
+      if (k.toLowerCase() === "f") { e.preventDefault(); flags[idx] = !flags[idx]; if (PE.sfx) PE.sfx.play("flag"); renderCard(); }
+      else if (li >= 0 && li < q.options.length) { e.preventDefault(); selectOption(li); }
+      else if (ni >= 0 && ni < q.options.length) { e.preventDefault(); selectOption(ni); }
+      else if (k === "ArrowLeft" && idx > 0) { e.preventDefault(); idx--; renderCard(); }
+      else if (k === "ArrowRight" && idx < N - 1) { e.preventDefault(); idx++; renderCard(); }
+    }
+    document.addEventListener("keydown", onKey);
 
     function selectOption(i) {
       var q = questions[idx];
@@ -70,6 +90,7 @@
       } else {
         answers[idx] = i;
       }
+      if (PE.sfx) PE.sfx.play("select");
       renderCard();
     }
 
@@ -82,10 +103,26 @@
       var m = Math.floor(s / 60), ss = s % 60;
       return m + ":" + (ss < 10 ? "0" : "") + ss;
     }
+    // (UI) urgency thresholds derive from the whole sitting: amber at 25% remaining,
+    // red at 10% — plus one polite screen-reader announcement at each crossing.
+    var totalMs = limitMin * 60 * 1000;
+    var announced = { warn: false, danger: false };
     function tick() {
       var rem = endTime - Date.now();
       timerEl.innerHTML = ui.ICONS.clock + "<span>" + fmt(rem) + "</span>";
-      timerEl.classList.toggle("low", rem <= cfg.TIMER_LOW_MIN * 60 * 1000);
+      var frac = rem / totalMs;
+      var danger = frac <= 0.10, warn = frac <= 0.25;
+      timerEl.classList.toggle("low", warn && !danger);
+      timerEl.classList.toggle("danger", danger);
+      if (warn && !announced.warn) {
+        announced.warn = true;
+        timerEl.setAttribute("aria-live", "polite");
+        timerEl.setAttribute("aria-label", "Timer: " + fmt(rem) + " remaining — a quarter of the time left");
+      }
+      if (danger && !announced.danger) {
+        announced.danger = true;
+        timerEl.setAttribute("aria-label", "Timer: " + fmt(rem) + " remaining — running out of time");
+      }
       if (rem <= 0) { stopTimer(); doSubmit(true); }
     }
     function startTimer() { tick(); timerId = setInterval(tick, 1000); }
@@ -135,10 +172,22 @@
       flagBtn.innerHTML = (flags[idx] ? "&#9873; Flagged" : "&#9873; Flag");
       prevBtn.disabled = idx === 0;
       nextBtn.disabled = idx === N - 1;
-      progFill.style.width = ((idx + 1) / N * 100) + "%";
+      // (UI) the bar now shows real progress — answered share fills it, and a thin tick
+      // marks where you're currently positioned in the set.
+      progFill.style.width = (answeredCount() / N * 100) + "%";
+      var posT = root.querySelector(".pe-progress-pos");
+      if (posT) posT.style.left = (((idx + 1) / N) * 100) + "%";
       progMeta.textContent = "Question " + (idx + 1) + " of " + N + " · " + answeredCount() + " answered";
       buildPalette();
       try { cardEl.scrollIntoView({ block: "nearest" }); } catch (e) {}
+    }
+
+    // Jump to the next flagged question (wrapping), so "review flagged" is one click.
+    function jumpToFlagged() {
+      for (var s = 1; s <= N; s++) {
+        var j = (idx + s) % N;
+        if (flags[j]) { idx = j; renderCard(); return; }
+      }
     }
 
     function promptSubmit() {
@@ -147,7 +196,9 @@
       var msg = answeredCount() + " of " + N + " answered"
         + (unanswered ? " · " + unanswered + " unanswered" : "")
         + (flagged ? " · " + flagged + " flagged" : "") + ".";
-      confirmModal("Submit exam?", msg + " You can't change answers after submitting.", "Submit", function () { doSubmit(false); });
+      confirmModal("Submit exam?", msg + " You can't change answers after submitting.", "Submit",
+        function () { doSubmit(false); },
+        flagged ? { label: "Review flagged first", onClick: jumpToFlagged } : null);
     }
 
     function doSubmit(timedOut) {
@@ -158,6 +209,7 @@
         return { q: q, chosen: answers[i], correct: engine.gradeAnswer(q, answers[i]) };
       });
       var summary = engine.summarize(results);
+      if (PE.sfx) PE.sfx.play(summary.pass ? "pass" : "fail");
       engine.saveAttempt({
         mode: "exam",
         at: Date.now(),
@@ -174,8 +226,8 @@
       });
     }
 
-    /* ---- tiny confirm modal ---- */
-    function confirmModal(title, body, confirmLabel, onConfirm) {
+    /* ---- tiny confirm modal (optional extra action, e.g. "Review flagged first") ---- */
+    function confirmModal(title, body, confirmLabel, onConfirm, extra) {
       var overlay = el("div", "pe-modal-overlay");
       var modal = el("div", "pe-modal");
       modal.setAttribute("role", "dialog");
@@ -187,11 +239,34 @@
       cancel.type = "button";
       var ok = el("button", "pe-btn pe-btn-primary", confirmLabel);
       ok.type = "button";
-      function close() { try { overlay.remove(); } catch (e) {} }
+      // (QA/a11y) dialog contract: Escape cancels, Tab stays inside, and focus
+      // returns to whatever opened the dialog once it closes.
+      var opener = document.activeElement;
+      function close() {
+        try { overlay.remove(); } catch (e) {}
+        document.removeEventListener("keydown", onModalKey, true);
+        if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+      }
+      function onModalKey(e) {
+        if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+        if (e.key !== "Tab") return;
+        var items = modal.querySelectorAll("button");
+        var first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+      document.addEventListener("keydown", onModalKey, true);
       cancel.addEventListener("click", close);
       ok.addEventListener("click", function () { close(); onConfirm(); });
       overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
-      row.appendChild(cancel); row.appendChild(ok);
+      row.appendChild(cancel);
+      if (extra) {
+        var xb = el("button", "pe-btn pe-btn-ghost", esc(extra.label));
+        xb.type = "button";
+        xb.addEventListener("click", function () { close(); extra.onClick(); });
+        row.appendChild(xb);
+      }
+      row.appendChild(ok);
       modal.appendChild(row);
       overlay.appendChild(modal);
       root.appendChild(overlay);
