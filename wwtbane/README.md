@@ -22,10 +22,13 @@ things you're shaky on and eases off the ones you've mastered.
 
 1. **Start a new game.** Your first time, the host gives you a tour of the
    soundstage and walks you through the rules — then it's 30 questions: 10 easy,
-   10 medium, 9 hard, and one nearly-impossible final.
+   10 medium, 9 hard, and one nearly-impossible final. (A smaller question bank —
+   anything from 10 to 29 valid questions — plays a proportionally scaled ladder
+   with the same tier feel and the same 50,000 top prize.)
 2. **One wrong answer ends the run** — but your coins **bank** at the safe
-   havens (questions 5, 10, 17 and 25). Pass one and that money is yours to
-   keep even if you fall later.
+   havens (questions 5, 10, 17 and 25 on the full ladder; scaled to the same
+   rhythm on a shorter one). Pass one and that money is yours to keep even if
+   you fall later.
 3. **Three lifelines**, one use each:
    - **50:50** removes two wrong answers.
    - **Ask the audience** runs a real, fallible poll — the crowd is usually
@@ -40,7 +43,7 @@ things you're shaky on and eases off the ones you've mastered.
    buy a second slot for a lifeline, recharge them, or pay **Steve** for an
    inside tip on a hard question you're about to face. Then it's "Start next
    round". The goal is to keep going.
-5. **Seeds** let you replay the exact same 30 questions — or challenge a friend to
+5. **Seeds** let you replay the exact same run — or challenge a friend to
    the identical run.
 
 Everything works with keyboard (number keys or A–F pick an answer, arrows move

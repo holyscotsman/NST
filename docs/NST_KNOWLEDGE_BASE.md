@@ -92,7 +92,10 @@ a trustworthy study tool and must survive any future change:
 
 ### 3.1 What it is
 A game-show quiz styled after *Who Wants to Be a Millionaire*. Answer **30 questions in a
-row** (10 easy / 10 medium / 9 hard / 1 extreme final), climbing a money ladder. **One wrong
+row** (10 easy / 10 medium / 9 hard / 1 extreme final), climbing a money ladder. A bank with
+10–29 valid questions plays a **proportionally scaled ladder** (`ladderProfile()` in
+`core/config.js`) — same tier split, same safe-haven rhythm, same 50,000 top prize; the
+25-question bank runs 8/8/8/1 with havens at Q4/Q8/Q14/Q21. **One wrong
 answer ends the run** (permadeath), but coins **bank** at safe havens so an early death still
 pays. Between runs, the **Green Room** spends banked coins on lifeline slots, refills, or a
 tip from an insider ("Shady Steve"). Underneath is a spaced-repetition engine — the game is a
@@ -116,9 +119,10 @@ Two layers over one canvas, joined by an event bus:
   answers promote and eventually graduate a question out; misses demote. Graduated questions
   occasionally resurface (`RESURFACE_CHANCE = 0.12`).
 - **Safety nets:** coins bank at safe havens (`BANK_BOUNDARIES = [4,9,16,24]`, i.e. after
-  Q5/Q10/Q17/Q25) and can't be lost; die mid-tier → drop to the last banked amount.
+  Q5/Q10/Q17/Q25 on the classic ladder; short banks scale these positions via the active
+  ladder profile) and can't be lost; die mid-tier → drop to the last banked amount.
 - **Seed:** a shown seed deterministically drives selection from the *authored* pools
-  (ignoring mastery), so `?seed=NTNX-XXXXXX` reproduces the same 30 questions for anyone;
+  (ignoring mastery), so `?seed=NTNX-XXXXXX` reproduces the same run for anyone;
   seeded runs still feed mastery.
 - **Double-buffered set generation:** always a ready `current` and `next`; the set two ahead
   is built from mastery after the current is played — this is what lets Steve's clue reference
