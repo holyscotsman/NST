@@ -309,7 +309,26 @@
       description: '+0.5 mult on monitoring questions and reveals a wrong option there.',
       hooks: {
         onQuestionShown: function (c) { if (c.question && c.question.domain === 'monitoring') c.api.revealWrong(); },
-        modifyDamage: function (c, d) { if (c.question && c.question.domain === 'monitoring') d.mult += 0.5; } } }
+        modifyDamage: function (c, d) { if (c.question && c.question.domain === 'monitoring') d.mult += 0.5; } } },
+    /* ADJACENCY — position matters. Reorder the rack with the ◀ ▶ arrows on each card so these line up. */
+    { id: 'sync-coupler', name: 'Sync Coupler', rarity: 'uncommon', category: 'damage',
+      description: '+0.3 mult while a DAMAGE artifact sits directly to its LEFT.',
+      hooks: { modifyDamage: function (c, d) { if (c.leftDef && c.leftDef.category === 'damage') d.mult += 0.3; } } },
+    { id: 'chain-link', name: 'Chain Link', rarity: 'rare', category: 'damage',
+      description: '+0.45 mult while BOTH its neighbours are DAMAGE artifacts.',
+      hooks: { modifyDamage: function (c, d) { if (c.leftDef && c.leftDef.category === 'damage' && c.rightDef && c.rightDef.category === 'damage') d.mult += 0.45; } } },
+    { id: 'isolator', name: 'Isolator', rarity: 'uncommon', category: 'damage',
+      description: '+0.35 mult while NEITHER neighbour is a DAMAGE artifact.',
+      hooks: { modifyDamage: function (c, d) { var l = c.leftDef && c.leftDef.category === 'damage', r = c.rightDef && c.rightDef.category === 'damage'; if (!l && !r) d.mult += 0.35; } } },
+    { id: 'flank-booster', name: 'Flank Booster', rarity: 'uncommon', category: 'damage',
+      description: '+6 flat damage while it sits in an END slot (first or last).',
+      hooks: { modifyDamage: function (c, d) { if (c.idx === 0 || c.idx === c.slotCount - 1) d.flat += 6; } } },
+    { id: 'load-balancer', name: 'Load Balancer', rarity: 'uncommon', category: 'defense',
+      description: 'Block 2 extra incoming damage while BOTH neighbour slots are filled.',
+      hooks: { onEnemyAttack: function (c, incoming) { return (c.leftDef && c.rightDef) ? incoming - 2 : incoming; } } },
+    { id: 'peer-cache', name: 'Peer Cache', rarity: 'uncommon', category: 'economy',
+      description: '+3 coins on battle win for each ECONOMY artifact beside it.',
+      hooks: { onBattleWon: function (c) { var nn = (c.leftDef && c.leftDef.category === 'economy' ? 1 : 0) + (c.rightDef && c.rightDef.category === 'economy' ? 1 : 0); if (nn) c.api.addCoins(3 * nn); } } }
   ];
   var ARTIFACTS_BY_ID = {};
   for (var ai = 0; ai < ARTIFACTS.length; ai++) ARTIFACTS_BY_ID[ARTIFACTS[ai].id] = ARTIFACTS[ai];
@@ -417,10 +436,16 @@
   }
   function makeArtCtx(run, inst, extra) {
     var b = run.battle;
+    // (adjacency) the artifact's slot position + its neighbours — some artifacts read these,
+    // so the order of the rack matters. leftDef/rightDef are the neighbouring artifacts' defs.
+    var arts = run.squad.artifacts, idx = inst ? arts.indexOf(inst) : -1;
     return {
       run: run, section: run.section, round: run.round,
       squad: run.squad, enemy: b ? b.enemy : null, question: b ? b.question : null,
       battle: b, inst: inst, rng: run.rng,
+      idx: idx, slotCount: arts.length,
+      leftDef: idx > 0 ? arts[idx - 1].def : null,
+      rightDef: (idx >= 0 && idx < arts.length - 1) ? arts[idx + 1].def : null,
       log: function (msg) { run.log.push(msg); }, api: run._api,
       answerMs: (extra && extra.answerMs != null) ? extra.answerMs : null,
       streak: b ? b.correctStreak : 0,
@@ -1134,6 +1159,11 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-acard{position:relative;width:118px;height:150px;flex:none;background:linear-gradient(#191926,#101018);border:1.5px solid ' + P.border + ';border-radius:12px;padding:10px 9px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;transform-origin:50% 100%;transition:transform .14s;}');
     css.push('.kbb-acard.a0{transform:rotate(-8deg) translateY(9px);}.kbb-acard.a1{transform:rotate(-4deg) translateY(3px);}.kbb-acard.a3{transform:rotate(4deg) translateY(3px);}.kbb-acard.a4{transform:rotate(8deg) translateY(9px);}');
     css.push('.kbb-acard.res{border-width:2.5px;}');   /* (v0.184.0, KBB#8) */
+    css.push('.kbb-amove{position:absolute;top:3px;width:19px;height:19px;padding:0;border-radius:6px;border:1px solid ' + P.border + ';background:rgba(9,9,15,.78);color:' + P.text + ';font-size:9px;line-height:17px;text-align:center;cursor:pointer;opacity:.45;z-index:4;transition:opacity .12s,background .12s;}');
+    css.push('.kbb-amove-l{left:3px;}.kbb-amove-r{right:3px;}');
+    css.push('.kbb-acard:hover .kbb-amove,.kbb-acard:focus-within .kbb-amove{opacity:1;}');
+    css.push('.kbb-amove:hover:not(:disabled){background:' + P.iris + ';color:#fff;}');
+    css.push('.kbb-amove:disabled{opacity:.12;cursor:default;}');
     css.push('.kbb-res-chip{position:absolute;top:3px;right:5px;font-size:7.5px;font-weight:800;letter-spacing:.09em;border:1px solid;border-radius:4px;padding:0 3px;background:rgba(0,0,0,.4);}');
     css.push('.kbb-root:not(.kbb-reduced) .kbb-acard:hover{transform:translateY(-10px);z-index:2;}');
     css.push('.kbb-root:not(.kbb-reduced) .kbb-acard.a0:hover{transform:rotate(-8deg) translateY(-8px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a1:hover{transform:rotate(-4deg) translateY(-9px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a3:hover{transform:rotate(4deg) translateY(-9px);}.kbb-root:not(.kbb-reduced) .kbb-acard.a4:hover{transform:rotate(8deg) translateY(-8px);}');
@@ -2395,6 +2425,14 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     // (v0.127.0, Jason) the fanned cards at the bottom ARE the artifact collection now —
     // always maxArtifacts card slots (filled = the perk as a card, empty = a dashed invite).
     // JB2's always-render-slots rule carries over from the old left panel.
+    // (adjacency) swap two artifact slots so the player controls rack order — some artifacts
+    // read their neighbours, so position is a real decision.
+    function swapArtifacts(s, a, b) {
+      var arr = s.run.squad.artifacts;
+      if (a < 0 || b < 0 || a >= arr.length || b >= arr.length || a === b) return;
+      var t = arr[a]; arr[a] = arr[b]; arr[b] = t;
+      renderArtifacts(s);
+    }
     function renderArtifacts(s) {
       var sq = s.run.squad;
       if (s.handArts) {
@@ -2412,13 +2450,25 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
             // (C5-07) hover-only titles are unreachable by keyboard/AT \u2014 make the
             // card focusable with the same content as its accessible name.
             card.tabIndex = 0;
-            card.setAttribute('role', 'img');
+            card.setAttribute('role', 'group');
             card.setAttribute('aria-label', card.title);
             card.innerHTML = '<span class="an">' + a.def.name + '</span>' +
               (isRes ? '<span class="kbb-res-chip" style="color:' + cc2 + ';border-color:' + cc2 + '">RESONANCE</span>' : '') +
               '<span class="ai" style="color:' + cc2 + ';background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px ' + cc2 + '">\u27F3</span>' +
               '<span class="ad">' + a.def.description + '</span>' +
               '<span class="af kbb-rar-' + a.def.rarity + '">ARTIFACT \u00b7 ' + a.def.rarity.toUpperCase() + '</span>';
+            // (adjacency) reorder arrows \u2014 position matters for Sync Coupler / Chain Link / etc.
+            (function (slot, def) {
+              var lb = s.doc.createElement('button'); lb.type = 'button'; lb.className = 'kbb-amove kbb-amove-l'; lb.innerHTML = '\u25c0';
+              lb.title = 'Move left'; lb.setAttribute('aria-label', 'Move ' + def.name + ' left');
+              lb.disabled = slot <= 0 || !sq.artifacts[slot - 1];
+              lb.onclick = function (ev) { ev.stopPropagation(); swapArtifacts(s, slot, slot - 1); };
+              var rb = s.doc.createElement('button'); rb.type = 'button'; rb.className = 'kbb-amove kbb-amove-r'; rb.innerHTML = '\u25b6';
+              rb.title = 'Move right'; rb.setAttribute('aria-label', 'Move ' + def.name + ' right');
+              rb.disabled = slot >= sq.artifacts.length - 1;
+              rb.onclick = function (ev) { ev.stopPropagation(); swapArtifacts(s, slot, slot + 1); };
+              card.appendChild(lb); card.appendChild(rb);
+            })(i, a.def);
           } else {
             card.className = 'kbb-acard empty a' + i;
             card.innerHTML = '<span class="ae">Slot ' + (i + 1) + '</span><span class="ae2">empty</span>';
