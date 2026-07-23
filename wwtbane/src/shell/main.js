@@ -414,12 +414,21 @@ export class Game {
       h('span', { class: 'speech-who' }, 'Stage manager'), line);
     const doorMs = this.reduced ? 0 : 1200;   // bubble pops once the door is open
     const readMs = this.reduced ? 1600 : 2600; // a beat to read it
-    setTimeout(() => this.roots.screen.append(bubble), doorMs);
-    setTimeout(() => {
+    const t1 = setTimeout(() => this.roots.screen.append(bubble), doorMs);
+    const t2 = setTimeout(() => finish(), doorMs + readMs);
+    // (C6-03) same skip affordance as the welcome beat
+    const skip = () => finish();
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      clearTimeout(t1); clearTimeout(t2);
+      window.removeEventListener('pointerdown', skip);
+      window.removeEventListener('keydown', skip);
       bubble.remove();
       this._managerBusy = false;
       this.startRun('mastery', null);
-    }, doorMs + readMs);
+    };
+    setTimeout(() => { window.addEventListener('pointerdown', skip); window.addEventListener('keydown', skip); }, 150);
   }
 
   _buySlot(type) {
@@ -568,6 +577,9 @@ export class Game {
   // The host welcomes the player back to the Hot Seat — a different line each
   // run, drifting snarky once the attempts pile up (authored copy, FLAGS.md).
   _welcomeBeat(beginPlay) {
+    // (C6-03) re-entrant guard: mashing Start must not stack overlapping beats
+    if (this._welcomeBusy) return;
+    this._welcomeBusy = true;
     this.screen = 'cinematic';
     clear(this.roots.screen);
     this.bus.emit('scene:studio', {});
@@ -580,8 +592,22 @@ export class Game {
       h('span', { class: 'speech-who' }, 'Host'), text);
     const showMs = this.reduced ? 200 : 900;   // bubble pops once the camera settles
     const holdMs = this.reduced ? 1200 : 3000; // a beat to read it
-    setTimeout(() => this.roots.screen.append(bubble), showMs);
-    setTimeout(() => { bubble.remove(); beginPlay(); }, showMs + holdMs);
+    const t1 = setTimeout(() => this.roots.screen.append(bubble), showMs);
+    const t2 = setTimeout(() => finish(), showMs + holdMs);
+    // (C6-03) a tap/click/key skips straight to the question — the beat is
+    // flavor, not information (it was ~4s of unskippable wait per run).
+    const skip = () => finish();
+    let done = false;
+    const finish = () => {
+      if (done) return; done = true;
+      clearTimeout(t1); clearTimeout(t2);
+      window.removeEventListener('pointerdown', skip);
+      window.removeEventListener('keydown', skip);
+      bubble.remove();
+      this._welcomeBusy = false;
+      beginPlay();
+    };
+    setTimeout(() => { window.addEventListener('pointerdown', skip); window.addEventListener('keydown', skip); }, 150);
   }
 
   // A short host quip as each question is read out — his voice, never the

@@ -45,8 +45,26 @@ function optionNotesPanel(q, correctSet) {
 // whole figure removes itself if the image fails to load.
 function questionImage(image) {
   const img = h('img', { src: image.src, alt: image.alt, loading: 'lazy' });
+  // (C6-02) exhibits are capped at 200px in the card — screenshots are
+  // illegible at that size. Click/tap opens a full-size lightbox; Escape or
+  // any click closes it and focus returns to the trigger.
+  const zoom = h('button', { class: 'q-image-zoom', type: 'button', 'aria-label': 'Enlarge exhibit image' }, img);
+  zoom.addEventListener('click', () => {
+    const big = h('img', { src: image.src, alt: image.alt });
+    const box = h('div', { class: 'q-lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': image.alt || 'Exhibit image' },
+      big, h('div', { class: 'q-lightbox-hint' }, 'Click anywhere or press Escape to close'));
+    const close = () => {
+      box.remove();
+      document.removeEventListener('keydown', onKey, true);
+      try { zoom.focus(); } catch { /* gone */ }
+    };
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
+    box.addEventListener('click', close);
+    document.addEventListener('keydown', onKey, true);
+    document.body.append(box);
+  });
   const fig = h('figure', { class: 'q-image' },
-    img,
+    zoom,
     image.caption ? h('figcaption', {}, image.caption) : null);
   img.addEventListener('error', () => fig.remove());
   return fig;

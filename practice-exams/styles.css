@@ -364,3 +364,6 @@ body {
 
 /* (C5-09) mirrored actions after the long review list */
 .pe-results-actions-bottom { margin-top: 26px; }
+
+/* (C6-01) focus-domain chips wrap on small screens */
+.pe-domainpick { flex-wrap: wrap; }

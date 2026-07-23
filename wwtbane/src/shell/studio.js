@@ -187,6 +187,7 @@ export class Studio {
     this.director.cue(type, data);
     switch (type) {
       case 'question:show':
+        if (this._wordmark) this._wordmark.visible = true;    // (C6-04) in a run: set dressing shows
         if (data.isFinal) this._setMood(PAL.gold, 1.15);
         else if (data.tier === 'hard') this._setMood(PAL.iris, 1.05);
         else if (data.tier === 'medium') this._setMood(PAL.aqua, 1.0);
@@ -221,11 +222,13 @@ export class Studio {
         this._phase = 'reveal';
         break;
       case 'run:win':
+        if (this._wordmark) this._wordmark.visible = false;   // (C6-04) hero screens carry their own wordmark
         this._setMood(PAL.gold, 1.3);
         this._spin = this.reduced ? 1 : 3;
         this._mood = { kind: 'happy', t: 8, total: 8 };
         break;
       case 'run:dead':
+        if (this._wordmark) this._wordmark.visible = false;   // (C6-04) hero screens carry their own wordmark
         this._setMood(0x223, 0.5);
         break;
       case 'green:manager':
@@ -235,6 +238,7 @@ export class Studio {
         this._talk = 3.4; // "we're ready for you back in the Hot Seat!"
         break;
       case 'scene:green':
+        if (this._wordmark) this._wordmark.visible = false;   // (C6-04) hero screens carry their own wordmark
         // fresh visit: the door is shut, the manager is back in the hallway
         if (this._greenDoor) this._greenDoor.rotation.y = 0;
         if (this._greenSM) this._greenSM.visible = false;
@@ -840,6 +844,11 @@ export class Studio {
 
     const back = new THREE.Mesh(new THREE.PlaneGeometry(12, 7), new THREE.MeshBasicMaterial({ map: wordmarkTexture(), transparent: true }));
     back.position.set(0, 4, -12); s.add(back);
+    // (C6-04) parity with the CSS fallback: the set wordmark hides behind the
+    // title/result/green-room heroes (they carry their own wordmark) and shows
+    // during play. Starts hidden — boot lands on the title.
+    this._wordmark = back;
+    back.visible = false;
     const halo = new THREE.Mesh(new THREE.CircleGeometry(4.6, 64), mat(0x000000, PAL.iris, 1.2)); halo.position.set(0, 4, -12.2); s.add(halo);
 
     const beamColors = [PAL.iris, PAL.aqua, PAL.gold, PAL.iris];

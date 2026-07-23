@@ -5,6 +5,38 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v1.7.0 — Optimization Cycle 06 (2026-07-23)
+
+Deeper features land: domain-focused practice, a paid feature that finally
+works, and pace control. All 10 shipped; verdicts in
+`docs/optimization/CYCLE-06.md`.
+
+### Fixed
+- **KBB:** the Intel consumable and Intel Cache artifact set a flag that
+  nothing ever read — players paid coins for a no-op. The reveal now renders:
+  "📡 INTEL · next 4 → 0 → 8", a mutation-free three-hit forecast of the
+  enemy's attack pattern.
+- **WWTBANE:** the GL studio's set wordmark showed behind the title/result/
+  green-room heroes (the CSS fallback already hid its own) — hero parity now.
+- **Dev tools:** the WWTBANE jump input's max follows the active ladder length
+  instead of a hard-coded 30.
+
+### Added
+- **Practice Exams:** a "Practice focus" domain chip row — study one blueprint
+  area at a time (chips show per-domain question counts; persisted; Exam mode
+  always draws the whole bank).
+- **WWTBANE:** the pre-round host beats are tap/key-skippable (~4 s to ~0.7 s
+  to the first question when skipped) and guard against stacking; question
+  exhibits open in a click-to-enlarge lightbox (screenshots were illegible at
+  the 200 px card size).
+- **All pages:** Open Graph metadata for link sharing; the StarNix build's
+  head gains its missing theme-color and meta description.
+- **Performance:** bank markdown and the manifest are session-cached for
+  5 minutes — hopping between the launcher and tools no longer refetches
+  ~376 KB per navigation (Retry paths bypass the cache).
+- **Release hygiene:** the site version lives in one shared module
+  (`shared/nst-version.js`) read by the launcher diagnostics and PE footer.
+
 ## v1.6.0 — Optimization Cycle 05 (2026-07-23)
 
 Escape hatches and assistive-tech reach. All 10 shipped; verdicts in

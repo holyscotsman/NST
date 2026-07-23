@@ -92,6 +92,34 @@
     pick.appendChild(segFull);
     root.appendChild(pick);
 
+    // (C6-01) optional focus domain for Practice mode — study one blueprint
+    // area at a time. Persisted; Exam mode always draws from the whole bank.
+    var focusDomain = loadPrefs().focusDomain || "";
+    var domainNames = Object.keys(meta.domains).sort();
+    if (domainNames.indexOf(focusDomain) < 0) focusDomain = "";
+    if (domainNames.length > 1) {
+      var dwrap = el("div", "pe-setpick pe-domainpick");
+      dwrap.setAttribute("role", "radiogroup");
+      dwrap.setAttribute("aria-label", "Practice focus domain");
+      dwrap.appendChild(el("span", "pe-setpick-label", "Practice focus"));
+      var dbtns = [];
+      var addChip = function (label, value, count) {
+        var b = el("button", "pe-seg" + ((focusDomain === value) ? " on" : ""), esc(label) + (count ? " · " + count : ""));
+        b.type = "button"; b.setAttribute("role", "radio");
+        b.setAttribute("aria-checked", String(focusDomain === value));
+        b.addEventListener("click", function () {
+          focusDomain = value;
+          savePrefs({ focusDomain: value });
+          dbtns.forEach(function (x) { x.b.classList.toggle("on", x.v === value); x.b.setAttribute("aria-checked", String(x.v === value)); });
+        });
+        dbtns.push({ b: b, v: value });
+        dwrap.appendChild(b);
+      };
+      addChip("All domains", "", 0);
+      domainNames.forEach(function (d) { addChip(d, d, meta.domains[d]); });
+      root.appendChild(dwrap);
+    }
+
     function chosenCount() { return useFull ? meta.total : randomCount; }
     function examMinutes() { return Math.round(cfg.EXAM_TIME_LIMIT_MIN * chosenCount() / cfg.EXAM_QUESTION_COUNT); }
 
@@ -106,7 +134,7 @@
       '<p class="pe-modecard-desc">Instant feedback after every question, the correct answer and explanation revealed, unlimited retries. Untimed — move at your own pace with free navigation.</p>' +
       '<ul class="pe-modecard-facts"><li class="pe-fact-count"></li><li>Instant feedback</li><li>Untimed</li></ul>' +
       '<span class="pe-modecard-cta">Start practicing ' + ui.ICONS.arrowRight + '</span>';
-    pcard.addEventListener("click", function () { launch("practice", container, chosenCount()); });
+    pcard.addEventListener("click", function () { launch("practice", container, chosenCount(), focusDomain); });   // (C6-01)
     modes.appendChild(pcard);
 
     var ecard = el("button", "pe-modecard pe-modecard-exam");
@@ -146,14 +174,15 @@
       root.appendChild(list);
     }
 
-    root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v1.6.0"));
+    root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v" + (window.NST_VERSION || "dev")));   // (C6-08)
     container.appendChild(root);
     try { window.scrollTo(0, 0); } catch (e) {}
   }
 
-  function launch(mode, container, count) {
+  function launch(mode, container, count, domain) {
     var opts = {
       count: count,
+      domain: mode === "practice" ? (domain || null) : null,   // (C6-01) practice-only
       onExit: function () { showEntry(container); },
       onHome: function () { window.location.href = HOME; },
     };
