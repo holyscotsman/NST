@@ -367,6 +367,10 @@ export class Game {
   _renderGreenRoom() {
     const firstVisit = !this.save.flags.greenRoomSeen;
     if (firstVisit && !this._greenReveal) { this.save.flags.greenRoomSeen = true; this.persist(); }
+    // (C3-08) purchases re-render the whole room; without a handoff the focus
+    // jumps from the clicked shop control to the H2 heading. Remember the
+    // focused control's id and restore it on the fresh DOM.
+    const focusId = document.activeElement ? document.activeElement.id : '';
     this._swap(GreenRoom({
       wallet: this.save.wallet,
       lifelines: this.save.lifelines,
@@ -384,6 +388,10 @@ export class Game {
       onEnterStudio: () => this._managerBeat(),
       onBack: () => this.showTitle(),
     }));
+    if (focusId) {
+      const again = document.getElementById(focusId);
+      if (again && !again.disabled) { try { again.focus({ preventScroll: true }); } catch { again.focus(); } }
+    }
   }
 
   // "Start next round": the stage manager opens the green-room door, stands by

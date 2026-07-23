@@ -25,6 +25,10 @@ Continuous improvement loop over the whole NST product, run autonomously.
 | 01 | 1.2.0 | shipped + deployed | [#10](https://github.com/holyscotsman/NST/pull/10) |
 | 02 | 1.3.0 | shipped (review 20/20 PASS, e2e 22/22, sweep clean) | #11 |
 
-Loop ENDED after cycle 02: the 6-hour window (until 11:24Z) elapsed during a
-subagent session-limit stall; the in-flight reviewed cycle was completed and
-shipped, and no new cycle was started past the deadline.
+Loop REOPENED by owner request: 8 cycles total. Cycles 03-08 use inline
+adversarial reviews (verdict per item, recorded in the cycle file) instead of
+subagent fleets — same gates, immune to the session-limit stall that froze the
+first window. Seeded from the 40 unconsumed survey candidates.
+
+| 03 | 1.4.0 | shipped (12/12 targeted checks, e2e 22/22, sweep clean) | #12 |
+| 04 | 1.5.0 | next | — |

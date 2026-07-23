@@ -84,7 +84,7 @@ export function GreenRoom(ctx) {
       h('span', { class: 'shop-ll' }, `${meta.glyph} ${meta.name}`),
       h('span', { class: `shop-slots${l.charges === 0 ? ' empty' : ''}` }, `${l.charges}/${l.slots} charged`),
       canBuySlot
-        ? h('button', { class: 'secondary small', type: 'button', disabled: !slotAfford,
+        ? h('button', { class: 'secondary small', id: `shop-slot-${type}`, type: 'button', disabled: !slotAfford,
             onclick: () => ctx.onBuySlot(type) }, `Buy 2nd slot · ${money(SHOP.lifelineSlot)}`)
         : h('span', { class: 'maxed' }, 'Max slots'),
     );
@@ -109,7 +109,7 @@ export function GreenRoom(ctx) {
         ...LIFELINE_TYPES.map(shopRow),
         h('div', { class: 'shop-row refill' },
           h('span', {}, 'Recharge all lifelines to full'),
-          h('button', { class: 'refill-btn', type: 'button',
+          h('button', { class: 'refill-btn', id: 'shop-refill', type: 'button',
             disabled: !needsRefill || ctx.wallet < SHOP.refillAll,
             onclick: () => ctx.onRefill() }, needsRefill ? `Refill · ${money(SHOP.refillAll)}` : 'All charged'),
         ),
@@ -131,7 +131,7 @@ export function GreenRoom(ctx) {
               : h('div', {},
                   h('p', { class: 'steve-note' }, 'Steve knows one hard question coming up and will teach you the idea behind it — for a price. One call per visit.'),
                   h('div', { style: { marginTop: '14px' } },
-                    h('button', { class: 'secondary', type: 'button', disabled: ctx.wallet < SHOP.steve,
+                    h('button', { class: 'secondary', id: 'shop-steve', type: 'button', disabled: ctx.wallet < SHOP.steve,
                       onclick: () => ctx.onCallSteve() }, `Call Steve · ${money(SHOP.steve)}`))))
           : h('p', { class: 'steve-note' }, 'Steve has nothing new for you right now — you have seen his tips for the questions coming up.'),
       ),

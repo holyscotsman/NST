@@ -44,8 +44,14 @@
     var nextBtn = root.querySelector(".pe-next");
 
     root.querySelector(".pe-exit").addEventListener("click", function () {
-      if (PE.sfx && PE.sfx.ambientStop) PE.sfx.ambientStop();
-      opts.onExit && opts.onExit();
+      function leave() {
+        if (PE.sfx && PE.sfx.ambientStop) PE.sfx.ambientStop();
+        opts.onExit && opts.onExit();
+      }
+      // (C3-03) an accidental click must not wipe a long study session — the
+      // same protection Exam mode already has. Zero-progress exits stay instant.
+      if (answeredCount() > 0) ui.confirm("Leave practice?", "Your checked answers and streak will be discarded.", "Leave", leave);
+      else leave();
     });
     // (M1) opt-in study ambience for Practice mode only (entry click is the gesture).
     if (PE.sfx && PE.sfx.ambientStart) PE.sfx.ambientStart();
@@ -69,6 +75,7 @@
         return;
       }
       if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (document.querySelector(".pe-modal-overlay")) return;   // (C3-03) confirm owns the keys
       var tag = (e.target && e.target.tagName) || "";
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       var q = questions[idx], k = e.key;
@@ -107,20 +114,32 @@
       scoreChip.textContent = s;
     }
 
+    // (C3-01) build the palette ONCE; per-render, update chips in place. The old
+    // rebuild-every-render (255 buttons in full-bank) threw keyboard focus to
+    // <body> on every option click and re-centered the strip needlessly.
+    var palChips = null;
     function buildPalette() {
       paletteEl.innerHTML = "";
-      questions.forEach(function (q, i) {
+      palChips = questions.map(function (q, i) {
+        var b = el("button", "pe-pal", String(i + 1));
+        b.type = "button";
+        b.addEventListener("click", function () { idx = i; renderCard(); });
+        paletteEl.appendChild(b);
+        return b;
+      });
+      updatePalette();
+      ui.centerPalette(paletteEl);
+    }
+    function updatePalette() {
+      if (!palChips) return;
+      palChips.forEach(function (b, i) {
         var st = state[i];
         var cls = "pe-pal";
         if (i === idx) cls += " current";
         if (st.checked) cls += st.correct ? " ok" : " bad";
-        var b = el("button", cls, String(i + 1));
-        b.type = "button";
+        b.className = cls;
         b.setAttribute("aria-label", "Question " + (i + 1) + (st.checked ? (st.correct ? ", correct" : ", incorrect") : ", not answered"));
-        b.addEventListener("click", function () { idx = i; renderCard(); });
-        paletteEl.appendChild(b);
       });
-      ui.centerPalette(paletteEl);
     }
 
     function selectOption(i) {
@@ -169,6 +188,10 @@
       var chosen = Array.isArray(st.chosen) ? st.chosen : (st.chosen == null ? [] : [st.chosen]);
       var cset = Array.isArray(q.correct) ? q.correct : [q.correct];
       var multi = engine.isMulti(q);
+      // (C3-01) the rebuild destroys the focused option — remember which one so
+      // keyboard/SR users keep their place after a select/toggle.
+      var focusedOpt = (document.activeElement && cardEl.contains(document.activeElement))
+        ? document.activeElement.getAttribute("data-i") : null;
       cardEl.innerHTML = "";
 
       var meta = el("div", "pe-q-meta");
@@ -217,11 +240,16 @@
       var posT = root.querySelector(".pe-progress-pos");
       if (posT) posT.style.left = (((idx + 1) / N) * 100) + "%";
       progMeta.textContent = "Question " + (idx + 1) + " of " + N;
-      buildPalette();
+      updatePalette();   // (C3-01) chips update in place; the strip never rebuilds
       updateScore();
+      if (focusedOpt != null) {
+        var again = cardEl.querySelector('.pe-opt[data-i="' + focusedOpt + '"]');
+        if (again) { try { again.focus({ preventScroll: true }); } catch (eF) { again.focus(); } }
+      }
       try { cardEl.scrollIntoView({ block: "nearest" }); } catch (e) {}
     }
 
+    buildPalette();
     updateScore();
     renderCard();
   }
