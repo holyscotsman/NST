@@ -26,6 +26,7 @@ async function main() {
     try {
       localStorage.setItem('wwtbane.e2e', '1');
       localStorage.setItem('wwtbane.nogl', '1'); // skip the GPU-bound studio; smoke.mjs covers WebGL boot
+      localStorage.setItem('nst.activeBank', 'ncp-mci'); // runtime bank (255 questions — full classic ladder)
       localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'reduced', sound: false, music: false } }));
     } catch {}
   });
@@ -147,6 +148,7 @@ async function main() {
       try {
         localStorage.setItem('wwtbane.e2e', '1');
         localStorage.setItem('wwtbane.nogl', '1');
+        localStorage.setItem('nst.activeBank', 'ncp-mci'); // runtime bank
         localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, settings: { motion: 'reduced', sound: false, music: false } }));
       } catch {}
     });

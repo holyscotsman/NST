@@ -5,6 +5,49 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v1.3.0 — Optimization Cycle 02 (2026-07-23)
+
+Polish and accessibility from the reviewed survey backlog. All 10 shipped;
+review verdicts and instructions in `docs/optimization/CYCLE-02.md`.
+
+### Fixed
+- **StarNix:** the pause overlay's Resume and the selected music-genre button
+  now have the intended iris styling — the `sx-btn-primary` class had no CSS
+  rule anywhere, so they rendered as UA-default gray (high-contrast mode also
+  gets its bounding border).
+- **WWTBANE:** the win screen no longer says "took home 50,000 coins" directly
+  above "0 coins total" — the win row now shows the payout (+ career win
+  count); the truthful wallet total stays on the loss path.
+- **Chasm Chase:** "Run again" resets milestone/biome banner caches, hides a
+  banner stuck on-screen at death, and clears a stale "NEW RECORD" chip (the
+  beaten record becomes the new PB bar).
+- **WWTBANE:** resizing mid-question re-anchors the money-ladder highlight and
+  the mobile strip's scroll — the current rung could sit fully off-screen.
+- **Practice Exams:** the exam timer's screen-reader announcement fired every
+  second after the first urgency crossing (aria-live on an element rewritten
+  per tick); announcements now go through a dedicated live region exactly once
+  per crossing.
+
+### Added
+- **Practice Exams:** checking an answer in Practice mode announces the verdict
+  to screen readers ("Correct." / "Not quite. Correct answer: B"), cleared on
+  navigation.
+- **WWTBANE:** the multi-answer lock button shows the live selection count
+  ("Lock in 2 answers") — multi questions grade all-or-nothing.
+- **Launcher:** while "Mute all" is on, the Volume slider and Practice Exams
+  sounds rows dim and disable; values are kept for unmute.
+- **WWTBANE:** keyboard focus lands on the new question's stem after Continue
+  instead of falling to the page body.
+- **Practice Exams:** on the last exam question the Next button becomes
+  "Review & submit" and opens the submit summary — the forward flow no longer
+  dead-ends.
+
+### Test infrastructure
+- WWTBANE's browser e2e works under the consolidated repo again: the test
+  server now falls back to the repo root for `/shared/` + `/banks/`, and the
+  scenarios prime the runtime bank — 22/22 checks pass (previously the suite
+  died on the "no bank" guard).
+
 ## v1.2.0 — Optimization Cycle 01 (2026-07-23)
 
 Bugs and data-loss hazards from a 60-candidate survey. All 10 shipped;

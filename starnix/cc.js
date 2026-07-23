@@ -2759,6 +2759,20 @@
 
       // restart / exit buttons
       bindBtn(el.btnRestart, function () {
+        // (C2-03) a fresh run starts with fresh HUD state: stale milestone/biome
+        // caches were suppressing every banner until the new run beat the old
+        // distance, a banner up at death stayed glued on, and "NEW RECORD"
+        // persisted as a lie through the whole next run.
+        var lastDist = sim.scoreDistance | 0;
+        if (pbBeaten && lastDist > pbBest) pbBest = lastDist;   // the beaten record is the new bar
+        pbBeaten = false;
+        if (el.pb) {
+          el.pb.className = 'cc-pb';
+          el.pb.textContent = pbBest > 0 ? 'PB ' + (pbBest / 1000).toFixed(1) + ' km' : '';
+        }
+        hudCache.mile = 0; hudCache.bio = 0; mileHideAt = 0; bioHideAt = 0;
+        el.mileBanner.classList.remove('on');
+        if (el.bioBanner) el.bioBanner.classList.remove('on');
         sim.reset(); el.gameover.style.display = 'none'; hudCache.shields = -1; resume();
       });
       bindBtn(el.btnGarage, function () {                    // (v0.73.0, J9) toggle the Garage

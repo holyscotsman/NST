@@ -13,13 +13,23 @@ const PW = ['playwright', '/opt/node22/lib/node_modules/playwright', 'playwright
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 
+// Since the NST consolidation the game loads /shared/ and /banks/ from the
+// repo root at runtime (../shared/bank-loader.js etc. relative to /wwtbane/).
+// Requests that don't resolve under wwtbane/ fall back to the repo root so the
+// browser tests exercise the real runtime-bank path instead of 404ing into the
+// "no bank" guard screen.
+const REPO_ROOT = normalize(join(ROOT, '..'));
 export function serve(port) {
   const server = createServer(async (req, res) => {
     try {
       let p = decodeURIComponent(req.url.split('?')[0]);
       if (p === '/') p = '/index.html';
-      const full = normalize(join(ROOT, p));
+      let full = normalize(join(ROOT, p));
       if (!full.startsWith(ROOT)) { res.writeHead(403); return res.end('no'); }
+      if (!existsSync(full)) {
+        const alt = normalize(join(REPO_ROOT, p));
+        if (alt.startsWith(REPO_ROOT) && existsSync(alt)) full = alt;
+      }
       const body = await readFile(full);
       res.writeHead(200, { 'Content-Type': MIME[extname(full)] || 'application/octet-stream' });
       res.end(body);

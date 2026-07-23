@@ -791,6 +791,7 @@ export class Game {
         won: true,
         payout: pay || 0,
         wallet: this.save.wallet, // 0 — prestige has reset it
+        wins: this.save.stats && this.save.stats.wins, // (C2-02) career count for the win row
         reached,
         onPrestige: () => this.startRun('mastery', null),
         onTitle: () => this.showTitle(),

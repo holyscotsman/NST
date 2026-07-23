@@ -347,3 +347,13 @@ body {
 .pe-nobank h2 { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--heading); }
 .pe-nobank p { color: var(--muted); margin: 10px 0 20px; line-height: 1.6; font-size: 14.5px; }
 .pe-nobank .pe-btn { text-decoration: none; display: inline-flex; }
+
+/* (C2-05/C2-06) screen-reader-only live regions */
+.pe-sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

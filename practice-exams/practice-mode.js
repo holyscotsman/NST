@@ -49,6 +49,13 @@
     });
     // (M1) opt-in study ambience for Practice mode only (entry click is the gesture).
     if (PE.sfx && PE.sfx.ambientStart) PE.sfx.ambientStart();
+
+    // (C2-06) verdict announcer: a persistent visually-hidden live region — the
+    // score chip announces totals but never the actual Correct / Not quite.
+    var srVerdict = el("div", "pe-sr-only");
+    srVerdict.setAttribute("aria-live", "polite");
+    srVerdict.setAttribute("aria-atomic", "true");
+    root.appendChild(srVerdict);
     prevBtn.addEventListener("click", function () { if (idx > 0) { idx--; renderCard(); } });
     nextBtn.addEventListener("click", function () { if (idx < N - 1) { idx++; renderCard(); } });
     checkBtn.addEventListener("click", onCheckOrRetry);
@@ -145,6 +152,11 @@
       st.correct = engine.gradeAnswer(q, st.chosen);
       streak = st.correct ? streak + 1 : 0;
       if (PE.sfx) PE.sfx.play(st.correct ? "correct" : "incorrect");
+      // (C2-06) speak the verdict; on a miss, name the correct letter(s)
+      var cs = Array.isArray(q.correct) ? q.correct : [q.correct];
+      srVerdict.textContent = st.correct
+        ? "Correct."
+        : "Not quite. Correct answer: " + cs.map(function (c) { return "ABCDEFGHIJ"[c] || (c + 1); }).join(", ") + ".";
       updateScore();
       renderCard();
     }
@@ -152,6 +164,8 @@
     function renderCard() {
       var q = questions[idx];
       var st = state[idx];
+      // (C2-06) moving to another question clears the pending verdict announcement
+      if (renderCard._lastIdx !== idx) { srVerdict.textContent = ""; renderCard._lastIdx = idx; }
       var chosen = Array.isArray(st.chosen) ? st.chosen : (st.chosen == null ? [] : [st.chosen]);
       var cset = Array.isArray(q.correct) ? q.correct : [q.correct];
       var multi = engine.isMulti(q);
