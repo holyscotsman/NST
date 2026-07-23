@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page not found — Nutanix Study Tool</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#08060F" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238B5CF6'%3E%3Crect x='3' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='9.7' y='9.7' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='3' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3C/svg%3E" />
+  <!-- Served by GitHub Pages from any bad path, so everything is inline and the
+       home link is resolved at runtime (project sites live under /<repo>/). -->
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #08060F;
+      color: #ECEAF6;
+      font-family: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .glow {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      top: -160px; left: -120px; width: 560px; height: 560px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.3), transparent 62%);
+    }
+    .card {
+      position: relative;
+      background: rgba(20, 18, 33, 0.62);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      padding: 48px 40px;
+      max-width: 460px;
+    }
+    .code { font-size: 56px; font-weight: 800; color: #A98BFF; letter-spacing: 0.02em; }
+    h1 { font-size: 22px; font-weight: 600; margin: 10px 0 8px; color: #F5F3FC; }
+    p { font-size: 14.5px; line-height: 1.6; color: #B4AECB; }
+    a.home {
+      display: inline-block;
+      margin-top: 22px;
+      padding: 12px 26px;
+      border-radius: 12px;
+      background: #7C4DFF;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14.5px;
+      text-decoration: none;
+    }
+    a.home:hover { background: #8f66ff; }
+    a.home:focus-visible { outline: 2px solid #C4B0FF; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <span class="glow" aria-hidden="true"></span>
+  <main class="card">
+    <div class="code">404</div>
+    <h1>This page took a wrong answer</h1>
+    <p>The address doesn't match anything in the Nutanix Study Tool. The launcher has all three tools — WWTBANE, StarNix, and Practice Exams.</p>
+    <a class="home" id="home-link" href="/">Back to the launcher</a>
+  </main>
+  <script>
+    // Project Pages serve from /<repo>/ — point home at the first path segment
+    // there; anywhere else (custom domain, local server) the root is home.
+    (function () {
+      var a = document.getElementById("home-link");
+      var seg = location.pathname.split("/")[1];
+      if (/\.github\.io$/.test(location.hostname) && seg) a.href = "/" + seg + "/";
+    })();
+  </script>
+</body>
+</html>

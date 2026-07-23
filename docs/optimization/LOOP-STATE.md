@@ -35,4 +35,6 @@ first window. Seeded from the 40 unconsumed survey candidates.
 | 05 | 1.6.0 | shipped (12/12 targeted checks, e2e 22/22, sweep clean) | #14 |
 | 06 | 1.7.0 | shipped (13/13 targeted checks, e2e 22/22, sweep clean) | #15 |
 | 07 | 1.8.0 | shipped (14/14 targeted checks, e2e 22/22, sweep clean) | #16 |
-| 08 | 1.9.0 | next (final) | — |
+| 08 | 1.9.0 | shipped (13/13 targeted checks, e2e 22/22, sweep clean) — FINAL | #17 |
+
+**Loop complete: 8 cycles, 80 reviewed improvements shipped, v1.1.0 → v1.9.0.**

@@ -5,6 +5,42 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v1.9.0 — Optimization Cycle 08 (2026-07-23)
+
+The capstone cycle: copy that tells the truth, misses that become the next
+study session, and a release-consistency guard so future changes stay honest.
+All 10 shipped; verdicts in `docs/optimization/CYCLE-08.md`.
+
+### Fixed
+- **Launcher:** the StarNix card described "study guides and reference
+  material" — a product that doesn't exist. It now says what StarNix is
+  (three arcade games, adaptive drills), with an ARCADE tag and a Play CTA.
+- **WWTBANE:** the Help screen's safe havens were hardcoded to the classic
+  Q5/Q10/Q17/Q25 — wrong on every scaled short-bank ladder. They now render
+  from the active ladder.
+- **Practice Exams:** the "A–D select" keyboard hint understated the truth —
+  the handler accepts up to A–J and the full bank carries 5-option questions.
+  The range now follows the loaded set (A–D / A–E), in both modes.
+
+### Added
+- **Practice Exams:** exam results gain "Practice the N you missed" — one
+  click launches Practice Mode over exactly the missed questions; resumed
+  full-bank sessions announce themselves with a "Resumed where you left off"
+  strip and a Start-over control; the results screen names the question bank
+  the score was earned on (a pass on 25 questions is a different claim than
+  one on 255).
+- **Launcher:** a "Last visited" ribbon marks the tool you opened last.
+- **Site:** a branded 404 page (GitHub Pages serves it for any bad deep
+  link) pointing back to the launcher; the README now lists both bundled
+  banks (255-question NCP-MCI + the 25-question set).
+- **Release hygiene:** `scripts/version-check.mjs` runs in CI — the site
+  version and the CHANGELOG's top entry can no longer drift apart.
+
+### QA
+- StarNix build + 5 harnesses green · WWTBANE 168 unit tests + 22/22 browser
+  E2E · PE engine harness + version guard green · targeted C8 browser checks
+  · full-site zero-console-error sweep clean.
+
 ## v1.8.0 — Optimization Cycle 07 (2026-07-23)
 
 Continuity and quality-of-life: sessions survive interruptions, results become

@@ -206,13 +206,20 @@ export function ResultScreen(ctx) {
   );
 }
 
+// (C8-04) the havens depend on the active ladder — the scaled short-bank
+// profiles put them elsewhere than the classic Q5/Q10/Q17/Q25.
+function havenList() {
+  const qs = activeLadder().bankBoundaries.map((i) => `Q${i + 1}`);
+  return qs.length > 1 ? `${qs.slice(0, -1).join(', ')} and ${qs[qs.length - 1]}` : qs.join('');
+}
+
 export function HelpScreen(onClose) {
   const rule = (t, d) => h('li', {}, h('b', {}, t + ' '), d);
   return h('section', { class: 'screen help-screen' },
     h('h2', { class: 'screen-title' }, 'How to play'),
     h('ul', { class: 'help-list' },
       rule(`Answer ${activeLadder().runLength} in a row.`, 'Easy questions first, then medium, then hard, then one brutal final for the top prize.'),
-      rule('One wrong answer ends the run.', 'But coins bank at the safe havens (Q5, Q10, Q17 and Q25) — pass one and that money is yours to keep even if you fall later.'),
+      rule('One wrong answer ends the run.', `But coins bank at the safe havens (${havenList()}) — pass one and that money is yours to keep even if you fall later.`),
       rule('Three lifelines,', 'one use each: 50:50 removes two wrong answers. Ask the Audience runs a real, fallible poll — the crowd is usually right, but a tempting wrong answer can win the room, especially on hard questions. Phone a Friend is a panicked guess, right about two times in three. Lifelines advise, they never grade — and a lifeline-assisted correct answer will not mark that topic as mastered.'),
       rule('Keyboard works everywhere.', 'Number keys or A–F pick an answer, arrow keys (or Home/End) move between them, Enter locks it in, and Escape pauses. Touch and screen readers are first-class too.'),
       rule('In a hurry?', 'Tap or click the question card while it is being read out to reveal the full question at once — the studio walk-on beats skip the same way. Questions with an exhibit have a zoom button that opens the image full screen.'),

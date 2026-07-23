@@ -24,6 +24,13 @@
     outcome.appendChild(head);
     root.appendChild(outcome);
 
+    // (C8-08) name the bank the score was earned on — a pass on the 25-question
+    // set is a different claim than one on the full bank (history rows already
+    // say so; the screen that mattered didn't).
+    var bankName = "";
+    try { bankName = engine.bankMeta().name || (window.NSTBank && window.NSTBank.active()) || ""; } catch (eB) {}
+    if (bankName) root.appendChild(el("div", "pe-results-bank", "Question bank: " + esc(bankName)));
+
     // Score dial
     var score = el("div", "pe-score");
     score.appendChild(el("div", "pe-score-pct", summary.pct + "%"));
@@ -66,12 +73,22 @@
       }
     }
 
-    // Actions
+    // Actions — (C8-06) the misses are the highest-value study set there is.
+    var missed = summary.results.filter(function (r) { return !r.correct; }).map(function (r) { return r.q; });
+    function missesBtn() {
+      if (!missed.length || !opts.onPracticeMisses) return null;
+      var b = el("button", "pe-btn pe-btn-ghost pe-practice-misses", "Practice the " + missed.length + " you missed");
+      b.type = "button";
+      b.addEventListener("click", function () { opts.onPracticeMisses(missed); });
+      return b;
+    }
     var actions = el("div", "pe-results-actions");
     var retake = el("button", "pe-btn pe-btn-primary", "Retake");
     retake.type = "button";
     retake.addEventListener("click", function () { opts.onRetake && opts.onRetake(); });
     actions.appendChild(retake);
+    var pm1 = missesBtn();
+    if (pm1) actions.appendChild(pm1);
     var home = el("button", "pe-btn pe-btn-ghost", "Back to home");
     home.type = "button";
     home.addEventListener("click", function () { opts.onHome && opts.onHome(); });
@@ -110,6 +127,8 @@
     retake2.type = "button";
     retake2.addEventListener("click", function () { opts.onRetake && opts.onRetake(); });
     actions2.appendChild(retake2);
+    var pm2 = missesBtn();
+    if (pm2) actions2.appendChild(pm2);
     var home2 = el("button", "pe-btn pe-btn-ghost", "Back to home");
     home2.type = "button";
     home2.addEventListener("click", function () { opts.onHome && opts.onHome(); });

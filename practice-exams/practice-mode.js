@@ -9,13 +9,15 @@
   function start(container, opts) {
     opts = opts || {};
     var el = ui.el, esc = ui.esc;
-    var questions = engine.buildPractice(opts.count, opts.domain);   // (C6-01)
+    // (C8-06) an explicit question list (e.g. "practice the ones you missed"
+    // from exam results) bypasses the pool build entirely.
+    var questions = opts.questions || engine.buildPractice(opts.count, opts.domain);   // (C6-01)
     var N = questions.length;
     var idx = 0;
     // (C7-02) full-bank practice is a stable authored-order study view — resume
     // at the saved position for the same bank (random subsets always start fresh).
     var RESUME_KEY = "nst.practice-exams.position.v1";
-    var resumable = !opts.count && !opts.domain;   // full bank, no focus filter
+    var resumable = !opts.questions && !opts.count && !opts.domain;   // full bank, no focus filter
     var activeBankId = (window.NSTBank && window.NSTBank.active && window.NSTBank.active()) || "";
     if (resumable) {
       try {
@@ -45,9 +47,28 @@
         '<button type="button" class="pe-btn pe-btn-primary pe-check">Check answer</button>' +
         '<button type="button" class="pe-btn pe-btn-ghost pe-next">Next</button>' +
       '</div>' +
-      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>D</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>Enter</kbd> check / next</p>';
+      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>' + ui.lastOptKey(questions) + '</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>Enter</kbd> check / next</p>';
     container.innerHTML = "";
     container.appendChild(root);
+
+    // (C8-02) a silent jump to "Question 14 of 255" looks like a bug — say why,
+    // and offer the way back to the top.
+    if (resumable && idx > 0) {
+      var note = el("div", "pe-resume-note");
+      note.appendChild(el("span", null, "Resumed where you left off — question " + (idx + 1) + "."));
+      var startOver = el("button", "pe-btn pe-btn-ghost pe-resume-restart", "Start over");
+      startOver.type = "button";
+      startOver.addEventListener("click", function () {
+        idx = 0; renderCard(); note.remove();
+      });
+      note.appendChild(startOver);
+      var dismiss = el("button", "pe-btn pe-btn-ghost pe-resume-dismiss", "✕");
+      dismiss.type = "button";
+      dismiss.setAttribute("aria-label", "Dismiss");
+      dismiss.addEventListener("click", function () { note.remove(); });
+      note.appendChild(dismiss);
+      root.insertBefore(note, root.querySelector(".pe-progress"));
+    }
 
     var cardEl = root.querySelector(".pe-card");
     var paletteEl = root.querySelector(".pe-palette");

@@ -44,7 +44,7 @@
         '<button type="button" class="pe-btn pe-btn-primary pe-next">Next</button>' +
       '</div>' +
       '<div class="pe-foot pe-foot-submit"><button type="button" class="pe-btn pe-btn-submit">Submit exam</button></div>' +
-      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>D</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>F</kbd> flag</p>';
+      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>' + ui.lastOptKey(questions) + '</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>F</kbd> flag</p>';
     container.innerHTML = "";
     container.appendChild(root);
 
@@ -258,6 +258,11 @@
         limitMs: totalMs,
         onRetake: function () { start(container, opts); },
         onHome: function () { opts.onHome && opts.onHome(); },
+        // (C8-06) the misses become the next study session: Practice Mode
+        // over exactly the questions this sitting got wrong.
+        onPracticeMisses: function (missed) {
+          PE.practice.start(container, { questions: missed, onExit: opts.onExit, onHome: opts.onHome });
+        },
       });
     }
 
