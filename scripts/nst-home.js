@@ -148,11 +148,14 @@
   }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
 
-  // Question-bank chooser on the hero: one button per bank in banks/manifest.json.
-  // Clicking a button writes nst.activeBank (via NSTBank.setActive); every tool reads it
-  // at boot. Adding a bank to the manifest adds a button here — no code change needed.
+  // Exam chooser on the hero: one tile per Nutanix cert from banks/manifest.json's
+  // `certs` list. A populated cert offers a "25 questions" and a "Full bank" button,
+  // each of which writes nst.activeBank (via NSTBank.setActive); every tool reads it
+  // at boot. Certs marked comingSoon (no questions yet) render as disabled tiles.
   var _navBadgeUpdate = null;   // set by renderNavBadge; called when the active bank changes
-  var _certRefresh = null;      // set by the hero chooser; re-syncs its buttons + the badge
+  var _certRefresh = null;      // set by the hero chooser; re-syncs its tiles + the badge
+
+  var VARIANT_LABEL = { "25": "25 questions", "full": "Full bank" };
 
   function renderCertSelector() {
     var Bank = window.NSTBank; if (!Bank) return;
@@ -160,81 +163,118 @@
 
     var wrap = el("div", "nst-cert");
     wrap.setAttribute("role", "group");
-    wrap.setAttribute("aria-label", "Question bank");
-    wrap.appendChild(el("div", "nst-cert-label", "Question bank"));
-    var group = el("div", "nst-cert-btns");
+    wrap.setAttribute("aria-label", "Certification exam");
+    wrap.appendChild(el("div", "nst-cert-label", "Choose your exam"));
+    var grid = el("div", "nst-certgrid");
     var hint = el("span", "nst-cert-hint", "");
     hint.setAttribute("aria-live", "polite");   // (C4-02) SRs hear bank-selection feedback
-    wrap.appendChild(group);
+    wrap.appendChild(grid);
     wrap.appendChild(hint);
     host.appendChild(wrap);
 
-    function populate(banks) {
-      group.innerHTML = "";
-      // Manifest fetch failed (offline / bad deploy): say so and offer a real retry
-      // instead of pretending there are no banks.
-      if (!banks.length && Bank.manifestError && Bank.manifestError()) {
+    function populate(certs) {
+      grid.innerHTML = "";
+      // Manifest fetch failed (offline / bad deploy): say so and offer a real retry.
+      if (!certs.length && Bank.manifestError && Bank.manifestError()) {
         wrap.classList.add("empty");
-        group.appendChild(el("div", "nst-cert-empty", "Couldn't load the question banks — check your connection."));
-        var retry = el("button", "nst-cert-btn", "Retry");
+        grid.appendChild(el("div", "nst-cert-empty", "Couldn't load the exams — check your connection."));
+        var retry = el("button", "nst-certvar", "Retry");
         retry.type = "button";
         retry.addEventListener("click", function () {
-          group.innerHTML = "";
-          group.appendChild(el("div", "nst-cert-loading", "Loading banks…"));
-          Bank.manifest(true).then(populate);
+          grid.innerHTML = "";
+          grid.appendChild(el("div", "nst-cert-loading", "Loading exams…"));
+          Bank.manifest(true).then(function () { Bank.certs().then(populate); });
         });
-        group.appendChild(retry);
+        grid.appendChild(retry);
         hint.textContent = "";
         return;
       }
-      if (!banks.length) {
+      if (!certs.length) {
         wrap.classList.add("empty");
-        group.appendChild(el("div", "nst-cert-empty", "No question banks yet. Add one to /banks/."));
+        grid.appendChild(el("div", "nst-cert-empty", "No exams yet. Add certs to /banks/manifest.json."));
         hint.textContent = "";
         return;
       }
+
+      // Which cert + variant owns a given active bank id.
+      function ownerOf(activeId) {
+        for (var i = 0; i < certs.length; i++) {
+          var c = certs[i]; if (!c.banks) continue;
+          if (c.banks["25"] === activeId) return { cert: c, variant: "25" };
+          if (c.banks.full === activeId) return { cert: c, variant: "full" };
+        }
+        return null;
+      }
+
       function refresh() {
         var active = Bank.active() || "";
-        [].forEach.call(group.querySelectorAll(".nst-cert-btn"), function (btn) {
+        var own = ownerOf(active);
+        [].forEach.call(grid.querySelectorAll(".nst-certvar"), function (btn) {
           var on = btn.getAttribute("data-id") === active;
           btn.classList.toggle("on", on);
           btn.setAttribute("aria-pressed", on ? "true" : "false");
         });
-        var b = banks.filter(function (x) { return x.id === active; })[0];
-        hint.textContent = b ? (b.title || b.cert || b.id) + " — open a tool below to study it."
-                             : "Pick a question bank to load its questions.";
-        wrap.classList.toggle("empty", !b);
-        if (_navBadgeUpdate) _navBadgeUpdate(b || null);
-        // (C4-01) load the selected bank NOW: the hint gets a real question
-        // count (25 vs 255 matters), the tool's HTTP cache is warmed, and a
-        // broken bank file fails loudly here instead of as an empty tool.
-        if (b) {
-          Bank.load(b.id).then(function (loaded) {
-            if ((Bank.active() || "") !== b.id) return;   // stale — selection moved on
+        [].forEach.call(grid.querySelectorAll(".nst-certtile"), function (tile) {
+          tile.classList.toggle("active", !!tile.querySelector(".nst-certvar.on"));
+        });
+        wrap.classList.toggle("empty", !own);
+        // A synthetic bank-like object for the nav badge (cert + variant).
+        var badge = own ? { cert: own.cert.code, id: active,
+          title: own.cert.code + " · " + VARIANT_LABEL[own.variant] } : null;
+        if (_navBadgeUpdate) _navBadgeUpdate(badge);
+        if (own) {
+          hint.textContent = own.cert.code + " · " + VARIANT_LABEL[own.variant] + " — loading…";
+          // (C4-01) load the selected bank NOW: real question count, warmed cache,
+          // and a broken bank fails loudly here instead of as an empty tool.
+          Bank.load(active).then(function (loaded) {
+            if ((Bank.active() || "") !== active) return;   // stale — selection moved on
             if (loaded && loaded.count) {
-              b.count = loaded.count;   // Settings rows pick this up on next open
-              hint.textContent = (b.title || b.cert || b.id) + " · " + loaded.count + " questions — open a tool below to study it.";
+              hint.textContent = own.cert.code + " · " + loaded.count + " questions loaded — open a tool below to study it.";
             } else {
-              hint.textContent = "Couldn't load this bank — it may be missing or malformed. Pick another, or retry.";
+              hint.textContent = "Couldn't load this bank — it may be missing or malformed.";
             }
           }).catch(function () {
-            if ((Bank.active() || "") === b.id) hint.textContent = "Couldn't load this bank — check your connection and re-select it.";
+            if ((Bank.active() || "") === active) hint.textContent = "Couldn't load this bank — check your connection and re-select it.";
           });
+        } else {
+          hint.textContent = "Pick an exam and question set to begin.";
         }
       }
-      banks.forEach(function (b) {
-        var btn = el("button", "nst-cert-btn", esc(b.title || b.cert || b.id));
-        btn.type = "button";
-        btn.setAttribute("data-id", b.id);
-        btn.addEventListener("click", function () { Bank.setActive(b.id); refresh(); });
-        group.appendChild(btn);
+
+      function mkVariant(cert, key) {
+        var b = el("button", "nst-certvar", VARIANT_LABEL[key]);
+        b.type = "button";
+        b.setAttribute("data-id", cert.banks[key]);
+        b.setAttribute("aria-label", cert.code + " " + VARIANT_LABEL[key]);
+        b.addEventListener("click", function () { Bank.setActive(cert.banks[key]); refresh(); });
+        return b;
+      }
+
+      certs.forEach(function (c) {
+        var tile = el("div", "nst-certtile");
+        var head = el("div", "nst-certtile-head");
+        head.appendChild(el("span", "nst-certtile-code", esc(c.code || "")));
+        if (c.name) head.appendChild(el("span", "nst-certtile-name", esc(c.name)));
+        tile.appendChild(head);
+        var playable = c.banks && !c.comingSoon;
+        if (playable) {
+          var vars = el("div", "nst-certtile-variants");
+          if (c.banks["25"]) vars.appendChild(mkVariant(c, "25"));
+          if (c.banks.full) vars.appendChild(mkVariant(c, "full"));
+          tile.appendChild(vars);
+        } else {
+          tile.classList.add("coming");
+          tile.setAttribute("aria-disabled", "true");
+          tile.appendChild(el("span", "nst-certtile-badge", "Coming soon"));
+        }
+        grid.appendChild(tile);
       });
       _certRefresh = refresh;   // (UI) Settings' bank section calls this to stay in sync
       refresh();
     }
 
-    group.appendChild(el("div", "nst-cert-loading", "Loading banks…"));
-    Bank.list().then(populate);
+    grid.appendChild(el("div", "nst-cert-loading", "Loading exams…"));
+    Bank.certs().then(populate);
   }
 
   // Small nav chip showing the active bank at a glance; clicking scrolls to the chooser.

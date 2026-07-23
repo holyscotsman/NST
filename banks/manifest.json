@@ -1,4 +1,18 @@
 {
+  "certs": [
+    {
+      "code": "NCP-MCI",
+      "name": "Multicloud Infrastructure",
+      "banks": { "25": "ncp-mci-25", "full": "ncp-mci" }
+    },
+    { "code": "NCP-AI",  "name": "Artificial Intelligence", "comingSoon": true },
+    { "code": "NCP-CN",  "name": "Cloud Native",            "comingSoon": true },
+    { "code": "NCP-CI",  "name": "Cloud Integration",       "comingSoon": true },
+    { "code": "NCP-US",  "name": "Unified Storage",         "comingSoon": true },
+    { "code": "NCP-MCA", "name": "Multicloud Automation",   "comingSoon": true },
+    { "code": "NCP-DB",  "name": "Database Automation",     "comingSoon": true },
+    { "code": "NCP-EUC", "name": "End User Computing",      "comingSoon": true }
+  ],
   "banks": [
     {
       "id": "ncp-mci-25",

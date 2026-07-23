@@ -561,33 +561,48 @@ body {
 .nst-bank-rowsub { font-size: 12px; color: var(--faint); margin-top: 1px; }
 .nst-bank-apply { color: var(--purple-light) !important; }
 
-/* Question-bank chooser on the hero — one button per bank */
-.nst-cert { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* Exam chooser on the hero — one tile per Nutanix cert, each offering 25/Full */
+.nst-cert { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 .nst-cert-label { font-family: var(--font-ui); font-weight: 700; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--purple-light); }
-.nst-cert-btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-.nst-cert-btn {
-  font-family: var(--font-ui); font-weight: 600; font-size: 14px; color: var(--text);
-  padding: 10px 18px; border-radius: 12px; cursor: pointer;
+.nst-certgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; width: 100%; max-width: 780px; }
+.nst-certtile {
+  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03); border-radius: 14px;
+  padding: 14px 15px; display: flex; flex-direction: column; gap: 10px; text-align: left;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.nst-certtile.active { border-color: rgba(124, 77, 255, 0.7); background: rgba(124, 77, 255, 0.10); }
+.nst-certtile-head { display: flex; flex-direction: column; gap: 2px; }
+.nst-certtile-code { font-family: var(--font-display); font-weight: 700; font-size: 15px; color: var(--heading); letter-spacing: 0.02em; }
+.nst-certtile-name { font-size: 12px; color: var(--faint); }
+.nst-certtile-variants { display: flex; gap: 8px; }
+.nst-certvar {
+  flex: 1; font-family: var(--font-ui); font-weight: 600; font-size: 12.5px; color: var(--text);
+  padding: 9px 8px; border-radius: 9px; cursor: pointer; text-align: center;
   border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03);
   transition: border-color 0.15s var(--ease), background 0.15s var(--ease), color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
-.nst-cert-btn:hover { border-color: var(--purple); color: var(--heading); }
-.nst-cert-btn:focus-visible { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.3); }
-.nst-cert-btn.on { border-color: rgba(124, 77, 255, 0.7); background: rgba(124, 77, 255, 0.18); color: #fff; }
-.nst-cert-hint { font-family: var(--font-ui); font-size: 12.5px; color: var(--faint); }
-.nst-cert-empty { font-size: 13px; color: var(--faint); }
-.nst-cert-loading { font-size: 13px; color: var(--faint); padding: 10px 4px; animation: nstFade 1.2s ease-in-out infinite alternate; }
+.nst-certvar:hover { border-color: var(--purple); color: var(--heading); }
+.nst-certvar:focus-visible { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.3); }
+.nst-certvar.on { border-color: rgba(124, 77, 255, 0.7); background: rgba(124, 77, 255, 0.22); color: #fff; }
+.nst-certtile.coming { opacity: 0.5; }
+.nst-certtile-badge {
+  align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--faint); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px;
+}
+.nst-cert-hint { font-family: var(--font-ui); font-size: 12.5px; color: var(--faint); text-align: center; }
+.nst-cert-empty { font-size: 13px; color: var(--faint); grid-column: 1 / -1; text-align: center; }
+.nst-cert-loading { font-size: 13px; color: var(--faint); padding: 10px 4px; grid-column: 1 / -1; text-align: center; animation: nstFade 1.2s ease-in-out infinite alternate; }
 @keyframes nstFade { from { opacity: 0.45; } to { opacity: 1; } }
-/* First-run: no bank chosen yet — the buttons gently pulse to invite the choice. */
-.nst-cert.empty .nst-cert-btn { animation: nstInvite 2.2s var(--ease) infinite; }
+/* First-run: no exam chosen yet — playable variant buttons gently pulse to invite the choice. */
+.nst-cert.empty .nst-certvar { animation: nstInvite 2.2s var(--ease) infinite; }
 @keyframes nstInvite {
   0%, 100% { box-shadow: 0 0 0 0 rgba(124, 77, 255, 0); }
   50% { box-shadow: 0 0 0 5px rgba(124, 77, 255, 0.14); border-color: rgba(124, 77, 255, 0.55); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .nst-cert.empty .nst-cert-btn, .nst-cert-loading { animation: none; }
+  .nst-cert.empty .nst-certvar, .nst-cert-loading { animation: none; }
 }
-.nst-reduced-motion .nst-cert.empty .nst-cert-btn, .nst-reduced-motion .nst-cert-loading { animation: none; }
+.nst-reduced-motion .nst-cert.empty .nst-certvar, .nst-reduced-motion .nst-cert-loading { animation: none; }
 
 /* Nav chip: the active bank at a glance */
 .nst-nav-bank {
