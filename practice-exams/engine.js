@@ -173,6 +173,10 @@
     } catch (e) { /* storage unavailable — attempts stay in memory only */ }
   }
 
+  function clearHistory() {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) { /* storage unavailable */ }
+  }
+
   PE.engine = {
     normalizeBank: normalizeBank,
     resetCache: resetCache,
@@ -189,5 +193,6 @@
     exhibitSrc: exhibitSrc,
     loadHistory: loadHistory,
     saveAttempt: saveAttempt,
+    clearHistory: clearHistory,   // (C7-06)
   };
 })();

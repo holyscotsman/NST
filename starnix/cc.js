@@ -2700,12 +2700,25 @@
           }
         }
         var btn = ce('button', 'cc-btn cc-howto-cont'); btn.textContent = 'Continue \u25B8'; panel.appendChild(btn);
-        bindBtn(btn, function () {
+        // (C7-05) keyboard players can start without reaching for the mouse:
+        // Enter / Space / Escape all dismiss the card. Guarded so the focused
+        // button's native activation and our keydown can't double-fire.
+        var howToClosed = false;
+        function finishHowTo() {
+          if (howToClosed) return; howToClosed = true;
+          document.removeEventListener('keydown', onHowToKey, true);
           for (var k = 0; k < howToTimers.length; k++) clearTimeout(howToTimers[k]);
           howToTimers.length = 0;
           if (ov.parentNode) ov.parentNode.removeChild(ov); resume(); done();
-        });
+        }
+        function onHowToKey(ev) {
+          if (!ov.parentNode) { document.removeEventListener('keydown', onHowToKey, true); return; }
+          if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); finishHowTo(); }
+        }
+        bindBtn(btn, finishHowTo);
+        document.addEventListener('keydown', onHowToKey, true);
         el.root.appendChild(ov);
+        try { btn.focus(); } catch (eF) {}
       }
 
       // ---- RAF / fixed timestep ----

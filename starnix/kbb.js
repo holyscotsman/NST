@@ -1267,6 +1267,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('.kbb-stem{font-size:15px;line-height:1.45;margin:2px 0 12px;font-weight:600;}');
     css.push('.kbb-exhibit-warn{margin:0 0 10px;padding:6px 9px;border-left:2px solid ' + P.gold + ';background:rgba(255,200,87,.1);font-size:12px;color:' + P.gold + ';}');
     css.push('.kbb-opts{display:flex;flex-direction:column;gap:8px;}');
+    css.push('.kbb-key-hint{margin:7px 0 0;font-size:11px;color:' + P.mid + ';letter-spacing:.4px;}');
     css.push('.kbb-opt{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 13px;border-radius:10px;border:1.5px solid ' + P.iris + ';background:rgba(28,28,40,.5);color:' + P.text + ';font-family:inherit;font-size:14px;cursor:pointer;width:100%;transition:background .1s,transform .05s;}');
     css.push('.kbb-opt:hover:not(:disabled){background:rgba(120,85,250,.22);}');
     css.push('.kbb-opt:active:not(:disabled){transform:scale(.99);}');
@@ -2650,6 +2651,14 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       }
 buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the hand strip
       p.appendChild(opts);
+      // (C7-08) the 1–9 answer keys existed but nothing in the UI said so —
+      // advertise them where the answering happens, only on pointer-fine devices.
+      try {
+        var vw = s.doc.defaultView;
+        if (vw && vw.matchMedia && vw.matchMedia('(pointer: fine)').matches) {
+          p.appendChild(el(s.doc, 'div', 'kbb-key-hint', '⌨ Keys 1–' + Math.min(9, q.options.length) + ' ' + (multi ? 'toggle answers' : 'answer')));
+        }
+      } catch (eKh) {}
       if (multi) {
         p.appendChild(el(s.doc, 'div', 'kbb-multi-hint', 'Select all that apply (' + q.correctIndices.length + '), then submit.'));
         var sub = s.doc.createElement('button'); sub.className = 'kbb-cont kbb-submit'; sub.textContent = 'Submit answer'; sub.disabled = true;

@@ -12,6 +12,21 @@
     var questions = engine.buildPractice(opts.count, opts.domain);   // (C6-01)
     var N = questions.length;
     var idx = 0;
+    // (C7-02) full-bank practice is a stable authored-order study view — resume
+    // at the saved position for the same bank (random subsets always start fresh).
+    var RESUME_KEY = "nst.practice-exams.position.v1";
+    var resumable = !opts.count && !opts.domain;   // full bank, no focus filter
+    var activeBankId = (window.NSTBank && window.NSTBank.active && window.NSTBank.active()) || "";
+    if (resumable) {
+      try {
+        var pos = JSON.parse(localStorage.getItem(RESUME_KEY));
+        if (pos && pos.bank === activeBankId && pos.idx > 0 && pos.idx < N) idx = pos.idx;
+      } catch (ePos) {}
+    }
+    function savePosition() {
+      if (!resumable) return;
+      try { localStorage.setItem(RESUME_KEY, JSON.stringify({ bank: activeBankId, idx: idx })); } catch (eSp) {}
+    }
     // per-index state: { chosen:(number|number[]|null), checked:bool, correct:bool }
     var state = questions.map(function () { return { chosen: null, checked: false, correct: false }; });
 
@@ -138,6 +153,7 @@
         if (i === idx) cls += " current";
         if (st.checked) cls += st.correct ? " ok" : " bad";
         b.className = cls;
+        if (i === idx) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");   // (C7-04)
         b.setAttribute("aria-label", "Question " + (i + 1) + (st.checked ? (st.correct ? ", correct" : ", incorrect") : ", not answered"));
       });
     }
@@ -240,6 +256,7 @@
       var posT = root.querySelector(".pe-progress-pos");
       if (posT) posT.style.left = (((idx + 1) / N) * 100) + "%";
       progMeta.textContent = "Question " + (idx + 1) + " of " + N;
+      savePosition();   // (C7-02)
       updatePalette();   // (C3-01) chips update in place; the strip never rebuilds
       updateScore();
       if (focusedOpt != null) {

@@ -164,6 +164,7 @@
         if (engine.isAnswered(answers[i])) cls += " answered";
         if (flags[i]) cls += " flagged";
         b.className = cls;
+        if (i === idx) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");   // (C7-04)
         b.setAttribute("aria-label", "Question " + (i + 1)
           + (engine.isAnswered(answers[i]) ? ", answered" : ", not answered") + (flags[i] ? ", flagged" : ""));
       });

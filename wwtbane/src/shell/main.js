@@ -126,6 +126,12 @@ export class Game {
     };
     window.addEventListener('pointerdown', kick);
     window.addEventListener('keydown', kick);
+    // (C7-01) an active climb is memory-only — a reflexive refresh/close would
+    // silently end it. State-checked at fire time: it never nags outside a
+    // live quiz run (title, green room, results, finished runs are all free).
+    window.addEventListener('beforeunload', (e) => {
+      if (this.screen === 'quiz' && this.rc && this.rc.alive && !this.rc.won) { e.preventDefault(); e.returnValue = ''; }
+    });
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) { this.audio.resume(); this.music.resume(); }
     });

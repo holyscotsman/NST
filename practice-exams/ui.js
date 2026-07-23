@@ -77,13 +77,30 @@
     return b;
   }
 
-  // A domain-breakdown row list for the results screen.
-  function domainBreakdown(byDomain) {
+  // A domain-breakdown row list for the results screen. (C7-03) When onPick
+  // is given, rows become toggle buttons — picking one filters the review
+  // list to that domain; picking it again (or another row) updates the filter.
+  function domainBreakdown(byDomain, onPick) {
     var wrap = el("div", "pe-domains");
     Object.keys(byDomain).sort().forEach(function (d) {
       var s = byDomain[d];
       var pct = s.total ? Math.round((s.correct / s.total) * 100) : 0;
-      var row = el("div", "pe-domain-row");
+      var row = el(onPick ? "button" : "div", "pe-domain-row");
+      if (onPick) {
+        row.type = "button";
+        row.setAttribute("aria-pressed", "false");
+        row.title = "Show only “" + d + "” questions in the review";
+        row.addEventListener("click", function () {
+          var on = row.getAttribute("aria-pressed") !== "true";
+          Array.prototype.forEach.call(wrap.querySelectorAll(".pe-domain-row"), function (r2) {
+            r2.setAttribute("aria-pressed", "false");
+            r2.classList.remove("on");
+          });
+          row.setAttribute("aria-pressed", String(on));
+          row.classList.toggle("on", on);
+          onPick(on ? d : null);
+        });
+      }
       row.appendChild(el("span", "pe-domain-name", esc(d)));
       var bar = el("span", "pe-domain-bar");
       var fill = el("span", "pe-domain-fill");
