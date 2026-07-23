@@ -234,6 +234,8 @@
       finished = true;
       stopTimer();
       dropGuard();
+      // (C4-04) how long the sitting actually took (clamped to the limit)
+      var usedMs = Math.min(totalMs, totalMs - Math.max(0, endTime - Date.now()));
       var results = questions.map(function (q, i) {
         return { q: q, chosen: answers[i], correct: engine.gradeAnswer(q, answers[i]) };
       });
@@ -247,9 +249,12 @@
         correct: summary.correct,
         total: summary.total,
         timedOut: !!timedOut,
+        durationMs: usedMs,
       });
       PE.results.render(container, summary, {
         timedOut: timedOut,
+        timeUsedMs: usedMs,
+        limitMs: totalMs,
         onRetake: function () { start(container, opts); },
         onHome: function () { opts.onHome && opts.onHome(); },
       });

@@ -4,7 +4,7 @@
  * at boot. Groups: Accessibility, Audio, Developer Mode, Reset saved data. */
 (function () {
   "use strict";
-  var NST_VERSION = "1.4.0";
+  var NST_VERSION = "1.5.0";
   var P = window.NSTPrefs;
 
   function el(tag, cls, html) {
@@ -119,6 +119,7 @@
         return;
       }
       var applyHint = el("p", "nst-set-note nst-bank-apply", "Selected — reopen a tool to load it.");
+      applyHint.setAttribute("aria-live", "polite");   // (C4-02)
       applyHint.style.display = "none";
       var activeId = Bank.active() || "";
       var choices = [{ id: "", cert: "None", title: "No bank (tools stay empty)" }].concat(banks);
@@ -163,6 +164,7 @@
     wrap.appendChild(el("div", "nst-cert-label", "Question bank"));
     var group = el("div", "nst-cert-btns");
     var hint = el("span", "nst-cert-hint", "");
+    hint.setAttribute("aria-live", "polite");   // (C4-02) SRs hear bank-selection feedback
     wrap.appendChild(group);
     wrap.appendChild(hint);
     host.appendChild(wrap);
@@ -203,6 +205,22 @@
                              : "Pick a question bank to load its questions.";
         wrap.classList.toggle("empty", !b);
         if (_navBadgeUpdate) _navBadgeUpdate(b || null);
+        // (C4-01) load the selected bank NOW: the hint gets a real question
+        // count (25 vs 255 matters), the tool's HTTP cache is warmed, and a
+        // broken bank file fails loudly here instead of as an empty tool.
+        if (b) {
+          Bank.load(b.id).then(function (loaded) {
+            if ((Bank.active() || "") !== b.id) return;   // stale — selection moved on
+            if (loaded && loaded.count) {
+              b.count = loaded.count;   // Settings rows pick this up on next open
+              hint.textContent = (b.title || b.cert || b.id) + " · " + loaded.count + " questions — open a tool below to study it.";
+            } else {
+              hint.textContent = "Couldn't load this bank — it may be missing or malformed. Pick another, or retry.";
+            }
+          }).catch(function () {
+            if ((Bank.active() || "") === b.id) hint.textContent = "Couldn't load this bank — check your connection and re-select it.";
+          });
+        }
       }
       banks.forEach(function (b) {
         var btn = el("button", "nst-cert-btn", esc(b.title || b.cert || b.id));
@@ -234,6 +252,8 @@
     _navBadgeUpdate = function (bank) {
       chip.textContent = bank ? (bank.cert || bank.id) : "No bank";
       chip.classList.toggle("none", !bank);
+      // (C4-02) the bare cert text lacks context for SR users
+      chip.setAttribute("aria-label", "Question bank: " + (bank ? (bank.title || bank.cert || bank.id) : "none selected") + " — choose");
     };
     _navBadgeUpdate(null);
   }

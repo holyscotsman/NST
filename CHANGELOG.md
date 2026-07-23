@@ -5,6 +5,38 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v1.5.0 — Optimization Cycle 04 (2026-07-23)
+
+Trust and feedback: scores say what they measured, records get celebrated,
+controls reach the keyboard. All 10 shipped; verdicts in
+`docs/optimization/CYCLE-04.md`.
+
+### Fixed
+- **KBB:** the shop honored the base 4-slot cap even for Hangar "Consumable
+  rack" owners — the render check is rack-aware like the engine, so the paid
+  5th slot can actually be bought into.
+- **ARM:** the five settings switches were plain divs — invisible to Tab.
+  They are real `role="switch"` buttons with visible focus and Space/Enter.
+- **Chasm Chase:** on-screen lane/duck buttons fire on pointerdown like the
+  jump button (click waited for pointerup — touch input lag).
+
+### Added
+- **Launcher:** picking a bank loads it immediately — the hint shows the real
+  question count (25 vs 255 matters), Settings rows gain counts, and a broken
+  bank file fails loudly at the launcher instead of as an empty tool. Plus an
+  a11y micro-pass: live-region hints, contextual nav-chip label,
+  `aria-haspopup` on the gear, modal overscroll containment.
+- **Practice Exams:** every attempt is stamped with the bank it was taken on
+  (shown in Recent attempts — a PASS on the 25-bank is a different claim than
+  the full bank) and how long it took; results show "Time used M:SS of M:SS".
+- **ARM:** the shield bar turns peach with a soft pulse at low shields (same
+  25%/35% hysteresis as the music's danger layer; static glow under reduced
+  motion).
+- **Chasm Chase:** the game-over screen celebrates "★ NEW PERSONAL BEST" (or
+  shows the distance to beat) instead of saving your record silently.
+- **WWTBANE:** the title screen gained the missing "🛋 Green room" button —
+  returning players could not reach the shop without losing a run first.
+
 ## v1.4.0 — Optimization Cycle 03 (2026-07-23)
 
 Keyboard reach, focus discipline, and pacing control. All 10 shipped; inline

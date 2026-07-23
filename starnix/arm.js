@@ -834,6 +834,13 @@
       sCargo.textContent = held.length + "/" + CORES_PER_SECTOR;
       sCoins.textContent = coins;
       mShield.style.width = clamp(shields / maxShields * 100, 0, 100) + "%";
+      // (C4-06) danger state mirrors the music layer's hysteresis (on <=25%,
+      // off >35%) so the bar and the score agree about "low".
+      if (maxShields > 0 && mShield.parentNode) {
+        var sFrac = shields / maxShields;
+        var wasLow = mShield.parentNode.classList.contains("low");
+        mShield.parentNode.classList.toggle("low", wasLow ? sFrac <= 0.35 : sFrac <= 0.25);
+      }
       // (v0.93.0, A9, Jason) the bar answers ONE question: can I fire? Full = ready,
       // filling = the next shot charging. (The old math averaged all capacitor slots.)
       var chargeFrac = charges >= 1 ? 1 : (1 - rechargeTimer / rechargeTime);
@@ -2505,8 +2512,21 @@
     }
     function toggleRow(label, val, onChange) {
       var r = mk("div", "arm-toggle"); r.appendChild(mk("span", null, label));
-      var sw = mk("div", "arm-sw" + (val ? " on" : "")); sw.appendChild(mk("i"));
-      on(sw, "click", function () { var nv = !sw.classList.contains("on"); sw.classList.toggle("on", nv); sfx("click"); onChange(nv); });
+      // (C4-05) a real <button role="switch"> — the old <div> was invisible to
+      // Tab and Space/Enter; the button gets both for free.
+      var sw = doc.createElement("button");
+      sw.type = "button";
+      sw.className = "arm-sw" + (val ? " on" : "");
+      sw.setAttribute("role", "switch");
+      sw.setAttribute("aria-checked", val ? "true" : "false");
+      sw.setAttribute("aria-label", label);
+      sw.appendChild(mk("i"));
+      on(sw, "click", function () {
+        var nv = !sw.classList.contains("on");
+        sw.classList.toggle("on", nv);
+        sw.setAttribute("aria-checked", nv ? "true" : "false");
+        sfx("click"); onChange(nv);
+      });
       r.appendChild(sw); return r;
     }
     // (v0.94.0, A3) hidden one-time achievement: every asteroid in the sector destroyed.
@@ -3640,6 +3660,11 @@
       ".arm-srow b{color:" + C.text + ";font-weight:700;font-size:12.5px;letter-spacing:.02em;font-variant-numeric:tabular-nums;}.arm-srow b.gold{color:" + C.gold + ";}",   /* (v0.187.0, FE#8) */
       ".arm-meter{width:88px;height:8px;border-radius:5px;border:1px solid #33334a;overflow:hidden;}.arm-meter>i{display:block;height:100%;border-radius:5px;}",
       ".arm-m-shield>i{background:linear-gradient(90deg," + C.aqua + ",#19a9b3);box-shadow:0 0 10px rgba(31,221,233,.6);}",
+      // (C4-06) low-shield danger: peach fill + soft pulse; static brighter glow under reduced motion
+      ".arm-m-shield.low>i{background:linear-gradient(90deg," + C.peach + ",#d14a3a);box-shadow:0 0 12px rgba(255,107,91,.75);animation:armShieldLow 1.1s ease-in-out infinite;}",
+      "@keyframes armShieldLow{0%,100%{opacity:1;}50%{opacity:.55;}}",
+      ".arm-reduce .arm-m-shield.low>i{animation:none;box-shadow:0 0 14px rgba(255,107,91,.9);}",
+      "@media (prefers-reduced-motion: reduce){.arm-m-shield.low>i{animation:none;box-shadow:0 0 14px rgba(255,107,91,.9);}}",
       ".arm-m-ammo>i{background:linear-gradient(90deg," + C.gold + ",#e0a838);}",
       ".arm-steer{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;z-index:6;display:none;gap:11px;}",
       ".arm-key{width:58px;height:58px;border-radius:50%;background:rgba(20,20,30,.45);border:1.5px solid rgba(120,85,250,.55);color:" + C.iris300 + ";font-size:21px;display:flex;align-items:center;justify-content:center;touch-action:none;cursor:pointer;}",   // (D3) quieter skin
@@ -3850,7 +3875,9 @@
       ".arm-buy{padding:9px 13px;border:1px solid " + C.iris + ";border-radius:9px;background:transparent;color:" + C.iris300 + ";font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;}",
       ".arm-buy:hover:not(:disabled){background:" + C.iris + ";color:#fff;}.arm-buy:disabled{opacity:.4;cursor:default;border-color:#34344a;color:" + C.dim + ";}",
       ".arm-toggle{display:flex;justify-content:space-between;align-items:center;padding:13px 4px;border-bottom:1px solid #34344a;}",
-      ".arm-sw{width:50px;height:28px;border-radius:999px;background:#33334a;position:relative;cursor:pointer;}.arm-sw.on{background:" + C.green + ";}",
+      ".arm-sw{width:50px;height:28px;border-radius:999px;background:#33334a;position:relative;cursor:pointer;border:0;padding:0;}.arm-sw.on{background:" + C.green + ";}",
+      // (C4-05) now a real button: visible keyboard focus
+      ".arm-sw:focus-visible{outline:2px solid " + C.aqua + ";outline-offset:2px;}",
       ".arm-sw i{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s;}.arm-sw.on i{left:25px;}",
       ".arm-statline{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;}.arm-n{font-size:26px;font-weight:800;}.arm-l{font-size:12px;color:" + C.mid + ";text-transform:uppercase;letter-spacing:.08em;}",
       ".arm-pick-note{margin-top:7px;padding:6px 9px;border-left:2px solid " + C.peach + ";background:rgba(255,107,91,.08);font-size:12.5px;color:" + C.mid + ";border-radius:0 8px 8px 0;}",

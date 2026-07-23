@@ -357,3 +357,7 @@ body {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* (C4-04) time-used line on results; (C4-03) bank chip on history rows */
+.pe-score-time { font-size: 13px; color: var(--pe-muted, #a8a3c0); margin-top: 4px; }
+.pe-history-bank { font-size: 11px; color: var(--pe-muted, #a8a3c0); opacity: 0.85; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }

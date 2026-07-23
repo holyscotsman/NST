@@ -602,3 +602,7 @@ body {
 
 /* (C2-08) rows overridden by Mute all dim out; values stay for unmute */
 .nst-set-row.muted { opacity: 0.45; pointer-events: none; }
+
+/* (C4-02) modal scroll must not chain to the page behind it */
+.nst-modal-overlay { overscroll-behavior: contain; }
+.nst-modal { overscroll-behavior: contain; }

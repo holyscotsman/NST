@@ -3050,7 +3050,7 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
       p.appendChild(bwrap);
       p.appendChild(el(s.doc, 'div', 'kbb-sec', 'Consumables'));
       var cwrap = s.doc.createElement('div'); cwrap.className = 'kbb-cons';
-      var cfull = run.consumables.length >= CONFIG.consumableCap;
+      var cfull = run.consumables.length >= (run.consumableCap || CONFIG.consumableCap);   // (C4-07) rack-aware, like the engine
       for (i = 0; i < run.shop.consumables.length; i++) {
         (function (oi) {
           var off = run.shop.consumables[oi]; var def = CONSUMABLES[off.id];

@@ -28,6 +28,9 @@ export function TitleScreen(ctx) {
     ),
     h('div', { class: 'menu' },
       h('button', { class: 'primary big', type: 'button', onclick: () => ctx.onStart('mastery', null) }, 'Start new game'),
+      // (C4-10) main.js always passed onGreenRoom but the title never rendered it —
+      // returning players with banked coins had to lose a run to reach the shop.
+      h('button', { class: 'secondary', type: 'button', onclick: () => ctx.onGreenRoom() }, '🛋 Green room'),
       h('button', { class: 'secondary', type: 'button', onclick: () => { window.location.href = '../'; } }, '← Main menu'),
     ),
     h('details', { class: 'seed-box' },
