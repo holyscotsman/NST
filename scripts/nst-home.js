@@ -472,6 +472,22 @@
     x.focus();
   }
 
+  // (C8-09) remember which tool was opened last and mark its card — a small
+  // landmark for returning users, no reordering or behavior change.
+  function renderLastVisited() {
+    var cards = document.querySelectorAll(".nst-card[data-tool]");
+    var last = "";
+    try { last = localStorage.getItem("nst.lastTool") || ""; } catch (e) {}
+    [].forEach.call(cards, function (card) {
+      card.addEventListener("click", function () {
+        try { localStorage.setItem("nst.lastTool", card.getAttribute("data-tool")); } catch (e) {}
+      });
+      if (last && card.getAttribute("data-tool") === last) {
+        card.appendChild(el("span", "nst-card-last", "Last visited"));
+      }
+    });
+  }
+
   function init() {
     var btn = document.getElementById("nst-settings-btn");
     if (btn) btn.addEventListener("click", buildModal);
@@ -479,6 +495,7 @@
     if (help) help.addEventListener("click", buildHelpModal);
     renderNavBadge();
     renderCertSelector();
+    renderLastVisited();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();

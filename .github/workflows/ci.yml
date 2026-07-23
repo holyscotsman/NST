@@ -55,3 +55,6 @@ jobs:
           node-version: '22'
       # Pure-logic harness against a shimmed window — no browser, no install.
       - run: node engine-test.mjs
+      # (C8-05) release consistency: the site version and the CHANGELOG's top
+      # entry must move together.
+      - run: node ../scripts/version-check.mjs

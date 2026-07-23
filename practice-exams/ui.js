@@ -162,9 +162,17 @@
     ok.focus();
   }
 
+  // (C8-03) the highest answer key across a question set — the "A–D" hint was
+  // hardcoded while the handler accepts a–j and banks carry 5-option items.
+  function lastOptKey(questions) {
+    var mx = 4;
+    (questions || []).forEach(function (q) { if (q.options && q.options.length > mx) mx = q.options.length; });
+    return "ABCDEFGHIJ".charAt(Math.min(mx, 10) - 1);
+  }
+
   PE.ui = {
     el: el, esc: esc, ICONS: ICONS, LETTERS: LETTERS,
     exhibit: exhibit, option: option, domainBreakdown: domainBreakdown,
-    centerPalette: centerPalette, confirm: confirm,
+    centerPalette: centerPalette, confirm: confirm, lastOptKey: lastOptKey,
   };
 })();

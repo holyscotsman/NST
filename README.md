@@ -24,7 +24,9 @@ into the tools, so you can drop in a bank for any certification and switch betwe
 - **Pick a certification** in the selector on the home page (or Settings → Question bank). Your
   choice is remembered, and every tool loads it. Until you pick one, each tool shows a "choose a
   bank" screen.
-- **Bundled:** a 255-question **NCP-MCI** bank ships in [`banks/ncp-mci/`](./banks/ncp-mci/).
+- **Bundled:** a 255-question **NCP-MCI** bank ships in [`banks/ncp-mci/`](./banks/ncp-mci/),
+  plus a quick 25-question **NCP-MCI** set in [`banks/ncp-mci-25/`](./banks/ncp-mci-25/)
+  (WWTBANE scales its money ladder to fit short banks like this one).
 - **Add a bank:** drop `your-cert/your-cert.md` into `/banks/`, list it in
   [`banks/manifest.json`](./banks/manifest.json), and it appears in the selector. See
   [`banks/README.md`](./banks/README.md) for the quick version and

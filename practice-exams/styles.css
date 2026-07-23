@@ -373,6 +373,15 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
 /* (C6-01) focus-domain chips wrap on small screens */
 .pe-domainpick { flex-wrap: wrap; }
 
+/* (C8-02) resumed-session notice */
+.pe-resume-note { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 2px; padding: 10px 14px; border-radius: 12px; background: rgba(124, 77, 255, 0.1); border: 1px solid rgba(124, 77, 255, 0.35); font-size: 13.5px; color: var(--muted); }
+.pe-resume-note span { flex: 1; min-width: 180px; }
+.pe-resume-note .pe-btn { padding: 6px 12px; font-size: 12.5px; }
+.pe-resume-dismiss { flex: 0 0 auto; }
+
+/* (C8-08) which bank produced this score */
+.pe-results-bank { margin: 12px 0 0; font-size: 13px; color: var(--muted-2); font-weight: 600; }
+
 /* (C7-07) print: the results review doubles as a paper study sheet. Strip the
  * dark chrome and interactive controls; keep outcome, domains, questions,
  * options, and explanations in plain dark-on-white. */
@@ -388,7 +397,7 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
   .pe-review-item { break-inside: avoid; page-break-inside: avoid; }
   .pe-outcome-word, .pe-outcome-sub, .pe-score-pct, .pe-score-frac, .pe-score-time,
   .pe-review-prompt, .pe-review-num, .pe-opt, .pe-explain p, .pe-h3,
-  .pe-domain-name, .pe-domain-pct, .pe-focus { color: #111 !important; }
+  .pe-domain-name, .pe-domain-pct, .pe-focus, .pe-results-bank { color: #111 !important; }
   .pe-opt.is-correct { border-color: #2c8a54 !important; }
   .pe-opt.is-incorrect { border-color: #b3373b !important; }
   .pe-explain-label { color: #5a3ec8 !important; }
