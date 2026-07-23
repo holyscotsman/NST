@@ -159,6 +159,11 @@
   }
   function saveAttempt(a) {
     try {
+      // (C4-03) stamp which bank produced this score — a PASS on the 25-question
+      // bank is not the same claim as one on the full bank.
+      if (a && !a.bank) {
+        try { a.bank = bankMeta().name || (window.NSTBank && window.NSTBank.active()) || ""; } catch (eB) {}
+      }
       var h = loadHistory();
       h.unshift(a);
       h = h.slice(0, 50);

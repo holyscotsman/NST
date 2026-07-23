@@ -28,6 +28,11 @@
     var score = el("div", "pe-score");
     score.appendChild(el("div", "pe-score-pct", summary.pct + "%"));
     score.appendChild(el("div", "pe-score-frac", summary.correct + " of " + summary.total + " correct"));
+    // (C4-04) how long the sitting took, against the limit
+    if (opts.timeUsedMs != null && opts.limitMs) {
+      var fmtT = function (ms) { var t = Math.max(0, Math.round(ms / 1000)); return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2); };
+      score.appendChild(el("div", "pe-score-time", "Time used " + fmtT(opts.timeUsedMs) + " of " + fmtT(opts.limitMs)));
+    }
     root.appendChild(score);
 
     // Domain breakdown

@@ -7,6 +7,10 @@
   var ui = PE.ui, engine = PE.engine;
   var HOME = "../";  // back to the NST launcher
 
+  function fmtDur(ms) {   // (C4-04) mm:ss for attempt durations
+    var t = Math.max(0, Math.round(ms / 1000));
+    return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2);
+  }
   function fmtDate(ms) {
     try {
       var d = new Date(ms);
@@ -134,13 +138,15 @@
         var row = el("div", "pe-history-row " + (a.pass ? "pass" : "fail"));
         row.appendChild(el("span", "pe-history-badge", a.pass ? "PASS" : "FAIL"));
         row.appendChild(el("span", "pe-history-score", a.pct + "% · " + a.correct + "/" + a.total));
-        row.appendChild(el("span", "pe-history-date", fmtDate(a.at) + (a.timedOut ? " · timed out" : "")));
+        var extra = (a.timedOut ? " · timed out" : "") + (a.durationMs ? " · " + fmtDur(a.durationMs) : "");
+        row.appendChild(el("span", "pe-history-date", fmtDate(a.at) + extra));
+        if (a.bank) row.appendChild(el("span", "pe-history-bank", esc(a.bank)));   // (C4-03)
         list.appendChild(row);
       });
       root.appendChild(list);
     }
 
-    root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v1.4.0"));
+    root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v1.5.0"));
     container.appendChild(root);
     try { window.scrollTo(0, 0); } catch (e) {}
   }

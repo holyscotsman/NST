@@ -2294,8 +2294,8 @@
       window.addEventListener('keyup', onKeyUp);                                  // (Jason) jump-key release ends the hang
       el.canvas.addEventListener('touchstart', onTS, { passive: false });
       el.canvas.addEventListener('touchend', onTE, { passive: false });
-      bindBtn(el.kLeft, actions.left); bindBtn(el.kRight, actions.right);
-      bindBtn(el.kDuck, actions.duck);
+      bindTap(el.kLeft, actions.left); bindTap(el.kRight, actions.right);   // (C4-08)
+      bindTap(el.kDuck, actions.duck);
       bindHold(el.kJump, actions.jumpPress, actions.jumpRelease);                 // (Jason) press-and-hold the on-screen jump button to extend
 
       var onResize = debounce(function () { if (view) view.resize(); }, 120);
@@ -2434,12 +2434,20 @@
           Promise.resolve(ctx.persistence.load()).then(function (prof) {
             prof = prof || {}; prof.bests = prof.bests || {};
             var best = prof.bests.CC || 0;
-            if (sim.runStats.points > best) { prof.bests.CC = sim.runStats.points; }
+            var newPB = sim.runStats.points > best;
+            if (newPB) { prof.bests.CC = sim.runStats.points; }
             prof.totals = prof.totals || {};
             prof.ccCells = (prof.ccCells | 0) + banked;        // (J9) bank the wallet
             garageProfile = prof;
             if (ctx.persistence.save) ctx.persistence.save(prof);
             if (el.ovrCells) el.ovrCells.textContent = '\u2b21 +' + banked + ' cells banked \u00b7 balance ' + (prof.ccCells | 0);
+            // (C4-09) the record was saved silently \u2014 tell the player
+            if (el.ovrBest) {
+              el.ovrBest.textContent = newPB
+                ? '\u2605 NEW PERSONAL BEST \u2014 ' + (sim.runStats.points / 1000).toFixed(2) + ' km'
+                : (best > 0 ? 'Best: ' + (best / 1000).toFixed(2) + ' km' : '');
+              el.ovrBest.className = 'cc-ovr-best' + (newPB ? ' beat' : '');
+            }
           }).catch(function () {});
         }
         el.ovrTitle.textContent = '\ud83d\udca5 SHIP DOWN \u2014 you crashed';   // (v0.77.0, JB4) say what happened
@@ -2866,6 +2874,7 @@
     var ovrTitle = ce('div', 'cc-ovr-title'); ovrPanel.appendChild(ovrTitle);
     var ovrStats = ce('div', 'cc-ovr-stats'); ovrPanel.appendChild(ovrStats);
     var ovrCells = ce('div', 'cc-ovr-cells'); ovrPanel.appendChild(ovrCells);   // (J9) banked-cells line
+    var ovrBest = ce('div', 'cc-ovr-best'); ovrPanel.appendChild(ovrBest);       // (C4-09) PB celebration / target
     var garagePanel = ce('div', 'cc-garage'); garagePanel.style.display = 'none'; ovrPanel.appendChild(garagePanel);   // (J9)
     var ovrBtns = ce('div', 'cc-ovr-btns'); ovrPanel.appendChild(ovrBtns);
     var btnRestart = ce('button', 'cc-btn'); btnRestart.textContent = 'Run again'; ovrBtns.appendChild(btnRestart);
@@ -2883,11 +2892,14 @@
       kLeft: kLeft, kRight: kRight, kJump: kJump, kDuck: kDuck, replay: replay,
       overlay: overlay, qStem: qStem, qOpts: qOpts, qFeedback: qFeedback, qTimer: qTimer, cells: cells, boostOvr: boostOvr, turnBanner: turnBanner, pb: pb, mileBanner: mileBanner, bioBanner: bioBanner,
       intro: intro, introCap: introCap, introEyebrow: introEyebrow, introSkip: introSkip,
-      gameover: gameover, ovrTitle: ovrTitle, ovrStats: ovrStats, ovrCells: ovrCells, garagePanel: garagePanel, btnGarage: btnGarage, btnRestart: btnRestart, btnExit: btnExit };
+      gameover: gameover, ovrTitle: ovrTitle, ovrStats: ovrStats, ovrCells: ovrCells, ovrBest: ovrBest, garagePanel: garagePanel, btnGarage: btnGarage, btnRestart: btnRestart, btnExit: btnExit };
   }
   function ce(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
   function key(label) { var k = ce('button', 'cc-key'); k.textContent = label; return k; }
   function bindBtn(b, fn) { b.addEventListener('click', function (e) { e.preventDefault(); fn(); }); }
+  // (C4-08) tap keys fire on pointerDOWN like the jump button — click waits for
+  // pointerup, which reads as input lag on touch. .cc-key already sets touch-action:none.
+  function bindTap(b, fn) { b.addEventListener('pointerdown', function (e) { e.preventDefault(); fn(); }); }
   // (Jason) press-and-hold binding for the jump button (mouse + touch, via pointer events); release on up / leave / cancel.
   function bindHold(b, press, release) {
     b.addEventListener('pointerdown', function (e) { e.preventDefault(); press(); });
@@ -2974,6 +2986,8 @@
     '.cc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #23232f;font-size:14px;}' +
     '.cc-row b{color:#FFC857;}' +
     '.cc-ovr-btns{display:flex;gap:10px;margin-top:18px;}' +
+    '.cc-ovr-best{margin-top:8px;font-size:13px;font-weight:700;color:#9a9aad;}' +
+    '.cc-ovr-best.beat{color:#FFC857;font-size:15px;text-shadow:0 0 12px rgba(255,200,87,.5);}' +
     '.cc-cells{font-size:13px;color:#1FDDE9;font-weight:700;font-variant-numeric:tabular-nums;}' +
     '.cc-ovr-cells{margin:6px 0 2px;color:#1FDDE9;font-size:14px;font-weight:700;}' +
     '.cc-garage{margin:10px 0 4px;text-align:left;display:flex;flex-direction:column;gap:7px;}' +
