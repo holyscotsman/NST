@@ -5,6 +5,44 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.0.0 — Exam chooser + StarNix gameplay pass (2026-07-23)
+
+A user-directed feature batch across the launcher and StarNix.
+
+### Added
+- **Launcher:** an 8-exam chooser on the main screen — NCP-MCI, NCP-AI,
+  NCP-CN, NCP-CI, NCP-US, NCP-MCA, NCP-DB, NCP-EUC. Each cert offers a
+  **25-question** or **Full bank** choice. NCP-MCI is playable; the other
+  seven show a "Coming soon" tile until their banks land.
+- **StarNix / Chasm Chase:** enemy **mines** — a glowing mine hangs in one
+  lane; flying into it detonates for an extra shield (dodge by changing lanes).
+- **StarNix / KBB:** artifact **position/adjacency interactions**. Artifacts
+  read their neighbours and slot, so rack order matters, and the rack is
+  player-reorderable via ◀ ▶ arrows on each card. Six new adjacency artifacts
+  (Sync Coupler, Chain Link, Isolator, Flank Booster, Load Balancer, Peer
+  Cache). The existing artifact set is unchanged.
+
+### Changed
+- **Chasm Chase:** the left-right **scanner drone was removed**; falling rocks
+  are now **irregular boulders** instead of perfect spheres; **more question
+  gates** (every 6 km, first at 3 km); a **deeper, more realistic draw
+  distance** with retuned fog; sleeker enemy squadron ships.
+- **KBB:** the **boss music** was reworked toward a more heroic, anthemic
+  melody with the darkness eased a touch.
+
+### Notes / deferred
+- The attached **asteroid textures** and **Shield/Medic KBB ship sprites**
+  need the image files committed to the repo before they can be embedded
+  (pasted images arrive as vision, not files). KBB already renders ships and
+  asteroids with existing/procedural art in the meantime.
+- KBB already shipped **65** artifacts (not fewer than 35); this batch adds
+  six rather than trimming. Say the word to curate the set down.
+
+### QA
+- StarNix build 4271.7 KB (gate 4600) + 5 logic harnesses green · launcher
+  cert-chooser browser checks · Chasm Chase + KBB battle smoke clean (zero
+  console errors) · WWTBANE + Practice Exams suites green.
+
 ## v1.9.0 — Optimization Cycle 08 (2026-07-23)
 
 The capstone cycle: copy that tells the truth, misses that become the next
