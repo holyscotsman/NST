@@ -4,7 +4,7 @@
  * at boot. Groups: Accessibility, Audio, Developer Mode, Reset saved data. */
 (function () {
   "use strict";
-  var NST_VERSION = "1.3.0";
+  var NST_VERSION = "1.4.0";
   var P = window.NSTPrefs;
 
   function el(tag, cls, html) {

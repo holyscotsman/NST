@@ -30,4 +30,5 @@ adversarial reviews (verdict per item, recorded in the cycle file) instead of
 subagent fleets — same gates, immune to the session-limit stall that froze the
 first window. Seeded from the 40 unconsumed survey candidates.
 
-| 03 | 1.4.0 | in progress | — |
+| 03 | 1.4.0 | shipped (12/12 targeted checks, e2e 22/22, sweep clean) | #12 |
+| 04 | 1.5.0 | next | — |

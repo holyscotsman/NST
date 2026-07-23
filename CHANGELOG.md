@@ -5,6 +5,40 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v1.4.0 — Optimization Cycle 03 (2026-07-23)
+
+Keyboard reach, focus discipline, and pacing control. All 10 shipped; inline
+review verdicts in `docs/optimization/CYCLE-03.md`.
+
+### Fixed
+- **Practice Exams:** both question palettes (Practice 255-chip, Exam 75-chip)
+  are built once and updated in place — selecting an option no longer rebuilds
+  the strip and throws keyboard focus to the page body; the focused option is
+  re-focused after the card refresh.
+- **StarNix intro:** the finale mission panel was clickable while still
+  invisible — a stray center-screen click seconds into the cinematic could
+  warp into a game. It is untouchable until its reveal beat.
+- **Chasm Chase:** steering keys are swallowed only during the RUN phase now —
+  during a question, Space activates the focused button and arrows scroll the
+  explanation instead of being eaten by preventDefault.
+- **KBB:** the engine's event log (Overcharge, Lazarus Protocol, siphons,
+  consumable use) finally renders — a status ticker with aria-live; renderLog
+  had guarded on an element nothing ever created.
+
+### Added
+- **Practice Exams:** leaving Practice mode with checked answers asks first
+  (shared confirm dialog with the exam's Escape/Tab/focus contract);
+  zero-progress exits stay instant.
+- **ARM:** keyboard answering — digits 1-6 pick (or toggle, on multi-select)
+  the matching option and Enter presses Submit while a question panel is up.
+- **WWTBANE:** a click/tap on the question card skips the answer read-out
+  stagger (up to ~9 s of pacing) and reveals every option at once; after
+  green-room purchases, focus stays on the clicked shop control instead of
+  jumping to the heading.
+- **Launcher + Practice Exams:** Google Fonts load without blocking first
+  paint (preload + swap, noscript fallback) — on a slow or blocked network the
+  system-font fallback renders immediately.
+
 ## v1.3.0 — Optimization Cycle 02 (2026-07-23)
 
 Polish and accessibility from the reviewed survey backlog. All 10 shipped;
