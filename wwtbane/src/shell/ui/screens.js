@@ -15,6 +15,10 @@ export function TitleScreen(ctx) {
   const seedInput = h('input', {
     class: 'seed-input', type: 'text', placeholder: 'NTNX-XXXXXX', 'aria-label': 'Seed code', maxLength: 16,
   });
+  // (C5-10) Enter in the seed box plays it — typing a code and hitting Enter did nothing
+  seedInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); ctx.onStart('seeded', seedInput.value.trim() || null); }
+  });
   return h('section', { class: 'screen title-screen' },
     h('div', { class: 'brand' },
       h('p', { class: 'brand-pre' }, 'Who wants to be a'),
@@ -46,7 +50,7 @@ export function TitleScreen(ctx) {
       h('button', { class: 'link', type: 'button', onclick: () => ctx.onSettings() }, 'Settings'),
       h('button', {
         class: 'link', type: 'button', 'aria-pressed': String(!!ctx.music),
-        onclick: () => ctx.onToggleMusic && ctx.onToggleMusic(),
+        onclick: (e) => ctx.onToggleMusic && ctx.onToggleMusic(e.currentTarget),   // (C5-10) in-place update
       }, ctx.music ? '🔊 Music on' : '🔇 Music off'),
       h('span', { class: 'version' }, `v${VERSION}`),
     ),

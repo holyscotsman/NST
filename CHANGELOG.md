@@ -5,6 +5,37 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v1.6.0 — Optimization Cycle 05 (2026-07-23)
+
+Escape hatches and assistive-tech reach. All 10 shipped; verdicts in
+`docs/optimization/CYCLE-05.md`.
+
+### Fixed
+- **ARM:** a window resize regenerated the whole starfield and nebula — burning
+  seeded gameplay RNG on a cosmetic event and subtly forking deterministic
+  runs. Stars live in map coordinates; resize no longer rebuilds them.
+- **StarNix:** the "Reset all progress" confirmation armed forever after one
+  accidental tap — it now stands down by itself after 5 seconds.
+- **WWTBANE title:** the music toggle rebuilt the entire screen (and replayed
+  the branded wipe) just to change its label — it updates in place; pressing
+  Enter in the seed box now plays the seed instead of doing nothing.
+
+### Added
+- **StarNix Settings:** the same easy exits the Codex already had — sticky
+  "← Menu" at the top and Escape (both flush unsaved slider/toggle changes).
+- **StarNix:** the "A run is waiting" prompt gained a plain "← Back to menu" —
+  a mis-click no longer forces choosing between resuming and destroying the
+  save; focus lands on Resume. Master/effects sliders play a confirmation blip
+  at the released level.
+- **Screen-reader reach across all three games:** ARM announces toasts,
+  objectives, and answer verdicts; KBB announces verdicts and makes the fanned
+  artifact cards focusable with real accessible names; Chasm Chase gains named
+  controls, a proper dialog role on the question panel, live milestone/biome
+  banners, and announced verdicts.
+- **Practice Exams:** the results page mirrors Retake / Back to home (plus
+  "↑ Back to top") after the review list — it ran ~15,000 px with actions only
+  at the top.
+
 ## v1.5.0 — Optimization Cycle 04 (2026-07-23)
 
 Trust and feedback: scores say what they measured, records get celebrated,

@@ -146,7 +146,7 @@
       root.appendChild(list);
     }
 
-    root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v1.5.0"));
+    root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v1.6.0"));
     container.appendChild(root);
     try { window.scrollTo(0, 0); } catch (e) {}
   }

@@ -2851,7 +2851,9 @@
     var score = ce('div', 'cc-score'); hud.appendChild(score);
     var pb = ce('div', 'cc-pb'); hud.appendChild(pb);                      // (v0.144.0, CC#3)
     var mileBanner = ce('div', 'cc-mile-banner'); root.appendChild(mileBanner);
+    mileBanner.setAttribute('role', 'status'); mileBanner.setAttribute('aria-live', 'polite');   // (C5-08)
     var bioBanner = ce('div', 'cc-bio-banner'); root.appendChild(bioBanner);   // (v0.194.0, CC#9)
+    bioBanner.setAttribute('role', 'status'); bioBanner.setAttribute('aria-live', 'polite');   // (C5-08)
     var dist = ce('div', 'cc-dist'); hud.appendChild(dist);
     var cells = ce('div', 'cc-cells'); hud.appendChild(cells);   // (J9) this-run energy cells
     var buffs = ce('div', 'cc-buffs'); hud.appendChild(buffs);
@@ -2859,15 +2861,21 @@
 
     var ctrl = ce('div', 'cc-ctrl'); root.appendChild(ctrl);
     var kLeft = key('◀'), kJump = key('▲'), kDuck = key('▼'), kRight = key('▶');
+    // (C5-08) glyph-only keys get real names for AT
+    kLeft.setAttribute('aria-label', 'Move left'); kJump.setAttribute('aria-label', 'Jump — hold to float');
+    kDuck.setAttribute('aria-label', 'Duck'); kRight.setAttribute('aria-label', 'Move right');
     ctrl.appendChild(kLeft); ctrl.appendChild(kJump); ctrl.appendChild(kDuck); ctrl.appendChild(kRight);
 
     var overlay = ce('div', 'cc-overlay'); overlay.style.display = 'none'; root.appendChild(overlay);
     var qPanel = ce('div', 'cc-panel'); overlay.appendChild(qPanel);
+    qPanel.setAttribute('role', 'dialog'); qPanel.setAttribute('aria-modal', 'true');   // (C5-08)
+    qPanel.setAttribute('aria-label', 'Question — answer to hold shields');
     var qTag = ce('div', 'cc-tag'); qTag.textContent = 'Core breached — answer to hold shields'; qPanel.appendChild(qTag);
     var qTimer = ce('div', 'cc-qtimer'); qPanel.appendChild(qTimer);
     var qStem = ce('div', 'cc-stem'); qPanel.appendChild(qStem);
     var qOpts = ce('div', 'cc-opts'); qPanel.appendChild(qOpts);
     var qFeedback = ce('div', 'cc-feedback'); qPanel.appendChild(qFeedback);
+    qFeedback.setAttribute('aria-live', 'polite');   // (C5-08) verdicts get announced
 
     var gameover = ce('div', 'cc-gameover'); gameover.style.display = 'none'; root.appendChild(gameover);
     var ovrPanel = ce('div', 'cc-panel'); gameover.appendChild(ovrPanel);

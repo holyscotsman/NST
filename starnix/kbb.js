@@ -2383,6 +2383,11 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
             card.style.borderColor = cc2;
             if (isRes) card.style.boxShadow = '0 0 12px ' + cc2;
             card.title = a.def.name + ' \u2014 ' + a.def.description + (isRes ? ' \u00b7 RESONANCE: pair bonus live' : '');
+            // (C5-07) hover-only titles are unreachable by keyboard/AT \u2014 make the
+            // card focusable with the same content as its accessible name.
+            card.tabIndex = 0;
+            card.setAttribute('role', 'img');
+            card.setAttribute('aria-label', card.title);
             card.innerHTML = '<span class="an">' + a.def.name + '</span>' +
               (isRes ? '<span class="kbb-res-chip" style="color:' + cc2 + ';border-color:' + cc2 + '">RESONANCE</span>' : '') +
               '<span class="ai" style="color:' + cc2 + ';background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px ' + cc2 + '">\u27F3</span>' +
@@ -2627,6 +2632,7 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
         p.appendChild(sub); s.submitEl = sub;
       }
       var fb = el(s.doc, 'div', 'kbb-fb'); fb.id = 'kbb-fb'; p.appendChild(fb);
+      fb.setAttribute('aria-live', 'polite');   // (C5-07) the verdict gets announced
       s.optsEl = opts; s.fbEl = fb;
     }
 
