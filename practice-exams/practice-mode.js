@@ -9,7 +9,7 @@
   function start(container, opts) {
     opts = opts || {};
     var el = ui.el, esc = ui.esc;
-    var questions = engine.buildPractice(opts.count);
+    var questions = engine.buildPractice(opts.count, opts.domain);   // (C6-01)
     var N = questions.length;
     var idx = 0;
     // per-index state: { chosen:(number|number[]|null), checked:bool, correct:bool }

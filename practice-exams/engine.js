@@ -115,8 +115,10 @@
   }
   // Practice Mode: the full bank in authored order (stable study view), OR a random
   // subset of `count` when count is smaller than the bank. Options stay unshuffled.
-  function buildPractice(count) {
+  function buildPractice(count, domain) {
     var pool = normalizeBank().slice();
+    // (C6-01) optional focus domain — study one blueprint area at a time
+    if (domain) pool = pool.filter(function (q) { return q.domain === domain; });
     if (count && count < pool.length) return shuffle(pool).slice(0, count);
     return pool;
   }

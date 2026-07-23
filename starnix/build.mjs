@@ -146,6 +146,12 @@ const html = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#07070e" />
+<meta name="description" content="StarNix — three arcade study games (ARM, Chasm Chase, Kuiper Belt Battle) where Nutanix exam questions are the ammunition." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="StarNix — Starlight Rescue Crew" />
+<meta property="og:description" content="Three arcade study games where Nutanix exam questions are the ammunition." />
+<meta property="og:site_name" content="Nutanix Study Tool" />
 <!-- (QA) inline favicon: without one the browser requests /favicon.ico and 404s -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FFD24A'%3E%3Cpath d='M12 2l2.6 6.9L22 9.3l-5.4 4.6 1.8 7.1L12 17l-6.4 4 1.8-7.1L2 9.3l7.4-.4z'/%3E%3C/svg%3E" />
 <title>StarNix — Starlight Rescue Crew</title>

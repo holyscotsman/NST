@@ -373,6 +373,24 @@
     if (e.pattern === 'crescendo') return e.cyc === 2 ? Math.round(e.intent * 2.2) : Math.max(1, Math.round(e.intent * 0.7));   // weak/weak/HEAVY
     return e.intent;
   }
+  // (C6-07) Intel reveal: simulate the enemy's next three hits WITHOUT mutating
+  // pattern state. Read by renderEnemy when run.flags.showAllIntent is set (the
+  // Intel consumable and Intel Cache artifact both set it — previously a paid
+  // no-op that nothing ever read).
+  function intentForecast(run) {
+    var e = run.battle && run.battle.enemy;
+    if (!e || run.battle.over || e.hp <= 0) return '';
+    var out = [], tog = e.intentToggle, cyc = e.cyc, base = e.intent;
+    for (var i = 0; i < 3; i++) {
+      var v;
+      if (e.pattern === 'alternating') { v = tog ? base * 2 : 0; tog = !tog; }
+      else if (e.pattern === 'siphon') v = Math.max(1, Math.round(base * 0.6));
+      else if (e.pattern === 'crescendo') { v = (cyc === 2) ? Math.round(base * 2.2) : Math.max(1, Math.round(base * 0.7)); cyc = (cyc + 1) % 3; }
+      else { v = base; if (e.pattern === 'ramp') base += e.intentStep; }
+      out.push(v);
+    }
+    return out.join(' \u2192 ');
+  }
   function advanceIntent(run) {
     var e = run.battle.enemy;
     if (e.pattern === 'ramp') e.intent += e.intentStep;
@@ -1149,6 +1167,8 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     // (C3-06) engine-log ticker: bottom-center of the stage, out of the play zones
     css.push('.kbb-log{grid-area:stage;justify-self:center;align-self:end;z-index:6;max-width:70%;margin:0 0 6px;padding:3px 12px;border-radius:999px;background:rgba(14,14,24,.78);border:1px solid ' + P.border + ';color:' + P.mid + ';font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}');
     css.push('.kbb-log:empty{display:none;}');
+    // (C6-07) Intel forecast line under the intent chip
+    css.push('.kbb-intel{margin-top:6px;font-size:11.5px;font-weight:700;color:' + P.aqua + ';letter-spacing:.03em;}');
     css.push('.kbb-enemy .entext{text-align:left;min-width:0;flex:1;}');
     css.push('.kbb-enemy .ennm{font-weight:800;font-size:17px;color:' + P.gold + ';margin:1px 0 7px;overflow:hidden;text-overflow:ellipsis;}');
     css.push('.kbb-statline{display:flex;gap:12px;font-size:11px;color:' + P.dim + ';margin-top:7px;font-variant-numeric:tabular-nums;}');   /* (v0.187.0, FE#8) */
@@ -2352,6 +2372,11 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         ((b.attackIndex + 1 >= b.maxAttacks)
           ? '<div class="kbb-statline"><span class="final">FINAL ATTACK \u00b7 ' + (b.attackIndex + 1) + '/' + b.maxAttacks + ' \u2014 finish it or it escapes</span></div>'
           : '<div class="kbb-statline"><span>attack <b>' + (b.attackIndex + 1) + '</b>/' + b.maxAttacks + '</span></div>');
+      // (C6-07) Intel: the paid reveal finally renders — the next three hits
+      if (s.run.flags && s.run.flags.showAllIntent && !b.over && e.hp > 0) {
+        var fc = intentForecast(s.run);
+        if (fc) s.enemyText.innerHTML += '<div class="kbb-intel">\ud83d\udce1 INTEL \u00b7 next ' + fc + '</div>';
+      }
       if (s.pillTurn) s.pillTurn.innerHTML = 'turn <b>' + (b.over || e.hp <= 0 ? '\u2013' : (b.attackIndex + 1)) + '</b>';
     }
 

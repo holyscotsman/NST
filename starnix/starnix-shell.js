@@ -1264,10 +1264,13 @@
     grow.appendChild(el("span", "sx-genre-label", "Music style"));
     var gUp = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Upbeat");
     var gCh = el("button", "sx-btn sx-btn-ghost sx-genre-btn", "Chill");
+    gUp.setAttribute("aria-pressed", "false"); gCh.setAttribute("aria-pressed", "false");   // (C6-10)
     function paintGenre() {
       var g = st.musicGenre === "chill" ? "chill" : "upbeat";
       gUp.className = "sx-btn sx-genre-btn" + (g === "upbeat" ? " sx-btn-primary" : " sx-btn-ghost");
       gCh.className = "sx-btn sx-genre-btn" + (g === "chill" ? " sx-btn-primary" : " sx-btn-ghost");
+      gUp.setAttribute("aria-pressed", g === "upbeat" ? "true" : "false");   // (C6-10)
+      gCh.setAttribute("aria-pressed", g === "chill" ? "true" : "false");
     }
     function pickGenre(g) {
       try { core.audio.sfx("click"); } catch (e) {}

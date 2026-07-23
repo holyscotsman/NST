@@ -281,7 +281,7 @@ export function SettingsScreen(ctx) {
 
 function DevPanel(ctx) {
   const jumpInput = h('input', {
-    id: 'dev-start-input', class: 'dev-jump', type: 'number', min: '1', max: '30', value: '1',
+    id: 'dev-start-input', class: 'dev-jump', type: 'number', min: '1', max: String(activeLadder().runLength), value: '1',   // (C6-09) truth on short ladders
     'aria-label': 'Start run at question number',
   });
   const startAt = () => {

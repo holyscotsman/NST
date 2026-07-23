@@ -19,10 +19,29 @@
   var _manifestError = null; // Error from the last failed manifest fetch (null = ok)
   var _cache = {};           // id -> parsed+adapted bank
 
-  function fetchText(url) {
+  // (C6-05) short-lived session cache: every hop between the launcher and a
+  // tool refetched the manifest plus the full bank markdown (~376 KB for the
+  // main bank) because the in-memory cache dies with the page. Successful
+  // fetches are kept in sessionStorage for 5 minutes; `fresh` (the Retry path)
+  // bypasses it. Failures are never cached; storage errors never break loads.
+  var SESS_PREFIX = "nst.bankcache:";
+  var SESS_TTL = 5 * 60 * 1000;
+  function fetchText(url, fresh) {
+    if (!fresh) {
+      try {
+        var raw = sessionStorage.getItem(SESS_PREFIX + url);
+        if (raw) {
+          var hit = JSON.parse(raw);
+          if (hit && typeof hit.x === "string" && Date.now() - hit.t <= SESS_TTL) return Promise.resolve(hit.x);
+        }
+      } catch (e) { /* cache is best-effort */ }
+    }
     return fetch(url, { cache: "no-cache" }).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status + " for " + url);
-      return r.text();
+      return r.text().then(function (t) {
+        try { sessionStorage.setItem(SESS_PREFIX + url, JSON.stringify({ t: Date.now(), x: t })); } catch (e2) {}
+        return t;
+      });
     });
   }
 
@@ -30,7 +49,7 @@
   // callers can offer a Retry that actually retries instead of returning the cached miss.
   function manifest(force) {
     if (_manifest && !force) return Promise.resolve(_manifest);
-    return fetchText(MANIFEST).then(function (t) {
+    return fetchText(MANIFEST, !!force).then(function (t) {
       var j;
       // (QA) malformed JSON is an ERROR, not an empty library — callers offer a
       // real Retry instead of quietly showing the "no banks" empty state.
