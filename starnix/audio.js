@@ -133,7 +133,11 @@
       // (v0.122.0, Jason: "a tad more dubstep") the techno pluck bass -> a HALF-TIME WOBBLE bass
       // (two sustained resonant-swept notes per bar) + a slightly darker arp/lead. Everything
       // else (triangle arp, guitar lead, drums) stays, so it's a tad dubstep, not a genre swap.
-      bpm: 150, level: 0.52, arpWave: "triangle", leadGuitar: true, dark: 0.85,
+      // (rework) melody pushed toward a more heroic, anthemic call-and-response with more space
+      // between hits (less busy/grating), and the darkness eased a touch (0.85 -> 0.72) so it reads
+      // as an epic space-battle boss rather than a grinding wall of sound. Harmony, wobble bass, and
+      // drums are unchanged — this is a melodic/tone tweak, easy to tune further.
+      bpm: 150, level: 0.52, arpWave: "triangle", leadGuitar: true, dark: 0.72,
       wob: { steps: [0, 8], hold: 7, cyclesPerBeat: 2 },
       bars: [
         { bass: "D1", arp: ["D3", "F3", "A3", "D4"] },
@@ -142,10 +146,10 @@
         { bass: "A1", arp: ["A3", "C4", "E4", "A4"] }
       ],
       mel: [
-        ["D4","","","","A3","","D4","","F4","","","","E4","","D4",""],
-        ["F4","","","","D4","","Bb3","","D4","","","","G4","","F4",""],
-        ["Eb4","","","","C4","","G3","","Eb4","","","","D4","","Eb4",""],
-        ["A4","","","","G4","","E4","","C4","","E4","","A3","","",""]
+        ["D4","","","","F4","","A4","","","","A4","","G4","","F4",""],
+        ["A4","","","","Bb4","","A4","","F4","","","","D4","","F4",""],
+        ["G4","","","","Eb4","","G4","","C4","","","","Eb4","","G4",""],
+        ["A4","","","","E4","","C4","","D4","","E4","","F4","","A4",""]
       ],
       arpSteps: [0, 2, 4, 6, 8, 10, 12, 14], teslaSteps: [0, 8], kick: [0, 4, 8, 12], hat: [2, 6, 10, 14], snare: [4, 12]
     },

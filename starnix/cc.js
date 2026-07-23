@@ -32,7 +32,7 @@
     // World / lanes
     LANE_W: 2.2,                  // x distance between lane centers
     LANE_TWEEN: 0.16,             // seconds to change lane (< JUMP_TIME, so lane switch never the binding constraint)
-    DRAW_DIST: 120,              // spawn distance ahead (m); fog hides pop-in
+    DRAW_DIST: 150,              // spawn distance ahead (m); fog hides pop-in — raised for a deeper, more realistic canyon view
     CULL_BEHIND: -12,            // recycle once an object passes this z
 
     // Player hitbox (AABB)
@@ -50,10 +50,11 @@
     // Obstacles
     OBST_DEPTH: 0.7,           // half depth (z)
     ROCK_H: 1.25,             // (Jason v0.47.0) the jump obstacle is now a FULL-WIDTH low wall, "a lot bigger": collision top raised 0.6 -> 1.25. Still comfortably jumpable — sin arc clears it for ~63% of JUMP_TIME (base > 1.25/2.4 of apex), vs a ~0.03 s crossing at MAX_SPEED.
-    SWEEP_FREQ: 0.30,
+    BOMB_Y: 0.95,             // enemy-mine float height (roughly the ship centre) — dodge by changing lanes
+    BOMB_EXTRA_COST: 1,       // a mine detonation costs this many shields ON TOP of the normal collision cost
     CHAIN_GAP: 34,            // (v0.160.0, V1.1 CC#5) jump-wall -> arch spacing: > MAX_SPEED*JUMP_TIME*0.55 (land, then duck) and > the fairness z-cluster radius
     ROCKFALL_LAND_Z: 30,      // (CC#5) the boulder lands this far ahead — airborne = no hitbox, landed = lane seal
-    ROCKFALL_DROP_H: 11,      // rim height the boulder falls from (view-only feel; collision is z-gated)         // (v0.56.0) OB_SWEEP lateral pan, radians per metre of approach — a full sweep cycle every ~21 m; beam x = sin(phase + z*freq) * LANE_W (pure fn of z: deterministic, one source of truth for sim + view)
+    ROCKFALL_DROP_H: 11,      // rim height the boulder falls from (view-only feel; collision is z-gated)
     CEIL_BOTTOM: 1.5,         // (Jason) arch underside / duck clearance — raised from 1.0 so the gap is bigger and reads clearly (duck top 0.7 still passes; stand top 1.9 still hits)
     ARCH_H: 5.3,             // (Jason) arch TOP raised to the chasm rim — ARCH_H = RIM_Y(6.8) - CEIL_BOTTOM(1.5) = 5.3, so the top sits flush with the chasm lip (no gap above; unlike the old 5.5 whose top at 7.0 poked ABOVE the rim) while the underside stays at the duck clearance (1.5). A duck obstacle whose top reaches the rim MUST be this tall — its underside can't rise above head height or it stops being duckable.
 
@@ -83,14 +84,14 @@
     SCORE_SPEED: 500,          // dramatized metres/second the HUD shows + the rate scored distance accrues
     TURN_KM: 34,               // (v0.132.0, V1.1 CC#2) a 90° turn every N scored km — was 250, which the 100-per-120km boost cadence skipped ~5/6 of; 34 + the 5km offset provably never lands on the ≡4-mod-10 gate grid
     TURN_WARN_S: 4,            // seconds of MOVE LEFT/RIGHT warning before the turn hits
-    GATE_KM: 10,               // a question gate every 10 km of scored distance
-    FIRST_GATE_KM: 4,          // (v0.126.0, Jason playtest) the FIRST gate lands at 4 km — hook the learning loop before 10 km
+    GATE_KM: 6,                // a question gate every 6 km of scored distance — more study reps per run (was 10; 6 with FIRST=3 keeps gates ≡3 mod 6, which the TURN_KM=34 grid never lands on)
+    FIRST_GATE_KM: 3,          // (Jason playtest) the FIRST gate lands at 3 km — hook the learning loop early
 
     // Boost power-up (04 task 8): every GATES_PER_BOOST gates, the ship blasts forward — invulnerable,
     // the canyon fast-forwards (real scroll jumps to BOOST_SPEED), and scored distance covers BOOST_KM
     // over ~BOOST_TIME seconds (no timer UI — it ends when that distance is reached). Gates don't fire
     // during the skip; the normal cadence resumes after.
-    GATES_PER_BOOST: 2,          // (v0.77.0, JB6) boost every 2 gates = every 20 km (was 5 = 50 km)
+    GATES_PER_BOOST: 3,          // boost every 3 gates ≈ every 18 km (gates got more frequent; keep the boost cadence roughly where it was)
     BOOST_KM: 100,             // scored distance the boost covers
     BOOST_TIME: 6,             // (v0.103.0, C7, Jason) doubled — ~seconds the boost lasts (score rate: BOOST_KM*1000/BOOST_TIME)
     BOOST_SPEED: 200,          // real world-scroll during boost (≈2.4× MAX_SPEED) — the fast-forward visual
@@ -141,9 +142,9 @@
   //             The mirror of the arch: same wall-to-wall slab, same rock texture; the arch leaves a
   //             gap at the BOTTOM (duck under), the wall is solid at the bottom (jump over).
   // OB_ARCH: a full-width rock arch spanning ALL lanes — duck under it (lane-independent).
-  // OB_SWEEP: (v0.56.0) a low energy beam that PANS the canyon laterally as it approaches —
-  // jump is the guaranteed out (worst case); slipping past where it isn't is the skill play.
-  var OB_NARROW = 0, OB_LOWROCK = 1, OB_ARCH = 2, OB_SWEEP = 3, OB_ROCKFALL = 4;   // (v0.160.0, CC#5)
+  // OB_BOMB: an enemy mine that hangs in ONE lane at flight height — dodge to a clear lane.
+  // Flying into it detonates: it costs an EXTRA shield on top of the normal collision cost.
+  var OB_NARROW = 0, OB_LOWROCK = 1, OB_ARCH = 2, OB_BOMB = 3, OB_ROCKFALL = 4;   // (bomb reuses the retired scanner-drone slot)
   var SIDE_LEFT = 0, SIDE_RIGHT = 1;   // OB_NARROW.side -> which outer lane it seals (left=lane0, right=lane2)
   var BUFF_MAGNET = 'magnet', BUFF_INVINCIBLE = 'invincible', BUFF_SHIELDPLUS = 'shieldPlus',
       BUFF_COINX2 = 'coinX2', BUFF_SLOWMO = 'slowmo',
@@ -484,7 +485,7 @@
           var committedClear = p.laneT < 1 && !this._hitsObstacle(o, { x: p.targetX, y: p.y, topY: p.topY });
           if (!committedClear) {
             this.collisions++;
-            this._onCrash();
+            this._onCrash(o);
             this.obstacles.release(o);
             continue;
           }
@@ -508,10 +509,10 @@
       // wall's lane. No false-positives once you've crossed into a clear lane, and no pass-through.
       return Math.abs(p.x - o.x) < cfg.LANE_W * 0.5;
     }
-    if (o.type === OB_SWEEP) {
-      // (v0.56.0) live phase: the beam only hits where it ACTUALLY is right now (lane-dodging
-      // past it is real skill); jumping lifts the base clear of the low beam either way.
-      return Math.abs(p.x - this._sweepX(o)) < cfg.LANE_W * 0.5 && (pLo < cfg.ROCK_H);
+    if (o.type === OB_BOMB) {
+      // a floating mine seals ONE lane at any height — same lane => hit (dodge to a clear lane).
+      // The EXTRA shield cost is applied in _onCrash, not here.
+      return Math.abs(p.x - o.x) < cfg.LANE_W * 0.5;
     }
     if (o.type === OB_ROCKFALL) {
       // (v0.160.0, CC#5) still FALLING = no hitbox (the shadow + ring warn the lane);
@@ -528,22 +529,14 @@
   // action: 'stand' | 'jump' (apex) | 'duck'. Builds a hypothetical player and reuses _hitsObstacle.
   CCSim.prototype._wouldHit = function (o, lane, action) {
     var cfg = this.cfg;
-    // (v0.56.0) OB_SWEEP solvability is WORST-CASE phase: the beam can be over ANY lane at
-    // crossing time, so only the jump (base above the low beam) is a guaranteed clear.
-    // Live gameplay stays phase-honest via _hitsObstacle — this pessimism is only for fairness.
-    if (o.type === OB_SWEEP) return action !== 'jump';
+    // OB_BOMB seals its lane for any action — the dodge is a lane change, not jump/duck.
+    if (o.type === OB_BOMB) return Math.abs((lane - 1) * cfg.LANE_W - o.x) < cfg.LANE_W * 0.5;
     if (o.type === OB_ROCKFALL) return Math.abs((lane - 1) * cfg.LANE_W - o.x) < cfg.LANE_W * 0.5;   // (CC#5) worst-case landed: its lane is dead, any action
     var x = (lane - 1) * cfg.LANE_W;
     var y = 0, topY = cfg.PLAYER_H;
     if (action === 'jump') { y = cfg.JUMP_HEIGHT; topY = y + cfg.PLAYER_H; }
     else if (action === 'duck') { topY = cfg.PLAYER_DUCK_H; }
     return this._hitsObstacle(o, { x: x, y: y, topY: topY });
-  };
-
-  // (v0.56.0) OB_SWEEP: the beam's lateral centre is a pure function of its remaining approach
-  // distance — deterministic (no wall clock, no dt plumbing), one source of truth for sim + view.
-  CCSim.prototype._sweepX = function (o) {
-    return Math.sin((o.sweepPhase || 0) + o.z * this.cfg.SWEEP_FREQ) * this.cfg.LANE_W;
   };
 
   // (v0.73.0, J9) Garage upgrades — persistent, profile-fed, help-only (fairness untouched).
@@ -562,7 +555,7 @@
       this._platingLeft = this._up.plating;
     }
   };
-  CCSim.prototype._onCrash = function () {
+  CCSim.prototype._onCrash = function (o) {
     if (this._platingLeft > 0) {                               // (J9) ablative plating eats the first hit
       this._platingLeft--;
       this.iframe = this.cfg.COLLIDE_IFRAME; this.hitFlash = this.cfg.HIT_FLASH;
@@ -575,6 +568,7 @@
       return;
     }
     this.shields -= this.cfg.COLLISION_SHIELD_COST;
+    if (o && o.type === OB_BOMB) this.shields -= this.cfg.BOMB_EXTRA_COST;   // a mine detonation costs an extra shield
     this.iframe = this.cfg.COLLIDE_IFRAME;     // shield-loss grace: blocks chained hits for this window
     this.hitFlash = this.cfg.HIT_FLASH;        // sharp damage flash (view); distinct from the protected glow
     if (this.shields <= 0) { this.shields = 0; this._gameOver(); }
@@ -847,9 +841,9 @@
       this._rowOpenLane = (this._squeezeSide === SIDE_LEFT) ? 2 : 0;
       return;
     }
-    if (r < 0.10) {                                  // (v0.56.0) sweeper: a low beam panning the canyon — jump it (or slip past where it isn't)
-      this._spawnSweep(zAhead);
-      this._rowOpenLane = 1;                         // jump clears from anywhere (worst case); coins stay centre
+    if (r < 0.09) {                                  // BOMB: an enemy mine floating in one lane — slide to a clear lane (a hit costs an extra shield)
+      var bmLane = this._spawnBomb(zAhead);
+      this._rowOpenLane = bmLane === 1 ? 0 : 1;
       return;
     }
     if (r < 0.18) {                                  // (v0.160.0, CC#5) CHAIN: jump into duck
@@ -921,10 +915,11 @@
     if (o && stretch) o.stretch = 1;   // (v0.175.0, CC#6) squeeze rows chain into one continuous promontory
   };
   CCSim.prototype._spawnLowRock = function (lane, zAhead) { this._placeObstacle(OB_LOWROCK, lane, 0, zAhead); }; // lane retained for call-compat; the wall is full-width (lane-independent)
-  CCSim.prototype._spawnSweep = function (zAhead) {   // (v0.56.0) phase from the run rng -> deterministic per seed
-    var o = this._placeObstacle(OB_SWEEP, 1, 0, zAhead);
-    if (o) o.sweepPhase = this.rng.next() * Math.PI * 2;
-    return o;
+  // BOMB: an enemy mine drops onto ONE lane; the other two stay open. A hit costs 2 shields.
+  CCSim.prototype._spawnBomb = function (zAhead) {
+    var lane = this.rng.int(3);
+    this._placeObstacle(OB_BOMB, lane, 0, zAhead);
+    return lane;
   };
   CCSim.prototype._spawnArch = function (zAhead) { this._placeObstacle(OB_ARCH, 1, 0, zAhead); }; // lane irrelevant (full-width)
   // (v0.160.0, V1.1 CC#5) CHAIN: jump wall then arch CHAIN_GAP apart — the jump-into-duck
@@ -959,8 +954,7 @@
     for (i = 0; i < n; i++) {
       o = items[i]; if (!o.active) continue;
       dz = Math.abs(o.z - z); if (dz >= 2.4) continue;
-      if (o.type === OB_SWEEP) { if (dz < 1.4) skip = true; }
-      else if (o.type === OB_LOWROCK) { hop = true; }
+      if (o.type === OB_LOWROCK) { hop = true; }
       else if (o.type === OB_ARCH) { low = true; }
     }
     // sealed-lane check via the SAME truth the collision uses
@@ -969,9 +963,9 @@
       var L = tryLanes[t], sealed = false;
       probe.x = (L - 1) * cfg.LANE_W;
       for (i = 0; i < n; i++) {
-        o = items[i]; if (!o.active || (o.type !== OB_NARROW && o.type !== OB_ROCKFALL)) continue;   // (CC#5) a landed boulder seals like a wall
+        o = items[i]; if (!o.active || (o.type !== OB_NARROW && o.type !== OB_ROCKFALL && o.type !== OB_BOMB)) continue;   // a wall / landed boulder / mine seals a lane
         if (Math.abs(o.z - z) >= 2.4) continue;
-        if (o.type === OB_ROCKFALL) { if (Math.abs(o.x - probe.x) < cfg.LANE_W * 0.5) { sealed = true; break; } continue; }   // coins route around it even pre-landing
+        if (o.type === OB_ROCKFALL || o.type === OB_BOMB) { if (Math.abs(o.x - probe.x) < cfg.LANE_W * 0.5) { sealed = true; break; } continue; }   // coins route around boulders + mines
         if (this._hitsObstacle(o, probe)) { sealed = true; break; }
       }
       if (!sealed) { outLane = L; break; }
@@ -1067,7 +1061,7 @@
 
     var scene = this.scene = new THREE.Scene();
     var FOG = 0xB9885E;                                            // warm dusk haze (matches sky horizon)
-    scene.fog = new THREE.Fog(FOG, cfg.DRAW_DIST * 0.34, cfg.DRAW_DIST * 0.95); // (04 task 5) tuned: hold near detail, fade the far chasm into haze
+    scene.fog = new THREE.Fog(FOG, cfg.DRAW_DIST * 0.4, cfg.DRAW_DIST * 0.95); // hold near+mid detail (deeper draw distance), fade the far chasm into haze
     if (A.ccSky) {
       var sky = new THREE.TextureLoader().load(A.ccSky);
       if (THREE.sRGBEncoding) sky.encoding = THREE.sRGBEncoding;
@@ -1147,30 +1141,25 @@
     var shaftGeo = new THREE.BoxGeometry(0.12, 0.34, 0.12);
     this.iChevUpShaft = this._instanced(this._track(shaftGeo), chevUpMat, cfg.POOL_OBSTACLES * 3);
     this.iChevDownShaft = this._instanced(this._track(shaftGeo), chevDnMat, cfg.POOL_OBSTACLES * 3);
-    // (v0.56.0) OB_SWEEP: a lane-wide low energy beam that pans the canyon — PEACH (danger per
-    // 07 §1), additive so it reads as energy, not rock. Telegraph = peach SIDEWAYS arrows
-    // (horizontal cone ≠ the up/down jump/duck cones — colorblind-safe by shape + color).
     // (v0.160.0, V1.1 CC#5) rockfall kit: falling boulder + ground shadow + peach warning ring
     var shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.42 });
     var warnMat = new THREE.MeshBasicMaterial({ color: 0xFF6B5B, transparent: true, opacity: 0.8 });
     this._disposables.push(shadowMat); this._disposables.push(warnMat);
-    this.iBoulder = this._instanced(this._track(new THREE.SphereGeometry(cfg.LANE_W * 0.42, 8, 7)), M.rock, cfg.POOL_OBSTACLES);
+    this.iBoulder = this._instanced(this._boulderGeo(cfg.LANE_W * 0.46), M.rock, cfg.POOL_OBSTACLES);   // irregular boulder, not a perfect sphere
     var shadowGeo = this._track(new THREE.CircleGeometry(cfg.LANE_W * 0.4, 12)); if (shadowGeo.rotateX) shadowGeo.rotateX(-Math.PI / 2);
     this.iRfShadow = this._instanced(shadowGeo, shadowMat, cfg.POOL_OBSTACLES);
     var warnGeo = this._track(new THREE.RingGeometry(cfg.LANE_W * 0.32, cfg.LANE_W * 0.44, 16)); if (warnGeo.rotateX) warnGeo.rotateX(-Math.PI / 2);
     this.iRfWarn = this._instanced(warnGeo, warnMat, cfg.POOL_OBSTACLES);
-    var sweepMat = new THREE.MeshBasicMaterial({ color: 0xFF6B5B, transparent: true, opacity: 0.85 });
-    var chevSideGeo = new THREE.ConeGeometry(0.34, 0.55, 4);
-    if (chevSideGeo.rotateZ) chevSideGeo.rotateZ(-Math.PI / 2);        // tip points +x -> a horizontal arrow
-    if (chevSideGeo.scale) chevSideGeo.scale(1, 1, 0.4);
-    var chevSideMat = new THREE.MeshBasicMaterial({ color: 0xFF6B5B, transparent: true, opacity: 0.95 });
-    if (THREE.AdditiveBlending !== undefined) { sweepMat.blending = THREE.AdditiveBlending; chevSideMat.blending = THREE.AdditiveBlending; }
-    this._disposables.push(sweepMat); this._disposables.push(chevSideMat);
-    this.iSweep = this._instanced(this._track(new THREE.BoxGeometry(cfg.LANE_W, cfg.ROCK_H, 0.5)), sweepMat, cfg.POOL_OBSTACLES);
-    this.iChevSide = this._instanced(this._track(chevSideGeo), chevSideMat, cfg.POOL_OBSTACLES * 3);
-    // (v0.101.0, C2, Jason: "no idea what that thing is") the beam now has an EMITTER — a
-    // peach scanner drone riding its top edge, so it reads as a machine dragging a light-wall.
-    this.iSweepHead = this._instanced(this._track(new THREE.OctahedronGeometry(0.42, 0)), chevSideMat, cfg.POOL_OBSTACLES);
+    // OB_BOMB: an enemy mine floating in one lane — a dark spiky hull with a hot, pulsing core
+    // (peach = danger). No beam, no drone; you dodge it by changing lanes.
+    var bombMat = new THREE.MeshStandardMaterial({ color: 0x241d1a, emissive: 0x5a1206, emissiveIntensity: 0.55, roughness: 0.5, metalness: 0.7 });
+    var bombGlowMat = new THREE.MeshBasicMaterial({ color: 0xFF6B5B, transparent: true, opacity: 0.55 });
+    if (THREE.AdditiveBlending !== undefined) bombGlowMat.blending = THREE.AdditiveBlending;
+    if (bombGlowMat.depthWrite !== undefined) bombGlowMat.depthWrite = false;
+    this._disposables.push(bombMat); this._disposables.push(bombGlowMat);
+    this._bombGlowMat = bombGlowMat;   // hot-core pulse in the render loop
+    this.iBomb = this._instanced(this._track(new THREE.IcosahedronGeometry(cfg.LANE_W * 0.32, 0)), bombMat, cfg.POOL_OBSTACLES);
+    this.iBombGlow = this._instanced(this._track(new THREE.IcosahedronGeometry(cfg.LANE_W * 0.5, 0)), bombGlowMat, cfg.POOL_OBSTACLES);
     this.iCoin = this._instanced(this._track(new THREE.CylinderGeometry(0.34, 0.34, 0.1, 6)), M.gold, cfg.POOL_COINS);
     var _obs = [this.iNarrowL, this.iNarrowR, this.iNarrowDeepL, this.iNarrowDeepR, this.iRock, this.iArch];   // (Jason) shadows: obstacles cast + catch so height/depth reads at a glance
     for (var _oi = 0; _oi < _obs.length; _oi++) { _obs[_oi].castShadow = true; _obs[_oi].receiveShadow = true; }
@@ -1359,6 +1348,26 @@
     this.scene.add(im);
     return im;
   };
+  // An irregular boulder: an icosahedron with each vertex nudged along its radius by a
+  // deterministic per-POSITION amount — a rough rock, not a perfect sphere. Duplicated
+  // (per-face) vertices hash to the same nudge, so faces never tear; flat normals keep it faceted.
+  CCView.prototype._boulderGeo = function (r) {
+    var THREE = this.THREE;
+    var g = new THREE.IcosahedronGeometry(r, 1);
+    var pos = g.attributes && g.attributes.position;
+    if (pos && pos.array) {
+      var a = pos.array;
+      for (var i = 0; i < a.length; i += 3) {
+        var x = a[i], y = a[i + 1], z = a[i + 2];
+        var hsh = Math.sin(x * 12.9 + y * 78.2 + z * 37.7) * 43758.5453; hsh -= Math.floor(hsh);   // 0..1, stable per position
+        var s = 0.80 + hsh * 0.34;
+        a[i] = x * s; a[i + 1] = y * s; a[i + 2] = z * s;
+      }
+      if (pos.needsUpdate !== undefined) pos.needsUpdate = true;
+      if (g.computeVertexNormals) g.computeVertexNormals();
+    }
+    return this._track(g);
+  };
   CCView.prototype._buildWalls = function (cfg) {
     var THREE = this.THREE;
     var H = 8;                                                   // canyon walls — lowered from 16 (less slot, more sky)
@@ -1531,16 +1540,26 @@
     var grp = this.squadron = new THREE.Group();
     var n = 5, baseZ = cfg.DRAW_DIST * 0.55;       // brought closer so they read clearly (Jason: see distant ships better; was 0.68)
     var cols = [this.M.peach, this.M.iris, this.M.peach, this.M.aqua, this.M.peach];
+    var accent = [0xFF6B5B, 0x7855FA, 0xFF6B5B, 0x1FDDE9, 0xFF6B5B];   // engine-glow hex matching each hull colour
     this._squad = [];
     for (var i = 0; i < n; i++) {
-      var ship = new THREE.Group();                 // ship + its thruster glow move together (render loop is 1:1 with _squad)
-      var bodyG = this._track(new THREE.ConeGeometry(0.95, 2.7, 4));   // larger so they read at distance (Jason)
-      var mesh = new THREE.Mesh(bodyG, cols[i % cols.length]);
-      mesh.rotation.x = Math.PI / 2;                // nose pointing forward (down -z, away from camera)
-      ship.add(mesh);
-      var thrG = this._track(new THREE.BoxGeometry(0.34, 0.34, 1.35));  // glowing thruster streak behind the nose (enlarged with the body)
-      var thr = new THREE.Mesh(thrG, cols[i % cols.length]); thr.position.z = 1.45;
-      ship.add(thr);
+      var ship = new THREE.Group();                 // hull + wings + engine glow move together (render loop is 1:1 with _squad)
+      var col = cols[i % cols.length];
+      // sleeker, longer 6-sided fuselage (was a stubby 4-sided cone) — reads as a real ship at distance
+      var bodyG = this._track(new THREE.ConeGeometry(0.62, 3.4, 6));
+      var mesh = new THREE.Mesh(bodyG, col); mesh.rotation.x = Math.PI / 2; ship.add(mesh);   // nose down -z, away from camera
+      // swept delta wings + a dorsal fin give a recognisable silhouette
+      var wingG = this._track(new THREE.BoxGeometry(2.6, 0.1, 0.9));
+      var wing = new THREE.Mesh(wingG, col); wing.position.set(0, -0.05, 0.55); ship.add(wing);
+      var finG = this._track(new THREE.BoxGeometry(0.1, 0.7, 0.9));
+      var fin = new THREE.Mesh(finG, col); fin.position.set(0, 0.4, 0.7); ship.add(fin);
+      // bright additive engine plume at the tail (replaces the old flat thruster box)
+      var engMat = new THREE.MeshBasicMaterial({ color: accent[i % accent.length], transparent: true, opacity: 0.9 });
+      if (THREE.AdditiveBlending !== undefined) engMat.blending = THREE.AdditiveBlending;
+      if (engMat.depthWrite !== undefined) engMat.depthWrite = false;
+      this._disposables.push(engMat);
+      var engG = this._track(new THREE.ConeGeometry(0.3, 1.7, 8));
+      var eng = new THREE.Mesh(engG, engMat); eng.rotation.x = -Math.PI / 2; eng.position.z = 1.9; ship.add(eng);
       var lane = i - (n - 1) / 2;
       var bx = lane * 1.2, by = 2.0 + (i % 2) * 0.9, bz = -baseZ - Math.abs(lane) * 3.0 - (i % 3) * 4.0;
       ship.position.set(bx, by, bz);
@@ -1749,7 +1768,7 @@
     var hide = this._hide, sm = this.scratchM, sp = this.scratchP, sq = this.scratchQ, ss = this.scratchS;
 
     // obstacles -> instanced meshes by type (narrow split L/R: each bulge is baked at its wall's world x/y)
-    var bL = 0, bR = 0, rN = 0, cN = 0, dL = 0, dR = 0, chU = 0, chD = 0, swN = 0, chS = 0, rfN = 0, rsN = 0, rwN = 0;   // (CC#5) rockfall
+    var bL = 0, bR = 0, rN = 0, cN = 0, dL = 0, dR = 0, chU = 0, chD = 0, bmN = 0, rfN = 0, rsN = 0, rwN = 0;   // bmN = bombs; (CC#5) rockfall
     var chBob = this.reducedMotion ? 0 : Math.sin(this._t * 4.2) * 0.12;   // (Jason v0.47.0) telegraph chevrons bob toward their action
     var items = sim.obstacles.items, n = items.length, i;
     for (i = 0; i < n; i++) {
@@ -1770,18 +1789,12 @@
             setPos(sm, sp, sq, ss, chu * cfg.LANE_W, cfg.ROCK_H + 0.55 + chBob, -o.z); this.iChevUp.setMatrixAt(chU++, sm);
             setPos(sm, sp, sq, ss, chu * cfg.LANE_W, cfg.ROCK_H + 0.55 + chBob - 0.42, -o.z); this.iChevUpShaft.setMatrixAt(chU - 1, sm);   // (C1) stem below the head
           }
-        } else if (o.type === 3 /* OB_SWEEP */) {
-          // (v0.56.0) beam x comes from the sim's single source of truth; telegraph arrows point
-          // along the CURRENT pan direction and slide sideways (reduced-motion: static, no slide).
-          var swx = sim._sweepX(o);
-          setPos(sm, sp, sq, ss, swx, cfg.ROCK_H * 0.5, -o.z); this.iSweep.setMatrixAt(swN++, sm);
-          setPos(sm, sp, sq, ss, swx, cfg.ROCK_H + 0.45, -o.z); this.iSweepHead.setMatrixAt(swN - 1, sm);   // (C2) the emitter drone rides the beam
-          var swDir = Math.cos(o.sweepPhase + o.z * cfg.SWEEP_FREQ) >= 0 ? 1 : -1;   // d(sweepX)/d(z) sign — where the beam is heading as it nears
-          var chSlide = this.reducedMotion ? 0 : Math.sin(this._t * 4.2) * 0.12;
-          for (var chs = -1; chs <= 1; chs++) {
-            setPosRot(sm, sp, sq, ss, chs * cfg.LANE_W + chSlide * swDir, cfg.ROCK_H + 0.55, -o.z, swDir > 0 ? 0 : Math.PI, THREE);
-            this.iChevSide.setMatrixAt(chS++, sm);
-          }
+        } else if (o.type === OB_BOMB) {
+          // a mine bobbing at flight height in its lane; the hull spins, the core pulses (reduced-motion: still).
+          var bmy = cfg.BOMB_Y + (this.reducedMotion ? 0 : Math.sin(this._t * 2.6 + o.z * 0.18) * 0.14);
+          var bmrot = this.reducedMotion ? 0 : this._t * 1.3;
+          setPosRot(sm, sp, sq, ss, o.x, bmy, -o.z, bmrot, THREE); this.iBomb.setMatrixAt(bmN++, sm);
+          setPos(sm, sp, sq, ss, o.x, bmy, -o.z); this.iBombGlow.setMatrixAt(bmN - 1, sm);
         }
         else if (o.type === OB_ROCKFALL) {
           // (v0.160.0, CC#5) fall height is a pure fn of remaining approach (z0 -> LAND_Z): no
@@ -1818,10 +1831,12 @@
     fillHidden(this.iBoulder, rfN, hide); fillHidden(this.iRfShadow, rsN, hide); fillHidden(this.iRfWarn, rwN, hide);
     this.iBoulder.count = this.iBoulder.instanceMatrix.count; this.iRfShadow.count = this.iRfShadow.instanceMatrix.count; this.iRfWarn.count = this.iRfWarn.instanceMatrix.count;
     this.iBoulder.instanceMatrix.needsUpdate = this.iRfShadow.instanceMatrix.needsUpdate = this.iRfWarn.instanceMatrix.needsUpdate = true;
-    fillHidden(this.iSweep, swN, hide); fillHidden(this.iChevSide, chS, hide); fillHidden(this.iSweepHead, swN, hide);
-    this.iSweep.count = this.iSweep.instanceMatrix.count; this.iChevSide.count = this.iChevSide.instanceMatrix.count;
-    this.iSweepHead.count = this.iSweepHead.instanceMatrix.count;
-    this.iSweep.instanceMatrix.needsUpdate = this.iChevSide.instanceMatrix.needsUpdate = this.iSweepHead.instanceMatrix.needsUpdate = true;
+    fillHidden(this.iBomb, bmN, hide); fillHidden(this.iBombGlow, bmN, hide);
+    this.iBomb.count = this.iBomb.instanceMatrix.count; this.iBombGlow.count = this.iBombGlow.instanceMatrix.count;
+    this.iBomb.instanceMatrix.needsUpdate = this.iBombGlow.instanceMatrix.needsUpdate = true;
+    if (!this.reducedMotion && this._bombGlowMat && typeof this._bombGlowMat.opacity === "number") {
+      this._bombGlowMat.opacity = 0.42 + 0.28 * (0.5 + 0.5 * Math.sin(this._t * 6.0));   // hot-core pulse
+    }
 
     // coins (spin)
     var coN = 0, citems = sim.coins.items, cn = citems.length;
@@ -2668,7 +2683,7 @@
           ['\u271A', 'Shields are your hull. Clipping an obstacle costs a shield \u2014 lose them all and the chase ends.'],
           ['\u25C8', 'Gates span the chasm at intervals \u2014 you fly through every one, and each stops the chase for an exam question. Some gates carry a power-up.'],
           ['\u221E', 'A right answer restores a shield; a wrong one costs two. The canyon is endless \u2014 score is the distance you reach.'],
-          ['\u26A1', 'SCANNER DRONE: the peach machine dragging a light-beam across the floor. JUMP the beam \u2014 never duck it, never race it sideways.']   // (v0.101.0, C2) the thing finally has a name
+          ['\u26A0', 'MINES: enemy ships leave glowing mines hanging in ONE lane. Slide to a clear lane \u2014 flying into one detonates and costs an extra shield.']   // OB_BOMB
         ];
         // (v0.101.0, C11, Jason) your Garage loadout, visible BEFORE the run (async-load safe)
         var loadout = ce('div', 'cc-howto-loadout'); panel.appendChild(loadout);
@@ -3125,7 +3140,7 @@
   }
 
   return { CCSim: CCSim, CCView: CCView, createCCModule: createCCModule, CONFIG: CONFIG,
-    _enums: { OB_NARROW: OB_NARROW, OB_LOWROCK: OB_LOWROCK, OB_ARCH: OB_ARCH, OB_SWEEP: OB_SWEEP, OB_ROCKFALL: OB_ROCKFALL, SIDE_LEFT: SIDE_LEFT, SIDE_RIGHT: SIDE_RIGHT, POWER_KINDS: POWER_KINDS },
+    _enums: { OB_NARROW: OB_NARROW, OB_LOWROCK: OB_LOWROCK, OB_ARCH: OB_ARCH, OB_BOMB: OB_BOMB, OB_ROCKFALL: OB_ROCKFALL, SIDE_LEFT: SIDE_LEFT, SIDE_RIGHT: SIDE_RIGHT, POWER_KINDS: POWER_KINDS },
     biomes: { LIST: BIOMES, KM: BIOME_KM, indexAt: biomeIndexAt },   // (v0.194.0, CC#9)
     garage: { ITEMS: GARAGE_ITEMS, state: garageState, buy: garageBuy,
       shelf: { ITEMS: SHELF_ITEMS, state: shelfState, buy: shelfBuy } },   // (v0.185.0, CC#8)
