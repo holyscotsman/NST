@@ -5,6 +5,38 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v1.8.0 — Optimization Cycle 07 (2026-07-23)
+
+Continuity and quality-of-life: sessions survive interruptions, results become
+a study tool, and hidden affordances get labeled. All 10 shipped; verdicts in
+`docs/optimization/CYCLE-07.md`.
+
+### Added
+- **Practice Exams:** full-bank Practice sessions resume where you left off
+  (per bank; random subsets and domain-focused sessions still start fresh);
+  the results "By domain" rows are now buttons that filter the review list to
+  that domain (combines with the incorrect-only toggle); a print stylesheet
+  turns the results review into a clean paper study sheet; exam attempt
+  history can be cleared (confirmed first) for shared machines.
+- **WWTBANE:** closing or reloading the tab mid-run now warns before the run
+  is lost (only while a live run is on stage — menus, green room, and finished
+  runs never nag); the Help screen documents tap-to-skip read-outs and the
+  exhibit lightbox.
+- **StarNix:** the Chasm Chase how-to card starts with Enter/Space (or
+  Escape) and focuses its Continue button — keyboard players never reach for
+  the mouse; KBB advertises its 1–9 answer keys under the options (pointer-fine
+  devices only); profile export gains a one-tap "Copy to clipboard" button
+  with clipboard-API + select-fallback and "Copied ✓" feedback.
+
+### Fixed
+- **Practice Exams:** the question strip now sets `aria-current` on the
+  current chip, so screen readers announce position, not just selection.
+
+### QA
+- StarNix build 4266.2 KB (gate 4600) + 5 harnesses green · WWTBANE 168 unit
+  tests + 22/22 browser E2E · PE engine harness green · 14 targeted C7 checks
+  · full-site zero-console-error sweep clean.
+
 ## v1.7.0 — Optimization Cycle 06 (2026-07-23)
 
 Deeper features land: domain-focused practice, a paid feature that finally

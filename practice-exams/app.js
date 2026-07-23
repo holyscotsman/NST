@@ -134,7 +134,9 @@
       '<p class="pe-modecard-desc">Instant feedback after every question, the correct answer and explanation revealed, unlimited retries. Untimed — move at your own pace with free navigation.</p>' +
       '<ul class="pe-modecard-facts"><li class="pe-fact-count"></li><li>Instant feedback</li><li>Untimed</li></ul>' +
       '<span class="pe-modecard-cta">Start practicing ' + ui.ICONS.arrowRight + '</span>';
-    pcard.addEventListener("click", function () { launch("practice", container, chosenCount(), focusDomain); });   // (C6-01)
+    // (C7-02) full bank passes count=null: buildPractice returns the whole pool
+    // either way, but a null count is what marks the session resumable.
+    pcard.addEventListener("click", function () { launch("practice", container, useFull ? null : chosenCount(), focusDomain); });   // (C6-01)
     modes.appendChild(pcard);
 
     var ecard = el("button", "pe-modecard pe-modecard-exam");
@@ -172,6 +174,16 @@
         list.appendChild(row);
       });
       root.appendChild(list);
+      // (C7-06) shared machines: attempts can be wiped (confirmed first)
+      var clearBtn = el("button", "pe-btn pe-btn-ghost pe-clear-history", "Clear history");
+      clearBtn.type = "button";
+      clearBtn.addEventListener("click", function () {
+        ui.confirm("Clear attempt history?", "All recorded exam attempts on this device will be removed.", "Clear", function () {
+          engine.clearHistory();
+          showEntry(container);
+        });
+      });
+      root.appendChild(clearBtn);
     }
 
     root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v" + (window.NST_VERSION || "dev")));   // (C6-08)

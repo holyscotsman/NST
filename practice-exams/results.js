@@ -35,10 +35,20 @@
     }
     root.appendChild(score);
 
-    // Domain breakdown
+    // Domain breakdown — (C7-03) rows double as review filters.
+    var domainFilter = null;
+    function applyDomainFilter() {
+      Array.prototype.forEach.call(list.querySelectorAll(".pe-review-item"), function (n) {
+        n.style.display = (!domainFilter || n.getAttribute("data-domain") === domainFilter) ? "" : "none";
+      });
+    }
     if (Object.keys(summary.byDomain).length) {
       root.appendChild(el("h3", "pe-h3", "By domain"));
-      root.appendChild(ui.domainBreakdown(summary.byDomain));
+      root.appendChild(ui.domainBreakdown(summary.byDomain, function (d) {
+        domainFilter = d;
+        applyDomainFilter();
+        if (d) { try { revHead.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { revHead.scrollIntoView(); } }
+      }));
       // Focus recommendation: name the weakest domain (lowest %, ties broken by most misses)
       // so the next study session has a target. Skipped when everything scored 100%.
       var weakest = null, weakPct = 101, weakMiss = -1;
@@ -120,6 +130,7 @@
     var cset = correctSet(q);
     var chosen = Array.isArray(r.chosen) ? r.chosen : (r.chosen == null ? [] : [r.chosen]);
     var item = el("div", "pe-review-item " + (r.correct ? "ok" : "bad"));
+    if (q.domain) item.setAttribute("data-domain", q.domain);
 
     var top = el("div", "pe-review-top");
     top.appendChild(el("span", "pe-review-num", "Q" + (i + 1)));

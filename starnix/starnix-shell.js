@@ -1411,10 +1411,31 @@
       var area = el("textarea", "sx-data-json"); area.rows = 5; area.spellcheck = false; area.style.display = "none";
       var note = el("div", "sx-data-note"); note.style.display = "none";
       var apply = el("button", "sx-btn", "Apply import"); apply.style.display = "none";
-      dataBox.appendChild(area); dataBox.appendChild(note); dataBox.appendChild(apply);
+      // (C7-10) one-tap copy — selecting a 5-row JSON blob by hand on mobile
+      // is misery. Clipboard API first, textarea-select fallback second.
+      var copyBtn = el("button", "sx-btn", "Copy to clipboard"); copyBtn.style.display = "none";
+      dataBox.appendChild(area); dataBox.appendChild(note); dataBox.appendChild(copyBtn); dataBox.appendChild(apply);
+      var copyT = 0;
+      function copiedFeedback(okC) {
+        var w2 = self.root.ownerDocument.defaultView;
+        copyBtn.textContent = okC ? "Copied ✓" : "Copy failed — select & copy manually";
+        w2.clearTimeout(copyT); copyT = w2.setTimeout(function () { copyBtn.textContent = "Copy to clipboard"; }, 1600);
+      }
+      self._on(copyBtn, "click", function () {
+        var w2 = self.root.ownerDocument.defaultView;
+        var nav = w2.navigator;
+        if (nav && nav.clipboard && nav.clipboard.writeText) {
+          nav.clipboard.writeText(area.value).then(function () { copiedFeedback(true); }, function () { fallbackCopy(); });
+        } else { fallbackCopy(); }
+        function fallbackCopy() {
+          try { area.focus(); area.select(); copiedFeedback(w2.document.execCommand("copy")); }
+          catch (eC) { copiedFeedback(false); }
+        }
+      });
       function show(mode) {
         area.style.display = ""; note.style.display = "";
         apply.style.display = (mode === "import") ? "" : "none";
+        copyBtn.style.display = (mode === "export") ? "" : "none";
         if (mode === "export") {
           var json = "";
           try { json = core.persistence.exportProfile ? core.persistence.exportProfile() : JSON.stringify(core.profile); } catch (eE) {}

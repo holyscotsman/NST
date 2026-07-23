@@ -235,6 +235,11 @@ body {
 
 .pe-domains { display: flex; flex-direction: column; gap: 8px; }
 .pe-domain-row { display: grid; grid-template-columns: 140px 1fr auto; align-items: center; gap: 12px; }
+/* (C7-03) rows rendered as filter buttons keep the row layout but pick up affordances */
+button.pe-domain-row { width: 100%; background: none; border: 1px solid transparent; border-radius: 10px; padding: 4px 8px; margin: -4px -8px; cursor: pointer; font: inherit; color: inherit; text-align: left; transition: background 0.15s ease, border-color 0.15s ease; }
+button.pe-domain-row:hover { background: rgba(255, 255, 255, 0.05); }
+button.pe-domain-row:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rgba(139, 92, 246, 0.45); }
 .pe-domain-name { font-size: 13px; color: var(--muted-2); text-transform: capitalize; font-weight: 600; }
 .pe-domain-bar { height: 8px; background: rgba(255, 255, 255, 0.07); border-radius: 999px; overflow: hidden; }
 .pe-domain-fill { display: block; height: 100%; background: var(--purple); border-radius: 999px; }
@@ -367,3 +372,27 @@ body {
 
 /* (C6-01) focus-domain chips wrap on small screens */
 .pe-domainpick { flex-wrap: wrap; }
+
+/* (C7-07) print: the results review doubles as a paper study sheet. Strip the
+ * dark chrome and interactive controls; keep outcome, domains, questions,
+ * options, and explanations in plain dark-on-white. */
+@media print {
+  body { background: #fff !important; color: #111 !important; }
+  .pe-bg, .pe-bar, .pe-palette, .pe-foot, .pe-foot-submit,
+  .pe-results-actions, .pe-results-actions-bottom, .pe-review-filter,
+  .pe-btn, .pe-sr-only { display: none !important; }
+  .pe-root { max-width: none; padding: 0; }
+  .pe-outcome, .pe-review-item, .pe-explain, .pe-opt, .pe-score {
+    background: #fff !important; border-color: #bbb !important; box-shadow: none !important;
+  }
+  .pe-review-item { break-inside: avoid; page-break-inside: avoid; }
+  .pe-outcome-word, .pe-outcome-sub, .pe-score-pct, .pe-score-frac, .pe-score-time,
+  .pe-review-prompt, .pe-review-num, .pe-opt, .pe-explain p, .pe-h3,
+  .pe-domain-name, .pe-domain-pct, .pe-focus { color: #111 !important; }
+  .pe-opt.is-correct { border-color: #2c8a54 !important; }
+  .pe-opt.is-incorrect { border-color: #b3373b !important; }
+  .pe-explain-label { color: #5a3ec8 !important; }
+  .pe-domain-bar { background: #eee !important; }
+  button.pe-domain-row { display: grid !important; }
+  a { color: #111; text-decoration: none; }
+}
