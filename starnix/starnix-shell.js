@@ -1765,6 +1765,8 @@
       // (UI) keyboard visibility: every interactive control shows a clear focus ring
       ".sx-btn:focus-visible,.sx-strip:focus-visible,.sx-skip:focus-visible,.sx-mission-go:focus-visible{outline:2px solid var(--aqua,#1FDDE9);outline-offset:2px;}",
       ".sx-btn-iris{background:var(--iris);color:#fff;}.sx-btn-iris:hover{background:var(--iris600);}",
+      // (C2-01) three call sites use sx-btn-primary (pause Resume, selected genre) but no rule existed — buttons rendered UA-gray
+      ".sx-btn-primary{background:var(--iris);color:#fff;}.sx-btn-primary:hover{background:var(--iris600);}",
       ".sx-btn-ghost{background:transparent;border:1px solid var(--border);color:var(--mid);}",
       ".sx-btn-ghost:hover{border-color:var(--iris);color:var(--text);}",
       ".sx-cine{padding:0;}.sx-cine-canvas{position:absolute;inset:0;width:100%;height:100%;}",

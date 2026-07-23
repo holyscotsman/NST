@@ -100,5 +100,17 @@ On question N the Next button is disabled but still reads "Next" (verified headl
 
 ## Review verdicts
 
-(recorded before implementation)
+Adversarial review: premise verifier + regression skeptic per item. 18 verdicts
+from the review workflow, 2 (risk:C2-09, risk:C2-10) completed inline after the
+subagent session limit interrupted them. **All 10 items: PASS + PASS.**
+
+Highlights folded into implementation:
+- **C2-02 crash trap:** ResultScreen never received `ctx.stats` — copying the
+  title screen's wins badge verbatim would have thrown mid-win-render. `wins`
+  is now passed explicitly from endRun.
+- **C2-01:** the built bundle carries its own copy of the injected CSS — the
+  rule ships via a rebuild; high-contrast mode's bounding border extended to
+  `.sx-btn-primary` (one selector in starnix-core.js, flagged + done).
+- **C2-05:** the fix moves announcements OFF the per-second-rewritten element
+  entirely (dedicated one-shot live region).
 

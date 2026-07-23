@@ -1024,7 +1024,7 @@
     var base = varBlock(":root", THEME.colors).replace(";}", ";--font:" + THEME.font + ";}");
     var hc = varBlock(':root[data-contrast="high"]', THEME.contrast);
     var hcRules =
-      ':root[data-contrast="high"] .sx-btn-iris{border:1px solid var(--white);}' +
+      ':root[data-contrast="high"] .sx-btn-iris,:root[data-contrast="high"] .sx-btn-primary{border:1px solid var(--white);}' +
       ':root[data-contrast="high"] .sx-stat{background:rgba(255,255,255,.09);}' +
       // (v0.135.0, V1.1 FE#1) the focus ring is ALWAYS on now — keyboard users on a dark bg
       // got invisible browser-default rings everywhere outside high-contrast mode.

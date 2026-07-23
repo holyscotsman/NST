@@ -64,7 +64,7 @@
       });
     });
     prevBtn.addEventListener("click", function () { if (idx > 0) { idx--; renderCard(); } });
-    nextBtn.addEventListener("click", function () { if (idx < N - 1) { idx++; renderCard(); } });
+    nextBtn.addEventListener("click", function () { if (idx < N - 1) { idx++; renderCard(); } else promptSubmit(); });
     flagBtn.addEventListener("click", function () { flags[idx] = !flags[idx]; if (PE.sfx) PE.sfx.play("flag"); renderCard(); });
     submitBtn.addEventListener("click", function () { promptSubmit(); });
 
@@ -111,9 +111,15 @@
       return m + ":" + (ss < 10 ? "0" : "") + ss;
     }
     // (UI) urgency thresholds derive from the whole sitting: amber at 25% remaining,
-    // red at 10% — plus one polite screen-reader announcement at each crossing.
+    // red at 10%. (C2-05) announcements go through a dedicated visually-hidden
+    // live region written ONCE per crossing — flipping aria-live on the timer
+    // itself made screen readers announce every per-second innerHTML rewrite.
     var totalMs = limitMin * 60 * 1000;
     var announced = { warn: false, danger: false };
+    var srTimer = el("div", "pe-sr-only");
+    srTimer.setAttribute("aria-live", "polite");
+    srTimer.setAttribute("aria-atomic", "true");
+    root.appendChild(srTimer);
     function tick() {
       var rem = endTime - Date.now();
       timerEl.innerHTML = ui.ICONS.clock + "<span>" + fmt(rem) + "</span>";
@@ -123,12 +129,11 @@
       timerEl.classList.toggle("danger", danger);
       if (warn && !announced.warn) {
         announced.warn = true;
-        timerEl.setAttribute("aria-live", "polite");
-        timerEl.setAttribute("aria-label", "Timer: " + fmt(rem) + " remaining — a quarter of the time left");
+        srTimer.textContent = fmt(rem) + " remaining — a quarter of the time left.";
       }
       if (danger && !announced.danger) {
         announced.danger = true;
-        timerEl.setAttribute("aria-label", "Timer: " + fmt(rem) + " remaining — running out of time");
+        srTimer.textContent = fmt(rem) + " remaining — running out of time.";
       }
       if (rem <= 0) { stopTimer(); doSubmit(true); }
     }
@@ -178,7 +183,11 @@
       flagBtn.classList.toggle("on", !!flags[idx]);
       flagBtn.innerHTML = (flags[idx] ? "&#9873; Flagged" : "&#9873; Flag");
       prevBtn.disabled = idx === 0;
-      nextBtn.disabled = idx === N - 1;
+      // (C2-10) the forward flow never dead-ends: on the last question the Next
+      // button becomes the submit entry (promptSubmit already summarizes
+      // unanswered/flagged and offers "Review flagged first").
+      nextBtn.disabled = false;
+      nextBtn.textContent = idx === N - 1 ? "Review & submit" : "Next";
       // (UI) the bar now shows real progress — answered share fills it, and a thin tick
       // marks where you're currently positioned in the set.
       progFill.style.width = (answeredCount() / N * 100) + "%";

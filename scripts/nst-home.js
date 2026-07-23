@@ -4,7 +4,7 @@
  * at boot. Groups: Accessibility, Audio, Developer Mode, Reset saved data. */
 (function () {
   "use strict";
-  var NST_VERSION = "1.2.0";
+  var NST_VERSION = "1.3.0";
   var P = window.NSTPrefs;
 
   function el(tag, cls, html) {
@@ -269,13 +269,26 @@
     // --- Audio ---
     var aud = section("Audio");
     aud.appendChild(el("p", "nst-set-note", "Applies to the WWTBANE and StarNix games. Practice Exams stays silent unless you opt in below."));
-    aud.appendChild(toggle("Mute all", "Silence all audio, including Practice Exams sounds.", prefs.audioMuted, function (v) { P.set({ audioMuted: v }); }));
-    aud.appendChild(toggle("Practice Exams sounds", "Subtle feedback cues (select, correct/incorrect, submit). Off by default.", prefs.peSound, function (v) { P.set({ peSound: v }); }));
-    var volRow = el("div", "nst-set-row");
+    // (C2-08) standard mixer behavior: while Mute all is on, the controls it
+    // overrides dim and disable — values are kept so unmuting restores them.
+    var peRow, volRow, vol;
+    function applyMuteState(muted) {
+      if (vol) vol.disabled = muted;
+      if (peRow) {
+        peRow.classList.toggle("muted", muted);
+        var sw = peRow.querySelector(".nst-switch");
+        if (sw) sw.setAttribute("aria-disabled", muted ? "true" : "false");
+      }
+      if (volRow) volRow.classList.toggle("muted", muted);
+    }
+    aud.appendChild(toggle("Mute all", "Silence all audio, including Practice Exams sounds.", prefs.audioMuted, function (v) { P.set({ audioMuted: v }); applyMuteState(v); }));
+    peRow = toggle("Practice Exams sounds", "Subtle feedback cues (select, correct/incorrect, submit). Off by default.", prefs.peSound, function (v) { P.set({ peSound: v }); });
+    aud.appendChild(peRow);
+    volRow = el("div", "nst-set-row");
     var volText = el("div", "nst-set-text");
     volText.appendChild(el("div", "nst-set-label", "Volume"));
     volRow.appendChild(volText);
-    var vol = el("input", "nst-slider");
+    vol = el("input", "nst-slider");
     vol.type = "range"; vol.min = "0"; vol.max = "100"; vol.step = "5";
     vol.value = String(Math.round(prefs.audioVolume * 100));
     vol.setAttribute("aria-label", "Volume");
@@ -284,6 +297,7 @@
     volRow.appendChild(vol);
     volRow.appendChild(volVal);
     aud.appendChild(volRow);
+    applyMuteState(!!prefs.audioMuted);
     body.appendChild(aud);
 
     // --- Developer Mode ---

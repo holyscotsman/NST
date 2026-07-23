@@ -181,7 +181,14 @@ export function ResultScreen(ctx) {
       ctx.explanation ? h('p', { class: 'reveal-exp' }, ctx.explanation) : null,
     ) : null,
 
-    h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins total`)),
+    // (C2-02) on a win, prestige has already reset the wallet to 0 — showing
+    // "0 coins total" under "took home 50,000" reads as a bug. The win row shows
+    // the run's payout + career wins instead; the loss path keeps the truthful
+    // wallet total.
+    win
+      ? h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' },
+          `🏆 ${money(ctx.payout)} coin payout` + (ctx.wins ? ` · win #${ctx.wins}` : '')))
+      : h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins total`)),
 
     h('div', { class: 'menu' },
       win

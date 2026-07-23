@@ -133,13 +133,18 @@ export class QuizScreen {
         multi ? h('span', { class: 'chip multi' }, 'Select all that apply') : null,
       ),
       this.lifelinePanel,
-      h('h2', { class: 'stem' }, q.stem),
+      (this.stemEl = h('h2', { class: 'stem', tabindex: '-1' }, q.stem)),
       q.image ? questionImage(q.image) : null,
       this.optionsEl,
       h('div', { class: 'lock-row' }, this.lockBtn),
     );
     clear(this.cardWrap);
     this.cardWrap.append(this.card);
+    // (C2-09) the old card carried keyboard focus (Continue) and was just torn
+    // down — without a handoff, focus falls to <body> and Tab restarts from the
+    // top of the document. Land it on the new stem (same pattern as _swap's
+    // heading focus in main.js).
+    try { this.stemEl.focus({ preventScroll: true }); } catch { /* older engines */ }
 
     // The read-out: the stem sits alone long enough to read, then the answers
     // appear one at a time (no text-to-speech — pacing does the "reading").
@@ -230,6 +235,12 @@ export class QuizScreen {
       btn.setAttribute('aria-checked', on ? 'true' : 'false');
     });
     this.lockBtn.disabled = this.selected.size === 0;
+    // (C2-07) multi questions grade all-or-nothing — show how many are picked so
+    // locking with too few never feels like a UI accident.
+    if (this.current && this.current.q.type === 'multi') {
+      const n = this.selected.size;
+      this.lockBtn.textContent = n > 0 ? `Lock in ${n} answer${n === 1 ? '' : 's'}` : 'Lock in these answers';
+    }
     this._applyRoving();
   }
 

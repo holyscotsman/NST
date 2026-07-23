@@ -23,6 +23,15 @@ export class Hud {
     this._buildLadder();
     this._buildSeed();
     this.el.append(this.cluster, this.ladderEl, this.seedEl);
+    // (C2-04) a resize mid-question strands the highlight/scroll where the old
+    // geometry put it (the mobile strip can leave the current rung fully
+    // off-screen). Re-anchor to the last shown index, debounced.
+    this._lastIndex = null;
+    let rzT = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(rzT);
+      rzT = setTimeout(() => { if (this._lastIndex != null) this._moveHighlight(this._lastIndex); }, 150);
+    });
   }
 
   /* ---------------- upper-left cluster ---------------- */
@@ -126,6 +135,7 @@ export class Hud {
       r.classList.toggle('current', i === snapshot.index);
       r.classList.toggle('cleared', i < snapshot.index);
     }
+    this._lastIndex = snapshot.index;   // (C2-04) resize re-anchors to this
     this._moveHighlight(snapshot.index);
 
     // coins (tweened)

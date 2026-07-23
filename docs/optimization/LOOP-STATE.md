@@ -23,4 +23,8 @@ Continuous improvement loop over the whole NST product, run autonomously.
 | Cycle | Version | State | PR |
 |------:|---------|-------|----|
 | 01 | 1.2.0 | shipped + deployed | [#10](https://github.com/holyscotsman/NST/pull/10) |
-| 02 | 1.3.0 | change review running | — |
+| 02 | 1.3.0 | shipped (review 20/20 PASS, e2e 22/22, sweep clean) | #11 |
+
+Loop ENDED after cycle 02: the 6-hour window (until 11:24Z) elapsed during a
+subagent session-limit stall; the in-flight reviewed cycle was completed and
+shipped, and no new cycle was started past the deadline.
