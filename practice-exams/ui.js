@@ -105,9 +105,49 @@
     host.scrollLeft = cur.offsetLeft - host.clientWidth / 2 + cur.offsetWidth / 2;
   }
 
+  // (C3-03) shared confirm dialog — the same contract as exam-mode's private
+  // one (Escape cancels, Tab trapped, focus restored to the opener), reusing
+  // the existing .pe-modal styles.
+  function confirm(title, body, confirmLabel, onConfirm) {
+    var overlay = el("div", "pe-modal-overlay");
+    var modal = el("div", "pe-modal");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.appendChild(el("h3", "pe-modal-title", esc(title)));
+    modal.appendChild(el("p", "pe-modal-body", esc(body)));
+    var row = el("div", "pe-modal-actions");
+    var cancel = el("button", "pe-btn pe-btn-ghost", "Cancel");
+    cancel.type = "button";
+    var ok = el("button", "pe-btn pe-btn-primary", confirmLabel);
+    ok.type = "button";
+    var opener = document.activeElement;
+    function close() {
+      try { overlay.remove(); } catch (e) {}
+      document.removeEventListener("keydown", onModalKey, true);
+      if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+    }
+    function onModalKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+      if (e.key !== "Tab") return;
+      var items = modal.querySelectorAll("button");
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", onModalKey, true);
+    cancel.addEventListener("click", close);
+    ok.addEventListener("click", function () { close(); onConfirm(); });
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+    row.appendChild(cancel); row.appendChild(ok);
+    modal.appendChild(row);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    ok.focus();
+  }
+
   PE.ui = {
     el: el, esc: esc, ICONS: ICONS, LETTERS: LETTERS,
     exhibit: exhibit, option: option, domainBreakdown: domainBreakdown,
-    centerPalette: centerPalette,
+    centerPalette: centerPalette, confirm: confirm,
   };
 })();

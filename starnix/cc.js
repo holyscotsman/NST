@@ -2265,7 +2265,11 @@
         duck: function () { sim.duck(); flashKey(el.kDuck); }
       };
       function onKey(e) {
-        if (sim.phase === PHASE_OVER) return;
+        // (C3-04) steering keys belong to the RUN phase only. During a question
+        // or explanation the overlay owns the keyboard — returning WITHOUT
+        // preventDefault lets Space activate the focused Continue button and
+        // arrows scroll the explanation instead of being swallowed.
+        if (sim.phase !== PHASE_RUN) return;
         var k = e.key;
         if (k === 'ArrowLeft' || k === 'a' || k === 'A') { actions.left(); e.preventDefault(); }
         else if (k === 'ArrowRight' || k === 'd' || k === 'D') { actions.right(); e.preventDefault(); }

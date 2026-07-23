@@ -157,7 +157,7 @@ export class QuizScreen {
     } else {
       const { stemMs, optionGapMs } = readoutPacing(q.stem.length, q.options.length);
       btns.forEach((b) => { b.classList.add('unrevealed'); b.disabled = true; });
-      btns.forEach((b, i) => this._after(stemMs + i * optionGapMs, () => {
+      this._revealTimers = btns.map((b, i) => this._after(stemMs + i * optionGapMs, () => {
         this.revealed.add(i);
         b.classList.remove('unrevealed');
         b.style.animationDelay = '0s'; // the reveal IS the stagger
@@ -165,6 +165,27 @@ export class QuizScreen {
         this._applyRoving(); // keep the tab stop on the first live option
         if (this.handlers.onReveal) this.handlers.onReveal(i);
       }));
+      // (C3-07) impatient tap/click anywhere on the card skips the read-out —
+      // it's pacing, not information. One skip reveals everything at once
+      // (single reveal tick, not N).
+      const skip = (ev) => {
+        if (!this._revealTimers || !this._revealTimers.length) return;
+        if (this.revealed.size >= btns.length) return;
+        this._revealTimers.forEach(clearTimeout);
+        this._revealTimers = [];
+        let any = false;
+        btns.forEach((b, i) => {
+          if (this.revealed.has(i)) return;
+          any = true;
+          this.revealed.add(i);
+          b.classList.remove('unrevealed');
+          b.style.animationDelay = '0s';
+          if (!this.removed.has(i)) b.disabled = false;
+        });
+        this._applyRoving();
+        if (any && this.handlers.onReveal) this.handlers.onReveal(btns.length - 1);
+      };
+      this.card.addEventListener('pointerdown', skip);
     }
   }
 

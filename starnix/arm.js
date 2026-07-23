@@ -683,6 +683,23 @@
         if (state === "SECTOR" || state === "HOME") {
           if (km[e.code]) { input[km[e.code]] = true; e.preventDefault(); }
           else if (e.code === "Space") { e.preventDefault(); if (returnReady && state === "SECTOR") engageReturn(); else input.fire = true; }
+          return;
+        }
+        // (C3-05) keyboard answering: while a question panel is up, digits 1-6
+        // activate the matching option (a click — so multi questions toggle
+        // exactly like the pointer path) and Enter presses the visible submit.
+        // DOM-driven and inert when no panel is showing.
+        var panelOpts = doc.querySelectorAll(".arm-opts .arm-opt");
+        if (!panelOpts.length) return;
+        var dg = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
+        if (dg) {
+          var oi = parseInt(dg[1], 10) - 1;
+          if (oi < panelOpts.length && !panelOpts[oi].disabled) { e.preventDefault(); panelOpts[oi].click(); }
+          return;
+        }
+        if (e.code === "Enter" || e.code === "NumpadEnter") {
+          var sub = doc.querySelector(".arm-opts .arm-submit");
+          if (sub && !sub.disabled) { e.preventDefault(); sub.click(); }
         }
       });
       on(win, "keyup", function (e) {

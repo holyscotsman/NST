@@ -140,21 +140,33 @@
     function startTimer() { tick(); timerId = setInterval(tick, 1000); }
     function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
 
+    // (C3-02) built once, updated in place — the old wipe-and-recreate of up to
+    // 75 chips on every selection/navigation/flag threw an activating keyboard
+    // user's focus to <body>.
+    var palChips = null;
     function buildPalette() {
       paletteEl.innerHTML = "";
-      questions.forEach(function (q, i) {
+      palChips = questions.map(function (q, i) {
+        var b = el("button", "pe-pal", String(i + 1));
+        b.type = "button";
+        b.addEventListener("click", function () { idx = i; renderCard(); });
+        paletteEl.appendChild(b);
+        return b;
+      });
+      updatePalette();
+      ui.centerPalette(paletteEl);
+    }
+    function updatePalette() {
+      if (!palChips) return;
+      palChips.forEach(function (b, i) {
         var cls = "pe-pal";
         if (i === idx) cls += " current";
         if (engine.isAnswered(answers[i])) cls += " answered";
         if (flags[i]) cls += " flagged";
-        var b = el("button", cls, String(i + 1));
-        b.type = "button";
+        b.className = cls;
         b.setAttribute("aria-label", "Question " + (i + 1)
           + (engine.isAnswered(answers[i]) ? ", answered" : ", not answered") + (flags[i] ? ", flagged" : ""));
-        b.addEventListener("click", function () { idx = i; renderCard(); });
-        paletteEl.appendChild(b);
       });
-      ui.centerPalette(paletteEl);
     }
 
     function renderCard() {
@@ -194,7 +206,7 @@
       var posT = root.querySelector(".pe-progress-pos");
       if (posT) posT.style.left = (((idx + 1) / N) * 100) + "%";
       progMeta.textContent = "Question " + (idx + 1) + " of " + N + " · " + answeredCount() + " answered";
-      buildPalette();
+      updatePalette();   // (C3-02) chips update in place
       try { cardEl.scrollIntoView({ block: "nearest" }); } catch (e) {}
     }
 
@@ -291,6 +303,7 @@
     }
 
     startTimer();
+    buildPalette();
     renderCard();
   }
 

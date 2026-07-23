@@ -252,6 +252,10 @@
         '<li><button type="button" class="sx-mission-go" data-game="KBB"><b>Defeat</b> the BCM warship in the Kuiper Belt <span class="acc-peach">\u2014 Kuiper Belt Battle</span></button></li>' +
       '</ul>';
     mission.style.opacity = "0";
+    // (C3-09) invisible must mean untouchable: the CSS sets pointer-events:auto,
+    // so a center-screen click seconds into the intro hit invisible mission
+    // buttons and warped into a game. Interactive only from its reveal beat.
+    mission.style.pointerEvents = "none";
     var mLines = mission.querySelectorAll(".sx-mission-list li"), lastLineN = 0;   // (v0.181.0, V1.1 Menu#7)
     // (Menu#7) the finale IS the first mission select — each revealed line launches directly;
     // _clearScreen cancels the cinematic RAF, so the jump is clean.
@@ -604,6 +608,7 @@
 
       if (T >= B.mission) {
         var mo = String(clamp((T - B.mission) / 0.8, 0, 1)); if (mo !== lastMo) { lastMo = mo; mission.style.opacity = mo; }
+        if (mission.style.pointerEvents !== "auto") mission.style.pointerEvents = "auto";   // (C3-09) live from the reveal beat
         // (v0.181.0, V1.1 Menu#7) accent-coded staggered reveal, one soft tick per landing line
         var ln = reduced ? mLines.length : Math.min(mLines.length, 1 + Math.floor((T - B.mission) / 0.4));
         if (ln !== lastLineN) {

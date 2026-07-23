@@ -1146,6 +1146,9 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     css.push('@media (prefers-reduced-motion: reduce){.kbb-en-strike,.kbb-statline .final{animation:none;}}');
     css.push('[data-motion=reduced] .kbb-en-strike,[data-motion=reduced] .kbb-statline .final{animation:none;}');   // (v0.150.0, FE) in-app toggle twin
     css.push('.kbb-enemy{grid-area:stage;justify-self:end;align-self:start;width:288px;margin:8px;min-width:0;z-index:6;background:rgba(14,14,24,.82);border:1px solid ' + P.border + ';border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:12px;justify-content:space-between;}');
+    // (C3-06) engine-log ticker: bottom-center of the stage, out of the play zones
+    css.push('.kbb-log{grid-area:stage;justify-self:center;align-self:end;z-index:6;max-width:70%;margin:0 0 6px;padding:3px 12px;border-radius:999px;background:rgba(14,14,24,.78);border:1px solid ' + P.border + ';color:' + P.mid + ';font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}');
+    css.push('.kbb-log:empty{display:none;}');
     css.push('.kbb-enemy .entext{text-align:left;min-width:0;flex:1;}');
     css.push('.kbb-enemy .ennm{font-weight:800;font-size:17px;color:' + P.gold + ';margin:1px 0 7px;overflow:hidden;text-overflow:ellipsis;}');
     css.push('.kbb-statline{display:flex;gap:12px;font-size:11px;color:' + P.dim + ';margin-top:7px;font-variant-numeric:tabular-nums;}');   /* (v0.187.0, FE#8) */
@@ -1488,6 +1491,10 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         '<text x="50" y="49" class="rt sm">--</text><text x="50" y="64" class="rt tiny"></text></svg>';
 
       s.mainPanel = el(doc, 'div', 'kbb-main'); container.appendChild(s.mainPanel);           // YELLOW
+      // (C3-06) the engine's log line finally reaches the DOM — renderLog guarded
+      // on s.logEl, which was never created, so Overcharge/Lazarus/siphon/surge
+      // feedback (and consumable use) was silent. aria-live: SRs hear it too.
+      s.logEl = el(doc, 'div', 'kbb-log'); s.logEl.setAttribute('aria-live', 'polite'); container.appendChild(s.logEl);
       s.hand = el(doc, 'div', 'kbb-hand'); container.appendChild(s.hand);                     // (v0.113.0, D5) the card hand
 
       s.tipEl = el(doc, 'div', 'kbb-tip'); container.appendChild(s.tipEl);                    // shared tooltip
