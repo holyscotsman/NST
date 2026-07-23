@@ -363,6 +363,11 @@ button:disabled { opacity: 0.45; }
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
   animation: qcardIn 0.35s var(--swift) both;
   display: flex; flex-direction: column;
+  /* (C1-09) short viewports: a long question + audience poll must scroll inside
+     the card, never push the stem off the top of the screen with no way back. */
+  max-height: calc(100vh - 52px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .q-card.desat { filter: saturate(0.85); }
 

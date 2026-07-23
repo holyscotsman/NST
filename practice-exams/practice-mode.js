@@ -30,7 +30,7 @@
         '<button type="button" class="pe-btn pe-btn-primary pe-check">Check answer</button>' +
         '<button type="button" class="pe-btn pe-btn-ghost pe-next">Next</button>' +
       '</div>' +
-      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>D</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>Enter</kbd> check</p>';
+      '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>D</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>Enter</kbd> check / next</p>';
     container.innerHTML = "";
     container.appendChild(root);
 
@@ -71,7 +71,20 @@
       else if (ni >= 0 && ni < q.options.length) { e.preventDefault(); selectOption(ni); }
       else if (k === "ArrowLeft" && idx > 0) { e.preventDefault(); idx--; renderCard(); }
       else if (k === "ArrowRight" && idx < N - 1) { e.preventDefault(); idx++; renderCard(); }
-      else if (k === "Enter" && !checkBtn.disabled && tag !== "BUTTON") { e.preventDefault(); onCheckOrRetry(); }
+      else if (k === "Enter") {
+        // (C1-04) after a check, Enter ADVANCES — it must never fall through to
+        // "Try again" and silently wipe the checked answer. That includes when
+        // focus still sits on the check button from the mouse click that checked
+        // (native activation would re-fire it as "Try again"). Deliberate
+        // Try-again stays a click/Space on the button.
+        var stE = state[idx];
+        if (stE.checked) {
+          if (e.target === checkBtn || tag !== "BUTTON") {
+            e.preventDefault();
+            if (idx < N - 1) { idx++; renderCard(); }
+          }
+        } else if (!checkBtn.disabled && tag !== "BUTTON") { e.preventDefault(); onCheckOrRetry(); }
+      }
     }
     document.addEventListener("keydown", onKey);
 
