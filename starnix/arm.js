@@ -187,6 +187,7 @@
     var warpT = 0, warpBeat = -1, warpDone = null;
     var shakeAmt = 0;                  // S4: boss screen shake (laser fire / death blasts); decays per frame
     var paused = false, pauseStart = 0, pauseClockOffset = 0;   // S3: shell-driven pause (freeze rAF + sim/puzzle/question timers)
+    var visAutoPaused = false;        // (C1-10) latch: only the tab-hide handler's own pause may auto-resume
     var panicSpawned = false;                                   // S3: full-collection escape gauntlet (fires once per sector)
     var SPR = { hero: null, enemy: null, boss: null, warp: null, dive: null, station: null };  // S3: asset-gated sprites (fallback = in-code vector art). warp = hyperdrive hull; dive = BCM intro-dive enemy; station = intro Acropolis.
     var bossActive = false;                                     // S3: boss-fight seam (sprite wired; encounter is Increment 2 — flagged to Core)
@@ -380,7 +381,7 @@
       RNG = ctx.rng; THEME = ctx.theme || {}; TEL = ctx.telemetry; PERS = ctx.persistence;
       SET = ctx.settings || {}; EXIT = ctx.exit; TESTMODE = !!ctx.test; PERKS = ctx.perks || {};   // (v0.179.0, Flow#7)
       runRng = RNG.fork("arm-boot");   // valid before newRun re-forks per run
-      paused = false; pauseStart = 0; pauseClockOffset = 0; pausedTimers.length = 0;
+      paused = false; pauseStart = 0; pauseClockOffset = 0; pausedTimers.length = 0; visAutoPaused = false;
       initSprites();                   // S3: asset-gated ship sprites (no-op + vector fallback if absent)
 
       highContrast = !!SET.colorblind;             // #12 P2: high-contrast canvas + DOM palette
@@ -640,6 +641,16 @@
       commsPort.innerHTML = PORTRAIT + '<i class="arm-port-sweep"></i><i class="arm-port-scan"></i>';  // static art + transmission overlays
       resize();
       on(win, "resize", resize);
+      // (C1-10) tab-hide freezes the game (question countdowns are wall-clock
+      // deadlines — a hidden tab was silently eating timeouts and shield damage).
+      // Latched: only OUR pause auto-resumes on return; the shell overlay's pause
+      // stays down until the player closes it. Registered via on() so offAll()
+      // removes it on unmount; inert in TESTMODE (no RAF, step()-driven).
+      on(doc, "visibilitychange", function () {
+        if (TESTMODE) return;
+        if (doc.hidden) { if (!paused) { pause(); visAutoPaused = true; } }
+        else if (visAutoPaused) { visAutoPaused = false; resume(); }
+      });
       on(win, "keydown", function (eK) {   // (v0.112.0, D4) console keys 1/2/3 in the briefing
         if (state !== "BRIEF" || paused) return;   // (v0.116.0, R1) console keys freeze under the pause overlay
         var kn = eK.key === "1" ? 0 : eK.key === "2" ? 1 : eK.key === "3" ? 2 : -1;

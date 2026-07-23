@@ -1066,7 +1066,8 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
   var PALETTE = {
     iris: '#7855FA', iris300: '#AC9BFD', iris600: '#6D40E6', aqua: '#1FDDE9',
     mantis: '#92DD23', peach: '#FF6B5B', gold: '#FFC857', space: '#07070e',
-    panel: '#14141d', panel2: '#1d1d29', border: '#34344a', text: '#F2F2F7', dim: '#9a9aad'
+    panel: '#14141d', panel2: '#1d1d29', border: '#34344a', text: '#F2F2F7', dim: '#9a9aad',
+    mid: '#c9c9d8'   // (C1-07) mid-emphasis text between `text` and `dim` — four rules were emitting color:undefined
   };
   var CAT_COLOR = { damage: PALETTE.peach, sustain: PALETTE.mantis, defense: PALETTE.iris,
     economy: PALETTE.gold, utility: PALETTE.aqua, risk: PALETTE.peach, scaling: PALETTE.iris300, domain: PALETTE.aqua };
@@ -3196,7 +3197,17 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
         var n = parseInt(e.key, 10);
         if (n >= 1 && n <= 9 && s.run.battle && s.run.battle.question && n <= s.run.battle.question.options.length) {
           if (s.run.battle.revealed.indexOf(n - 1) >= 0) return;
-          e.preventDefault(); onAnswer(s, n - 1);
+          e.preventDefault();
+          // (C1-06) multi-select questions: a digit TOGGLES the option exactly like a
+          // click — feeding onAnswer a bare index is graded wrong by gradeAnswer AND
+          // throws in the reveal pass (chosenSet.indexOf on a number), soft-locking
+          // the battle. Submit stays on the confirm control.
+          if (isMultiQ(s.run.battle.question)) {
+            var ob = s.root.querySelector('.kbb-opt[data-idx="' + (n - 1) + '"]');
+            if (ob && !ob.disabled) ob.click();
+            return;
+          }
+          onAnswer(s, n - 1);
         }
       }
     }

@@ -4,7 +4,7 @@
  * at boot. Groups: Accessibility, Audio, Developer Mode, Reset saved data. */
 (function () {
   "use strict";
-  var NST_VERSION = "1.1.0";
+  var NST_VERSION = "1.2.0";
   var P = window.NSTPrefs;
 
   function el(tag, cls, html) {
@@ -92,8 +92,28 @@
     s.appendChild(list);
     var Bank = window.NSTBank;
     if (!Bank) { list.innerHTML = ""; list.appendChild(el("div", "nst-bank-empty", "Bank loader unavailable.")); return s; }
-    Bank.list().then(function (banks) {
+    // (C1-02) named renderer so the failure branch's Retry can re-fetch and
+    // re-render in place — a fetch failure is an ERROR with a Retry, never the
+    // misleading "no banks found" empty state.
+    function render(banks) {
       list.innerHTML = "";
+      if (!banks.length && Bank.manifestError && Bank.manifestError()) {
+        list.appendChild(el("div", "nst-bank-empty", "Couldn't load the question banks — check your connection."));
+        var retry = el("button", "nst-btn nst-btn-ghost", "Retry");
+        retry.type = "button";
+        retry.addEventListener("click", function () {
+          list.innerHTML = "";
+          list.appendChild(el("div", "nst-set-note", "Loading…"));
+          Bank.manifest(true).then(function (banks2) {
+            render(banks2);
+            // re-render destroyed the focused Retry — keep focus inside the modal
+            var f = list.querySelector("input, button");
+            if (f) f.focus();
+          });
+        });
+        list.appendChild(retry);
+        return;
+      }
       if (!banks.length) {
         list.appendChild(el("div", "nst-bank-empty", "No question banks found. Drop a Markdown bank into /banks/, list it in manifest.json, then reload."));
         return;
@@ -121,7 +141,8 @@
         list.appendChild(row);
       });
       list.appendChild(applyHint);
-    });
+    }
+    Bank.list().then(render);
     return s;
   }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
@@ -359,12 +380,69 @@
     modal.appendChild(row);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
-    ok.focus();
+    // (C1-03) irreversible action: default focus goes to Cancel so a reflexive
+    // Enter can't wipe every save on the device; the danger button stays last
+    // in tab order and visually prominent.
+    cancel.focus();
+  }
+
+  // (C1-01) the nav Help button — a compact dialog with the same contract as
+  // Settings (Escape closes, Tab cycles, focus returns to the opener).
+  function buildHelpModal() {
+    var overlay = el("div", "nst-modal-overlay");
+    var modal = el("div", "nst-modal nst-modal-sm");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", "Help");
+    var head = el("div", "nst-modal-head");
+    head.appendChild(el("h2", "nst-modal-title", "Help"));
+    var x = el("button", "nst-modal-x", "✕");
+    x.type = "button";
+    x.setAttribute("aria-label", "Close help");
+    head.appendChild(x);
+    modal.appendChild(head);
+    var body = el("div", "nst-modal-body");
+    var items = [
+      ["WWTBANE", "A game-show quiz — climb the money ladder by answering questions in a row; wrong answers end the run but banked coins stay."],
+      ["StarNix", "Three arcade games where the questions are the ammunition — play to drill, the games adapt to what you miss."],
+      ["Practice Exams", "Straight study: Practice mode with instant feedback, or a timed exam-like sitting with results by domain."],
+      ["Question banks", "Pick which certification bank every tool studies from — use the picker on this page or Settings → Question bank."],
+      ["Settings", "The gear in the top right: accessibility (reduced motion, contrast, text size), audio, and saved-data reset."],
+    ];
+    items.forEach(function (it) {
+      var row = el("div", "nst-help-row");
+      row.appendChild(el("b", null, it[0]));
+      row.appendChild(el("p", "nst-set-note", it[1]));
+      body.appendChild(row);
+    });
+    modal.appendChild(body);
+    overlay.appendChild(modal);
+    var opener = document.activeElement;
+    function close() {
+      try { overlay.remove(); } catch (e) {}
+      document.removeEventListener("keydown", onKey);
+      if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { close(); return; }
+      if (e.key !== "Tab" || !overlay.isConnected) return;
+      var items2 = modal.querySelectorAll("button");
+      var first = items2[0], last = items2[items2.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    x.addEventListener("click", close);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    x.focus();
   }
 
   function init() {
     var btn = document.getElementById("nst-settings-btn");
     if (btn) btn.addEventListener("click", buildModal);
+    var help = document.getElementById("nst-help-btn");
+    if (help) help.addEventListener("click", buildHelpModal);
     renderNavBadge();
     renderCertSelector();
   }

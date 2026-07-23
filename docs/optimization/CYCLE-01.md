@@ -101,7 +101,23 @@ Measured: with the tab hidden 3s, the question countdown drained 3012ms — a ta
 
 ## Review verdicts
 
-(filled in by the change review before implementation)
+Adversarial review, two independent agents per item (premise verifier reproduced
+each claim in code and headless browser; regression skeptic hunted for pinned
+tests, scope collisions, and flow conflicts). **All 10 items: PASS + PASS.**
+
+Notable findings folded into implementation:
+- **C1-06 is worse than surveyed:** a digit key on a multi-select question not
+  only grades WRONG — `onAnswer` throws a TypeError (`chosenSet.indexOf` on a
+  bare number) with `s.locked=true` and no continue gate: a true soft-lock.
+- **C1-08/C1-10:** use an `autoPaused` latch — only the visibility handler's own
+  pause may auto-resume; never copy CC's unconditional `onVis` resume. Register
+  ARM's handler via the module `on()` helper so `offAll()` cleans it on unmount.
+- **C1-01:** the anchor→button swap needs UA-style resets (font: inherit,
+  cursor), a `:focus-visible` ring, and the ≤1023px `display:none` rule replaced
+  (keep hidden ≤640px where the nav is full); builder named `buildHelpModal`.
+- **C1-02:** factor a named `render(banks)`; Retry calls `Bank.manifest(true)
+  .then(render)`; restore focus into the modal after re-render; style with
+  settings classes, not the hero's `.nst-cert-*` family.
 
 ## Backlog (replacements if a review fails)
 

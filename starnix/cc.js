@@ -2296,7 +2296,15 @@
 
       var onResize = debounce(function () { if (view) view.resize(); }, 120);
       window.addEventListener('resize', onResize);
-      function onVis() { if (document.hidden) pause(); else resume(); }
+      // (C1-08) auto-pause latch: only a pause the VISIBILITY handler itself took
+      // may auto-resume. If the shell's pause overlay, the how-to card, or a
+      // question owns the pause, tab-switching back must NOT restart the sim
+      // underneath it.
+      var visAutoPaused = false;
+      function onVis() {
+        if (document.hidden) { if (running) { pause(); visAutoPaused = true; } }
+        else if (visAutoPaused) { visAutoPaused = false; resume(); }
+      }
       document.addEventListener('visibilitychange', onVis);
 
       // ---- overlay (question) ----

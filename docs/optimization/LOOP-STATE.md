@@ -22,4 +22,4 @@ Continuous improvement loop over the whole NST product, run autonomously.
 ## Status
 | Cycle | Version | State | PR |
 |------:|---------|-------|----|
-| 01 | 1.2.0 | survey running | — |
+| 01 | 1.2.0 | QA passed — shipping | [#10](https://github.com/holyscotsman/NST/pull/10) |

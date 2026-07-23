@@ -21,6 +21,13 @@
     var timerId = null;
     var finished = false;
 
+    // (C1-05) an in-progress timed sitting must not be lost to a reflexive
+    // refresh/back-swipe/close — the browser asks first. The guard is dropped
+    // on submit and on a confirmed exit, so finished exams never nag.
+    function guardUnload(e) { e.preventDefault(); e.returnValue = ""; }
+    function dropGuard() { window.removeEventListener("beforeunload", guardUnload); }
+    window.addEventListener("beforeunload", guardUnload);
+
     var root = el("div", "pe-mode pe-exam");
     root.innerHTML =
       '<div class="pe-bar">' +
@@ -53,7 +60,7 @@
 
     root.querySelector(".pe-exit").addEventListener("click", function () {
       confirmModal("Leave the exam?", "Your progress will be discarded and the exam will not be scored.", "Leave", function () {
-        stopTimer(); opts.onExit && opts.onExit();
+        stopTimer(); dropGuard(); opts.onExit && opts.onExit();
       });
     });
     prevBtn.addEventListener("click", function () { if (idx > 0) { idx--; renderCard(); } });
@@ -205,6 +212,7 @@
       if (finished) return;
       finished = true;
       stopTimer();
+      dropGuard();
       var results = questions.map(function (q, i) {
         return { q: q, chosen: answers[i], correct: engine.gradeAnswer(q, answers[i]) };
       });
