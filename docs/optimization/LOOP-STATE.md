@@ -32,4 +32,5 @@ first window. Seeded from the 40 unconsumed survey candidates.
 
 | 03 | 1.4.0 | shipped (12/12 targeted checks, e2e 22/22, sweep clean) | #12 |
 | 04 | 1.5.0 | shipped (15/15 targeted checks, e2e 22/22, sweep clean) | #13 |
-| 05 | 1.6.0 | next | — |
+| 05 | 1.6.0 | shipped (12/12 targeted checks, e2e 22/22, sweep clean) | #14 |
+| 06 | 1.7.0 | next | — |

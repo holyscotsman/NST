@@ -531,6 +531,7 @@
       // pure dressing, pointer-events none; skipped in high-contrast mode for readability.
       if (!highContrast) wrap.appendChild(mk("div", "arm-vignette"));
       banner = mk("div", "arm-banner"); wrap.appendChild(banner);
+      banner.setAttribute("role", "status"); banner.setAttribute("aria-live", "polite");   // (C5-06) objectives reach AT
       gear = btn("arm-gear", "⚙ Menu", function () { ensureAudio(); sfx("click"); showSettings(); }); wrap.appendChild(gear);
 
       // (v0.111.0, D3) the 7-row stats panel becomes the compact left status rail:
@@ -630,6 +631,7 @@
       wrap.appendChild(overlay);
 
       toast = mk("div", "arm-toast"); wrap.appendChild(toast);
+      toast.setAttribute("role", "status"); toast.setAttribute("aria-live", "polite");   // (C5-06)
 
       // P6a intro cutscene overlay (skip + caption), shown only in INTRO state
       introBar = mk("div", "arm-introbar");
@@ -717,7 +719,10 @@
       W = wrap.clientWidth || DEFAULT_W; H = wrap.clientHeight || DEFAULT_H;
       cv.width = W * dpr; cv.height = H * dpr;
       if (c2d) c2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-      makeStars();
+      // (C5-05) stars/nebula live in MAP coordinates — a window resize never
+      // needed a rebuild. Regenerating here consumed seeded gameplay RNG on a
+      // cosmetic event (verified: repeated resizes changed the nebula count),
+      // subtly forking deterministic runs. Mount + sector changes still rebuild.
     }
     function makeStars() {
       stars.length = 0;
@@ -1809,6 +1814,7 @@
       var timerEl = mk("div", "arm-qtimer", ""); timerEl.style.display = "none"; panel.appendChild(timerEl);
       var opts = mk("div", "arm-opts"); panel.appendChild(opts);
       var ex = mk("div", "arm-explain"); ex.style.display = "none"; panel.appendChild(ex);
+      ex.setAttribute("aria-live", "polite");   // (C5-06) the verdict + explanation get announced
       var cont = btn("arm-act", "Continue ▸", function () { proceed(); }); cont.style.display = "none"; panel.appendChild(cont);
 
       var optButtons = [];

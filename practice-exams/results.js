@@ -92,6 +92,24 @@
     });
     root.appendChild(list);
 
+    // (C5-09) the review list runs ~15k px on a 25-question exam (3x on 75) and
+    // the only actions were above it — a reader who finishes the review hits a
+    // dead end. Mirror the actions at the bottom.
+    var actions2 = el("div", "pe-results-actions pe-results-actions-bottom");
+    var retake2 = el("button", "pe-btn pe-btn-primary", "Retake");
+    retake2.type = "button";
+    retake2.addEventListener("click", function () { opts.onRetake && opts.onRetake(); });
+    actions2.appendChild(retake2);
+    var home2 = el("button", "pe-btn pe-btn-ghost", "Back to home");
+    home2.type = "button";
+    home2.addEventListener("click", function () { opts.onHome && opts.onHome(); });
+    actions2.appendChild(home2);
+    var top2 = el("button", "pe-btn pe-btn-ghost", "↑ Back to top");
+    top2.type = "button";
+    top2.addEventListener("click", function () { try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (e) { window.scrollTo(0, 0); } });
+    actions2.appendChild(top2);
+    root.appendChild(actions2);
+
     container.appendChild(root);
     container.scrollTop = 0;
     try { window.scrollTo(0, 0); } catch (e) {}

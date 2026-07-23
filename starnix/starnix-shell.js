@@ -1033,7 +1033,13 @@
         settings[key] = v; val.textContent = Math.round(v * 100) + "%";
         try { onApply(v); } catch (e) {}
       });
-      self._on(input, "change", function () { core.persistence.save(core.profile); });
+      self._on(input, "change", function () {
+        core.persistence.save(core.profile);
+        // (C5-03) the music slider is self-demonstrating (the bed is playing);
+        // master/effects gave no audible feedback until some later game sound.
+        // One blip at the released level lets the ear judge it immediately.
+        if (key !== "musicVol" && settings[key] > 0) { try { core.audio.sfx("click"); } catch (eB) {} }
+      });
       row.appendChild(input); row.appendChild(val); container.appendChild(row);
     }
     makeSlider("masterVol", "Master volume", function (v) { if (core.audio.setMasterVolume) core.audio.setMasterVolume(v); });
@@ -1351,7 +1357,9 @@
     var settings = core.profile.settings;
 
     var s = el("div", "sx-screen sx-panelwrap");
-    s.innerHTML = '<div class="sx-panel"><div class="sx-eyebrow">Settings</div><h2 class="sx-h2">Options</h2>'
+    // (C5-01) Settings is as long as the Codex — give it the same easy exits:
+    // a sticky top back button and Escape-to-menu.
+    s.innerHTML = '<div class="sx-panel"><button class="sx-btn sx-btn-ghost sx-stats-topback" type="button">← Menu</button><div class="sx-eyebrow">Settings</div><h2 class="sx-h2">Options</h2>'
       + '<div class="sx-seclabel">Audio</div><div class="sx-sliders"></div>'
       + '<div class="sx-seclabel">Display &amp; input</div><div class="sx-toggles"></div>'
       + '<div class="sx-seclabel">Ship trail</div><div class="sx-trails"></div>'
@@ -1371,9 +1379,17 @@
 
     // ---- reset progress (two-tap confirm; persists a fresh profile, then reloads) ----
     var resetBtn = el("button", "sx-btn sx-btn-danger", "Reset all progress");
-    var armed = false;
+    var armed = false, disarmT = 0;
+    function disarmReset() { armed = false; resetBtn.textContent = "Reset all progress"; resetBtn.classList.remove("armed"); }
     self._on(resetBtn, "click", function () {
-      if (!armed) { armed = true; resetBtn.textContent = "Tap again to confirm — erases mastery & best scores"; resetBtn.classList.add("armed"); return; }
+      if (!armed) {
+        armed = true; resetBtn.textContent = "Tap again to confirm — erases mastery & best scores"; resetBtn.classList.add("armed");
+        // (C5-04) an accidental first tap must not leave a live erase-everything
+        // button armed forever — it stands down on its own.
+        var w = self.root.ownerDocument.defaultView;
+        w.clearTimeout(disarmT); disarmT = w.setTimeout(disarmReset, 5000);
+        return;
+      }
       try {
         var fresh = StarNix._internal.defaultProfile();
         fresh.settings = settings;                 // keep preferences; wipe only progress
@@ -1428,6 +1444,13 @@
     var back = el("button", "sx-btn sx-btn-ghost", "\u2190 Menu");
     this._on(back, "click", function () { if (core.persistence.flush) core.persistence.flush(); self.showMenu(); });
     s.querySelector(".sx-row").appendChild(back);
+    // (C5-01) same exits as the Codex: sticky top back + Escape (flush first,
+    // like the bottom back, so slider/toggle changes are never lost)
+    function settingsExit() { if (core.persistence.flush) core.persistence.flush(); self.showMenu(); }
+    this._on(s.querySelector(".sx-stats-topback"), "click", settingsExit);
+    this._on(global, "keydown", function (e) {
+      if ((e.key === "Escape" || e.key === "Esc") && self.screen === "settings") { e.preventDefault(); settingsExit(); }
+    });
     this.stage.appendChild(s);
     this._focusScreen(s);
   };
@@ -1490,8 +1513,14 @@
         try { delete core0.profile.saves[id]; if (core0.persistence && core0.persistence.save) core0.persistence.save(core0.profile); } catch (e1) {}
         self0.enterGame(id, false);
       });
-      row.appendChild(bR); row.appendChild(bN); rp.appendChild(row);
+      // (C5-02) a mis-click on a mission strip must not force a choice between
+      // resuming and DESTROYING the save — give it a plain way out, and land
+      // focus on the safe default (Resume).
+      var bC = el("button", "sx-btn sx-btn-ghost", "← Back to menu");
+      this._on(bC, "click", function () { self0.showMenu(); });
+      row.appendChild(bR); row.appendChild(bN); row.appendChild(bC); rp.appendChild(row);
       rs.appendChild(rp); this.stage.appendChild(rs);
+      try { bR.focus(); } catch (eF) {}
       return;
     }
     this._clearScreen();

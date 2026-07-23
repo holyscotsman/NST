@@ -304,11 +304,17 @@ export class Game {
       onGreenRoom: () => this.showGreenRoom(),
       onHelp: () => this._swap(HelpScreen(() => this.showTitle())),
       onSettings: () => this.showSettings(),
-      onToggleMusic: () => {
+      onToggleMusic: (btn) => {
         this.save.settings.music = this.save.settings.music === false; // flip (default on)
         this._applySettings(); // mutes, or resumes the lounge if turning on
         this.persist();
-        this.showTitle(); // refresh the button label
+        // (C5-10) update the button in place — the old showTitle() replayed the
+        // branded wipe and rebuilt the whole screen for a label change.
+        if (btn) {
+          const on = this.save.settings.music !== false;
+          btn.textContent = on ? '🔊 Music on' : '🔇 Music off';
+          btn.setAttribute('aria-pressed', String(on));
+        } else this.showTitle();
       },
     }));
   }
