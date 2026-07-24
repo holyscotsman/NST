@@ -5,6 +5,34 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.1.0 — KBB art + artifact curation (2026-07-24)
+
+A user-directed follow-up: real ship/asteroid art for Kuiper Belt Battle and a
+tighter, more build-defining artifact roster.
+
+### Added
+- **StarNix / KBB:** three hand-drawn **hero ship sprites** now fly the squad —
+  an attacker, a shield ship (green bubble), and a medic (green cross) — drawn
+  both on the combat stage and in the squad panel.
+- **StarNix / KBB:** three **asteroid textures** shape the Kuiper belt; each
+  drifting rock now wears a cratered/rubble texture instead of a flat polygon.
+
+### Changed
+- **StarNix / KBB:** the artifact roster is curated from 71 down to **35**
+  build-defining picks — a Balatro-style set spanning flat/mult/ramp damage,
+  sustain, defense, economy, utility, risk, permanent scaling, domain payoffs,
+  and the five **adjacency** artifacts whose rack position matters. Every
+  artifact wired to special logic (Lazarus, Twin Reactor, Compression, Golden
+  Cache) is retained.
+- **StarNix / KBB:** late-section enemy HP scaling re-tightened
+  (`hpPerSection` 0.10 → 0.16) so the clear-depth difficulty target holds after
+  the stronger, concentrated artifact pool.
+
+### Fixed
+- **StarNix / KBB:** belt rocks that indexed a removed texture slot fell back to
+  a gray polygon; the belt now derives its sprite index from the live texture
+  count, so every rock is textured.
+
 ## v2.0.0 — Exam chooser + StarNix gameplay pass (2026-07-23)
 
 A user-directed feature batch across the launcher and StarNix.

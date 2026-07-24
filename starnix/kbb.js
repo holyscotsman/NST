@@ -43,7 +43,7 @@
     squad: { hp: 40, maxHp: 40, basePower: 12, block: 6, healPower: 6, coins: 6, startShield: 0 },
     maxAttacks: 7, maxArtifacts: 5, consumableCap: 4, roundsPerSection: 5,   // (v0.99.0, K10) window widened with the rounder enemies
     flagshipSection: 3,   // (v0.149.0, V1.1 KBB#3) the section-3 boss is THE BCM Flagship — the run's winnable target
-    enemyBaseHp: 14, hpPerRound: 2.4, hpPerSection: 0.10, bossHpMult: 1.3,
+    enemyBaseHp: 14, hpPerRound: 2.4, hpPerSection: 0.16, bossHpMult: 1.3,   // (KBB#curate) late-section scaling re-tightened to hold the clear-depth target after the 35-artifact cut concentrated the pool
     intentBase: 2.2, intentPerRound: 0.30, intentPerSection: 0.08,   // v0.46.0 K4: softer chip; deaths should come from the ladder, not attrition
     coinBase: 3, bossCoinMult: 2.5,
     artifactPrice: { common: 6, uncommon: 10, rare: 16, legendary: 24 },
@@ -79,26 +79,10 @@
   function resonant(run, cat) { return resonanceCount(run, cat) >= 2; }
 
   var ARTIFACTS = [
-    /* DAMAGE */
-    { id: 'overclocked-core', name: 'Overclocked Core', rarity: 'common', category: 'damage',
-      description: '+4 flat damage.',
-      hooks: { modifyDamage: function (c, d) { d.flat += 4; } } },
+    /* DAMAGE — flat-stack, mult-stack, and per-correct ramps */
     { id: 'chevron-array', name: 'Chevron Array', rarity: 'common', category: 'damage',
       description: '+2 flat damage per correct answer already landed this battle.',
       hooks: { modifyDamage: function (c, d) { d.flat += 2 * c.battle.correctCount; } } },
-    { id: 'replication-factor', name: 'Replication Factor', rarity: 'uncommon', category: 'damage',
-      description: '+0.5 mult while squad HP is full.',
-      hooks: { modifyDamage: function (c, d) { if (c.squad.hp >= c.squad.maxHp) d.mult += 0.5; } } },
-    { id: 'finisher', name: 'Finisher', rarity: 'uncommon', category: 'damage',
-      description: '+8 flat damage when the enemy is at 30% HP or below.',
-      hooks: { modifyDamage: function (c, d) { if (c.enemy && c.enemy.hp <= 0.3 * c.enemy.maxHp) d.flat += 8; } } },
-    { id: 'shard-burst', name: 'Shard Burst', rarity: 'uncommon', category: 'damage', q5: true,
-      description: '+0.4 mult while on a streak of 2+ correct answers.',
-      hooks: { modifyDamage: function (c, d) { if (c.streak >= 2) d.mult += 0.4; } } },
-    { id: 'quickdraw-cache', name: 'Overwatch Cache', rarity: 'uncommon', category: 'damage', q5: true,
-      description: '+0.5 mult while your hull is at full HP.',   // (v0.98.0, K9) no timers in KBB — was fast-answer
-      hooks: { modifyDamage: function (c, d) {
-        if (c.run.squad.hp >= c.run.squad.maxHp) d.mult += 0.5; } } },
     { id: 'erasure-mult', name: 'Erasure Multiplier', rarity: 'rare', category: 'damage',
       description: '+0.5 mult per correct answer this battle (resets each battle).',
       hooks: {
@@ -116,49 +100,25 @@
     { id: 'metadata-ring', name: 'Metadata Ring', rarity: 'legendary', category: 'damage',
       description: '+0.2 mult per artifact owned.',
       hooks: { modifyDamage: function (c, d) { d.mult += 0.2 * c.squad.artifacts.length; } } },
-    { id: 'prism-focus', name: 'Prism Focus', rarity: 'rare', category: 'damage',
-      description: '+12 flat damage on your first attack of each battle.',
-      hooks: { modifyDamage: function (c, d) { if (c.battle && c.battle.attackIndex === 0) d.flat += 12; } } },
     /* SUSTAIN */
     { id: 'nanobot-swarm', name: 'Nanobot Swarm', rarity: 'common', category: 'sustain',
       description: 'Heal 6 on each correct answer (scales with heal power).',
       hooks: { onCorrect: function (c) { c.api.heal(healAmt(c.run, 6)); } } },
-    { id: 'triage-protocol', name: 'Triage Protocol', rarity: 'common', category: 'sustain',
-      description: 'Heal 8 after winning a battle (scales with heal power).',
-      hooks: { onBattleWon: function (c) { c.api.heal(healAmt(c.run, 8)); } } },
-    { id: 'regen-lattice', name: 'Regen Lattice', rarity: 'uncommon', category: 'sustain',
-      description: 'Heal 2 after each of your attacks resolves.',
-      hooks: { onAttackResolved: function (c) { c.api.heal(2); } } },
     { id: 'bio-reactor', name: 'Bio Reactor', rarity: 'uncommon', category: 'sustain',
       description: '+4 heal power (boosts every heal).',
       hooks: { onAcquire: function (c) { c.squad.healPower += 4; } } },
     { id: 'mender-overdrive', name: 'Mender Overdrive', rarity: 'rare', category: 'sustain',
       description: 'Adds your heal power as flat damage.',
       hooks: { modifyDamage: function (c, d) { d.flat += c.squad.healPower; } } },
-    { id: 'vital-cache', name: 'Vital Cache', rarity: 'uncommon', category: 'sustain',
-      description: 'Heal 15 at the start of each section.',
-      hooks: { onSectionStart: function (c) { c.api.heal(15); } } },
     { id: 'lazarus-protocol', name: 'Lazarus Protocol', rarity: 'rare', category: 'sustain',
       description: 'Once per run, survive a lethal hit at 1 HP.',
       noSell: true, hooks: {} },
-    { id: 'one-click-repair', name: 'One-Click Repair', rarity: 'uncommon', category: 'sustain',
-      description: 'Using any consumable also grants +6 shield.',
-      hooks: { onConsumableUsed: function (c) { c.api.addShield(6); } } },
     /* DEFENSE */
     { id: 'adaptive-shielding', name: 'Adaptive Shielding', rarity: 'common', category: 'defense',
       description: '+8 shield at battle start and before each enemy attack.',
       hooks: {
         onBattleStart: function (c) { c.api.addShield(8); },
         onEnemyAttack: function (c, incoming) { c.api.addShield(8); return incoming; } } },
-    { id: 'bulwark-plating', name: 'Bulwark Plating', rarity: 'common', category: 'defense',
-      description: '+(block + 6) shield at battle start.',
-      hooks: { onBattleStart: function (c) { c.api.addShield(c.squad.block + 6); } } },
-    { id: 'reactive-ward', name: 'Reactive Ward', rarity: 'uncommon', category: 'defense',
-      description: 'Reduce each incoming attack by 3.',
-      hooks: { onEnemyAttack: function (c, incoming) { return Math.max(0, incoming - 3); } } },
-    { id: 'shield-overflow', name: 'Shield Overflow', rarity: 'uncommon', category: 'defense',
-      description: 'If your shield fully absorbs an attack, heal 3.',
-      hooks: { onEnemyAttack: function (c, incoming) { if (incoming <= c.squad.shield) c.api.heal(3); return incoming; } } },
     { id: 'damage-reflection', name: 'Damage Reflection', rarity: 'rare', category: 'defense',
       description: 'Reflect 50% of each incoming attack at the enemy.',
       hooks: { onEnemyAttack: function (c, incoming) { c.api.damageEnemy(Math.floor(incoming * 0.5)); return incoming; } } },
@@ -167,29 +127,15 @@
       hooks: {
         onBattleStart: function (c) { c.api.addShield(c.squad.block); },
         modifyDamage: function (c, d) { d.flat += Math.floor(c.squad.block * 0.5); } } },
-    { id: 'reinforced-hull', name: 'Reinforced Hull', rarity: 'uncommon', category: 'defense',
-      description: '+3 block (more starting shield every battle).',
-      hooks: { onAcquire: function (c) { c.squad.block += 3; } } },
     { id: 'aegis-capacitor', name: 'Aegis Capacitor', rarity: 'legendary', category: 'defense',
       description: '+20 shield at battle start; all incoming attacks reduced by 30%.',
       hooks: {
         onBattleStart: function (c) { c.api.addShield(20); },
         onEnemyAttack: function (c, incoming) { return Math.round(incoming * 0.7); } } },
-    { id: 'erasure-coding', name: 'Erasure Coding', rarity: 'uncommon', category: 'defense',
-      description: 'Every third enemy attack is halved.',
-      hooks: { onEnemyAttack: function (c, incoming) {
-        var n = (c.inst.state.n || 0) + 1; c.inst.state.n = n;
-        return (n % 3 === 0) ? Math.round(incoming * 0.5) : incoming; } } },
     /* ECONOMY */
-    { id: 'curator', name: 'Curator', rarity: 'common', category: 'economy',
-      description: '+3 coins per battle won.',
-      hooks: { modifyCoinGain: function (c, coins) { return coins + 3; } } },
     { id: 'hex-mint', name: 'Hex Mint', rarity: 'common', category: 'economy',
       description: '+1 coin per section reached, per battle won.',
       hooks: { modifyCoinGain: function (c, coins) { return coins + c.section; } } },
-    { id: 'salvage-array', name: 'Salvage Array', rarity: 'uncommon', category: 'economy',
-      description: 'Win a battle: gain coins equal to 5% of enemy max HP.',
-      hooks: { onBattleWon: function (c) { c.api.addCoins(Math.round(c.enemy.maxHp * 0.05)); } } },
     { id: 'interest-ledger', name: 'Interest Ledger', rarity: 'uncommon', category: 'economy',
       description: 'On entering a shop, gain 10% of saved coins (max 5).',
       hooks: { onShopEnter: function (c) { c.api.addCoins(Math.min(5, Math.floor(c.squad.coins / 10))); } } },
@@ -201,32 +147,17 @@
     { id: 'golden-cache', name: 'Golden Cache', rarity: 'legendary', category: 'economy',
       description: '+10 coins per battle and an extra 10% off shop prices.',
       hooks: { modifyCoinGain: function (c, coins) { return coins + 10; } } },
-    { id: 'snapshot-ledger', name: 'Snapshot Ledger', rarity: 'common', category: 'economy',
-      description: '+1 coin on every correct answer.',
-      hooks: { onCorrect: function (c) { c.api.addCoins(1); } } },
     /* UTILITY */
     { id: 'twin-reactor', name: 'Twin Reactor', rarity: 'rare', category: 'utility',
-      description: 'Surge charges at a 2-correct streak instead of 3.', hooks: {} },   // (v0.192.0, V1.1 KBB#9)
-    { id: 'witness-daemon', name: 'Witness Daemon', rarity: 'uncommon', category: 'utility',
-      description: 'Reveal one wrong option on every question.',
-      hooks: { onQuestionShown: function (c) { c.api.revealWrong(); } } },
+      description: 'Surge charges at a 2-correct streak instead of 3.', hooks: {} },
     { id: 'fifty-fifty', name: 'Fifty-Fifty', rarity: 'uncommon', category: 'utility',
       description: 'Reveal two wrong options on every question.',
       hooks: { onQuestionShown: function (c) { c.api.revealWrong(); c.api.revealWrong(); } } },
-    { id: 'ntp-sync', name: 'NTP Sync', rarity: 'common', category: 'utility',
-      description: '+3 shield at every battle start.',   // (v0.108.0, G4) was a no-op timer artifact (K9 removed all timer reads)
-      hooks: { onBattleStart: function (c) { c.api.addShield(3); } } },
-    { id: 'prism-beam', name: 'Prism Beam', rarity: 'rare', category: 'utility',
-      description: '+1 max attack every battle.',
-      hooks: { onBattleStart: function (c) { c.api.addMaxAttacks(1); } } },
     { id: 'retry-buffer', name: 'Retry Buffer', rarity: 'rare', category: 'utility',
       description: 'First wrong answer each battle is refunded (re-answer, no counter).',
       hooks: { onWrong: function (c) { if (!c.battle.retryUsed) { c.battle.retryUsed = true; c.battle.refundAttack = true; } } } },
-    { id: 'cold-tier', name: 'Cold Tier', rarity: 'uncommon', category: 'utility',
-      description: 'First wrong answer each battle: enemy does not counter-attack.',
-      hooks: { onWrong: function (c) { if (!c.battle.coldTierUsed) { c.battle.coldTierUsed = true; c.battle.skipEnemyCounter = true; } } } },
     { id: 'intel-cache', name: 'Intel Cache', rarity: 'common', category: 'utility',
-      description: 'Always shows the enemy\u2019s full incoming attack ahead of time.',
+      description: 'Always shows the enemy’s full incoming attack ahead of time.',
       hooks: { onBattleStart: function (c) { c.run.flags.showAllIntent = true; } } },
     /* RISK */
     { id: 'glass-cannon', name: 'Glass Cannon', rarity: 'rare', category: 'risk',
@@ -242,69 +173,22 @@
     { id: 'blood-pact', name: 'Blood Pact', rarity: 'rare', category: 'risk',
       description: 'Adds half of your missing HP as flat damage.',
       hooks: { modifyDamage: function (c, d) { d.flat += Math.floor((c.squad.maxHp - c.squad.hp) * 0.5); } } },
-    { id: 'all-in', name: 'All In', rarity: 'uncommon', category: 'risk',
-      description: '+1.0 mult on your final attack of a battle.',
-      hooks: { modifyDamage: function (c, d) { if (c.battle.attackIndex >= c.battle.maxAttacks - 1) d.mult += 1.0; } } },
-    { id: 'double-or-nothing', name: 'Double or Nothing', rarity: 'rare', category: 'risk',
-      description: '+0.5 mult, but a wrong answer heals the enemy 10% of max HP.',
-      hooks: {
-        modifyDamage: function (c, d) { d.mult += 0.5; },
-        onWrong: function (c) { c.api.healEnemy(Math.round(c.enemy.maxHp * 0.1)); } } },
-    { id: 'recompile-core', name: 'Recompile Core', rarity: 'uncommon', category: 'risk',
-      description: '+0.15 mult, -1 max HP.',
-      hooks: {
-        onAcquire: function (c) { c.api.addMaxHp(-1); },
-        modifyDamage: function (c, d) { d.mult += 0.15; } } },
-    /* SCALING */
-    { id: 'foundation', name: 'Foundation', rarity: 'uncommon', category: 'scaling',
-      description: '+2 max HP after each battle won (permanent).',
-      hooks: { onBattleWon: function (c) { c.api.addMaxHp(2); } } },
+    /* SCALING — permanent run ramps */
     { id: 'genesis-block', name: 'Genesis Block', rarity: 'rare', category: 'scaling',
       description: '+1 base power at the start of each section (permanent).',
       hooks: { onSectionStart: function (c) { c.api.addBasePower(1); } } },
-    { id: 'compounding-core', name: 'Compounding Core', rarity: 'uncommon', category: 'scaling',
-      description: '+0.5 flat damage per correct answer, permanent for the run.',
-      hooks: {
-        onCorrect: function (c) { c.inst.state.f = (c.inst.state.f || 0) + 0.5; },
-        modifyDamage: function (c, d) { d.flat += (c.inst.state.f || 0); } } },
     { id: 'momentum-engine', name: 'Momentum Engine', rarity: 'rare', category: 'scaling',
       description: '+0.1 mult per battle won, permanent for the run.',
       hooks: {
         onBattleWon: function (c) { c.inst.state.m = (c.inst.state.m || 0) + 0.1; },
         modifyDamage: function (c, d) { d.mult += (c.inst.state.m || 0); } } },
-    { id: 'archive-expansion', name: 'Archive Expansion', rarity: 'uncommon', category: 'scaling',
-      description: '+5 max HP and heal 5 at the start of each section.',
-      hooks: { onSectionStart: function (c) { c.api.addMaxHp(5); c.api.heal(5); } } },
     { id: 'singularity-seed', name: 'Singularity Seed', rarity: 'legendary', category: 'scaling',
       description: '+1 base power and +1 max HP after each battle won (permanent).',
       hooks: { onBattleWon: function (c) { c.api.addBasePower(1); c.api.addMaxHp(1); } } },
-    { id: 'cluster-expand', name: 'Cluster Expand', rarity: 'uncommon', category: 'scaling',
-      description: '+1 block after each battle won (permanent).',
-      hooks: { onBattleWon: function (c) { c.squad.block += 1; } } },
     /* DOMAIN */
     { id: 'data-locality', name: 'Data Locality', rarity: 'uncommon', category: 'domain', domain: 'storage',
       description: 'Correct storage-domain answers deal x2 damage.',
       hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'storage') d.post *= 2; } } },
-    { id: 'fabric-weave', name: 'Fabric Weave', rarity: 'uncommon', category: 'domain', domain: 'networking',
-      description: '+6 flat damage on networking-domain questions.',
-      hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'networking') d.flat += 6; } } },
-    { id: 'flow-firewall', name: 'Flow Firewall', rarity: 'uncommon', category: 'domain', domain: 'security',
-      description: '+0.8 mult on security-domain questions.',
-      hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'security') d.mult += 0.8; } } },
-    { id: 'lcm-pipeline', name: 'LCM Pipeline', rarity: 'uncommon', category: 'domain', domain: 'lifecycle',
-      description: '+0.8 mult on lifecycle-domain questions.',
-      hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'lifecycle') d.mult += 0.8; } } },
-    { id: 'hypervisor-core', name: 'Hypervisor Core', rarity: 'uncommon', category: 'domain', domain: 'vms',
-      description: '+0.6 mult on VM-domain questions.',
-      hooks: { modifyDamage: function (c, d) { if (c.question && c.question.domain === 'vms') d.mult += 0.6; } } },
-    { id: 'continuity-vault', name: 'Continuity Vault', rarity: 'uncommon', category: 'domain', domain: 'data-protection',
-      description: 'Correct data-protection answers heal 10.',
-      hooks: { onCorrect: function (c) { if (c.question && c.question.domain === 'data-protection') c.api.heal(10); } } },
-    { id: 'blueprint-matrix', name: 'Blueprint Matrix', rarity: 'rare', category: 'domain', domain: 'architecture',
-      description: '+5 flat damage and +2 coins on architecture questions.',
-      hooks: {
-        modifyDamage: function (c, d) { if (c.question && c.question.domain === 'architecture') d.flat += 5; },
-        onCorrect: function (c) { if (c.question && c.question.domain === 'architecture') c.api.addCoins(2); } } },
     { id: 'telemetry-lens', name: 'Telemetry Lens', rarity: 'uncommon', category: 'domain', domain: 'monitoring',
       description: '+0.5 mult on monitoring questions and reveals a wrong option there.',
       hooks: {
@@ -320,9 +204,6 @@
     { id: 'isolator', name: 'Isolator', rarity: 'uncommon', category: 'damage',
       description: '+0.35 mult while NEITHER neighbour is a DAMAGE artifact.',
       hooks: { modifyDamage: function (c, d) { var l = c.leftDef && c.leftDef.category === 'damage', r = c.rightDef && c.rightDef.category === 'damage'; if (!l && !r) d.mult += 0.35; } } },
-    { id: 'flank-booster', name: 'Flank Booster', rarity: 'uncommon', category: 'damage',
-      description: '+6 flat damage while it sits in an END slot (first or last).',
-      hooks: { modifyDamage: function (c, d) { if (c.idx === 0 || c.idx === c.slotCount - 1) d.flat += 6; } } },
     { id: 'load-balancer', name: 'Load Balancer', rarity: 'uncommon', category: 'defense',
       description: 'Block 2 extra incoming damage while BOTH neighbour slots are filled.',
       hooks: { onEnemyAttack: function (c, incoming) { return (c.leftDef && c.rightDef) ? incoming - 2 : incoming; } } },
@@ -1120,7 +1001,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
   // procedural fallbacks so KBB runs before the PNGs land.
   var ASSET_HERO = ['kbbHero1', 'kbbHero2', 'kbbHero3'];
   var ASSET_ENEMY = 'kbbEnemy', ASSET_BOSS = 'kbbBoss';
-  var ASSET_ASTEROIDS = ['kbbAsteroid1', 'kbbAsteroid2', 'kbbAsteroid3', 'kbbAsteroid4', 'kbbAsteroid5'];
+  var ASSET_ASTEROIDS = ['kbbAsteroid1', 'kbbAsteroid2', 'kbbAsteroid3'];
   var ASSET_NEBULA = 'nebulaBg', ASSET_LEGACY_SHIP = 'bcmShip';
   var ALL_ASSET_KEYS = ASSET_HERO.concat(ASSET_ASTEROIDS, [ASSET_ENEMY, ASSET_BOSS, ASSET_NEBULA, ASSET_LEGACY_SHIP]);
 
@@ -1659,7 +1540,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       var i;
       ROCKS = new Array(16);
       for (i = 0; i < 16; i++) ROCKS[i] = { x: crand(), y: 0.08 + crand() * 0.84, z: 0.35 + crand() * 1.25, r: 8 + crand() * 18,
-        rot: crand() * 6.28, spin: (crand() - 0.5) * 1.6, sides: 5 + ((crand() * 3) | 0), sprite: (crand() * 5) | 0 };
+        rot: crand() * 6.28, spin: (crand() - 0.5) * 1.6, sides: 5 + ((crand() * 3) | 0), sprite: (crand() * ASSET_ASTEROIDS.length) | 0 };
       STARS = new Array(46);   // near layer (faster parallax)
       for (i = 0; i < 46; i++) STARS[i] = { x: crand(), y: crand(), s: 0.6 + crand() * 1.5, a: 0.18 + crand() * 0.5, z: 0.6 + crand() * 0.8 };
       STARS2 = new Array(34);  // far layer (slow)
