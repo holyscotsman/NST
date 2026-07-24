@@ -1540,7 +1540,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       var i;
       ROCKS = new Array(16);
       for (i = 0; i < 16; i++) ROCKS[i] = { x: crand(), y: 0.08 + crand() * 0.84, z: 0.35 + crand() * 1.25, r: 8 + crand() * 18,
-        rot: crand() * 6.28, spin: (crand() - 0.5) * 1.6, sides: 5 + ((crand() * 3) | 0), sprite: (crand() * 5) | 0 };
+        rot: crand() * 6.28, spin: (crand() - 0.5) * 1.6, sides: 5 + ((crand() * 3) | 0), sprite: (crand() * ASSET_ASTEROIDS.length) | 0 };
       STARS = new Array(46);   // near layer (faster parallax)
       for (i = 0; i < 46; i++) STARS[i] = { x: crand(), y: crand(), s: 0.6 + crand() * 1.5, a: 0.18 + crand() * 0.5, z: 0.6 + crand() * 0.8 };
       STARS2 = new Array(34);  // far layer (slow)
