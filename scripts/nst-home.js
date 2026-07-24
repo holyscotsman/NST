@@ -250,25 +250,29 @@
         return b;
       }
 
+      // Playable certs get a full tile with question-set buttons; certs with no
+      // bank yet are far more common right now (7 of 8), so they're collapsed
+      // into one small muted line instead of seven equally-weighted dead tiles.
+      var soon = [];
       certs.forEach(function (c) {
+        var playable = c.banks && !c.comingSoon;
+        if (!playable) { soon.push(c.code || c.name || ""); return; }
         var tile = el("div", "nst-certtile");
         var head = el("div", "nst-certtile-head");
         head.appendChild(el("span", "nst-certtile-code", esc(c.code || "")));
         if (c.name) head.appendChild(el("span", "nst-certtile-name", esc(c.name)));
         tile.appendChild(head);
-        var playable = c.banks && !c.comingSoon;
-        if (playable) {
-          var vars = el("div", "nst-certtile-variants");
-          if (c.banks["25"]) vars.appendChild(mkVariant(c, "25"));
-          if (c.banks.full) vars.appendChild(mkVariant(c, "full"));
-          tile.appendChild(vars);
-        } else {
-          tile.classList.add("coming");
-          tile.setAttribute("aria-disabled", "true");
-          tile.appendChild(el("span", "nst-certtile-badge", "Coming soon"));
-        }
+        var vars = el("div", "nst-certtile-variants");
+        if (c.banks["25"]) vars.appendChild(mkVariant(c, "25"));
+        if (c.banks.full) vars.appendChild(mkVariant(c, "full"));
+        tile.appendChild(vars);
         grid.appendChild(tile);
       });
+      if (soon.length) {
+        var soonRow = el("p", "nst-cert-soon");
+        soonRow.appendChild(document.createTextNode("Also coming soon: " + soon.join(" · ")));
+        wrap.appendChild(soonRow);
+      }
       _certRefresh = refresh;   // (UI) Settings' bank section calls this to stay in sync
       refresh();
     }

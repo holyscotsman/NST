@@ -123,12 +123,23 @@ body {
   background: linear-gradient(145deg, #8B5CF6, #4E2CC0);
   box-shadow: 0 6px 18px rgba(124, 77, 255, 0.4);
 }
+.nst-brandtext {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.nst-logo {
+  display: block;
+  height: 12px;
+  width: auto;
+}
 .nst-wordmark {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-weight: 700;
-  font-size: 16px;
-  color: var(--text);
-  letter-spacing: -0.01em;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
 }
 .nst-nav-utils {
   display: flex;
@@ -564,7 +575,7 @@ body {
 /* Exam chooser on the hero — one tile per Nutanix cert, each offering 25/Full */
 .nst-cert { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
 .nst-cert-label { font-family: var(--font-ui); font-weight: 700; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--purple-light); }
-.nst-certgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; width: 100%; max-width: 780px; }
+.nst-certgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 300px)); justify-content: center; gap: 12px; width: 100%; max-width: 780px; }
 .nst-certtile {
   border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03); border-radius: 14px;
   padding: 14px 15px; display: flex; flex-direction: column; gap: 10px; text-align: left;
@@ -584,11 +595,7 @@ body {
 .nst-certvar:hover { border-color: var(--purple); color: var(--heading); }
 .nst-certvar:focus-visible { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124, 77, 255, 0.3); }
 .nst-certvar.on { border-color: rgba(124, 77, 255, 0.7); background: rgba(124, 77, 255, 0.22); color: #fff; }
-.nst-certtile.coming { opacity: 0.5; }
-.nst-certtile-badge {
-  align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--faint); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px;
-}
+.nst-cert-soon { font-family: var(--font-ui); font-size: 12px; color: var(--faint); text-align: center; max-width: 640px; margin: 0; }
 .nst-cert-hint { font-family: var(--font-ui); font-size: 12.5px; color: var(--faint); text-align: center; }
 .nst-cert-empty { font-size: 13px; color: var(--faint); grid-column: 1 / -1; text-align: center; }
 .nst-cert-loading { font-size: 13px; color: var(--faint); padding: 10px 4px; grid-column: 1 / -1; text-align: center; animation: nstFade 1.2s ease-in-out infinite alternate; }
