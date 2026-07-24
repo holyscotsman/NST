@@ -43,7 +43,7 @@
     squad: { hp: 40, maxHp: 40, basePower: 12, block: 6, healPower: 6, coins: 6, startShield: 0 },
     maxAttacks: 7, maxArtifacts: 5, consumableCap: 4, roundsPerSection: 5,   // (v0.99.0, K10) window widened with the rounder enemies
     flagshipSection: 3,   // (v0.149.0, V1.1 KBB#3) the section-3 boss is THE BCM Flagship — the run's winnable target
-    enemyBaseHp: 14, hpPerRound: 2.4, hpPerSection: 0.10, bossHpMult: 1.3,
+    enemyBaseHp: 14, hpPerRound: 2.4, hpPerSection: 0.16, bossHpMult: 1.3,   // (KBB#curate) late-section scaling re-tightened to hold the clear-depth target after the 35-artifact cut concentrated the pool
     intentBase: 2.2, intentPerRound: 0.30, intentPerSection: 0.08,   // v0.46.0 K4: softer chip; deaths should come from the ladder, not attrition
     coinBase: 3, bossCoinMult: 2.5,
     artifactPrice: { common: 6, uncommon: 10, rare: 16, legendary: 24 },
