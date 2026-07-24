@@ -1149,7 +1149,7 @@
         var d = doms[i], pct = Math.round((d.masteredPct || 0) * 100);
         var tier = d.seen === 0 ? "t0" : pct >= 70 ? "t4" : pct >= 45 ? "t3" : pct >= 20 ? "t2" : "t1";
         var tile = el("div", "sx-heat " + tier);
-        tile.innerHTML = '<div class="sx-heat-dom">' + d.domain + '</div>'
+        tile.innerHTML = '<div class="sx-heat-dom">' + StarNix._internal.escapeHTML(d.domain) + '</div>'
           + '<div class="sx-heat-pct">' + (d.seen === 0 ? "new" : pct + "%") + "</div>"
           + (d.due ? '<div class="sx-heat-due">' + d.due + " due</div>" : "");
         tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen";

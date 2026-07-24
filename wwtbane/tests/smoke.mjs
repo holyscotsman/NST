@@ -17,6 +17,7 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1100, height: 800 } });
   // Skip the first-run intro cinematic; it has its own e2e coverage.
   await context.addInitScript(() => { try {
+    localStorage.setItem('nst.activeBank', 'ncp-mci'); // runtime bank (post-NST-consolidation boot needs one selected; the 30-rung classic ladder this smoke test expects)
     localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true } }));
   } catch {} });
   const page = await context.newPage();

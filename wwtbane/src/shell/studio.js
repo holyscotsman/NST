@@ -497,9 +497,14 @@ export class Studio {
         const env = Math.max(0, Math.min(1, mood.t / 0.35, (mood.total - mood.t) / 0.35));
         P.head.rotation.x += (mood.kind === 'happy' ? -0.06 : 0.22) * env; // lift / drop
         if (mood.kind === 'happy' && a.role === 'player') {
-          // arms up in relief — smoothly in and back down with the envelope
-          P.armL.rotation.z = a.armL * (1 - env) + 2.3 * env;
-          P.armR.rotation.z = a.armR * (1 - env) - 2.3 * env;
+          // arms up in relief — smoothly in and back down with the envelope.
+          // Each arm pivots from its own shoulder (armPivot.rotation.z=0 hangs
+          // straight down); the sign here must swing it OUT and up (away from
+          // the body's centreline), not in — the opposite sign swings the hand
+          // across the chest and up through the face. Right arm (sgn=+1) needs
+          // a positive target, left arm (sgn=-1) a negative one.
+          P.armL.rotation.z = a.armL * (1 - env) - 2.3 * env;
+          P.armR.rotation.z = a.armR * (1 - env) + 2.3 * env;
         }
       } else if (this._talk > 0 && a.role === talker) {
         setMouth(P, Math.sin(t * 11) > -0.2 ? 'open' : 'flat');
@@ -546,7 +551,10 @@ export class Studio {
           c.event = null;
         }
       } else if (ev.kind === 'wave') {
-        c.actor.userData.parts.armR.rotation.z = -2.0 + Math.sin(ev.t * 7) * 0.5;
+        // positive: swings the (right) arm up and outward, clear of the head —
+        // the negative angle used here previously swung the hand up and across
+        // the face instead (see the armL/armR fix note above)
+        c.actor.userData.parts.armR.rotation.z = 2.0 + Math.sin(ev.t * 7) * 0.5;
         if (ev.t >= 2.8) {
           c.actor.visible = false;
           this._seatSet(ev.idx, this._seatMatrix(seat, seat.scale));
@@ -586,7 +594,7 @@ export class Studio {
       c.actor.position.set(seat.x, seat.y, seat.z);
       c.actor.rotation.y = seat.rotY;
       c.actor.scale.setScalar(seat.scale * 0.97);
-      c.actor.userData.parts.armR.rotation.z = kind === 'wave' ? -2.0 : c.actor.userData.parts.armR.rotation.z;
+      c.actor.userData.parts.armR.rotation.z = kind === 'wave' ? 2.0 : c.actor.userData.parts.armR.rotation.z;
       c.actor.visible = true;
     }
   }
@@ -665,7 +673,7 @@ export class Studio {
     const host = person({ skin: 0xd9b48f, hair: 0x9aa3b2, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.09, seated: true });
     host.position.set(2.1, 0.16, 0); host.rotation.y = -0.28;
     const bow = box(0.12, 0.055, 0.04, mat(0x1a1408, PAL.gold, 0.55)); bow.position.set(0, 1.415, 0.15); host.add(bow);
-    host.userData.parts.armR.rotation.z = -1.0; // working the room
+    host.userData.parts.armR.rotation.z = 1.0; // working the room — arm swept out, not across the face
     setMouth(host.userData.parts, 'smile');
     castShadows(host); s.add(host);
 
@@ -849,7 +857,16 @@ export class Studio {
     // during play. Starts hidden — boot lands on the title.
     this._wordmark = back;
     back.visible = false;
-    const halo = new THREE.Mesh(new THREE.CircleGeometry(4.6, 64), mat(0x000000, PAL.iris, 1.2)); halo.position.set(0, 4, -12.2); s.add(halo);
+    // Parented to the wordmark (not a scene sibling) so it's a soft glow behind
+    // the title text and nothing more: it inherits `back`'s visibility instead of
+    // floating on its own. Previously it stayed visible on every scene (title,
+    // win, green room, ...) as a big solid opaque disc — parked right at crowd
+    // depth (z -12.2, seating reaches z -16) it read as audience members stuck
+    // inside a bare purple circle whenever the wordmark text wasn't showing.
+    const haloMat = mat(0x000000, PAL.iris, 1.1);
+    haloMat.transparent = true; haloMat.opacity = 0.45; haloMat.depthWrite = false;
+    const halo = new THREE.Mesh(new THREE.CircleGeometry(3.2, 64), haloMat);
+    halo.position.set(0, 0, -0.15); back.add(halo);
 
     const beamColors = [PAL.iris, PAL.aqua, PAL.gold, PAL.iris];
     for (let i = 0; i < beamColors.length; i++) {
@@ -963,7 +980,7 @@ export class Studio {
     // The stage manager, hidden until they open that door on "Start next round".
     const gsm = crewPerson();
     gsm.position.set(-2.15, 0, -6.4); gsm.rotation.y = -0.2; // in the doorway
-    gsm.userData.parts.armR.rotation.z = -2.3; // hand up: "we're ready!"
+    gsm.userData.parts.armR.rotation.z = 2.3; // hand up: "we're ready!"
     gsm.visible = false;
     s.add(gsm);
     this._greenSM = gsm;

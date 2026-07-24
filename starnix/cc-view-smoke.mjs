@@ -80,7 +80,8 @@ const THREE = {
   Fog: function () { return {}; },
   // geometry
   PlaneGeometry: geom, BoxGeometry: geom, ConeGeometry: geom, CylinderGeometry: geom,
-  TorusGeometry: geom, CircleGeometry: geom, OctahedronGeometry: geom, SphereGeometry: geom, RingGeometry: geom, BufferGeometry: geom,
+  TorusGeometry: geom, CircleGeometry: geom, OctahedronGeometry: geom, IcosahedronGeometry: geom,
+  SphereGeometry: geom, RingGeometry: geom, BufferGeometry: geom,
   // textures / renderer
   TextureLoader: class { load(url) { (globalThis.__texLoads || (globalThis.__texLoads = [])).push(url); return tex(); } },
   WebGLRenderer: Renderer

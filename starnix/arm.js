@@ -1377,7 +1377,7 @@
           clear(hx);
           for (var hxi = 0; hxi < nCore; hxi++) hx.appendChild(mk("span", "arm-mhex" + (briefCore >= hxi ? " on" : ""), briefCore >= hxi ? "\u2B21" : String(hxi + 1)));
           var info = brfScene.querySelector(".arm-brf-info");
-          if (info && briefCore >= 0 && briefCore < nCore) info.innerHTML = 'BRIEFING ' + (briefCore + 1) + '/' + nCore + '<br><span>Topic</span> ' + conceptTag(cores[briefCore]) + '<br><span>Domain</span> ' + (cores[briefCore].q.domain || '');
+          if (info && briefCore >= 0 && briefCore < nCore) info.innerHTML = 'BRIEFING ' + (briefCore + 1) + '/' + nCore + '<br><span>Topic</span> ' + ctx.sanitize(conceptTag(cores[briefCore])) + '<br><span>Domain</span> ' + ctx.sanitize(cores[briefCore].q.domain || '');
           else if (info) info.innerHTML = 'SECTOR ' + sector + ' \u00b7 ' + nCore + ' CORES';
         }
       } catch (eMx) {}

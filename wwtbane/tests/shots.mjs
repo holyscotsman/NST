@@ -15,6 +15,7 @@ async function main() {
   await context.addInitScript(() => { try {
     localStorage.setItem('wwtbane.e2e', '1');
     localStorage.setItem('wwtbane.nogl', '1'); // show the CSS studio (the designed backdrop)
+    localStorage.setItem('nst.activeBank', 'ncp-mci'); // runtime bank (post-NST-consolidation boot needs one selected)
     localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { music: false } }));
   } catch {} });
   const page = await context.newPage();
@@ -64,6 +65,7 @@ async function main() {
   const ctx2 = await context.browser().newContext({ viewport: { width: 1440, height: 900 } });
   await ctx2.addInitScript(() => { try {
     localStorage.setItem('wwtbane.nogl', '1');
+    localStorage.setItem('nst.activeBank', 'ncp-mci'); // runtime bank (post-NST-consolidation boot needs one selected)
     localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, settings: { music: false } }));
   } catch {} });
   const p2 = await ctx2.newPage();

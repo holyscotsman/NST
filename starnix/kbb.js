@@ -92,13 +92,15 @@
     { id: 'finisher', name: 'Finisher', rarity: 'uncommon', category: 'damage',
       description: '+8 flat damage when the enemy is at 30% HP or below.',
       hooks: { modifyDamage: function (c, d) { if (c.enemy && c.enemy.hp <= 0.3 * c.enemy.maxHp) d.flat += 8; } } },
-    { id: 'shard-burst', name: 'Shard Burst', rarity: 'uncommon', category: 'damage', q5: true,
+    { id: 'shard-burst', name: 'Shard Burst', rarity: 'uncommon', category: 'damage',
       description: '+0.4 mult while on a streak of 2+ correct answers.',
       hooks: { modifyDamage: function (c, d) { if (c.streak >= 2) d.mult += 0.4; } } },
-    { id: 'quickdraw-cache', name: 'Overwatch Cache', rarity: 'uncommon', category: 'damage', q5: true,
-      description: '+0.5 mult while your hull is at full HP.',   // (v0.98.0, K9) no timers in KBB — was fast-answer
-      hooks: { modifyDamage: function (c, d) {
-        if (c.run.squad.hp >= c.run.squad.maxHp) d.mult += 0.5; } } },
+    { id: 'quickdraw-cache', name: 'Overwatch Cache', rarity: 'uncommon', category: 'damage',
+      description: '+0.6 mult on every attack after you use a consumable this battle.',
+      hooks: {
+        onBattleStart: function (c) { c.inst.state.used = false; },
+        onConsumableUsed: function (c) { c.inst.state.used = true; },
+        modifyDamage: function (c, d) { if (c.inst.state.used) d.mult += 0.6; } } },
     { id: 'erasure-mult', name: 'Erasure Multiplier', rarity: 'rare', category: 'damage',
       description: '+0.5 mult per correct answer this battle (resets each battle).',
       hooks: {
@@ -211,8 +213,12 @@
       description: 'Reveal one wrong option on every question.',
       hooks: { onQuestionShown: function (c) { c.api.revealWrong(); } } },
     { id: 'fifty-fifty', name: 'Fifty-Fifty', rarity: 'uncommon', category: 'utility',
-      description: 'Reveal two wrong options on every question.',
-      hooks: { onQuestionShown: function (c) { c.api.revealWrong(); c.api.revealWrong(); } } },
+      description: 'A wrong answer halves the enemy’s very next attack.',
+      hooks: {
+        onWrong: function (c) { c.inst.state.halveNext = true; },
+        onEnemyAttack: function (c, incoming) {
+          if (c.inst.state.halveNext) { c.inst.state.halveNext = false; return Math.round(incoming * 0.5); }
+          return incoming; } } },
     { id: 'ntp-sync', name: 'NTP Sync', rarity: 'common', category: 'utility',
       description: '+3 shield at every battle start.',   // (v0.108.0, G4) was a no-op timer artifact (K9 removed all timer reads)
       hooks: { onBattleStart: function (c) { c.api.addShield(3); } } },
