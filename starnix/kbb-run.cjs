@@ -234,7 +234,7 @@ function newWindow() {
      'K5: fly-in/fly-off choreography present in both draw paths');
   ok(!/purge/i.test(SRC.replace(/Purge cut \(Jason\)/, '')), 'K3: Purge fully removed (defs, roster, use path, view hook)');
   ok(/DESTROYED/.test(SRC) && /b\.over \|\| e\.hp <= 0/.test(SRC), 'K8: enemy panel states DESTROYED after death');
-  ok(!/answerMs != null && c\.answerMs <=/.test(SRC) && /hull is at full HP/.test(SRC), 'K9: no time-based artifact effects remain');
+  ok(!/answerMs != null && c\.answerMs <=/.test(SRC) && /use a consumable this battle/.test(SRC), 'K9: no time-based artifact effects remain');
   ok(/s\.combat && s\.combat\.clientWidth\) \|\| s\.canvas\.clientWidth/.test(SRC) && /s\.fxCanvas\.width = Math\.max/.test(SRC),
      'K7: canvas + 3D renderer + fx overlay size from the container (the blur fix)');
   ok(/width:min\(540px,94%\)/.test(SRC) && /font-size:18px/.test(SRC), 'K1: tour card + heading enlarged');
