@@ -1,16 +1,21 @@
 # CI for the Nutanix Study Tool.
-# Runs each tool's dependency-free checks: WWTBANE's unit tests, StarNix's
-# build + pure logic harnesses (scheduler, grading, shuffle, timer, bank lint),
-# and the Practice Exams engine harness (grading, shuffle mapping, summarize).
+# Runs each tool's dependency-free checks: WWTBANE's unit + browser tests,
+# StarNix's build + pure logic harnesses (scheduler, grading, shuffle, timer,
+# bank lint), and the Practice Exams engine harness (grading, shuffle mapping,
+# summarize).
 name: CI
 on:
   push:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   wwtbane:
-    name: WWTBANE unit tests
+    name: WWTBANE unit + browser tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -22,6 +27,14 @@ jobs:
           node-version: '22'
       # The game and its unit tests use only Node built-ins — no install needed.
       - run: node --test tests/*.test.mjs
+      # Browser smoke/e2e: real Chromium, catches regressions the unit suite
+      # can't see (e.g. a boot-time "no bank selected" guard screen silently
+      # eating every scenario). npm install here is just playwright-core;
+      # `npx playwright install --with-deps chromium` fetches the browser.
+      - run: npm install
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/smoke.mjs
+      - run: node tests/e2e.mjs
 
   starnix:
     name: StarNix build + logic harnesses
@@ -41,6 +54,13 @@ jobs:
       - run: node multi-answer-test.mjs
       - run: node shuffle-test.mjs
       - run: node timer-test.mjs
+      - run: node import-questions.mjs --check
+      - run: node kbb-balance.cjs
+      # Not yet in CI (pre-existing failures unrelated to this batch, tracked
+      # separately): audio-smoke.mjs, cc-view-smoke.mjs, cc-fairness-check.mjs,
+      # exhibit-check.mjs, cc-run.cjs — several test a "scanner drone"/"sweeper"
+      # hazard that a prior cycle replaced with mines, and one asserts on
+      # exhibit-image inlining that isn't wired up yet.
 
   practice-exams:
     name: Practice Exams engine harness
