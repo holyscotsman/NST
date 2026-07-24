@@ -5,6 +5,59 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.1.0 — Sprite integration, WWTBANE studio fixes, launcher branding (2026-07-24)
+
+A user-directed batch: finished the KBB art deferred from v2.0.0, fixed two
+visible bugs in WWTBANE's 3D studio, added real Nutanix branding to the
+launcher, and rewrote the README for a first-time reader.
+
+### Added
+- **StarNix/KBB:** the Shield (Aegis) and Medic (Mender) escort ships now use
+  the cinematic art the owner uploaded, trimmed and re-glowed in their
+  existing aqua/mantis colors; the 5 asteroid sprites keep their glow-rimmed
+  silhouette but the flat fill is now real cratered-rock texture from the
+  same upload. The third (fighter-jet) render is held back — its opaque
+  background has no clean edge for a cutout.
+- **Launcher:** the real Nutanix wordmark (vendored unaltered, previously
+  StarNix-only) now appears in the nav as a small logo + "Study Tool" lockup.
+
+### Fixed
+- **WWTBANE:** every "arm raised" pose (the player's relief cheer, the
+  green-room stage manager's "we're ready!", an audience wave, the host's
+  idle gesture) used the wrong rotation sign and swung the hand up through
+  the face instead of out beside it — fixed at all 5 sites.
+- **WWTBANE:** the glowing circle behind the title wordmark stayed visible
+  on every scene (it was never tied to the wordmark's own visibility), sat
+  at the same depth as the middle audience tiers, and visually swallowed
+  the crowd behind it whenever the title text wasn't showing. Now parented
+  to the wordmark (inherits its visibility), transparent, and smaller.
+- **KBB artifacts:** an audit of the 71-artifact catalog found two exact
+  duplicates under different names (`replication-factor`/`quickdraw-cache`,
+  `witness-daemon`/`fifty-fifty`); both redesigned into mechanically
+  distinct effects. Dropped a dead `q5`/`Q5_GATED` tag that nothing read.
+- **Local dev:** the WWTBANE browser-test harness's Playwright loader
+  silently `SKIP`-ed in any sandbox without a local `npm install`, masking a
+  real regression — 3 of 4 browser test scripts were missing
+  `nst.activeBank` since the NST bank-loader consolidation and hit the
+  "no bank" guard screen on every run. Fixed the loader and all three
+  scripts.
+
+### Changed
+- **Launcher:** the exam chooser no longer renders all 8 certs as
+  equal-weight tiles — the 7 "Coming soon" certs collapse into one muted
+  line so the one working exam (NCP-MCI) reads clearly.
+- **README:** the live URL now leads the document; each tool has a real
+  gameplay explanation (WWTBANE's ladder/lifelines, StarNix's three games,
+  Practice Exams' practice/exam split) instead of one-line summaries.
+
+### QA
+- StarNix: `build.mjs` clean (4270.9 KB) · `kbb-run.cjs` 156/156 ·
+  `kbb-draw.cjs` 16/16 · bank-lint/scheduler/multi-answer/shuffle/timer green.
+- WWTBANE: 168 unit tests · `smoke.mjs` 9/9 · `e2e.mjs` 22/22 · both studio
+  fixes confirmed with real before/after screenshots (Playwright).
+- Launcher: bank selection, nav badge, and Settings panel verified via
+  Playwright at desktop and 390px mobile widths, zero console errors.
+
 ## v2.0.0 — Exam chooser + StarNix gameplay pass (2026-07-23)
 
 A user-directed feature batch across the launcher and StarNix.
