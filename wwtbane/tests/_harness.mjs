@@ -9,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = normalize(join(fileURLToPath(import.meta.url), '..', '..'));
 const EXE = ['/opt/pw-browsers/chromium', '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'];
-const PW = ['playwright', '/opt/node22/lib/node_modules/playwright', 'playwright-core'];
+// A bare 'playwright'/'playwright-core' import needs the package installed in
+// node_modules (npm install); the absolute path is the fallback for sandboxes
+// that only have the global install and no local node_modules.
+const PW = ['playwright', 'playwright-core', '/opt/node22/lib/node_modules/playwright/index.js'];
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
   '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
 
@@ -39,7 +42,16 @@ export function serve(port) {
 }
 
 export async function loadPlaywright() {
-  for (const c of PW) { try { return await import(c); } catch { /* next */ } }
+  for (const c of PW) {
+    try {
+      const m = await import(c);
+      // The absolute-path fallback resolves `module.exports = require('playwright-core')`,
+      // a dynamic re-export cjs-module-lexer can't turn into a named `chromium`
+      // export — it only shows up under `.default` there.
+      if (m.chromium) return m;
+      if (m.default && m.default.chromium) return m.default;
+    } catch { /* next */ }
+  }
   return null;
 }
 
