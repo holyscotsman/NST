@@ -118,31 +118,35 @@ function newWindow() {
     return out;
   }
 
-  // prism-focus: +12 flat on the FIRST attack of a battle only (paired same-seed runs)
+  // glass-cannon: +10 flat on EVERY attack (paired same-seed runs) — (v2.1.1) replaces the
+  // retired prism-focus check after the 35-artifact curation
   var pf0 = attackDamages(mkRun(SEED + 20, null, true), 2);
-  var pf1 = attackDamages(mkRun(SEED + 20, 'prism-focus', true), 2);
-  ok(pf1[0] - pf0[0] === 12 && pf1[1] - pf0[1] === 0,
-     'prism-focus: first attack +12 (' + pf0[0] + '->' + pf1[0] + '), second attack unchanged (' + pf0[1] + '->' + pf1[1] + ')');
+  var pf1 = attackDamages(mkRun(SEED + 20, 'glass-cannon', true), 2);
+  ok(pf1[0] - pf0[0] === 10 && pf1[1] - pf0[1] === 10,
+     'glass-cannon: +10 flat on both attacks (' + pf0[0] + '->' + pf1[0] + ', ' + pf0[1] + '->' + pf1[1] + ')');
 
-  // lcm-pipeline: +0.8 mult on lifecycle-domain questions only (domain forced onto the live
-  // battle question in BOTH paired runs — the harness bank only serves storage/vms)
+  // data-locality: x2 damage on storage-domain questions only (domain forced onto the live
+  // battle question in BOTH paired runs so each turn is deterministic) — (v2.1.1) replaces
+  // the retired lcm-pipeline check after the 35-artifact curation
   (function () {
-    var base = mkRun(SEED + 21, null, true), art = mkRun(SEED + 21, 'lcm-pipeline', true);
+    var base = mkRun(SEED + 21, null, true), art = mkRun(SEED + 21, 'data-locality', true);
     var deltas = [];
     for (var t = 0; t < 2; t++) {
       var qb = K.drawQuestion(base).question, qa = K.drawQuestion(art).question;
-      if (t === 0) { base.battle.question.domain = 'lifecycle'; art.battle.question.domain = 'lifecycle'; }
+      var dom = t === 0 ? 'storage' : 'vms';
+      base.battle.question.domain = dom; art.battle.question.domain = dom;
       var rb = K.submitAnswer(base, right(qb), 8000, 'attack'), ra = K.submitAnswer(art, right(qa), 8000, 'attack');
       deltas.push((ra.damage || 0) - (rb.damage || 0));
     }
     ok(deltas[0] > 0 && deltas[1] === 0,
-       'lcm-pipeline: lifecycle questions hit harder (+' + deltas[0] + '), other domains unchanged (' + deltas[1] + ')');
+       'data-locality: storage questions hit x2 (+' + deltas[0] + '), other domains unchanged (' + deltas[1] + ')');
   })();
 
-  // erasure-coding: every THIRD incoming enemy attack halved (probe via wrong-answer counters)
+  // aegis-capacitor: EVERY incoming enemy attack reduced 30% (probe via wrong-answer counters)
+  // — (v2.1.1) replaces the retired erasure-coding thirds check after the 35-artifact curation
   (function () {
-    var run = mkRun(SEED + 22, 'erasure-coding', true);
-    run.battle.enemy.pattern = 'flat'; run.battle.enemy.cyc = 0;   // (v0.171.0, KBB#6) steady intent — the thirds arithmetic is under test, not the read
+    var run = mkRun(SEED + 22, 'aegis-capacitor', true);
+    run.battle.enemy.pattern = 'flat'; run.battle.enemy.cyc = 0;   // (v0.171.0, KBB#6) steady intent — the reduction arithmetic is under test, not the read
     var seen = [];
     for (var t = 0; t < 3; t++) {
       var q = K.drawQuestion(run).question;
@@ -151,35 +155,36 @@ function newWindow() {
       seen.push({ intent: intent, landed: res.enemyAttacked ? run.battle.lastIncoming : null });
       if (run.phase === 'lost') break;
     }
-    ok(seen.length === 3 && seen[0].landed === seen[0].intent && seen[1].landed === seen[1].intent
-       && seen[2].landed === Math.round(seen[2].intent * 0.5),
-       'erasure-coding: attacks 1+2 land full (' + seen[0].landed + ',' + (seen[1] && seen[1].landed) + '), third halved ('
-       + (seen[2] && seen[2].intent) + '->' + (seen[2] && seen[2].landed) + ')');
+    ok(seen.length === 3 && seen.every(function (s) { return s.landed === Math.round(s.intent * 0.7); }),
+       'aegis-capacitor: every attack lands at 70% (' + seen.map(function (s) { return s.intent + '->' + s.landed; }).join(', ') + ')');
   })();
 
-  // snapshot-ledger: +1 coin on a correct answer (fat enemy = no battle-won coin noise)
+  // overclock-gambit: each correct answer costs 2 HP (the +0.6 mult's price) — (v2.1.1)
+  // replaces the retired snapshot-ledger check after the 35-artifact curation
   (function () {
-    var run = mkRun(SEED + 23, 'snapshot-ledger', true);
-    var c0 = run.squad.coins;
+    var run = mkRun(SEED + 23, 'overclock-gambit', true);
+    var h0 = run.squad.hp;
     var q = K.drawQuestion(run).question;
     K.submitAnswer(run, right(q), 8000, 'attack');
-    ok(run.squad.coins === c0 + 1, 'snapshot-ledger: correct answer pays +1 coin (' + c0 + '->' + run.squad.coins + ')');
+    ok(run.squad.hp === h0 - 2, 'overclock-gambit: correct answer costs 2 HP (' + h0 + '->' + run.squad.hp + ')');
   })();
 
-  // one-click-repair: consumables also grant +6 shield (full useConsumable path)
+  // nanobot-swarm: heal 6 on each correct answer (from a real deficit) — (v2.1.1) replaces
+  // the retired one-click-repair consumable-hook check after the 35-artifact curation
   (function () {
-    var run = mkRun(SEED + 24, 'one-click-repair', false);
-    run.consumables.push('recharge');
-    var s0 = run.squad.shield;
-    var r = K.useConsumable(run, 'recharge');
-    ok(r.ok === true && run.squad.shield === s0 + K.CONFIG.rechargeShield + 6,
-       'one-click-repair: recharge grants base ' + K.CONFIG.rechargeShield + ' +6 bonus shield (' + s0 + '->' + run.squad.shield + ')');
+    var run = mkRun(SEED + 24, 'nanobot-swarm', true);
+    run.squad.hp = run.squad.maxHp - 20;
+    var h0 = run.squad.hp;
+    var q = K.drawQuestion(run).question;
+    K.submitAnswer(run, right(q), 8000, 'attack');
+    ok(run.squad.hp === h0 + 6, 'nanobot-swarm: correct answer heals +6 from a deficit (' + h0 + '->' + run.squad.hp + ')');
   })();
 
-  // cluster-expand: +1 block per battle won, permanent squad state
+  // singularity-seed: +1 base power AND +1 max HP per battle won, permanent squad state —
+  // (v2.1.1) replaces the retired cluster-expand check after the 35-artifact curation
   (function () {
-    var run = mkRun(SEED + 25, 'cluster-expand', false);
-    var b0 = run.squad.block, wins = 0, guard = 0;
+    var run = mkRun(SEED + 25, 'singularity-seed', false);
+    var p0 = run.squad.basePower, m0 = run.squad.maxHp, wins = 0, guard = 0;
     while (wins < 1 && guard++ < 12) {
       var d = K.drawQuestion(run); var q = d && d.question;
       if (!q) { try { K.leaveShop(run); } catch (e) {} continue; }
@@ -187,7 +192,8 @@ function newWindow() {
       if (res.win) wins++;
       if (run.phase === 'lost') break;
     }
-    ok(wins === 1 && run.squad.block === b0 + 1, 'cluster-expand: battle win adds +1 block (' + b0 + '->' + run.squad.block + ')');
+    ok(wins === 1 && run.squad.basePower === p0 + 1 && run.squad.maxHp === m0 + 1,
+       'singularity-seed: battle win adds +1 power and +1 max HP (' + p0 + '->' + run.squad.basePower + ', ' + m0 + '->' + run.squad.maxHp + ')');
   })();
 })();
 
@@ -234,7 +240,7 @@ function newWindow() {
      'K5: fly-in/fly-off choreography present in both draw paths');
   ok(!/purge/i.test(SRC.replace(/Purge cut \(Jason\)/, '')), 'K3: Purge fully removed (defs, roster, use path, view hook)');
   ok(/DESTROYED/.test(SRC) && /b\.over \|\| e\.hp <= 0/.test(SRC), 'K8: enemy panel states DESTROYED after death');
-  ok(!/answerMs != null && c\.answerMs <=/.test(SRC) && /hull is at full HP/.test(SRC), 'K9: no time-based artifact effects remain');
+  ok(!/answerMs != null && c\.answerMs <=/.test(SRC), 'K9: no time-based artifact effects remain');   // (v2.1.1) positive marker dropped — quickdraw-cache (its carrier) left in the 35-artifact curation
   ok(/s\.combat && s\.combat\.clientWidth\) \|\| s\.canvas\.clientWidth/.test(SRC) && /s\.fxCanvas\.width = Math\.max/.test(SRC),
      'K7: canvas + 3D renderer + fx overlay size from the container (the blur fix)');
   ok(/width:min\(540px,94%\)/.test(SRC) && /font-size:18px/.test(SRC), 'K1: tour card + heading enlarged');
@@ -394,7 +400,7 @@ function newWindow() {
   // JAMMER: odd turns suppress artifact damage hooks, telegraphed by drawQuestion parity
   var rj = bossRun('jammer', SEED + 73);
   var ej = rj.battle.enemy;
-  K.equipArtifact(rj, 'overclocked-core', true);                 // +4 flat modifyDamage
+  K.equipArtifact(rj, 'glass-cannon', true);                 // +10 flat modifyDamage (v2.1.1: kept-roster stand-in for the retired overclocked-core)
   rj.battle.attackIndex = 0; K.drawQuestion(rj);
   ok(ej.jamOn === false, 'KBB#5 JAMMER: even turns are clean (parity telegraph, like the shield)');
   var dmgClean = K.computeDamage(rj, 8000);
@@ -879,18 +885,18 @@ function newWindow() {
   ok(K.hangar.ITEMS.length === 3 && K.hangar.ITEMS.map(function (i2) { return i2.price; }).join(',') === '60,45,50',
      'catalog pinned: artifact 60 / hull 45 / rack 50 — a bounded 155 sink, knowledge still wins runs');
   ok(K.hangar.buy(pH, 'artifact', 'metadata-ring').reason === 'not-common', 'the artifact slot refuses non-commons');
-  ok(K.hangar.buy(pH, 'artifact', 'overclocked-core').ok === true && pH.kbbSalvage === 100 && pH.kbbHangar.artifact === 'overclocked-core',
+  ok(K.hangar.buy(pH, 'artifact', 'chevron-array').ok === true && pH.kbbSalvage === 100 && pH.kbbHangar.artifact === 'chevron-array',
      'a common fits and debits 60');
-  ok(K.hangar.buy(pH, 'artifact', 'chevron-array').reason === 'owned', 'one artifact slot, ever');
+  ok(K.hangar.buy(pH, 'artifact', 'nanobot-swarm').reason === 'owned', 'one artifact slot, ever');
   ok(K.hangar.buy(pH, 'hp', null).ok === true && K.hangar.buy(pH, 'slot', null).ok === true && pH.kbbSalvage === 5,
      'hull then rack buy clean — the full 155 build leaves 5 of 160');
   ok(K.hangar.buy({ kbbSalvage: 10 }, 'slot', null).reason === 'salvage', '10 salvage cannot afford the 50 rack (no debt)');
   // fittings apply at createRun — fresh starts AND restarts both route here (v0.68 J6 holds)
   var ctxF = H.makeCtx(K, { seed: SEED + 98 });
-  ctxF.hangar = { hp: true, slot: true, artifact: 'overclocked-core' };
+  ctxF.hangar = { hp: true, slot: true, artifact: 'chevron-array' };
   var rF = K.createRun(ctxF, { seed: SEED + 98 });
   ok(rF.squad.maxHp === 45 && rF.squad.hp === 45, 'hangar hull: 40 -> 45 max HP at run start');
-  ok(rF.squad.artifacts.length === 1 && rF.squad.artifacts[0].def.id === 'overclocked-core',
+  ok(rF.squad.artifacts.length === 1 && rF.squad.artifacts[0].def.id === 'chevron-array',
      'the chosen common boards slot 1 before the first battle');
   ok(rF.consumableCap === 5, 'the rack raises the per-run consumable cap to 5');
   for (var g5 = 0; g5 < 6; g5++) rF._api.grantConsumable('repair');
@@ -955,20 +961,22 @@ function newWindow() {
     return r;
   }
   var right = function (q) { return q.multi ? q.correctIndices.slice() : q.correctIndex; };
-  ok(!K.resonant(fresh(['shard-burst']), 'damage') && K.resonant(fresh(['shard-burst', 'quickdraw-cache']), 'damage'),
+  ok(!K.resonant(fresh(['sync-coupler']), 'damage') && K.resonant(fresh(['sync-coupler', 'isolator']), 'damage'),
      'resonant(): one of a category is silent, a pair is live');
-  // DAMAGE +2: shard-burst (streak>=2) and quickdraw (full HP) hooks are both silent on a
-  // damaged squad answering its FIRST question — the same-seed delta is pure resonance.
+  // DAMAGE +2: (v2.1.1) sync-coupler (slot 0 has no LEFT neighbour) and isolator (its left
+  // neighbour IS a damage artifact) are both adjacency-silenced in this rack order — the
+  // same-seed delta is pure resonance. Replaces the retired shard-burst/quickdraw pair.
   {
-    var r0 = fresh([]), r2 = fresh(['shard-burst', 'quickdraw-cache']);
-    r0.squad.shield = 0; r2.squad.shield = 0;   // strip the opening brace so the hit reaches hull (quickdraw stays silent)
+    var r0 = fresh([]), r2 = fresh(['sync-coupler', 'isolator']);
+    r0.squad.shield = 0; r2.squad.shield = 0;   // parity with the historical setup (hull hit is irrelevant to these hooks)
     K._test.applyIncoming(r0, 5); K._test.applyIncoming(r2, 5);
     var d0 = K.submitAnswer(r0, right(K.drawQuestion(r0).question), 800, 'attack').damage;
     var d2 = K.submitAnswer(r2, right(K.drawQuestion(r2).question), 800, 'attack').damage;
     ok(d2 === d0 + 2, 'damage pair: +2 flat exactly (' + d0 + ' -> ' + d2 + ')');
   }
-  // DEFENSE +3: reactive-ward + shield-overflow have NO battle-start hooks — the next
-  // battle opens at exactly startShield + 3.
+  // DEFENSE +3: (v2.1.1) damage-reflection + load-balancer have NO battle-start hooks (and
+  // their onEnemyAttack hooks never fire on an all-correct win) — the next battle opens at
+  // exactly startShield + 3. Replaces the retired reactive-ward/shield-overflow pair.
   {
     // same-seed delta: every battle opens with the +block brace, so measure pair vs no-pair
     function openShield(ids) {
@@ -978,7 +986,7 @@ function newWindow() {
       K.leaveShop(r);
       return r.squad.shield;
     }
-    var s0 = openShield([]), s2 = openShield(['reactive-ward', 'shield-overflow']);
+    var s0 = openShield([]), s2 = openShield(['damage-reflection', 'load-balancer']);
     ok(!isNaN(s0) && s2 === s0 + 3, 'defense pair: the next battle opens +3 over the same-seed no-pair run (' + s0 + ' -> ' + s2 + ')');
   }
   // ECONOMY +1: compression (no hooks) + interest-ledger (shop-enter only) — the win
@@ -993,9 +1001,12 @@ function newWindow() {
     var c0 = winCoins(e0), c2 = winCoins(e2);
     ok(typeof c0 === 'number' && c2 === c0 + 1, 'economy pair: +1 coin on the win (' + c0 + ' -> ' + c2 + ')');
   }
-  // SUSTAIN +1: measured inside the repair bracket (res.healed), onAcquire unfired.
+  // SUSTAIN +1: measured inside the repair bracket (res.healed).
+  // (v2.1.1) lazarus-protocol has NO hooks at all — the truly inert half of the pair,
+  // replacing the retired triage-protocol. (bio-reactor won't do: equipArtifact fires
+  // its onAcquire +4 healPower, contaminating the delta.)
   {
-    var rS = fresh(['nanobot-swarm', 'triage-protocol']);
+    var rS = fresh(['nanobot-swarm', 'lazarus-protocol']);
     rS.squad.shield = 0;                        // strip the opening brace: the 10 must reach hull for heal headroom
     K._test.applyIncoming(rS, 10);
     var rr = K.submitAnswer(rS, right(K.drawQuestion(rS).question), 700, 'repair');

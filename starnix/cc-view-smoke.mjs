@@ -80,7 +80,7 @@ const THREE = {
   Fog: function () { return {}; },
   // geometry
   PlaneGeometry: geom, BoxGeometry: geom, ConeGeometry: geom, CylinderGeometry: geom,
-  TorusGeometry: geom, CircleGeometry: geom, OctahedronGeometry: geom, SphereGeometry: geom, RingGeometry: geom, BufferGeometry: geom,
+  TorusGeometry: geom, CircleGeometry: geom, OctahedronGeometry: geom, IcosahedronGeometry: geom, SphereGeometry: geom, RingGeometry: geom, BufferGeometry: geom,
   // textures / renderer
   TextureLoader: class { load(url) { (globalThis.__texLoads || (globalThis.__texLoads = [])).push(url); return tex(); } },
   WebGLRenderer: Renderer
@@ -167,23 +167,25 @@ if (view) {
   // (v0.47.0) telegraphs + futuristic gate + duck pitch
   ok("chevron telegraph meshes built (up=jump gold, down=duck aqua)", !!view.iChevUp && !!view.iChevDown);
   ok("gate energy films built (aqua + gold)", !!view.iGateFilm && !!view.iGateFilmPow && !!view._gateFilmMat);
-  // (v0.56.0) sweeper hazard: beam + sideways-arrow telegraph meshes exist, and a live sweeper
-  // renders many frames clean (its x pans as z shrinks — the render path recomputes per frame)
-  ok("sweeper beam + side-arrow telegraph meshes built (peach)", !!view.iSweep && !!view.iChevSide);
-  ok("C1/C2 (v0.101.0): arrow shafts + the scanner-drone emitter are instanced",
-    !!view.iChevUpShaft && !!view.iChevDownShaft && !!view.iSweepHead);
+  // (v2.0.0) mine hazard: the OB_BOMB hull + glow shell are instanced, and a live mine
+  // renders many frames clean (bobbing + spin recompute per frame; the sweeper beam was
+  // retired with the scanner drone at the user's request)
+  ok("mine hull + glow shell meshes built (instanced)", !!view.iBomb && !!view.iBombGlow);
+  ok("C1/C2 (v0.101.0): arrow shafts stay instanced", !!view.iChevUpShaft && !!view.iChevDownShaft);
   {
-    const sw = sim._spawnSweep(60);
-    let swErr = null;
-    try { for (let f = 0; f < 90; f++) { if (sw) sw.z -= 0.5; view.render(1 / 60); } } catch (e) { swErr = e; }
-    if (sw) sw.z = -50;                    // culled on the next advance; later sections unaffected
-    ok("live sweeper renders 90 panning frames without throwing", !swErr);
+    sim._spawnBomb(60);
+    const bm = sim.obstacles.items.find(o => o.active && o.type === 3 /*OB_BOMB*/);
+    let bmErr = null;
+    try { for (let f = 0; f < 90; f++) { if (bm) bm.z -= 0.5; view.render(1 / 60); } } catch (e) { bmErr = e; }
+    if (bm) bm.z = -50;                    // culled on the next advance; later sections unaffected
+    ok("live mine renders 90 bobbing/spinning frames without throwing", !bmErr);
     view.reducedMotion = true;
-    const sw2 = sim._spawnSweep(40);
+    sim._spawnBomb(40);
+    const bm2 = sim.obstacles.items.find(o => o.active && o.type === 3 && o !== bm);
     let rmErr = null;
     try { for (let f = 0; f < 30; f++) view.render(1 / 60); } catch (e) { rmErr = e; }
-    if (sw2) sw2.z = -50; view.reducedMotion = false;
-    ok("reduced motion: sweeper + static telegraph render clean (no slide)", !rmErr);
+    if (bm2) bm2.z = -50; view.reducedMotion = false;
+    ok("reduced motion: mine renders still (no bob/spin) without throwing", !rmErr);
   }
   // (v0.61.0 P2·2, PLAYTEST A2) craggy peaks: 30 ridge meshes (2 sides × 9 near + 6 far),
   // near row opted OUT of fog (true rock value), far row fogged (the haze layer). The crag

@@ -156,24 +156,20 @@ const negS = solvable(42);
 ok(`control: sealing the center produces unescapable rows (dead=${negS.dead})`, negS.dead > 0);
 CC.CCSim.prototype._spawnPinch = realPinch;
 
-// ---- (v0.56.0) OB_SWEEP: the panning beam. Solvability is WORST-CASE phase (the beam can be
-// over any lane at crossing time) so jump must be the guaranteed out in every lane; live
-// collision stays phase-honest (only the occupied lane is hot). ----
-console.log("\nSweeper (v0.56.0) — panning low beam, jump is the guaranteed out:");
+// ---- (v2.0.0) OB_BOMB: the enemy mine hanging in ONE lane at flight height. It seals its
+// lane at ANY height (no jump/duck out — lane change is the only escape), so solvability is:
+// exactly one lane hot, both other lanes clear at every action. (Replaces the retired
+// OB_SWEEP scanner-drone checks — the beam was removed at the user's request.) ----
+console.log("\nMine (v2.0.0) — one lane sealed at any height, lane-dodge is the out:");
 {
   const sim = new CC.CCSim({ rng: makeRng(9) });
-  const sw = { type: 3 /*OB_SWEEP*/, lane: 1, side: 0, x: 0, z: 10, active: true, sweepPhase: 0.7, span: 1, tested: false };
-  let standAll = true, jumpAll = true, duckAny = false;
-  for (let lane = 0; lane < 3; lane++) {
-    if (!sim._wouldHit(sw, lane, 'stand')) standAll = false;
-    if (sim._wouldHit(sw, lane, 'jump')) jumpAll = false;
-    if (!sim._wouldHit(sw, lane, 'duck')) duckAny = true;
-  }
-  ok("worst case: standing can be hit in every lane (the beam pans all three)", standAll);
-  ok("jumping clears the beam in every lane (the guaranteed out)", jumpAll);
-  ok("ducking does NOT clear it (a low beam, not an arch)", !duckAny);
-  const hot = [0, 1, 2].filter(lane => sim._hitsObstacle(sw, { x: (lane - 1) * CFG.LANE_W, y: 0, topY: CFG.PLAYER_H }));
-  ok(`live phase: exactly one lane is hot at a time (lane-dodge is real skill; hot=${hot.join(",")})`, hot.length === 1);
+  const bomb = { type: 3 /*OB_BOMB*/, lane: 1, side: 0, x: 0, z: 10, active: true, sweepPhase: 0, span: 1, tested: false };
+  ok("its lane is hot at EVERY action (stand/jump/duck — no height escape)",
+    sim._wouldHit(bomb, 1, 'stand') && sim._wouldHit(bomb, 1, 'jump') && sim._wouldHit(bomb, 1, 'duck'));
+  ok("both other lanes are clear at every action (the dodge is guaranteed)",
+    [0, 2].every(lane => !sim._wouldHit(bomb, lane, 'stand') && !sim._wouldHit(bomb, lane, 'jump') && !sim._wouldHit(bomb, lane, 'duck')));
+  const hot = [0, 1, 2].filter(lane => sim._hitsObstacle(bomb, { x: (lane - 1) * CFG.LANE_W, y: 0, topY: CFG.PLAYER_H }));
+  ok(`live collision: exactly the mined lane is hot (hot=${hot.join(",")})`, hot.length === 1 && hot[0] === 1);
   let seen = 0;
   {
     const sim2 = new CC.CCSim({ rng: makeRng(11) });
@@ -182,7 +178,7 @@ console.log("\nSweeper (v0.56.0) — panning low beam, jump is the guaranteed ou
     const dt = 1 / 60;
     for (let f = 0; f < 60 * 120; f++) { sim2.shields = 99; const adv = sim2.speed * dt; sim2.distance += adv; sim2.speed = Math.min(CFG.MAX_SPEED, CFG.BASE_SPEED + sim2.distance * CFG.SPEED_RAMP); sim2._advanceObstacles(adv); sim2._maybeSpawn(); }
   }
-  ok(`sweepers enter the live spawn stream (${seen} in 120s)`, seen > 0);
+  ok(`mines enter the live spawn stream (${seen} in 120s)`, seen > 0);
 }
 
 console.log("\n" + (fail===0 ? `CC FAIRNESS: ALL GREEN (${pass}/${pass})` : `CC FAIRNESS: ${fail} FAILED`));

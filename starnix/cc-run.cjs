@@ -164,7 +164,7 @@ function runToQuestion(sim, maxSecs, pinShields) {
       if (inSq) {
         sawSqueeze = true;
         if (o.type === E.OB_ARCH) squeezeArch++;
-        if (o.type === E.OB_SWEEP) squeezeSweep++;
+        if (o.type === E.OB_BOMB) squeezeSweep++;   // (v2.0.0) mines replaced the sweeper; same keep-out rule inside stretches
         if (o.type === E.OB_NARROW && o.side !== sim._squeezeSide) squeezeOffSide++;
       } else if (o.type === E.OB_ARCH) archOutside++;
     }
@@ -184,16 +184,16 @@ function runToQuestion(sim, maxSecs, pinShields) {
           if (ob.type === E.OB_NARROW && dz < 1.0
               && sim._hitsObstacle(ob, { x: (cn.lane - 1) * CFG.LANE_W, y: 0, topY: CFG.PLAYER_H })) bad.sealed++;
           if (ob.type === E.OB_LOWROCK && dz < 0.8 && cn.y < 0.6 + CFG.JUMP_HEIGHT * 0.5) bad.low++;
-          if (ob.type === E.OB_SWEEP && dz < 1.0) bad.sweep++;
+          if (ob.type === E.OB_BOMB && dz < 1.0 && Math.abs((cn.lane - 1) * CFG.LANE_W - ob.x) < CFG.LANE_W * 0.5) bad.sweep++;   // (v2.0.0) coin in a MINED lane — the mine seals it at any height
         }
       }
     }
   }
   ok(bad.sealed === 0 && bad.low === 0 && bad.sweep === 0,
-     'C6: across 150s (' + audits + ' audits) no coin sits in a sealed lane, under a jump wall, or on a sweeper (' + JSON.stringify(bad) + ')');
+     'C6: across 150s (' + audits + ' audits) no coin sits in a sealed lane, under a jump wall, or on a mine (' + JSON.stringify(bad) + ')');
   ok(sawSqueeze, 'C9: squeeze stretches occur');
   ok(squeezeArch === 0 && squeezeSweep === 0 && squeezeOffSide === 0,
-     'C9: inside a stretch — zero arches (no ducks), zero sweepers, the wall NEVER switches sides');
+     'C9: inside a stretch — zero arches (no ducks), zero mines, the wall NEVER switches sides');
   ok(archOutside > 0, 'C9: arches still spawn outside stretches (mix intact)');
 })();
 
@@ -232,13 +232,14 @@ function runToQuestion(sim, maxSecs, pinShields) {
      'arch: standing hits everywhere, ducking clears everywhere');
   ok(sim._hitsObstacle(narrowL, stand(0)) && !sim._hitsObstacle(narrowL, stand(1)) && !sim._hitsObstacle(narrowL, stand(2)),
      'narrow: only the sealed lane is hot');
-  var sw = { type: E.OB_SWEEP, lane: 1, side: 0, x: 0, z: 10, active: true, span: 1, sweepPhase: 0.7 };
-  var beamX = sim._sweepX(sw);
-  var hot = [0, 1, 2].filter(function (l) { return sim._hitsObstacle(sw, stand(l)); });
-  ok(hot.length === 1 && Math.abs((hot[0] - 1) * CFG.LANE_W - beamX) < CFG.LANE_W * 0.5,
-     'sweeper live phase: EXACTLY the occupied lane is hot (lane ' + hot[0] + ' at beam x ' + beamX.toFixed(2) + ')');
-  ok([0, 1, 2].every(function (l) { return !sim._hitsObstacle(sw, jumper(l)); }),
-     'sweeper: a jumper clears it regardless of phase');
+  // (v2.0.0) OB_BOMB replaced the retired OB_SWEEP scanner drone in slot 3: a mine seals
+  // its ONE lane at any height — dodge is the only out (no jump/duck escape).
+  var bomb = { type: E.OB_BOMB, lane: 1, side: 0, x: 0, z: 10, active: true, span: 1, sweepPhase: 0 };
+  var hot = [0, 1, 2].filter(function (l) { return sim._hitsObstacle(bomb, stand(l)); });
+  ok(hot.length === 1 && hot[0] === 1,
+     'bomb: EXACTLY the mined lane is hot (lane ' + hot.join(',') + ')');
+  ok(sim._hitsObstacle(bomb, jumper(1)) && sim._hitsObstacle(bomb, ducker(1)) && !sim._hitsObstacle(bomb, jumper(0)) && !sim._hitsObstacle(bomb, ducker(2)),
+     'bomb: seals its lane at ANY height (no jump/duck out); adjacent lanes stay clear');
 })();
 
 /* ============ 3) GATE QUESTION FLOW: right/wrong/cap/drain ============ */

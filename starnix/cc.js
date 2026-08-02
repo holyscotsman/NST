@@ -82,9 +82,9 @@
     // stays dodgeable (literal 500 m/s collision speed would be unreactable). A question gate lands every
     // GATE_KM of scored distance; coins are removed (score is distance only).
     SCORE_SPEED: 500,          // dramatized metres/second the HUD shows + the rate scored distance accrues
-    TURN_KM: 34,               // (v0.132.0, V1.1 CC#2) a 90° turn every N scored km — was 250, which the 100-per-120km boost cadence skipped ~5/6 of; 34 + the 5km offset provably never lands on the ≡4-mod-10 gate grid
+    TURN_KM: 36,               // (v0.132.0, V1.1 CC#2; QA v2.1.1) a 90° turn every N scored km — was 250, then 34; with the denser ≡3-mod-6 gate grid only a multiple of 6 keeps the turn grid off it (34≡4 mod 6 sweeps every residue and MUST collide every 3rd turn — 39/141/243 km). 36 + the 5km offset pins every turn at ≡5 mod 6, provably gate-free.
     TURN_WARN_S: 4,            // seconds of MOVE LEFT/RIGHT warning before the turn hits
-    GATE_KM: 6,                // a question gate every 6 km of scored distance — more study reps per run (was 10; 6 with FIRST=3 keeps gates ≡3 mod 6, which the TURN_KM=34 grid never lands on)
+    GATE_KM: 6,                // a question gate every 6 km of scored distance — more study reps per run (was 10; 6 with FIRST=3 keeps gates ≡3 mod 6, which the TURN_KM=36 (+5) grid never lands on)
     FIRST_GATE_KM: 3,          // (Jason playtest) the FIRST gate lands at 3 km — hook the learning loop early
 
     // Boost power-up (04 task 8): every GATES_PER_BOOST gates, the ship blasts forward — invulnerable,
