@@ -5,6 +5,45 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.1.1 — Full QA + security pass (2026-08-02)
+
+A user-requested audit of the whole site: every test suite run, one real
+gameplay bug fixed, stale harnesses modernized, and a static security review
+(XSS sinks, storage poisoning, supply chain, secrets) with fixes applied.
+
+### Fixed
+- **Chasm Chase:** a real scheduling bug — with question gates every 6 km
+  (≡3 mod 6), the 34-km turn grid landed a 90° corner exactly on a question
+  gate every 3rd turn (39/141/243 km). `TURN_KM` is now 36, pinning every
+  turn at ≡5 mod 6 — provably never on a gate.
+- **Practice Exams:** a poisoned attempt-history key (any truthy non-array)
+  crashed the entry screen; history is now validated as an array, history-row
+  numbers are coerced, and the practice resume index must be a real integer
+  before it indexes the question bank.
+- **WWTBANE:** save migration now normalizes `wallet`, `stats.runs`, and
+  mastery box numbers — a poisoned wallet permanently NaN'd every shop
+  purchase.
+
+### Security
+- Bank-derived text (domain names, topics) and stored values (UA string,
+  storage keys, prefs dump, history rows) now render as text nodes, never
+  `innerHTML` — closing two high-severity and four low-severity XSS sinks in
+  the StarNix shell/ARM briefing, the launcher diagnostics panel, and the
+  Practice Exams history list.
+- The question-bank loader only honours http(s) URLs for bank files and
+  exhibit images (`javascript:`/`data:`/cross-scheme refs are dropped).
+- WWTBANE's DOM helper lost its unused raw-`innerHTML` prop; CI runs with
+  least-privilege `contents: read`; the launcher and Practice Exams pages
+  send only the origin (never the full URL) to the font CDN.
+
+### Changed
+- **Test harnesses** modernized to the shipped design (no product changes):
+  boss-music assertions track the reworked anthemic melody; scanner-drone
+  (OB_SWEEP) checks became mine (OB_BOMB) solvability/instancing checks;
+  eleven references to curated-out artifacts remapped onto the kept
+  35-roster; exhibit integrity now validates runtime bank images on disk;
+  boost (3 gates) and milestone (10 km first mark) expectations aligned.
+
 ## v2.1.0 — KBB art + artifact curation (2026-07-24)
 
 A user-directed follow-up: real ship/asteroid art for Kuiper Belt Battle and a
