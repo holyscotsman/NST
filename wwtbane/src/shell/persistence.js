@@ -108,5 +108,15 @@ function migrate(parsed) {
   merged.settings = { ...base.settings, ...(parsed.settings || {}) };
   merged.steveTaught = Array.isArray(parsed.steveTaught) ? parsed.steveTaught : [];
   merged.stevePending = typeof parsed.stevePending === 'string' ? parsed.stevePending : null;
+  // (QA v2.1.1) numeric fields that feed arithmetic must survive poisoning: a non-numeric
+  // wallet turned every shop purchase into NaN forever; runs/box degrade weighting quietly.
+  merged.wallet = Number.isFinite(parsed.wallet) && parsed.wallet >= 0 ? parsed.wallet : base.wallet;
+  if (!Number.isFinite(merged.stats.runs) || merged.stats.runs < 0) merged.stats.runs = 0;
+  if (merged.mastery && merged.mastery.records) {
+    for (const id of Object.keys(merged.mastery.records)) {
+      const rec = merged.mastery.records[id];
+      if (rec && !Number.isFinite(rec.box)) rec.box = 1;
+    }
+  }
   return merged;
 }

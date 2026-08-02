@@ -8,6 +8,10 @@ on:
     branches: [main]
   pull_request:
 
+# (QA v2.1.1) least privilege: every job only reads the checkout
+permissions:
+  contents: read
+
 jobs:
   wwtbane:
     name: WWTBANE unit tests

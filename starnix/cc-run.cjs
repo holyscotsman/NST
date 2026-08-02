@@ -304,15 +304,19 @@ function runToQuestion(sim, maxSecs, pinShields) {
   sim.answer((sim.pending.question.correctIndex + 1) % sim.pending.question.options.length);
   ok(sim.boostCharge === 0 && !sim._boostPending, 'a miss on an empty meter stays empty (no underflow)');
   sim.shields = CFG.SHIELDS_MAX; sim.resumeAfterQuestion();
-  // two corrects back to back: full meter -> armed -> meter resets
+  // (v2.0.0) GATES_PER_BOOST is 3 now that gates run every 6 km — three corrects fill the meter
   ok(runToQuestion(sim, 120, CFG.SHIELDS_MAX), 'gate 2 arrives');
   sim.answer(sim.pending.question.correctIndex);
-  ok(sim.boostCharge === 1 && !sim._boostPending, 'first correct: half charge, not armed yet');
+  ok(sim.boostCharge === 1 && !sim._boostPending, 'first correct: 1/' + CFG.GATES_PER_BOOST + ' charge, not armed yet');
   sim.resumeAfterQuestion();
-  ok(!sim.boostActive, 'half a meter buys nothing — no boost fires');
+  ok(!sim.boostActive, 'a partial meter buys nothing — no boost fires');
   ok(runToQuestion(sim, 120, CFG.SHIELDS_MAX), 'gate 3 arrives');
   sim.answer(sim.pending.question.correctIndex);
-  ok(sim.boostCharge === 0 && sim._boostPending === true, 'second correct: meter full -> boost armed, charge banked to 0');
+  ok(sim.boostCharge === 2 && !sim._boostPending, 'second correct: 2/' + CFG.GATES_PER_BOOST + ' charge, still not armed');
+  sim.resumeAfterQuestion();
+  ok(runToQuestion(sim, 120, CFG.SHIELDS_MAX), 'gate 4 arrives');
+  sim.answer(sim.pending.question.correctIndex);
+  ok(sim.boostCharge === 0 && sim._boostPending === true, 'third correct: meter full -> boost armed, charge banked to 0');
   sim.resumeAfterQuestion();
   ok(sim.boostActive === true, 'the earned boost fires on resume');
   for (var bt = 0; bt < 60 * 20 && sim.boostActive; bt++) { sim.shields = CFG.SHIELDS_MAX; sim.step(1 / 60); if (sim.phase === 'QUESTION') { sim.answer(sim.pending.question.correctIndex); sim.resumeAfterQuestion(); } }
@@ -335,9 +339,9 @@ function runToQuestion(sim, maxSecs, pinShields) {
 (function milestones() {
   group('CC#3: the 25 km milestone clock — fires each mark, derives on resume');
   var sim = mkSim(SEED + 34);
-  ok(sim.lastMilestone === 0 && sim._nextMile === 25000, 'fresh run: no milestone yet, first mark at 25 km');
+  ok(sim.lastMilestone === 0 && sim._nextMile === 10000, 'fresh run: no milestone yet, first mark at 10 km (v2.0.0 GX hook), then the 25 km grid');
   sim.scoreDistance = 24990; sim.step(1 / 60);
-  for (var mt = 0; mt < 600 && sim.lastMilestone === 0; mt++) { sim.shields = 9; if (sim.phase === 'QUESTION') { sim.answer(null, { timedOut: true }); sim.resumeAfterQuestion(); } sim.step(1 / 60); }
+  for (var mt = 0; mt < 600 && sim.lastMilestone < 25000; mt++) { sim.shields = 9; if (sim.phase === 'QUESTION') { sim.answer(null, { timedOut: true }); sim.resumeAfterQuestion(); } sim.step(1 / 60); }
   ok(sim.lastMilestone === 25000 && sim._nextMile === 50000, 'crossing 25 km fires the mark and arms 50 km');
   sim.scoreDistance = 74995;
   for (var mt2 = 0; mt2 < 600 && sim.lastMilestone < 75000; mt2++) { sim.shields = 9; if (sim.phase === 'QUESTION') { sim.answer(null, { timedOut: true }); sim.resumeAfterQuestion(); } sim.step(1 / 60); }
@@ -462,7 +466,7 @@ function runToQuestion(sim, maxSecs, pinShields) {
   stepFor(s3, CFG.BOOST_TIME + 1.5);
   var gained = s3.scoreDistance - sc0;
   ok(gained >= CFG.BOOST_KM * 1500 * 0.95, 'overcharged boost covers ~+50% (' + Math.round(gained / 1000) + ' km vs stock ' + CFG.BOOST_KM + ')');
-  ok(CFG.GATES_PER_BOOST === 2, 'JB6/CC#1: a full charge costs 2 correct answers (GATES_PER_BOOST 2)');
+  ok(CFG.GATES_PER_BOOST === 3, 'JB6/CC#1: a full charge costs 3 correct answers (GATES_PER_BOOST 3 — gates run every 6 km since v2.0.0)');
   // passive magnet: a neighbouring-lane cell drifts toward the player
   var s4 = mkSim(SEED + 10);
   s4.applyUpgrades({ magnet: 1 });
