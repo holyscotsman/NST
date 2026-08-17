@@ -5,6 +5,16 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.3.4 — Polish: three.js preloads with the page (2026-08-17)
+
+Development-loop cycle 7 (perf polish).
+
+### Changed
+- **WWTBANE:** `modulepreload` for the minified three.js build — the 652 KB
+  fetch starts with the HTML instead of after the boot module resolves its
+  import, removing one waterfall hop from first load. (StarNix's phone title
+  screen was audited this cycle and passed as-is.)
+
 ## v2.3.3 — UI/UX cycle 2: StarNix mission select fits phones (2026-08-17)
 
 Development-loop cycle 6 (UI/UX, iteration 2), screenshot-driven.
