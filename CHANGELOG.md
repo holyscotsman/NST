@@ -5,6 +5,17 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.3.3 — UI/UX cycle 2: StarNix mission select fits phones (2026-08-17)
+
+Development-loop cycle 6 (UI/UX, iteration 2), screenshot-driven.
+
+### Fixed
+- **StarNix on phones:** the Mission-select header squeezed its right column
+  off the viewport — the rank strip and the Main menu / Stats buttons clipped
+  past the right edge at 390px. The bridge header now stacks vertically at
+  phone widths: crest, full-width rank strip, then the menu buttons in a
+  wrapped row. (WWTBANE's phone title screen was audited too and passed.)
+
 ## v2.3.2 — Audit cycle 2: review findings applied (2026-08-17)
 
 Development-loop cycle 5 (code audit, iteration 2): an adversarial review of
