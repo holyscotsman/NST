@@ -20,7 +20,10 @@
 <link rel="stylesheet" href="./vendor/fonts/montserrat.css" />
 <link rel="stylesheet" href="./styles/main.css" />
 
-<!-- Three.js is vendored into the repo and served locally — never from a CDN. -->
+<!-- Three.js is vendored into the repo and served locally — never from a CDN.
+     (v2.3.4) modulepreload starts the 652KB fetch with the HTML instead of after
+     the boot module's import resolves — one less waterfall hop on first load. -->
+<link rel="modulepreload" href="./vendor/three/build/three.module.min.js" />
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three/build/three.module.min.js",
