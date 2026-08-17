@@ -11,7 +11,6 @@ import { QUESTIONS } from '../src/content/questions.js';
 import { BANK_BOUNDARIES } from '../src/core/config.js';
 
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
-const state = readFileSync(new URL('../STATE.md', import.meta.url), 'utf8');
 const screens = readFileSync(new URL('../src/shell/ui/screens.js', import.meta.url), 'utf8');
 
 // Retired by the the project design rules owner revision (docs/LIFELINES.md): the audience
@@ -45,10 +44,11 @@ test('README states the real safe havens', () => {
   assert.match(readme, /questions 5, 10, 17 and 25/, 'the safe-haven sentence lists them all');
 });
 
-test('README and STATE.md agree on the live URL', () => {
-  const url = 'https://holyscotsman.github.io/WWTBANE/';
-  assert.ok(readme.includes(url), 'README carries the live URL');
-  assert.ok(state.includes(url), 'STATE.md carries the same URL');
+test('README carries the live monorepo URL (the standalone-repo URL is retired)', () => {
+  // (v2.4.0 cleanup) the game moved into the NST monorepo; STATE.md (the old
+  // resume-point doc that pinned the standalone URL) was removed with it.
+  assert.ok(readme.includes('https://holyscotsman.github.io/NST/wwtbane/'), 'README carries the live URL');
+  assert.ok(!readme.includes('github.io/WWTBANE'), 'the retired standalone URL is gone');
 });
 
 test('retired lifeline/mastery-board claims are gone from README and the in-game help', () => {
