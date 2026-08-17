@@ -7,6 +7,10 @@
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#08060F" />
   <meta name="color-scheme" content="dark" />
+  <!-- (v2.2.1) strict CSP: the two sha256 hashes allow exactly this page's own inline
+       style + home-link script — anything else is denied. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-OeWXbM3GjQf13N2g+1LrPHtoGKYhfV783nWxfWCzuw4='; style-src 'sha256-qfJcJ1lTeiclDmWVQtsarbPkJJljCx4pux8sBUL5qFo='; img-src data:; base-uri 'none'; form-action 'none'; object-src 'none'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238B5CF6'%3E%3Crect x='3' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='9.7' y='9.7' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='3' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3C/svg%3E" />
   <!-- Served by GitHub Pages from any bad path, so everything is inline and the
        home link is resolved at runtime (project sites live under /<repo>/). -->

@@ -15,6 +15,8 @@
 
   <!-- (QA v2.1.1) referrer hygiene for any future external request -->
   <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <!-- (v2.2.1) strict CSP — self-contained page; img 'self' covers bank exhibit images. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src data:; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'" />
   <!-- Fonts vendored in shared/fonts.css (v2.2.0) — zero external requests. -->
   <link rel="stylesheet" href="../shared/fonts.css" />
 

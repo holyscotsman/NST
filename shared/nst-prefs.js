@@ -20,7 +20,7 @@
   };
 
   function read() {
-    try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY)) || {}); }
+    try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY), function (k, v) { return k === "__proto__" ? undefined : v; }) || {}); }   /* (v2.2.1) reviver strips __proto__ — stored JSON cannot reshape the prefs prototype */
     catch (e) { return Object.assign({}, DEFAULTS); }
   }
   function write(p) { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch (e) {} }

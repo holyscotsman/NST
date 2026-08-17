@@ -48,7 +48,7 @@ export function load() {
   else raw = memoryFallback;
   if (!raw) return defaultSave();
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw, (k, v) => (k === "__proto__" ? undefined : v));   // (v2.2.1) __proto__ stripped from the stored save
     return migrate(parsed);
   } catch {
     return defaultSave();
@@ -86,7 +86,7 @@ export function exportString(state) {
 
 export function importString(raw) {
   try {
-    const parsed = JSON.parse(String(raw));
+    const parsed = JSON.parse(String(raw), (k, v) => (k === "__proto__" ? undefined : v));   // (v2.2.1) import path gets the same guard
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
     // Reject a save the current build can't read (a future/unknown schema). When
     // a real v2 lands, add its upgrade path in migrate() and widen this gate.

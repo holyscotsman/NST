@@ -32,7 +32,7 @@
       try {
         var raw = sessionStorage.getItem(SESS_PREFIX + url);
         if (raw) {
-          var hit = JSON.parse(raw);
+          var hit = JSON.parse(raw, function (k, v) { return k === "__proto__" ? undefined : v; });   /* (v2.2.1) cache guard */
           if (hit && typeof hit.x === "string" && Date.now() - hit.t <= SESS_TTL) return Promise.resolve(hit.x);
         }
       } catch (e) { /* cache is best-effort */ }
