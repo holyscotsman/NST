@@ -1149,9 +1149,10 @@
         var d = doms[i], pct = Math.round((d.masteredPct || 0) * 100);
         var tier = d.seen === 0 ? "t0" : pct >= 70 ? "t4" : pct >= 45 ? "t3" : pct >= 20 ? "t2" : "t1";
         var tile = el("div", "sx-heat " + tier);
-        tile.innerHTML = '<div class="sx-heat-dom">' + d.domain + '</div>'
-          + '<div class="sx-heat-pct">' + (d.seen === 0 ? "new" : pct + "%") + "</div>"
-          + (d.due ? '<div class="sx-heat-due">' + d.due + " due</div>" : "");
+        // (QA v2.1.1) domain names come from the runtime bank markdown — text nodes, never innerHTML
+        tile.appendChild(el("div", "sx-heat-dom", d.domain));
+        tile.appendChild(el("div", "sx-heat-pct", d.seen === 0 ? "new" : pct + "%"));
+        if (d.due) tile.appendChild(el("div", "sx-heat-due", d.due + " due"));
         tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen";
         box.appendChild(tile);
       }

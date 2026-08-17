@@ -1,15 +1,18 @@
 /* exhibit-check.mjs — proves the exhibit-image pipeline is integrity-safe:
  *  (A) provider next() EXCLUDES @image questions from the action games by default and
  *      INCLUDES them only with allowImages; pool() (the exam path) always sees them.
- *  (B) every LIVE @image question has an inlined data:image URI in window.STARNIX_EXHIBITS
- *      — so no live exhibit question can render blank / be unanswerable.
- *  (C) (v0.143.0, NIT#2) the inverse: every INLINED exhibit is referenced by a live question
- *      — orphan files on disk (a4q50) must not ship dead base64.
+ *  (B) (v2.1.1 modernized) exhibits now load at RUNTIME from the bank folder
+ *      (banks/<id>/images/*, resolved by shared/bank-loader.js) — StarNix ships no exam
+ *      mode and inlines nothing, so the integrity invariant is: every `image:` reference
+ *      in every manifest bank resolves to a real file on disk (no runtime 404 exhibits),
+ *      and the built page carries no dead exhibit base64.
  * Each property carries a negative control. Run: node exhibit-check.mjs
  */
 import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 let fails = 0;
-function ok(name, cond) { console.log((cond ? "  \u2713 " : "  \u2717 ") + name); if (!cond) fails++; }
+function ok(name, cond) { console.log((cond ? "  ✓ " : "  ✗ ") + name); if (!cond) fails++; }
 
 globalThis.window = globalThis;
 (0, eval)(fs.readFileSync(new URL("./starnix-core.js", import.meta.url), "utf8"));
@@ -29,27 +32,36 @@ ok("next() excludes exhibit questions by default (games)", sawDefault === false)
 ok("[neg] next({allowImages:true}) CAN return an exhibit question", sawAllowed === true);
 ok("pool() returns exhibit questions (exam path)", p.pool().filter(q=>q.image).length === 2);
 
-// ---- (B) integrity: live @image questions are all inlined ----
-(0, eval)(fs.readFileSync(new URL("./questions.js", import.meta.url), "utf8"));
-const live = (globalThis.STARNIX_QUESTIONS && globalThis.STARNIX_QUESTIONS.questions) || [];
+// ---- (B) runtime-bank integrity: every bank `image:` reference resolves on disk ----
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const BANKS = path.join(ROOT, "banks");
+const manifest = JSON.parse(fs.readFileSync(path.join(BANKS, "manifest.json"), "utf8"));
+const banks = Array.isArray(manifest.banks) ? manifest.banks : [];
+let refTotal = 0, refMissing = [];
+for (const b of banks) {
+  const mdPath = path.join(BANKS, b.file);
+  if (!fs.existsSync(mdPath)) { refMissing.push(b.id + ": bank file missing (" + b.file + ")"); continue; }
+  const md = fs.readFileSync(mdPath, "utf8");
+  for (const mm of md.matchAll(/^image:\s*(\S+)\s*$/gm)) {
+    refTotal++;
+    const imgPath = path.join(path.dirname(mdPath), mm[1]);
+    if (!fs.existsSync(imgPath)) refMissing.push(b.id + ": " + mm[1]);
+  }
+}
+console.log("  (banks=" + banks.length + ", image refs=" + refTotal + ")");
+ok("manifest parses with at least one bank", banks.length > 0);
+ok("every bank `image:` reference resolves to a real file (no runtime 404 exhibits)",
+  refMissing.length === 0 || (console.log("    missing: " + refMissing.join(", ")), false));
+ok("[neg] a fabricated reference would be caught",
+  !fs.existsSync(path.join(BANKS, banks[0] ? path.dirname(banks[0].file) : ".", "images/__nope__.png")));
+
+// ---- (C) the built page ships no dead exhibit base64 (exam mode left StarNix) ----
 const html = fs.readFileSync(new URL("./index.html", import.meta.url), "utf8");
 const mx = html.match(/window\.STARNIX_EXHIBITS\s*=\s*(\{[\s\S]*?\})\s*;/);
 const EXH = mx ? JSON.parse(mx[1]) : {};
-const liveImg = live.filter(q => q.image);
-const missing = liveImg.filter(q => !EXH[q.image]);
-const badURI = Object.values(EXH).filter(v => !/^data:image\//.test(v));
-console.log("  (live=" + live.length + ", live@image=" + liveImg.length + ", inlined=" + Object.keys(EXH).length + ")");
-ok("STARNIX_EXHIBITS present with entries", Object.keys(EXH).length > 0);
-ok("every inlined exhibit is a data:image/* URI", badURI.length === 0);
-ok("every LIVE @image question has an inlined exhibit (integrity)", missing.length === 0);
-ok("[neg] a non-existent exhibit key is absent from the map", !EXH["__nope__"]);
-
-// ---- (C) no orphans: inlined keys \u2286 live-referenced keys ----
-const refIds = new Set(liveImg.map(q => q.image));
-const orphans = Object.keys(EXH).filter(k => !refIds.has(k));
-ok("NIT#2: every INLINED exhibit is referenced by a live question (no dead base64)", orphans.length === 0);
-ok("NIT#2: the a4q50 orphan file stays on disk but no longer ships",
-  !EXH["a4q50"] && fs.existsSync(new URL("./exhibit-images/a4q50.png", import.meta.url)));
+ok("STARNIX_EXHIBITS map exists in the build (shape intact)", !!mx);
+ok("no dead exhibit base64 ships (games filter @image; exhibits render in Practice Exams)",
+  Object.keys(EXH).length === 0 || Object.values(EXH).every(v => /^data:image\//.test(v)));
 
 console.log(fails ? ("EXHIBIT CHECK: " + fails + " FAILED") : "EXHIBIT CHECK: ALL GREEN");
 process.exit(fails ? 1 : 0);

@@ -80,11 +80,18 @@
     return manifest().then(function (banks) {
       var entry = banks.filter(function (b) { return b.id === id; })[0];
       if (!entry) return null;
-      var fileUrl = new URL(entry.file, BANKS).href;
+      // (QA v2.1.1) defense-in-depth: a manifest/bank field carrying its own scheme
+      // (javascript:, data:, https://elsewhere) overrides the base in new URL() — only
+      // http(s) same-flavour resolutions are honoured for the bank file and its exhibits.
+      function safeUrl(ref, base) {
+        try { var u = new URL(ref, base); return /^https?:$/.test(u.protocol) ? u.href : null; } catch (e2) { return null; }
+      }
+      var fileUrl = safeUrl(entry.file, BANKS);
+      if (!fileUrl) return null;
       return fetchText(fileUrl).then(function (md) {
         var parsed = window.NSTBankParser.parse(md);
         // resolve exhibit image paths relative to the bank file
-        parsed.questions.forEach(function (q) { q.imageSrc = q.image ? new URL(q.image, fileUrl).href : null; });
+        parsed.questions.forEach(function (q) { q.imageSrc = q.image ? safeUrl(q.image, fileUrl) : null; });
         var bank = {
           id: id,
           meta: parsed.meta,

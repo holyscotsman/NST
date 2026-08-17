@@ -1377,8 +1377,17 @@
           clear(hx);
           for (var hxi = 0; hxi < nCore; hxi++) hx.appendChild(mk("span", "arm-mhex" + (briefCore >= hxi ? " on" : ""), briefCore >= hxi ? "\u2B21" : String(hxi + 1)));
           var info = brfScene.querySelector(".arm-brf-info");
-          if (info && briefCore >= 0 && briefCore < nCore) info.innerHTML = 'BRIEFING ' + (briefCore + 1) + '/' + nCore + '<br><span>Topic</span> ' + conceptTag(cores[briefCore]) + '<br><span>Domain</span> ' + (cores[briefCore].q.domain || '');
-          else if (info) info.innerHTML = 'SECTOR ' + sector + ' \u00b7 ' + nCore + ' CORES';
+          // (QA v2.1.1) topic/domain come from the runtime bank markdown \u2014 text nodes, never innerHTML
+          if (info && briefCore >= 0 && briefCore < nCore) {
+            clear(info);
+            info.appendChild(doc.createTextNode('BRIEFING ' + (briefCore + 1) + '/' + nCore));
+            info.appendChild(doc.createElement('br'));
+            info.appendChild(mk('span', null, 'Topic'));
+            info.appendChild(doc.createTextNode(' ' + conceptTag(cores[briefCore])));
+            info.appendChild(doc.createElement('br'));
+            info.appendChild(mk('span', null, 'Domain'));
+            info.appendChild(doc.createTextNode(' ' + (cores[briefCore].q.domain || '')));
+          } else if (info) info.textContent = 'SECTOR ' + sector + ' \u00b7 ' + nCore + ' CORES';
         }
       } catch (eMx) {}
       if (briefCore < 0) {                                    // intro

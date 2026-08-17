@@ -117,10 +117,10 @@ console.log("\n2-minute rotation (v0.70.0, J5):");
   A.nextTrack();
   ok("fixed beds never rotate (boss stays put)", A.state().trackId === "boss");
   ok("rotation cadence pinned at ~2 min per track", SRC.indexOf("ROTATE_SECS = 120") !== -1);
-  // (v0.76.0, Jason: boss too piercing) deepened boss bed: octave-dropped solo, triangle arp, halved tesla
-  ok("boss bed deepened: no 5th-octave notes, triangle arp, tesla halved",
+  // (v0.76.0, Jason: boss too piercing; v2.0.0 rework: heroic call-and-response melody, dark eased)
+  ok("boss bed deepened: triangle arp, guitar lead, tesla halved, anthemic A4 melody",
     /arpWave: "triangle", leadGuitar: true/.test(SRC)
-    && SRC.indexOf('["D4","","","","A3"') !== -1
+    && SRC.indexOf('["A4","","","","","","C5"') !== -1
     && !/mel: \[\s*\["D5"/.test(SRC)
     && /teslaSteps: \[0, 8\], kick/.test(SRC));
 }
@@ -171,7 +171,7 @@ console.log("\nNode churn (v0.45.0 \u2014 persistent voice chains; only one-shot
   // boss config carries the wobble bass + darker arp/lead (source); arm's techno bed builds no
   // Q~11 wob filter (behavioral) — together: the boss bed is 'a tad more dubstep', the arm bed isn't.
   ok("boss bed is configured for the dubstep wobble bass (wob + dark in the def) — 'a tad more dubstep'",
-    /leadGuitar: true, dark: 0\.85,\s*\n\s*wob: \{ steps: \[0, 8\], hold: 7, cyclesPerBeat: 2 \}/.test(SRC));
+    /leadGuitar: true, dark: 0\.72,\s*\n\s*wob: \{ steps: \[0, 8\], hold: 7, cyclesPerBeat: 2 \}/.test(SRC));   // (v2.0.0 rework) dark eased 0.85 -> 0.72; wobble unchanged
   ok("the techno arm bed builds NO wobble bass at all (no resonant Q~11 filter across a full warmup)", wobFilters("arm", false) === 0);
   const a = churnRun("arm", false);
   ok("steady-state 'arm' creates ZERO heavy nodes (gain/filter/shaper) across 400 ticks", !a.err && a.heavy === 0);

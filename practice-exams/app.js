@@ -167,7 +167,7 @@
       history.slice(0, 6).forEach(function (a) {
         var row = el("div", "pe-history-row " + (a.pass ? "pass" : "fail"));
         row.appendChild(el("span", "pe-history-badge", a.pass ? "PASS" : "FAIL"));
-        row.appendChild(el("span", "pe-history-score", a.pct + "% · " + a.correct + "/" + a.total));
+        row.appendChild(el("span", "pe-history-score", Number(a.pct) + "% · " + Number(a.correct) + "/" + Number(a.total)));   // (QA v2.1.1) stored values coerced numeric before the html-based el()
         var extra = (a.timedOut ? " · timed out" : "") + (a.durationMs ? " · " + fmtDur(a.durationMs) : "");
         row.appendChild(el("span", "pe-history-date", fmtDate(a.at) + extra));
         if (a.bank) row.appendChild(el("span", "pe-history-bank", esc(a.bank)));   // (C4-03)

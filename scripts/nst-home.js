@@ -57,7 +57,8 @@
     var meta = el("div", "nst-diag-grid");
     rows.forEach(function (r) {
       meta.appendChild(el("span", "nst-diag-k", r[0]));
-      meta.appendChild(el("span", "nst-diag-v", String(r[1])));
+      var v = el("span", "nst-diag-v"); v.textContent = String(r[1]);   // (QA v2.1.1) UA string as text, not markup
+      meta.appendChild(v);
     });
     wrap.appendChild(meta);
     // localStorage inventory
@@ -72,13 +73,14 @@
     ls.appendChild(el("div", "nst-diag-lshead", "localStorage (" + keys.length + " keys)"));
     keys.sort().forEach(function (kv) {
       var r = el("div", "nst-diag-lsrow");
-      r.appendChild(el("code", null, kv[0]));
+      var code = el("code"); code.textContent = kv[0];   // (QA v2.1.1) storage key names as text, not markup
+      r.appendChild(code);
       r.appendChild(el("span", "nst-diag-size", fmtBytes(kv[1])));
       ls.appendChild(r);
     });
     wrap.appendChild(ls);
-    // raw prefs
-    var pre = el("pre", "nst-diag-json", JSON.stringify(prefs, null, 2));
+    // raw prefs — (QA v2.1.1) poisoned localStorage values must render inert
+    var pre = el("pre", "nst-diag-json"); pre.textContent = JSON.stringify(prefs, null, 2);
     wrap.appendChild(pre);
     return wrap;
   }
@@ -137,7 +139,7 @@
         row.appendChild(r);
         var txt = el("div", "nst-bank-rowtext");
         txt.appendChild(el("div", "nst-bank-rowtitle", esc(b.title || b.cert || b.id)));
-        if (b.id) txt.appendChild(el("div", "nst-bank-rowsub", esc(b.cert || "") + (b.count ? " · " + b.count + " questions" : "")));
+        if (b.id) txt.appendChild(el("div", "nst-bank-rowsub", esc(b.cert || "") + (Number(b.count) > 0 ? " · " + Number(b.count) + " questions" : "")));   // (QA v2.1.1) manifest count coerced numeric
         row.appendChild(txt);
         list.appendChild(row);
       });

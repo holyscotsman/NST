@@ -164,7 +164,7 @@ function runToQuestion(sim, maxSecs, pinShields) {
       if (inSq) {
         sawSqueeze = true;
         if (o.type === E.OB_ARCH) squeezeArch++;
-        if (o.type === E.OB_SWEEP) squeezeSweep++;
+        if (o.type === E.OB_BOMB) squeezeSweep++;   // (v2.0.0) mines replaced the sweeper; same keep-out rule inside stretches
         if (o.type === E.OB_NARROW && o.side !== sim._squeezeSide) squeezeOffSide++;
       } else if (o.type === E.OB_ARCH) archOutside++;
     }
@@ -184,16 +184,16 @@ function runToQuestion(sim, maxSecs, pinShields) {
           if (ob.type === E.OB_NARROW && dz < 1.0
               && sim._hitsObstacle(ob, { x: (cn.lane - 1) * CFG.LANE_W, y: 0, topY: CFG.PLAYER_H })) bad.sealed++;
           if (ob.type === E.OB_LOWROCK && dz < 0.8 && cn.y < 0.6 + CFG.JUMP_HEIGHT * 0.5) bad.low++;
-          if (ob.type === E.OB_SWEEP && dz < 1.0) bad.sweep++;
+          if (ob.type === E.OB_BOMB && dz < 1.0 && Math.abs((cn.lane - 1) * CFG.LANE_W - ob.x) < CFG.LANE_W * 0.5) bad.sweep++;   // (v2.0.0) coin in a MINED lane — the mine seals it at any height
         }
       }
     }
   }
   ok(bad.sealed === 0 && bad.low === 0 && bad.sweep === 0,
-     'C6: across 150s (' + audits + ' audits) no coin sits in a sealed lane, under a jump wall, or on a sweeper (' + JSON.stringify(bad) + ')');
+     'C6: across 150s (' + audits + ' audits) no coin sits in a sealed lane, under a jump wall, or on a mine (' + JSON.stringify(bad) + ')');
   ok(sawSqueeze, 'C9: squeeze stretches occur');
   ok(squeezeArch === 0 && squeezeSweep === 0 && squeezeOffSide === 0,
-     'C9: inside a stretch — zero arches (no ducks), zero sweepers, the wall NEVER switches sides');
+     'C9: inside a stretch — zero arches (no ducks), zero mines, the wall NEVER switches sides');
   ok(archOutside > 0, 'C9: arches still spawn outside stretches (mix intact)');
 })();
 
@@ -232,13 +232,14 @@ function runToQuestion(sim, maxSecs, pinShields) {
      'arch: standing hits everywhere, ducking clears everywhere');
   ok(sim._hitsObstacle(narrowL, stand(0)) && !sim._hitsObstacle(narrowL, stand(1)) && !sim._hitsObstacle(narrowL, stand(2)),
      'narrow: only the sealed lane is hot');
-  var sw = { type: E.OB_SWEEP, lane: 1, side: 0, x: 0, z: 10, active: true, span: 1, sweepPhase: 0.7 };
-  var beamX = sim._sweepX(sw);
-  var hot = [0, 1, 2].filter(function (l) { return sim._hitsObstacle(sw, stand(l)); });
-  ok(hot.length === 1 && Math.abs((hot[0] - 1) * CFG.LANE_W - beamX) < CFG.LANE_W * 0.5,
-     'sweeper live phase: EXACTLY the occupied lane is hot (lane ' + hot[0] + ' at beam x ' + beamX.toFixed(2) + ')');
-  ok([0, 1, 2].every(function (l) { return !sim._hitsObstacle(sw, jumper(l)); }),
-     'sweeper: a jumper clears it regardless of phase');
+  // (v2.0.0) OB_BOMB replaced the retired OB_SWEEP scanner drone in slot 3: a mine seals
+  // its ONE lane at any height — dodge is the only out (no jump/duck escape).
+  var bomb = { type: E.OB_BOMB, lane: 1, side: 0, x: 0, z: 10, active: true, span: 1, sweepPhase: 0 };
+  var hot = [0, 1, 2].filter(function (l) { return sim._hitsObstacle(bomb, stand(l)); });
+  ok(hot.length === 1 && hot[0] === 1,
+     'bomb: EXACTLY the mined lane is hot (lane ' + hot.join(',') + ')');
+  ok(sim._hitsObstacle(bomb, jumper(1)) && sim._hitsObstacle(bomb, ducker(1)) && !sim._hitsObstacle(bomb, jumper(0)) && !sim._hitsObstacle(bomb, ducker(2)),
+     'bomb: seals its lane at ANY height (no jump/duck out); adjacent lanes stay clear');
 })();
 
 /* ============ 3) GATE QUESTION FLOW: right/wrong/cap/drain ============ */
@@ -303,15 +304,19 @@ function runToQuestion(sim, maxSecs, pinShields) {
   sim.answer((sim.pending.question.correctIndex + 1) % sim.pending.question.options.length);
   ok(sim.boostCharge === 0 && !sim._boostPending, 'a miss on an empty meter stays empty (no underflow)');
   sim.shields = CFG.SHIELDS_MAX; sim.resumeAfterQuestion();
-  // two corrects back to back: full meter -> armed -> meter resets
+  // (v2.0.0) GATES_PER_BOOST is 3 now that gates run every 6 km — three corrects fill the meter
   ok(runToQuestion(sim, 120, CFG.SHIELDS_MAX), 'gate 2 arrives');
   sim.answer(sim.pending.question.correctIndex);
-  ok(sim.boostCharge === 1 && !sim._boostPending, 'first correct: half charge, not armed yet');
+  ok(sim.boostCharge === 1 && !sim._boostPending, 'first correct: 1/' + CFG.GATES_PER_BOOST + ' charge, not armed yet');
   sim.resumeAfterQuestion();
-  ok(!sim.boostActive, 'half a meter buys nothing — no boost fires');
+  ok(!sim.boostActive, 'a partial meter buys nothing — no boost fires');
   ok(runToQuestion(sim, 120, CFG.SHIELDS_MAX), 'gate 3 arrives');
   sim.answer(sim.pending.question.correctIndex);
-  ok(sim.boostCharge === 0 && sim._boostPending === true, 'second correct: meter full -> boost armed, charge banked to 0');
+  ok(sim.boostCharge === 2 && !sim._boostPending, 'second correct: 2/' + CFG.GATES_PER_BOOST + ' charge, still not armed');
+  sim.resumeAfterQuestion();
+  ok(runToQuestion(sim, 120, CFG.SHIELDS_MAX), 'gate 4 arrives');
+  sim.answer(sim.pending.question.correctIndex);
+  ok(sim.boostCharge === 0 && sim._boostPending === true, 'third correct: meter full -> boost armed, charge banked to 0');
   sim.resumeAfterQuestion();
   ok(sim.boostActive === true, 'the earned boost fires on resume');
   for (var bt = 0; bt < 60 * 20 && sim.boostActive; bt++) { sim.shields = CFG.SHIELDS_MAX; sim.step(1 / 60); if (sim.phase === 'QUESTION') { sim.answer(sim.pending.question.correctIndex); sim.resumeAfterQuestion(); } }
@@ -334,9 +339,9 @@ function runToQuestion(sim, maxSecs, pinShields) {
 (function milestones() {
   group('CC#3: the 25 km milestone clock — fires each mark, derives on resume');
   var sim = mkSim(SEED + 34);
-  ok(sim.lastMilestone === 0 && sim._nextMile === 25000, 'fresh run: no milestone yet, first mark at 25 km');
+  ok(sim.lastMilestone === 0 && sim._nextMile === 10000, 'fresh run: no milestone yet, first mark at 10 km (v2.0.0 GX hook), then the 25 km grid');
   sim.scoreDistance = 24990; sim.step(1 / 60);
-  for (var mt = 0; mt < 600 && sim.lastMilestone === 0; mt++) { sim.shields = 9; if (sim.phase === 'QUESTION') { sim.answer(null, { timedOut: true }); sim.resumeAfterQuestion(); } sim.step(1 / 60); }
+  for (var mt = 0; mt < 600 && sim.lastMilestone < 25000; mt++) { sim.shields = 9; if (sim.phase === 'QUESTION') { sim.answer(null, { timedOut: true }); sim.resumeAfterQuestion(); } sim.step(1 / 60); }
   ok(sim.lastMilestone === 25000 && sim._nextMile === 50000, 'crossing 25 km fires the mark and arms 50 km');
   sim.scoreDistance = 74995;
   for (var mt2 = 0; mt2 < 600 && sim.lastMilestone < 75000; mt2++) { sim.shields = 9; if (sim.phase === 'QUESTION') { sim.answer(null, { timedOut: true }); sim.resumeAfterQuestion(); } sim.step(1 / 60); }
@@ -461,7 +466,7 @@ function runToQuestion(sim, maxSecs, pinShields) {
   stepFor(s3, CFG.BOOST_TIME + 1.5);
   var gained = s3.scoreDistance - sc0;
   ok(gained >= CFG.BOOST_KM * 1500 * 0.95, 'overcharged boost covers ~+50% (' + Math.round(gained / 1000) + ' km vs stock ' + CFG.BOOST_KM + ')');
-  ok(CFG.GATES_PER_BOOST === 2, 'JB6/CC#1: a full charge costs 2 correct answers (GATES_PER_BOOST 2)');
+  ok(CFG.GATES_PER_BOOST === 3, 'JB6/CC#1: a full charge costs 3 correct answers (GATES_PER_BOOST 3 — gates run every 6 km since v2.0.0)');
   // passive magnet: a neighbouring-lane cell drifts toward the player
   var s4 = mkSim(SEED + 10);
   s4.applyUpgrades({ magnet: 1 });

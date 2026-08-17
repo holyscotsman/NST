@@ -22,7 +22,7 @@
     if (resumable) {
       try {
         var pos = JSON.parse(localStorage.getItem(RESUME_KEY));
-        if (pos && pos.bank === activeBankId && pos.idx > 0 && pos.idx < N) idx = pos.idx;
+        if (pos && pos.bank === activeBankId && typeof pos.idx === "number" && isFinite(pos.idx) && Math.floor(pos.idx) === pos.idx && pos.idx > 0 && pos.idx < N) idx = pos.idx;   // (QA v2.1.1) integers only — a stored "3" or 2.5 must not index the array
       } catch (ePos) {}
     }
     function savePosition() {

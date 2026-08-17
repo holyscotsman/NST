@@ -2784,9 +2784,10 @@ window.STARNIX_ASSETS = {
         var d = doms[i], pct = Math.round((d.masteredPct || 0) * 100);
         var tier = d.seen === 0 ? "t0" : pct >= 70 ? "t4" : pct >= 45 ? "t3" : pct >= 20 ? "t2" : "t1";
         var tile = el("div", "sx-heat " + tier);
-        tile.innerHTML = '<div class="sx-heat-dom">' + d.domain + '</div>'
-          + '<div class="sx-heat-pct">' + (d.seen === 0 ? "new" : pct + "%") + "</div>"
-          + (d.due ? '<div class="sx-heat-due">' + d.due + " due</div>" : "");
+        // (QA v2.1.1) domain names come from the runtime bank markdown — text nodes, never innerHTML
+        tile.appendChild(el("div", "sx-heat-dom", d.domain));
+        tile.appendChild(el("div", "sx-heat-pct", d.seen === 0 ? "new" : pct + "%"));
+        if (d.due) tile.appendChild(el("div", "sx-heat-due", d.due + " due"));
         tile.title = d.mastered + "/" + d.total + " mastered \u00b7 " + d.seen + " seen \u00b7 " + d.fresh + " unseen";
         box.appendChild(tile);
       }
@@ -6689,8 +6690,17 @@ window.STARNIX_ASSETS = {
           clear(hx);
           for (var hxi = 0; hxi < nCore; hxi++) hx.appendChild(mk("span", "arm-mhex" + (briefCore >= hxi ? " on" : ""), briefCore >= hxi ? "\u2B21" : String(hxi + 1)));
           var info = brfScene.querySelector(".arm-brf-info");
-          if (info && briefCore >= 0 && briefCore < nCore) info.innerHTML = 'BRIEFING ' + (briefCore + 1) + '/' + nCore + '<br><span>Topic</span> ' + conceptTag(cores[briefCore]) + '<br><span>Domain</span> ' + (cores[briefCore].q.domain || '');
-          else if (info) info.innerHTML = 'SECTOR ' + sector + ' \u00b7 ' + nCore + ' CORES';
+          // (QA v2.1.1) topic/domain come from the runtime bank markdown \u2014 text nodes, never innerHTML
+          if (info && briefCore >= 0 && briefCore < nCore) {
+            clear(info);
+            info.appendChild(doc.createTextNode('BRIEFING ' + (briefCore + 1) + '/' + nCore));
+            info.appendChild(doc.createElement('br'));
+            info.appendChild(mk('span', null, 'Topic'));
+            info.appendChild(doc.createTextNode(' ' + conceptTag(cores[briefCore])));
+            info.appendChild(doc.createElement('br'));
+            info.appendChild(mk('span', null, 'Domain'));
+            info.appendChild(doc.createTextNode(' ' + (cores[briefCore].q.domain || '')));
+          } else if (info) info.textContent = 'SECTOR ' + sector + ' \u00b7 ' + nCore + ' CORES';
         }
       } catch (eMx) {}
       if (briefCore < 0) {                                    // intro
@@ -9309,9 +9319,9 @@ window.STARNIX_ASSETS = {
     // stays dodgeable (literal 500 m/s collision speed would be unreactable). A question gate lands every
     // GATE_KM of scored distance; coins are removed (score is distance only).
     SCORE_SPEED: 500,          // dramatized metres/second the HUD shows + the rate scored distance accrues
-    TURN_KM: 34,               // (v0.132.0, V1.1 CC#2) a 90° turn every N scored km — was 250, which the 100-per-120km boost cadence skipped ~5/6 of; 34 + the 5km offset provably never lands on the ≡4-mod-10 gate grid
+    TURN_KM: 36,               // (v0.132.0, V1.1 CC#2; QA v2.1.1) a 90° turn every N scored km — was 250, then 34; with the denser ≡3-mod-6 gate grid only a multiple of 6 keeps the turn grid off it (34≡4 mod 6 sweeps every residue and MUST collide every 3rd turn — 39/141/243 km). 36 + the 5km offset pins every turn at ≡5 mod 6, provably gate-free.
     TURN_WARN_S: 4,            // seconds of MOVE LEFT/RIGHT warning before the turn hits
-    GATE_KM: 6,                // a question gate every 6 km of scored distance — more study reps per run (was 10; 6 with FIRST=3 keeps gates ≡3 mod 6, which the TURN_KM=34 grid never lands on)
+    GATE_KM: 6,                // a question gate every 6 km of scored distance — more study reps per run (was 10; 6 with FIRST=3 keeps gates ≡3 mod 6, which the TURN_KM=36 (+5) grid never lands on)
     FIRST_GATE_KM: 3,          // (Jason playtest) the FIRST gate lands at 3 km — hook the learning loop early
 
     // Boost power-up (04 task 8): every GATES_PER_BOOST gates, the ship blasts forward — invulnerable,
