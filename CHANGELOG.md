@@ -5,6 +5,21 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.3.0 — UI/UX cycle: the phone launcher works again (2026-08-17)
+
+Development-loop cycle 3 (UI/UX modernization), screenshot-driven.
+
+### Fixed
+- **Launcher on phones:** the exam chooser overflowed the viewport — the hero
+  (a flex item, so `min-width: auto`) grew to the cert grid’s intrinsic
+  3-column width (654px) and **clipped the playable NCP-MCI tile off the left
+  edge** at 390px. The hero now shrinks properly, and phones get a compact
+  2-up tile grid with the playable tile’s two variant buttons stacked.
+
+### Changed
+- Hero headline uses `text-wrap: balance` for even multi-line wraps
+  (progressive enhancement).
+
 ## v2.2.1 — Security cycle: strict CSP everywhere (2026-08-17)
 
 Development-loop cycle 2 (code audit + security).
