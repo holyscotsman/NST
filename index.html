@@ -15,6 +15,9 @@
 
   <!-- (QA v2.1.1) referrer hygiene for any future external request -->
   <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <!-- (v2.2.1) strict CSP — the site is fully self-contained (fonts are data: URIs in
+       shared/fonts.css), so everything except same-origin + data: is denied. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src data:; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'" />
 
   <!-- Fonts: Space Grotesk (display) + Manrope (UI) — vendored in shared/fonts.css (v2.2.0),
        zero external requests; system-stack fallback renders if the file is unavailable. -->

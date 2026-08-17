@@ -157,7 +157,7 @@
   var STORE_KEY = "nst.practice-exams.history.v1";
   function loadHistory() {
     // (QA v2.1.1) a poisoned key holding a truthy non-array must not crash the entry screen
-    try { var h = JSON.parse(localStorage.getItem(STORE_KEY)); return Array.isArray(h) ? h : []; }
+    try { var h = JSON.parse(localStorage.getItem(STORE_KEY), function (k, v) { return k === "__proto__" ? undefined : v; }); return Array.isArray(h) ? h : []; }
     catch (e) { return []; }
   }
   function saveAttempt(a) {

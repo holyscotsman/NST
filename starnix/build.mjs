@@ -147,6 +147,11 @@ const html = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#07070e" />
+<!-- (v2.2.1) CSP: a single-file app needs 'unsafe-inline' for its own script/style,
+     but every external vector (fetch beyond same-origin banks, embeds, base hijack)
+     is denied. frame-ancestors is header-only, so it cannot be set from here. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src data:; media-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="description" content="StarNix — three arcade study games (ARM, Chasm Chase, Kuiper Belt Battle) where Nutanix exam questions are the ammunition." />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="StarNix — Starlight Rescue Crew" />

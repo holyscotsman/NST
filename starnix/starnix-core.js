@@ -929,7 +929,7 @@
       try { storage.setItem(key, JSON.stringify(p)); } catch (e) { /* quota/serialize */ }
     }
     function parseProfile(raw) {   // shared by main + backup load paths
-      var parsed = JSON.parse(raw);
+      var parsed = JSON.parse(raw, function (k, v) { return k === "__proto__" ? undefined : v; });   /* (v2.2.1) __proto__ stripped from the stored profile */
       var p = (parsed && parsed.schemaVersion === SCHEMA_VERSION) ? parsed : migrate(parsed);
       if (!p || typeof p !== "object") return null;
       return migrate(p);

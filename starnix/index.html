@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="color-scheme" content="dark" />
 <meta name="theme-color" content="#07070e" />
+<!-- (v2.2.1) CSP: a single-file app needs 'unsafe-inline' for its own script/style,
+     but every external vector (fetch beyond same-origin banks, embeds, base hijack)
+     is denied. frame-ancestors is header-only, so it cannot be set from here. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src data:; media-src data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <meta name="description" content="StarNix — three arcade study games (ARM, Chasm Chase, Kuiper Belt Battle) where Nutanix exam questions are the ammunition." />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="StarNix — Starlight Rescue Crew" />
@@ -1016,7 +1021,7 @@ window.STARNIX_EXHIBITS = {};
       try { storage.setItem(key, JSON.stringify(p)); } catch (e) { /* quota/serialize */ }
     }
     function parseProfile(raw) {   // shared by main + backup load paths
-      var parsed = JSON.parse(raw);
+      var parsed = JSON.parse(raw, function (k, v) { return k === "__proto__" ? undefined : v; });   /* (v2.2.1) __proto__ stripped from the stored profile */
       var p = (parsed && parsed.schemaVersion === SCHEMA_VERSION) ? parsed : migrate(parsed);
       if (!p || typeof p !== "object") return null;
       return migrate(p);

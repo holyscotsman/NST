@@ -11,6 +11,10 @@
 <meta property="og:site_name" content="Nutanix Study Tool" />
 <meta name="theme-color" content="#04040a" />
 <meta name="color-scheme" content="dark" />
+<!-- (v2.2.1) strict CSP: everything same-origin; the sha256 allows exactly the
+     importmap block below — any other inline script is denied. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-LPB0RDT6755QJTds0RhwMs43lhZOn2/drO+BbY0lmvQ=' 'sha256-ogDNowIeJN+pg5u9a8mNqf7BbOP2kys35gNQTXXavIg='; style-src 'self'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
 <!-- Self-hosted font — no external requests, works offline (see vendor/fonts). -->
 <link rel="stylesheet" href="./vendor/fonts/montserrat.css" />

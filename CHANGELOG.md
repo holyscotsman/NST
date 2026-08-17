@@ -5,6 +5,26 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.2.1 — Security cycle: strict CSP everywhere (2026-08-17)
+
+Development-loop cycle 2 (code audit + security).
+
+### Security
+- **Content-Security-Policy on every page.** The launcher and Practice Exams
+  run fully strict (`script-src 'self'`, everything else denied); WWTBANE
+  allows exactly its two inline blocks by sha256 hash; the 404 page hashes its
+  own inline style + script; StarNix (a single-file app) keeps
+  `'unsafe-inline'` for its own code but denies every external vector —
+  no page can load third-party script, embed plugins, hijack `<base>`,
+  or POST a form anywhere.
+- **Prototype-pollution guards:** every parse of stored JSON (NST prefs,
+  StarNix profile, WWTBANE save + import, Practice Exams history/resume/prefs,
+  bank cache) now strips `__proto__` keys with a reviver.
+- **Repo hygiene:** the inert nested workflow directories left over from the
+  subtree import (`starnix/.github`, `wwtbane/.github` — GitHub never ran
+  them) are deleted, including the stale Pages deploy config that claimed
+  write permissions.
+
 ## v2.2.0 — Performance pass: 30% smaller StarNix, zero external requests (2026-08-17)
 
 Development-loop cycle 1 (workflow optimization + performance).
