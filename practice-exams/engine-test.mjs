@@ -19,6 +19,9 @@ const localStorage = {
 };
 const window = { localStorage };
 window.window = window;
+// (v2.3.2) the real page loads shared/bank-parser.js before the PE scripts, which
+// defines the canonical stored-JSON parse — the shim mirrors that environment.
+window.NSTSafeParse = (raw) => JSON.parse(raw, (k, v) => (k === '__proto__' ? undefined : v));
 window.PE_CONFIG = {
   PASS_THRESHOLD: 0.8,
   EXAM_QUESTION_COUNT: 75,

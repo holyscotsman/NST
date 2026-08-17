@@ -5,6 +5,24 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.3.2 — Audit cycle 2: review findings applied (2026-08-17)
+
+Development-loop cycle 5 (code audit, iteration 2): an adversarial review of
+everything the loops shipped since v2.1.1 verified the CSP hashes, the
+minified three.js export surface (416/416 identical), build determinism, and
+the vendored fonts — and produced two cleanup findings, both applied.
+
+### Changed
+- **Fonts load without blocking:** `shared/fonts.css` shrinks from 62 KB of
+  base64 to a ~1 KB stylesheet referencing sibling `.woff2` files (the pattern
+  WWTBANE already uses) — the already-compressed woff2 ships raw instead of
+  +33% base64, faces lazy-load per unicode-range, and CSP tightens from
+  `font-src data:` to `font-src 'self'`.
+- **One canonical safe-parse:** the `__proto__`-stripping stored-JSON parse now
+  lives once in `shared/bank-parser.js` (`window.NSTSafeParse`), consumed by
+  the bank loader and all three Practice Exams call sites; only the
+  self-contained StarNix/WWTBANE bundles keep local copies.
+
 ## v2.3.1 — Performance cycle 2: WWTBANE loads 48% less JS (2026-08-17)
 
 Development-loop cycle 4 (performance, iteration 2).
