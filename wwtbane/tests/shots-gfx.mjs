@@ -22,6 +22,7 @@ async function main() {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await ctx.addInitScript(() => { try {
     localStorage.setItem('wwtbane.e2e', '1');
+    localStorage.setItem('nst.activeBank', 'ncp-mci'); // runtime bank (post-NST-consolidation boot needs one selected)
     localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } }));
   } catch {} });
   const page = await ctx.newPage();

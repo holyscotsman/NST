@@ -4,7 +4,7 @@ A **game-show quiz that teaches the Nutanix NCP-MCI exam.** Answer 30 questions
 in a row — from easy warm-ups to a brutal final — and win. Miss one and the run
 is over, but you keep whatever you'd banked. It runs entirely in your browser.
 
-### ▶️ Play it now: **https://holyscotsman.github.io/WWTBANE/**
+### ▶️ Play it now: **https://holyscotsman.github.io/NST/wwtbane/**
 
 *(No install, no login, nothing to download — it's a static web page.)*
 

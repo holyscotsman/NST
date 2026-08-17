@@ -5,6 +5,32 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.4.0 — Cleanup + salvage: branding, README, arms fix, 17 MB lighter (2026-08-17)
+
+Development-loop cycle 8 (code + repository cleanup, with salvage).
+
+### Added (salvaged from an orphaned work branch)
+- **Launcher:** the official **Nutanix wordmark** now brands the nav (extracted
+  to `shared/nutanix-wordmark.svg`), and the exam chooser is decluttered — the
+  playable NCP-MCI tile stands alone with the seven coming-soon certs as a
+  one-line note.
+- **WWTBANE:** raised arms no longer clip through heads (the studio's shoulder
+  rotation used the wrong sign in four poses), and the bare glowing circle
+  over the crowd is gone.
+- **READMEs:** the root README leads with the live URL and describes what each
+  game actually plays like; WWTBANE's README points at the monorepo URL
+  (the retired standalone URL is now pinned as forbidden by its docs test).
+
+### Removed
+- Stale working documents: `docs/optimization/` (the July loop's state files —
+  also the last in-repo references to the AI tooling), the studio improvement
+  plan, WWTBANE's one-time review reports (code review, graphics audit ×2,
+  hardening review), and its `STATE.md`/`BROWSER_QA.md` resume-point docs.
+- **16 MB of source art** (`starnix/art/`) whose processed versions are
+  embedded in the build — originals remain recoverable from git history.
+- The unused OrbitControls addon; the orphaned remote work branch (after
+  salvaging its three good commits above).
+
 ## v2.3.4 — Polish: three.js preloads with the page (2026-08-17)
 
 Development-loop cycle 7 (perf polish).
