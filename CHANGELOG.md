@@ -5,6 +5,16 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.3.1 — Performance cycle 2: WWTBANE loads 48% less JS (2026-08-17)
+
+Development-loop cycle 4 (performance, iteration 2).
+
+### Changed
+- **WWTBANE:** the vendored three.js ESM build is now **minified**
+  (1,243 → 652 KB, −48%) and the importmap points at it; the postprocessing
+  addons (bloom) keep resolving the same module instance through the map.
+  The inline importmap's CSP hash was recomputed to match.
+
 ## v2.3.0 — UI/UX cycle: the phone launcher works again (2026-08-17)
 
 Development-loop cycle 3 (UI/UX modernization), screenshot-driven.
