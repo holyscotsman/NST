@@ -45,6 +45,15 @@ jobs:
       - run: node multi-answer-test.mjs
       - run: node shuffle-test.mjs
       - run: node timer-test.mjs
+      # (v2.2.0) the rest of the dependency-free battery gates PRs too — design/test
+      # drift (stale harnesses vs shipped mechanics) surfaced only locally before.
+      - run: node audio-smoke.mjs
+      - run: node cc-view-smoke.mjs
+      - run: node cc-fairness-check.mjs
+      - run: node exhibit-check.mjs
+      - run: node perf-smoke.mjs
+      - run: node import-questions.mjs --check
+      - run: KBB_ASSERT=1 node kbb-balance.cjs
 
   practice-exams:
     name: Practice Exams engine harness
