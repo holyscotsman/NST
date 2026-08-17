@@ -23,7 +23,7 @@
   // where they left off. Parse-guarded — a corrupt value falls back to defaults.
   var PREFS_KEY = "nst.practice-exams.prefs.v1";
   function loadPrefs() {
-    try { return JSON.parse(localStorage.getItem(PREFS_KEY), function (k, v) { return k === "__proto__" ? undefined : v; }) || {}; } catch (e) { return {}; }
+    try { return window.NSTSafeParse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; }
   }
   function savePrefs(patch) {
     try {

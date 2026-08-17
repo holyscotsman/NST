@@ -13,7 +13,16 @@
 (function (root, factory) {
   var api = factory();
   if (typeof module !== "undefined" && module.exports) module.exports = api;
-  if (typeof window !== "undefined") window.NSTBankParser = api;
+  if (typeof window !== "undefined") {
+    window.NSTBankParser = api;
+    // (v2.3.2) THE canonical stored-JSON parse for every page that loads the bank
+    // framework: strips __proto__ so poisoned storage can't reshape prototypes.
+    // bank-loader and the Practice Exams scripts (all loaded after this file)
+    // consume it instead of each carrying their own copy of the reviver.
+    window.NSTSafeParse = window.NSTSafeParse || function (raw) {
+      return JSON.parse(raw, function (k, v) { return k === "__proto__" ? undefined : v; });
+    };
+  }
 })(this, function () {
   "use strict";
 
