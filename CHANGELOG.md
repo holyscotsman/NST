@@ -5,6 +5,23 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.2.0 — Performance pass: 30% smaller StarNix, zero external requests (2026-08-17)
+
+Development-loop cycle 1 (workflow optimization + performance).
+
+### Changed
+- **StarNix:** 17 embedded images (ships, stations, canyon textures, menu and
+  nebula backdrops) converted from PNG/JPEG to WEBP — the single-file build
+  drops **4108 → 2862 KB** (gzip 2319 → 1388, −40% over the wire), with alpha
+  preserved on every sprite.
+- **Launcher + Practice Exams:** Manrope and Space Grotesk are now **vendored**
+  as variable-font data URIs in `shared/fonts.css` — the site makes **zero
+  external requests** (was: Google Fonts CSS + woff2 on two pages). Faster
+  first paint, no CDN dependency, and the door is open for a strict CSP.
+- **CI:** the whole dependency-free StarNix battery now gates PRs (audio,
+  CC view/fairness, exhibits, perf, bank import, KBB balance) — design/test
+  drift previously surfaced only in local runs.
+
 ## v2.1.1 — Full QA + security pass (2026-08-02)
 
 A user-requested audit of the whole site: every test suite run, one real

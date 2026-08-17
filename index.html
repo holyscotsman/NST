@@ -13,15 +13,12 @@
   <meta property="og:site_name" content="Nutanix Study Tool" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238B5CF6'%3E%3Crect x='3' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='3' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='9.7' y='9.7' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='3' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3Crect x='16.4' y='16.4' width='4.6' height='4.6' rx='1.5'/%3E%3C/svg%3E" />
 
-  <!-- (QA v2.1.1) don't leak the full page URL to the font CDN -->
+  <!-- (QA v2.1.1) referrer hygiene for any future external request -->
   <meta name="referrer" content="strict-origin-when-cross-origin" />
 
-  <!-- Fonts: Space Grotesk (display) + Manrope (UI). Falls back to a system stack if the CDN is blocked. -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <!-- (C3-10) non-render-blocking: preload + swap on load; system-stack fallback renders immediately -->
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" /></noscript>
+  <!-- Fonts: Space Grotesk (display) + Manrope (UI) — vendored in shared/fonts.css (v2.2.0),
+       zero external requests; system-stack fallback renders if the file is unavailable. -->
+  <link rel="stylesheet" href="shared/fonts.css" />
 
   <link rel="stylesheet" href="./styles/nst-home.css" />
 
