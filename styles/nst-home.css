@@ -23,7 +23,7 @@
   --muted: #B4AECB;
   --muted-2: #A49FBC;
   --faint: #8F86B8;
-  --fainter: #6E6890;
+  --fainter: #7E77A0;   /* (v2.5.2) was #6E6890 = 3.88:1 on --bg, under WCAG AA; now 4.82:1 */
 
   /* Purple — primary/interactive */
   --purple: #7C4DFF;
