@@ -8,7 +8,7 @@ domains: architecture, storage, networking, security, vms, data-protection, life
 domain: security
 difficulty: 3
 tags: cluster-lockdown, ssh, cvm, alerts
-image: images/ncp-mci-e1-q1.png
+image: images/ncp-mci-e1-q1.webp
 image-alt: Prism alert detail: 'The cluster is using password based ssh access for the cvm 192.168.10.102.' Severity Info, impact type Configuration. Summary states password-based remote login is enabled and recommends key-based SSH instead. Recommendation: change the SSH security setting of the CVM.
 
 Q: An administrator sees the alert shown in the exhibit. What should the administrator do to make sure the Nutanix user can no longer SSH to a CVM using a password?
@@ -262,7 +262,7 @@ Teach: Generate a report and it is not yours until you download it. Prism Centra
 domain: performance
 difficulty: 3
 tags: cpu-ready-time, contention, troubleshooting
-image: images/ncp-mci-e1-q16.png
+image: images/ncp-mci-e1-q16.webp
 image-alt: A VM CPU Ready Time chart in Prism Central showing many overlapping per-VM series (curie_test vmsmall / vmmedium / vmlarge) over a ten-minute window, with a hover tooltip listing individual VMs and readings of 18%, 18.8% and 21.5%.
 
 Q: An administrator receives complaints about VM performance. After reviewing the VM’s CPU Ready Time data shown in the exhibit, which step should the administrator take to diagnose the issue and identify root cause?
@@ -300,7 +300,7 @@ Teach: The upgrade landed and your domain account will not authenticate. Do not 
 domain: monitoring
 difficulty: 4
 tags: capacity-runway, capacity-planning, prism-central
-image: images/ncp-mci-e1-q19.png
+image: images/ncp-mci-e1-q19.webp
 image-alt: Prism Central capacity runway 'New Scenario' view. Overall Runway 59 days, with CPU, Memory and Storage each also 59 days. Target is set to 6 months. An Existing cluster is selected and Capacity configuration is enabled.
 
 Q: Refer to the exhibit. The customer expects to maintain a cluster runway of 9 months. The customer doesn’t have a budget for 6 months, but they want to add new workloads to the existing cluster. Based on the exhibit, what is required to meet the customer's budgetary timeframe?
@@ -484,7 +484,7 @@ Teach: Data-in-Transit Encryption protects the service-level traffic running bet
 domain: architecture
 difficulty: 3
 tags: prism-central, fqdn, scale-out, load-balancing
-image: images/ncp-mci-e1-q30.png
+image: images/ncp-mci-e1-q30.webp
 image-alt: Prism Central 'Cluster Details' dialog. Text reads: Virtual IP and FQDN are used to access the PC VM Cluster. Fields for Cluster Name (Unnamed), FQDN, and Virtual IP, with a note that Virtual IP is relevant for a multi-VM Prism Central.
 
 Q: In a scale-out Prism Central deployment, what additional functionality does configuring an FQDN instead of a Virtual IP provide?
@@ -612,7 +612,7 @@ Teach: A GPU host is not a standard host, and LCM will not conjure the driver bu
 domain: monitoring
 difficulty: 4
 tags: memory-runway, oversubscription, intelligent-operations
-image: images/ncp-mci-e1-q37.png
+image: images/ncp-mci-e1-q37.webp
 image-alt: Memory cluster runway chart over 365 days. A dotted line labelled 'Effective Capacity (503.22 GiB)' slopes gently downward across the chart, above a solid blue consumption area that steps up sharply at 'TODAY'. Y-axis runs 0.00 GiB to 651.93 GiB.
 
 Q: An administrator is looking at the memory cluster runway diagram, as shown in the exhibit. The environment is based on three hosts with the following configuration: • CPU: 2x Intel Xeon Gold (8 cores, 2.6 GHz) • RAM: 256 GB per host • Storage: SSDs and HDDs The Prism Central Intelligent Operations feature has been active for one month, but no further configurations were applied. What does the dotted red line mean?
@@ -1307,7 +1307,7 @@ Explain: To enable secure access to Volumes using a password, you should configu
 ### mci-networking-5gfy
 domain: networking
 difficulty: 4
-image: images/a2q18.png
+image: images/a2q18.webp
 
 Q: An administrator logs in to Prism Element, goes to the Network Visualization view, and sees the output shown in the exhibit. Which three steps must the administrator take to increase throughput to the host?
 - [ ] Change the VLAN ID to a higher priority ID
@@ -1614,7 +1614,7 @@ Explain: To configure NTP on a Prism Central instance running on a Hyper-V clust
 ### mci-performance-ni21
 domain: performance
 difficulty: 3
-image: images/a2q37.jpeg
+image: images/a2q37.webp
 
 Q: After adding new workloads, why is Overall Runway below 365 days and the scenario still shows the cluster is in good shape?
 - [ ] Because Storage Runway is still good
@@ -1743,7 +1743,7 @@ Explain: download.nutanix.com and release-api.nutanix.com are the two URLs that 
 ### mci-lifecycle-cfr6
 domain: lifecycle
 difficulty: 3
-image: images/a2q45.jpg
+image: images/a2q45.webp
 
 Q: Refer to the exhibit. An administrator notices the Message shown in the exhibit when navigating to LCM from Prism Central. Which action should they take to update LCM to the latest version?
 - [ ] Run an AOS upgrade.
@@ -1824,7 +1824,7 @@ Explain: The correct approach is to use the "Stop Update" feature within LCM. Th
 ### mci-data-protection-uvq8
 domain: data-protection
 difficulty: 4
-image: images/a2q50.png
+image: images/a2q50.webp
 
 Q: An administrator is trying to configure Metro Availability between Nutanix ESXi-based clusters. However, the Compatible Remote Sites screen does not list all required storage containers. Which two reasons could be a cause for this issue? (Choose two.)
 - [ ] Source and destination hardware are from different vendors.
@@ -2932,7 +2932,7 @@ Explain: No, the administrator will not be able to accomplish the task. A Nutani
 ### mci-vms-ru5i
 domain: vms
 difficulty: 3
-image: images/a4q32.png
+image: images/a4q32.webp
 
 Q: An administrator is trying to put a node into maintenance mode but receives the message shown in the exhibit. What is the potential reason for this dialog?
 - [x] Linux VM1 uses a vDisk stored in an RF1 DataStore
@@ -3062,7 +3062,7 @@ Explain: The missing step is setting the cluster time zone via the CVM using the
 ### mci-vms-xblt
 domain: vms
 difficulty: 3
-image: images/a4q43.png
+image: images/a4q43.webp
 
 Q: Refer Exhibit: A User is complaining about slowness of a mission-critical MSSQL server. The administrator logs into Prism Element to investigate the VM performance and observes what is shown in the diagram. Which action would best improve VM performance?
 - [ ] Add additional RAM to the user VM
@@ -3143,7 +3143,7 @@ Explain: On a Nutanix cluster, Network Segmentation (NS) allows you to isolate n
 ### mci-monitoring-k2ng
 domain: monitoring
 difficulty: 4
-image: images/a4q48.png
+image: images/a4q48.webp
 
 Q: An administrator manages a cluster and notices several failed components shown in the exhibit. What two options does the administrator have to run all NCC checks manually? (Choose Two)
 - [ ] Running ncc health_checks run_all on the PC VM
@@ -3160,7 +3160,7 @@ Explain: Running ncc health_checks run_all on a Controller VM (CVM) initiates al
 ### mci-performance-nwcz
 domain: performance
 difficulty: 3
-image: images/a4q49.png
+image: images/a4q49.webp
 
 Q: An administrator receives complaints of poor performance in a particular VM. Based on the VM performance metrics, what is the most likely cause of this behavior?
 - [ ] The VM needs more vCPUs
@@ -3257,7 +3257,7 @@ Explain: The most useful VM metric for isolating the cause of users being discon
 ### mci-networking-efdc
 domain: networking
 difficulty: 3
-image: images/a5q5.png
+image: images/a5q5.webp
 
 Q: An administrator is adding a new node to a cluster. The node has been imaged to the same versions of AHV and AOS that the cluster is running, configured with appropriate IP addresses, and bonding has been configured the same as the existing uplink bonds. When attempting to add the node to the cluster with the Expand Cluster function in Prism, the cluster is unable to find the new node. Based on the above output from the new node, what is most likely the cause of this issue?
 - [ ] The ports on the upstream switch are not configured for LACP.
@@ -3274,7 +3274,7 @@ Explain: If the cluster and the new node are on different VLANs, they will not b
 ### mci-data-protection-cth1
 domain: data-protection
 difficulty: 3
-image: images/a5q6.png
+image: images/a5q6.webp
 
 Q: An administrator is trying to implement the solution that is shown in the exhibit but has been unsuccessful. Based on the diagram, what is causing the issue?
 - [ ] A remote Witness VM
@@ -3452,7 +3452,7 @@ Explain: Prism Central storage policies support Volume Groups (VGs). They allow 
 ### mci-monitoring-fk8s
 domain: monitoring
 difficulty: 3
-image: images/a5q17.png
+image: images/a5q17.webp
 
 Q: After configuring modules for a Remote Syslog Server, the settings are as shown. The administrator notices that even though the level parameter is set to EMERGENCY, all monitor logs are being sent. What is the likely cause of this issue?
 - [ ] A second rsyslog server is configured to send all monitor logs.
@@ -3517,7 +3517,7 @@ Explain: When a VM connects to a Nutanix-managed network, the IP address is assi
 ### mci-networking-1wcj
 domain: networking
 difficulty: 3
-image: images/a5q21.png
+image: images/a5q21.webp
 
 Q: Refer Exhibit: An administrator is attempting to create an additional virtual switch on a newly deployed AHV cluster, using the two currently disconnected interfaces. The administrator is unable to select the interfaces when creating the virtual switch. What is the likely cause of this issue?
 - [ ] Only one interface is available on the selected hosts.
@@ -3582,7 +3582,7 @@ Explain: To prevent virtual servers supporting the new application from communic
 ### mci-vms-y55b
 domain: vms
 difficulty: 3
-image: images/a5q25.png
+image: images/a5q25.webp
 
 Q: Refer Exhibit: An administrator needs to update some images that were previously uploaded to their Nutanix cluster. While logged into Prism Element, when trying to update the images, the update icon is not enabled. What could be the cause for this behavior?
 - [ ] The files were ISO but were uploaded as disk images, hence cannot be used or edited.
@@ -3727,7 +3727,7 @@ Explain: In Nutanix AHV networking, the Controller VM (CVM) and the AHV host com
 ### mci-monitoring-1a8d
 domain: monitoring
 difficulty: 3
-image: images/a5q34.png
+image: images/a5q34.webp
 
 Q: An administrator is trying to create a custom alert policy for all VMs. Why is the "Alert Warning If" field greyed out?
 - [ ] The "Alert Critical If" threshold is set.
@@ -3760,7 +3760,7 @@ Explain: Enabling HA Reservation in Prism Element is the correct action. HA Rese
 ### mci-networking-x76w
 domain: networking
 difficulty: 3
-image: images/a5q36.png
+image: images/a5q36.webp
 
 Q: Refer to the exhibit: Which virtual network technology does Nutanix AHV use?
 - [ ] NSX-V
@@ -3793,7 +3793,7 @@ Explain: To minimize delays during LCM updates, disable any VM affinity rules. T
 ### mci-storage-8acu
 domain: storage
 difficulty: 3
-image: images/a5q38.png
+image: images/a5q38.webp
 
 Q: Refer Exhibit: An Administrator needs to enable inline deduplication for a pre-existing storage container. When trying to enable deduplication on the storage container, this feature is greyed OUT. What is the reason for this behaviour.
 - [ ] Capacity reservation is not enabled
