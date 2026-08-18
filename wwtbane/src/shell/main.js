@@ -828,6 +828,10 @@ export class Game {
   }
 
   endRun(won, result) {
+    // (v2.4.3) belt-and-braces: a run that has already been torn down (quit) has no
+    // controller to finalize. Line 2 below dereferences it unconditionally, so any
+    // stray timer that outlived the quit used to crash here.
+    if (!this.rc) return;
     const pay = won ? result.payout : (result ? result.payout : payout({ clearedCount: this.rc.clearedCount, won: false }));
     const reached = this.rc.clearedCount;
     this.save.stats.runs += 1;
