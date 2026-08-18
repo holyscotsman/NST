@@ -508,7 +508,7 @@
         "color:#9a9aad;border-radius:10px;padding:7px 14px;font-family:Montserrat,Arial,sans-serif;font-weight:700;font-size:12px;cursor:pointer;}",
         ".arm-introskip:hover{border-color:" + COL.aqua + ";color:#fff;}",
         ".arm-comms-replay{background:none;border:1px solid #34344a;color:#9a9aad;border-radius:7px;",
-        "padding:3px 9px;font-family:Montserrat,Arial,sans-serif;font-size:11px;cursor:pointer;margin-right:8px;}",
+        "padding:3px 9px;font-family:Montserrat,Arial,sans-serif;font-size:11px;cursor:pointer;margin-right:8px;min-height:24px;}",   // (v2.5.4) 24px floor: WCAG 2.2 SC 2.5.8
         ".arm-comms-replay:hover{border-color:" + COL.iris + ";color:#fff;}"
       ].join("");
       // #12 P2: in high contrast, flip the CSS literals that bypass the palette (borders + secondary
@@ -3720,6 +3720,10 @@
       ".arm-screw.s1{left:10px;top:10px;} .arm-screw.s2{right:10px;top:10px;} .arm-screw.s3{left:10px;bottom:10px;transform:rotate(70deg);} .arm-screw.s4{right:10px;bottom:10px;transform:rotate(-30deg);}",
       ".arm-brf-cluster{position:absolute;top:22px;width:250px;display:flex;flex-direction:column;gap:8px;}",
       ".arm-brf-cluster.left{left:calc(12% - 125px);} .arm-brf-cluster.right{right:calc(12% - 125px);}",
+      // (v2.5.4) the calc above centres a fixed 250px cluster on the 12% mark, which goes
+      // negative once the viewport is narrow (-78px at 390px) and the dash clips it away --
+      // taking SECTOR/CORES and the uplink log with it. Pin to the edges and share the width.
+      "@media (max-width:820px){.arm-brf-cluster{width:44%;}.arm-brf-cluster.left{left:10px;}.arm-brf-cluster.right{right:10px;}}",
       ".arm-brf-lbl{font-size:10px;letter-spacing:.2em;color:" + C.dim + ";}",
       ".arm-brf-hexes{display:flex;gap:8px;}",
       ".arm-mhex{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:15px;color:" + C.dim + ";border:1px dashed #34344a;}",
