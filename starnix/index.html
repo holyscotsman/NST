@@ -836,11 +836,11 @@ window.STARNIX_EXHIBITS = {};
       var excl = {};
       if (opts.excludeIds) for (var i = 0; i < opts.excludeIds.length; i++) excl[opts.excludeIds[i]] = true;
 
-      function build(useDomain, useBand, useExcl) {
+      function build(useDomain, useBand, useExcl, allowImagesOverride) {
         var out = [];
         for (var k = 0; k < all.length; k++) {
           var q = all[k];
-          if (!opts.allowImages && q.image) continue;   // exhibit Qs are exam-only (need a full-screen image)
+          if (!(opts.allowImages || allowImagesOverride) && q.image) continue;   // exhibit Qs are exam-only (need a full-screen image)
           if (useDomain && domain && q.domain !== domain) continue;
           if (useBand && !inBand(q.difficulty, band)) continue;
           if (useExcl && excl[q.id]) continue;
@@ -852,7 +852,13 @@ window.STARNIX_EXHIBITS = {};
       if (c.length) return { list: c, relaxed: false };
       c = build(true, false, true); if (c.length) return { list: c, relaxed: true };   // drop band
       c = build(false, false, true); if (c.length) return { list: c, relaxed: true };  // drop domain
-      c = build(false, false, false); return { list: c, relaxed: true };               // allow excluded
+      c = build(false, false, false); if (c.length) return { list: c, relaxed: true };  // allow excluded
+      // (v2.5.3) LAST resort: every relaxation above keeps filtering exhibits out, so a
+      // bank whose questions ALL carry an @image left this empty and next() threw —
+      // crashing whichever game asked. The games already render an explicit
+      // "exhibit served in error" notice for a leaked image question, so serving one
+      // is strictly better than taking the game down.
+      c = build(false, false, false, true); return { list: c, relaxed: true };
     }
 
     return {
