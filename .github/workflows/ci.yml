@@ -54,6 +54,9 @@ jobs:
       - run: node perf-smoke.mjs
       - run: node import-questions.mjs --check
       - run: KBB_ASSERT=1 node kbb-balance.cjs
+      # (v2.5.3) property fuzz: the provider must never throw, return junk, or leak
+      # an exhibit into a game pool. Pure Node, no browser.
+      - run: node core-fuzz.mjs
 
   practice-exams:
     name: Practice Exams engine harness

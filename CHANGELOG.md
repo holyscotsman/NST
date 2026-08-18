@@ -5,6 +5,33 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.5.3 — The last two unaudited surfaces, fuzzed (2026-08-18)
+
+Development-loop cycle 16 (audit). StarNix's core and its KBB engine were the
+two surfaces the interrupted v2.4.1 hunt never reached. Rather than re-read
+them, this cycle fuzzes them for invariant violations.
+
+### Fixed
+- **A bank whose questions all carry an exhibit crashed every game.** The
+  provider relaxes its filters in turn (difficulty band → domain → the exclude
+  list) but *never* stops filtering exhibits out, since games can't render a
+  full-screen image. With no non-exhibit question anywhere, the pool came back
+  empty and `next()` threw — uncaught in ARM, Chasm Chase and KBB alike. It now
+  falls back to serving the exhibit question, which the games already greet
+  with an explicit "exhibit served in error" notice; a confusing question beats
+  a dead game. Banks with any ordinary question are completely unaffected.
+
+### Added
+- **`starnix/core-fuzz.mjs` (CI-gated)** — 200 provider draws across the
+  domain / band / allowImages / near-total-exclusion matrix asserting `next()`
+  never throws, never returns junk, and never leaks an exhibit into a game pool
+  while an ordinary question exists; plus mastery-record range invariants and
+  the all-exhibit regression above (verified to fail against the pre-fix core).
+- **`starnix/kbb-fuzz.cjs`** — 120 seeded KBB runs (4,439 turns) with randomly
+  ordered five-artifact racks, mixing attack/brace/repair and right/wrong
+  answers, asserting HP stays within bounds, nothing goes NaN or negative, and
+  every cap holds. Needs jsdom like `kbb-run.cjs`, so it stays a local harness.
+
 ## v2.5.2 — Accessibility audited with real measurements (2026-08-18)
 
 Development-loop cycle 15 (UI/UX). Accessibility had never been audited
