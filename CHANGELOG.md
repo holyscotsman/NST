@@ -5,6 +5,52 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.5.4 — StarNix's in-game screens, measured on a phone (2026-08-18)
+
+Development-loop cycle 17 (UI/UX). Earlier mobile passes covered the launcher,
+Practice Exams and WWTBANE; StarNix's *in-game* screens — the densest layouts
+in the site — had never been measured at phone width. Driving each one through
+the shipped test seams and measuring it turned up one bug class repeated in
+three places: **a centred `nowrap` flex row that is then clipped loses content
+off *both* ends, unreachably.**
+
+### Fixed
+- **The first-run "1 · START HERE" ribbon was sliced in half — on every
+  viewport.** The mission cards carry `overflow:hidden` purely to contain a
+  hover sheen that slides across them, and that clip also cut the top 7px off
+  the order ribbon, which sits at `top:-8px` by design. The sheen is now a
+  swept background that cannot leave the box, so the cards no longer clip at
+  all. This was the very guidance a new player is meant to follow.
+- **KBB's stat bar hid its own content on a phone.** The pill centres a
+  `nowrap` row and clips it, so DEPTH lost 50px off the left edge (rendering as
+  "-1") and the ↻ intro button sat 64px past the right edge — both permanently
+  unreachable, not merely off-screen. It now wraps.
+- **The KBB battle could be dragged sideways.** The ±8° artifact-card fan
+  widened each 118px card's box to 138px and the rack never wrapped, pushing
+  the game root 116px wider than the viewport. The fan is now flat on phones
+  and the rack wraps; the root measures exactly the viewport width.
+- **ARM's briefing dash threw its readouts off-screen.** The cockpit clusters
+  are placed with `left:calc(12% - 125px)`, which computes to **-78px** at
+  390px wide — taking SECTOR / CORES and the uplink log with it. They are now
+  pinned to the edges and share the width.
+- **The menu could be dragged sideways by ~9px.** `.sx-menu` set only
+  `overflow-y:auto`, and per spec that computes `overflow-x` to `auto` as well,
+  so the drifting backdrop photo (which scales 1.08→1.16 by design) became
+  scrollable slop. `overflow-x` is now pinned.
+- **Three controls sat under the WCAG 2.2 SC 2.5.8 (AA) 24px minimum** — the
+  coach-mark close button (23×19), KBB's ↻ intro (65×21) and ARM's ↻ intro
+  (57×22). All now meet the floor.
+
+### Added
+- **`scripts/mobile-audit.mjs`** — drives StarNix's menu, progress, settings,
+  ARM (briefing / flight / question), KBB (how-to / battle) and CC at phone
+  width and measures what the eye misses: content sitting outside a
+  `overflow-x:hidden` ancestor and thus unreachable, containers that genuinely
+  scroll sideways, and controls under the 24px AA target size (44px AAA is
+  reported as advisory, since the in-game HUDs are deliberately dense). Green
+  at both 390×844 and 360×640. Needs a browser, so like the a11y and attack
+  harnesses it stays local rather than gating CI.
+
 ## v2.5.3 — The last two unaudited surfaces, fuzzed (2026-08-18)
 
 Development-loop cycle 16 (audit). StarNix's core and its KBB engine were the

@@ -1832,7 +1832,7 @@
       ".sx-cap{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);max-width:620px;width:86%;font-size:16px;font-weight:600;color:#eef;text-shadow:0 0 12px #000,0 0 4px #000;pointer-events:none;line-height:1.4;}",
       ".sx-skip{position:absolute;top:calc(16px + env(safe-area-inset-top,0px));right:calc(16px + env(safe-area-inset-right,0px));background:rgba(16,16,24,.7);border:1px solid var(--border);color:var(--mid);border-radius:10px;padding:8px 14px;font-family:inherit;font-weight:600;cursor:pointer;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;}",
       ".sx-skip:hover{border-color:var(--aqua);color:var(--text);}",
-      ".sx-menu{justify-content:flex-start;padding-top:40px;overflow-y:auto;padding-bottom:40px;}",   // (v0.60.0 P2·1, PLAYTEST A1) the progression head grew the menu past laptop folds — scroll, never clip
+      ".sx-menu{justify-content:flex-start;padding-top:40px;overflow-x:hidden;overflow-y:auto;padding-bottom:40px;}",   // (v0.60.0 P2·1, PLAYTEST A1) the progression head grew the menu past laptop folds — scroll, never clip. (v2.5.4) overflow-x pinned too: setting only overflow-y computes overflow-x to auto, and the drifting backdrop photo (scale 1.08→1.16) then made the menu draggable sideways by ~9px on a phone.
       ".sx-menu-photo,.sx-title-photo{position:absolute;inset:0;z-index:0;pointer-events:none;background-size:cover;background-position:center;opacity:0;transition:opacity .8s ease;will-change:transform;}",
       ".sx-menu-photo.on,.sx-title-photo.on{opacity:.62;animation:sx-bg-drift 64s ease-in-out infinite alternate;}",
       ".sx-title-photo.on{opacity:.55;}",
@@ -1861,9 +1861,12 @@
       ".sx-strip{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:rgba(13,13,24,.78);border:1px solid var(--border);border-left:4px solid var(--acc,#7855FA);border-radius:14px;padding:12px 18px;cursor:pointer;font-family:inherit;color:var(--text);transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;}",
       ".sx-strip:hover{transform:translateX(6px);border-color:var(--acc,#7855FA);box-shadow:0 0 28px rgba(120,85,250,.27);}",
       // (TX) console-panel material: a faint scanline weave at rest, plus a light sweep on hover
-      ".sx-strip{position:relative;overflow:hidden;background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);}",
-      ".sx-strip::after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:34%;background:linear-gradient(105deg, transparent, rgba(172,155,253,.10), transparent);transform:skewX(-18deg);transition:left .5s ease;pointer-events:none;}",
-      ".sx-strip:hover::after{left:110%;}",
+      ".sx-strip{position:relative;background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);}",
+      // (v2.5.4) sheen as a swept background, not a translated bar: it can never leave
+      // the box, so .sx-strip no longer needs overflow:hidden -- which was clipping the
+      // top off the first-run order ribbon (it sits at top:-8px, straddling the edge).
+      ".sx-strip::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background-image:linear-gradient(105deg, transparent 42%, rgba(172,155,253,.10) 50%, transparent 58%);background-repeat:no-repeat;background-size:300% 100%;background-position:100% 0;transition:background-position .5s ease;}",
+      ".sx-strip:hover::after{background-position:0 0;}",
       ".sx-reduced .sx-strip::after{display:none;}",
       ".sx-acc-iris.sx-strip{--acc:#7855FA;} .sx-acc-aqua.sx-strip{--acc:#1FDDE9;} .sx-acc-peach.sx-strip{--acc:#FF6B5B;} .sx-acc-gold.sx-strip{--acc:#FFC857;}",
       ".sx-strip-art{width:46px;height:46px;flex:none;background-size:contain;background-position:center;background-repeat:no-repeat;filter:drop-shadow(0 0 8px rgba(120,85,250,.5));}",
@@ -1966,7 +1969,7 @@
       ".sx-reward-rank{color:var(--gold);font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}",
       ".sx-reward-label{font-size:13px;}",
       ".sx-coach-tip{display:flex;align-items:center;gap:10px;background:rgba(120,85,250,.14);border:1px solid rgba(120,85,250,.55);border-radius:11px;padding:9px 12px;margin-bottom:8px;font-size:13px;color:var(--text);}",
-      ".sx-coach-x{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:2px 6px;margin-left:auto;}",
+      ".sx-coach-x{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:2px 6px;margin-left:auto;min-width:24px;min-height:24px;}",
       ".sx-coach-pulse{animation:sxCoach 1.6s ease-in-out infinite;border-color:rgba(120,85,250,.8) !important;}",
       "@keyframes sxCoach{0%,100%{box-shadow:0 0 0 0 rgba(120,85,250,.0);}50%{box-shadow:0 0 22px 4px rgba(120,85,250,.45);}}",
       "@media (prefers-reduced-motion: reduce){.sx-coach-pulse{animation:none;outline:2px solid rgba(120,85,250,.8);}}",
