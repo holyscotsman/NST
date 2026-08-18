@@ -5,6 +5,23 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.5.0 — Exhibit diagrams 70% lighter (2026-08-18)
+
+Development-loop cycle 13 (performance). Profiling the deployed site showed the
+heaviest thing on it was no longer a build — it was the question bank's exhibit
+images (2.6 MB across 27 diagrams), and v2.4.1 had just restored them in Exam
+Mode, so they were being fetched in earnest.
+
+### Changed
+- **Exhibit diagrams converted to WEBP: 2,629 KB → 790 KB (−70%).** Quality was
+  checked before trusting the number — a 1:1 crop of the most text-dense
+  diagram (a VM-list screenshot) is visually indistinguishable from the PNG at
+  q92, while dropping 585 KB → 93 KB. Six images where WEBP would have been
+  *larger* keep their original encoding, and every diagram keeps its exact
+  pixel dimensions.
+- Bank markdown references were repointed to the new files; all 27 exhibits
+  verified to fetch and decode in a browser with zero 404s.
+
 ## v2.4.4 — Readable domains, readable green room (2026-08-18)
 
 Development-loop cycle 12 (UI/UX), screenshot-driven over the screens that had
