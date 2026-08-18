@@ -93,6 +93,10 @@
     var dq = {
       id: q.id, prompt: q.prompt, domain: q.domain, difficulty: q.difficulty,
       explanation: q.explanation, image: q.image, imageAlt: q.imageAlt,
+      // (v2.4.1) imageSrc is the ONLY live exhibit source — runtime banks resolve it
+      // in bank-loader, and window.PE_EXHIBITS (the old inlined map) is never
+      // populated any more. Dropping it here blanked every exhibit in Exam Mode.
+      imageSrc: q.imageSrc,
       options: perm.map(function (p) { return q.options[p]; }),
     };
     if (q.optionNotes) dq.optionNotes = perm.map(function (p) { return q.optionNotes[p]; });
@@ -138,7 +142,10 @@
     return {
       correct: correct,
       total: n,
-      pct: Math.round(frac * 100),
+      // (v2.4.1) FLOOR, not round: pass is decided on the unrounded fraction, so
+      // rounding up printed "80%" on a failing 79.6% sitting (203/255) right next
+      // to "80% to pass". Flooring can never claim a threshold you did not reach.
+      pct: Math.floor(frac * 100),
       pass: n > 0 && frac >= cfg.PASS_THRESHOLD,
       byDomain: byDomain,
       wrong: wrong,

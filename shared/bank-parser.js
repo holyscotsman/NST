@@ -26,7 +26,15 @@
 })(this, function () {
   "use strict";
 
-  function stripLabel(s) { return s.replace(/^\*\*/, "").replace(/\*\*(?=\s*:)/, "").replace(/\*\*$/, ""); }
+  // Bold labels are documented as supported in BOTH forms (docs/BANK_FORMAT.md):
+  // `**Q**: text` and `**Q:** text`. The second form was silently broken — the
+  // closing `**` sits AFTER the colon, so the old lookahead never matched it and
+  // the value kept a literal "** " prefix (corrupting stems and metadata).
+  function stripLabel(s) {
+    var bold = s.match(/^\*\*\s*([^*:]+?)\s*:\s*\*\*\s*(.*)$/);
+    if (bold) return bold[1] + ": " + bold[2];
+    return s.replace(/^\*\*/, "").replace(/\*\*(?=\s*:)/, "").replace(/\*\*$/, "");
+  }
   function clampDiff(n) { n = parseInt(n, 10); if (isNaN(n)) return 3; return Math.max(1, Math.min(5, n)); }
   function truthy(v) { return /^(true|yes|1|on)$/i.test(String(v).trim()); }
 
@@ -42,6 +50,9 @@
     var lines = text.split("\n");
     var meta = { cert: "", title: "", version: "", pass: 0.8, domains: [] };
     var questions = [];
+    var seenIds = {};   // (v2.4.1) duplicate `### <id>` headings collide in every
+                        // per-question store keyed by id (mastery, spaced repetition,
+                        // exclude lists) — report them instead of loading silently.
     var errors = [];
 
     // ---- meta: everything before the first "### " ----
@@ -74,7 +85,7 @@
       else if (cur) cur.lines.push(lines[i]);
     }
 
-    blocks.forEach(function (blk) { parseBlock(blk, questions, errors, meta); });
+    blocks.forEach(function (blk) { parseBlock(blk, questions, errors, meta, seenIds); });
 
     // derive domains from questions if the header didn't declare them
     if (!meta.domains.length) {
@@ -84,7 +95,7 @@
     return { meta: meta, questions: questions, errors: errors };
   }
 
-  function parseBlock(blk, questions, errors, meta) {
+  function parseBlock(blk, questions, errors, meta, seenIds) {
     var q = {
       id: blk.id, domain: "", difficulty: 3, tags: [], image: null, imageAlt: "",
       priority: false, reference: "", stem: "", options: [], correct: null,
@@ -102,7 +113,12 @@
       var line = raw.trim();
 
       // option line?  - [x] text   /   - [ ] text
-      var opt = line.match(/^[-*]\s*\[([ xX])\]\s*(.*)$/);
+      // Only BEFORE the prose sections: a Markdown checklist inside an Explain:
+      // or Teach: block used to be swallowed as a real option (and an `[x]` one
+      // silently turned the question multi-answer with a bogus answer key).
+      var opt = (state === "explain" || state === "teach")
+        ? null
+        : line.match(/^[-*]\s*\[([ xX])\]\s*(.*)$/);
       if (opt) {
         if (state === "meta") { flushStem(); }
         state = "options";
@@ -171,6 +187,10 @@
     if (probs.length && (!q.stem || q.options.length < 2 || !correctIdx.length)) {
       errors.push({ id: q.id, line: blk.start, message: probs.join("; ") });
       return; // structurally invalid — skip
+    }
+    if (q.id && seenIds) {
+      if (seenIds[q.id]) probs.push("duplicate id '" + q.id + "' (first seen at line " + seenIds[q.id] + ") — per-question progress would collide");
+      else seenIds[q.id] = blk.start;
     }
     if (probs.length) errors.push({ id: q.id, line: blk.start, message: probs.join("; ") }); // warnings kept, question still used
     questions.push(q);

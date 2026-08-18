@@ -93,6 +93,14 @@ for (let i = 0; i < 200; i++) {
   check('multi remap points at same texts', txts === 'xz');
   check('multi remap stays sorted', JSON.stringify(s2.correct) === JSON.stringify(s2.correct.slice().sort((a, b) => a - b)));
 }
+// (v2.4.1) the shuffled copy must carry the exhibit source through: imageSrc is the
+// ONLY live source (window.PE_EXHIBITS is never populated any more), so dropping it
+// blanked every exhibit in Exam Mode while Practice Mode looked fine.
+{
+  const withImg = { ...q1, image: 'a2q50', imageSrc: 'banks/x/images/a2q50.png', imageAlt: 'diagram' };
+  const s = E.shuffleOptions(withImg);
+  check('shuffle preserves the exhibit source', s.imageSrc === withImg.imageSrc && s.image === 'a2q50' && s.imageAlt === 'diagram');
+}
 pass();
 
 // ---- exam / practice assembly ------------------------------------------------
@@ -118,6 +126,15 @@ check('wrong list holds the miss', sum.wrong.length === 1 && sum.wrong[0].q.id =
 const atLine = E.summarize([mk(q1, true), mk(multi, true), mk(bank[2], true), mk(bank[3], true), mk(q1, false)]);
 check('exactly 80% passes', atLine.pct === 80 && atLine.pass === true);
 check('empty run cannot pass', E.summarize([]).pass === false && E.summarize([]).pct === 0);
+// (v2.4.1) a FAILING score must never print the pass threshold: 4/5 = 80% passes,
+// but a 79.6% sitting used to round up to "80%" beside "80% to pass".
+{
+  const near = [];
+  for (let i = 0; i < 203; i++) near.push(mk(q1, true));
+  for (let i = 0; i < 52; i++) near.push(mk(q1, false));
+  const s = E.summarize(near);           // 203/255 = 79.607%
+  check('a failing sitting never displays the pass threshold', s.pass === false && s.pct === 79);
+}
 pass();
 
 // ---- storage guards ------------------------------------------------------------
