@@ -64,6 +64,7 @@ export class Game {
       // The suspense beat: duck the tier loop for its whole length, and roll
       // the snare under the hard round and the final.
       onSuspense: ({ ms, tier, isFinal }) => {
+        this.hud.setAnswerLocked(true);   // (v2.4.2) medallions dim with the lock-in
         this.music.duck((ms + 1400) / 1000, 0.25);
         if (tier === 'hard' || isFinal) this.music.drumRoll(ms / 1000);
         this.bus.emit('ui:lockin', {}); // studio dims to the lock-in tension pool
@@ -559,6 +560,7 @@ export class Game {
       this.audio.resume();
       this.rc.start();
       const cur = devJump && devJump > 1 ? this.rc.devJumpTo(devJump) : this.rc.current();
+      this.hud.setAnswerLocked(false);   // (v2.4.2) a fresh question re-arms the medallions
       this.quiz.showQuestion(cur, this.rc.snapshot());
       this.hud.update(this.rc.snapshot());
       this._announce(`Question ${cur.number} of ${activeLadder().runLength}. ${cur.q.stem}`);
@@ -757,6 +759,11 @@ export class Game {
 
   useLifeline(type) {
     if (!this.rc) return;
+    // (v2.4.2) Once the answer is locked the suspense beat runs for seconds — and
+    // pausing parks the submit indefinitely. The HUD medallions stayed live through
+    // that whole window, so a late click burned a paid charge on an answer that was
+    // already committed AND set assisted=true on a question answered unaided.
+    if (this.quiz && this.quiz.locked) return;
     const out = this.rc.useLifeline(type);
     if (!out) return;
     this.quiz.applyLifeline(out.type, out.payload);
@@ -780,6 +787,7 @@ export class Game {
     if (!this.rc) return;
     if (this.quiz) this.quiz.abortPending();
     const cur = this.rc.devJumpTo(n);
+    this.hud.setAnswerLocked(false);   // (v2.4.2) a fresh question re-arms the medallions
     this.quiz.showQuestion(cur, this.rc.snapshot());
     this.hud.update(this.rc.snapshot());
     this._announce(`Question ${cur.number} of ${activeLadder().runLength}. ${cur.q.stem}`);
@@ -811,6 +819,7 @@ export class Game {
     const prev = this.rc.index;
     const cur = this.rc.advance();
     if (!cur) return this.endRun(false, result);
+    this.hud.setAnswerLocked(false);   // (v2.4.2) a fresh question re-arms the medallions
     this.quiz.showQuestion(cur, this.rc.snapshot());
     this.hud.update(this.rc.snapshot());
     this.hud.trail(prev, 'up'); // gold streak as the highlight climbs

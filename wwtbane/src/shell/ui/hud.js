@@ -19,6 +19,7 @@ export class Hud {
     this.el = h('div', { class: 'hud-root' });
     this._displayed = { banked: 0, playing: 0 };
     this._lastCharges = {};
+    this._answerLocked = false;   // (v2.4.2) true through the lock-in suspense beat
     this._buildCluster();
     this._buildLadder();
     this._buildSeed();
@@ -128,6 +129,17 @@ export class Hud {
 
   /* ---------------- updates ---------------- */
 
+  // (v2.4.2) The lock-in beat (and a pause parked on top of it) is a real window
+  // in which the medallions must not accept a click — main also refuses the charge.
+  setAnswerLocked(v) {
+    this._answerLocked = !!v;
+    if (!this._answerLocked || !this.llEls) return;
+    for (const type of LIFELINE_TYPES) {
+      const e = this.llEls[type];
+      if (e && e.btn) e.btn.disabled = true;
+    }
+  }
+
   update(snapshot) {
     // ladder state
     for (let i = 0; i < this.rungs.length; i++) {
@@ -150,14 +162,15 @@ export class Hud {
       const used = snapshot.usedThisQuestion.includes(type);
       const { btn, pip, slot } = this.llEls[type];
       const empty = !l || l.charges <= 0;
-      const available = !empty && !used;
+      const available = !empty && !used && !this._answerLocked;
       btn.disabled = !available;
       btn.classList.toggle('empty', empty);
       slot.classList.toggle('empty', empty);
       // (UI) the hover tooltip states availability or the exact reason it's disabled,
       // mirroring the screen-reader label so sighted players get the same answer.
       const reason = available ? `${l.charges} of ${l.slots} charges ready`
-        : (used ? 'already used on this question' : 'no charges left — recharge in the green room');
+        : (this._answerLocked ? 'your answer is locked in'
+          : used ? 'already used on this question' : 'no charges left — recharge in the green room');
       btn.setAttribute('aria-label', `${LIFELINE_META[type].name}. ${reason}`);
       btn.title = `${LIFELINE_META[type].name} — ${reason}`;
       if (l && l.slots > 1) {

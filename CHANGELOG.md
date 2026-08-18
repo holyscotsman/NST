@@ -5,6 +5,26 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.4.2 — Lifelines can no longer be burned on a locked answer (2026-08-18)
+
+Development-loop cycle 10 (audit follow-up + supply-chain hardening).
+
+### Fixed
+- **WWTBANE: a lifeline clicked after "Final answer" spent a paid charge for
+  nothing.** Locking an answer disables the options and the lock button, then
+  runs a multi-second suspense beat before submitting — and pausing parks that
+  submit indefinitely. The HUD medallions stayed live through the whole window,
+  so a late click burned a charge on an answer that was already committed and
+  set `assisted = true` on a question the player had answered unaided. The run
+  controller now refuses the charge, and the medallions dim at lock-in with a
+  tooltip explaining why ("your answer is locked in"); a new question re-arms
+  them.
+
+### Security
+- **CI actions are pinned to commit SHAs** (`actions/checkout` and
+  `actions/setup-node` at v4.4.0) instead of mutable `@v4` tags — the last open
+  item from the v2.1.1 supply-chain review, now that the SHAs are resolvable.
+
 ## v2.4.1 — Deep bug hunt: exhibits restored, parser corruption fixed (2026-08-17)
 
 Development-loop cycle 9 (audit, iteration 3): a parallel bug hunt across eight
