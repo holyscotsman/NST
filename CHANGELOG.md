@@ -5,6 +5,31 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.5.2 — Accessibility audited with real measurements (2026-08-18)
+
+Development-loop cycle 15 (UI/UX). Accessibility had never been audited
+systematically in these cycles — this one measures it against the rendered
+pages rather than eyeballing it, and keeps the audit runnable.
+
+### Fixed
+- **One WCAG AA contrast failure.** The version footer used `--fainter`
+  (#6E6890) which computes to **3.88:1** on the page background — under the
+  4.5:1 minimum for body text. The token is now #7E77A0 (**4.82:1**), still
+  visually faint.
+
+### Added
+- **`scripts/a11y-browser.mjs`** — 14 checks against the real pages: computed
+  WCAG contrast for every visible text node (resolved against its actual
+  painted backdrop, not an assumed one), accessible names on every focusable
+  control, a genuine modal focus-trap test (focus enters, survives 12 tabs,
+  Escape closes), and `prefers-reduced-motion` compliance on all three
+  surfaces. Skips where no browser is available.
+
+### Verified (no changes needed)
+- Focus trap, Escape handling, and reduced-motion support were already correct
+  on every surface; all 25 focusable controls across the launcher and Practice
+  Exams already carried accessible names.
+
 ## v2.5.1 — The hardening is now proven, not just present (2026-08-18)
 
 Development-loop cycle 14 (security). Previous cycles added CSP, prototype-
