@@ -71,3 +71,6 @@ jobs:
       # (C8-05) release consistency: the site version and the CHANGELOG's top
       # entry must move together.
       - run: node ../scripts/version-check.mjs
+      # (v2.5.1) hostile-input gate: poisoned storage + malicious bank content
+      # must stay inert. Pure Node, no browser needed.
+      - run: node ../scripts/security-test.mjs

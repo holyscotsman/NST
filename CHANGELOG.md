@@ -5,6 +5,32 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.5.1 — The hardening is now proven, not just present (2026-08-18)
+
+Development-loop cycle 14 (security). Previous cycles added CSP, prototype-
+pollution guards, storage validation and escaping; this one **attacks them** and
+then pins the result so a refactor cannot quietly undo it.
+
+### Added
+- **`scripts/security-test.mjs` — a hostile-input gate, now run in CI.**
+  18 checks over the real threat model: poisoned JSON must not reshape
+  prototypes, a malicious question bank must stay inert data, duplicate ids and
+  prose checklists must still be reported/ignored, the bank loader must honour
+  only http(s), and no shipped file may contain `eval`, `new Function`, or a
+  string-argument timer.
+- **`scripts/attack-browser.mjs` — the DOM half.** It loads a bank whose every
+  field carries an XSS payload, plus poisoned values in all seven storage keys,
+  into **all four real pages**, and asserts nothing executes, no prototype is
+  polluted, and every page still renders and works. 24 checks, all passing.
+  Skips cleanly where no browser is available, so it never blocks CI.
+
+### Verified (no changes needed)
+- All eight stored-JSON guards, the CSP on all four entry points (WEBP
+  exhibits are covered by the existing `img-src 'self'`), and every
+  `NSTDomainLabel` render site (three escaped, one `textContent`).
+- No new injection sinks, dynamic-code sinks, or committed dependencies since
+  the v2.2.1 security pass.
+
 ## v2.5.0 — Exhibit diagrams 70% lighter (2026-08-18)
 
 Development-loop cycle 13 (performance). Profiling the deployed site showed the
