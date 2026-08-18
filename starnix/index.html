@@ -2744,7 +2744,7 @@ window.STARNIX_ASSETS = {
     for (var di = 0; di < n; di++) {
       var d = st.domains[di];
       var row = el("div", "sx-dom-row");
-      row.appendChild(el("div", "sx-dom-name", d.domain));
+      row.appendChild(el("div", "sx-dom-name", (window.NSTDomainLabel ? window.NSTDomainLabel(d.domain) : d.domain)));
       var bar = el("div", "sx-dom-bar"); var fill = el("i", "sx-dom-fill " + tier(d.masteredPct));
       fill.style.width = Math.round(d.masteredPct * 100) + "%";
       bar.appendChild(fill); row.appendChild(bar);
@@ -3625,7 +3625,7 @@ window.STARNIX_ASSETS = {
       ".sx-stat-val{font-size:24px;font-weight:800;color:var(--text);}",
       ".sx-stat-label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mid);margin-top:4px;}",
       ".sx-dom-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:12.5px;}",
-      ".sx-dom-name{width:120px;color:var(--mid);text-transform:capitalize;}",
+      ".sx-dom-name{width:120px;color:var(--mid);}"   /* (v2.4.4) label comes from NSTDomainLabel */,
       ".sx-dom-bar{flex:1;height:8px;border-radius:5px;border:1px solid var(--border);overflow:hidden;}",
       ".sx-dom-fill{display:block;height:100%;background:linear-gradient(90deg,var(--mantis),#6fae18);}",
       ".sx-dom-count{width:48px;text-align:right;color:var(--text);font-weight:700;font-variant-numeric:tabular-nums;}",

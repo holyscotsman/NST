@@ -101,8 +101,11 @@ export function GreenRoom(ctx) {
   const steve = ctx.steve;
 
   return h('section', { class: 'screen green-room' },
-    h('h2', { class: 'screen-title' }, '🛋 The green room'),
-    h('p', { class: 'muted' }, 'Between runs. Spend your banked coins on lifelines, or let Steve tip you off about a hard question coming up.'),
+    // (v2.4.4) The heading sits over the lit 3D lounge — without a scrim the
+    // subtitle washed out against the lamp. Same legibility card the title screen uses.
+    h('div', { class: 'gr-head' },
+      h('h2', { class: 'screen-title' }, '🛋 The green room'),
+      h('p', { class: 'muted' }, 'Between runs. Spend your banked coins on lifelines, or let Steve tip you off about a hard question coming up.')),
     // First visit: one clear hint about the loop — earn coins on the ladder, spend them
     // here on lifelines, then head back out. Shown once; the flag is latched by the shell.
     ctx.firstVisit ? h('div', { class: 'green-hint' },

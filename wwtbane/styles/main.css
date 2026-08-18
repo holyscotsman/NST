@@ -601,7 +601,15 @@ li:nth-child(6) > .option { animation-delay: 0.42s; }
 /* Sits low on screen (owner request) so the 3D lounge stays visible above. */
 .green-room { max-width: 980px; margin-top: clamp(110px, 28vh, 340px); }
 .green-room .screen-title { font-size: 32px; font-weight: 800; text-align: center; }
-.green-room > .muted { text-align: center; max-width: 62ch; margin: 0 auto; color: #b8ab8e; }
+/* (v2.4.4) legibility card for the header over the lit lounge backdrop */
+.green-room .gr-head {
+  max-width: min(760px, 94vw); margin: 0 auto 14px; padding: 16px 24px 18px;
+  border-radius: 20px; background: rgba(10, 8, 4, 0.62);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 200, 87, 0.18);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.5);
+}
+.green-room .gr-head .muted { text-align: center; max-width: 62ch; margin: 0 auto; color: #d6c8a6; }
 .green-room .wallet-row { margin-top: 4px; }
 .green-room .wallet { background: rgba(26, 20, 10, 0.72); border-color: rgba(255, 200, 87, 0.28); color: var(--gold); }
 /* First-visit guidance box (shown once, latched by the shell) */

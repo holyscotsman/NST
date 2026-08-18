@@ -5,6 +5,26 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.4.4 — Readable domains, readable green room (2026-08-18)
+
+Development-loop cycle 12 (UI/UX), screenshot-driven over the screens that had
+never been captured: the Practice Exams results page and WWTBANE's green room.
+
+### Fixed
+- **"Vms" is now "VMs".** Domain names were title-cased by CSS
+  (`text-transform: capitalize`), which cannot know acronyms or hyphens — the
+  results breakdown read "Vms", and a hyphenated domain would read
+  "Data-protection". A shared `NSTDomainLabel` helper (in the bank framework,
+  so every surface can reach it) now renders real labels, used by the Practice
+  Exams domain rows, the review chips, the "focus next" callout, and StarNix's
+  Codex.
+- **WWTBANE green room header washed out.** The heading and its subtitle sat
+  directly on the lit 3D lounge with no scrim. They now share the same
+  translucent legibility card the title screen already uses.
+- **Practice Exams results actions cramped on phones.** Three side-by-side
+  buttons forced "Practice the 25 you missed" onto three lines; below 480px
+  they stack, each label on one line at a full tap target.
+
 ## v2.4.3 — The wrong-answer walk survives pause and quit (2026-08-18)
 
 Development-loop cycle 11 (audit, iteration 4): the loose ends left when the

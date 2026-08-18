@@ -101,7 +101,7 @@
           onPick(on ? d : null);
         });
       }
-      row.appendChild(el("span", "pe-domain-name", esc(d)));
+      row.appendChild(el("span", "pe-domain-name", esc(window.NSTDomainLabel ? window.NSTDomainLabel(d) : d)));
       var bar = el("span", "pe-domain-bar");
       var fill = el("span", "pe-domain-fill");
       fill.style.width = pct + "%";
