@@ -5,6 +5,35 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.5.5 — Stop paying for what the page never uses (2026-08-18)
+
+Development-loop cycle 18 (performance). Measured real navigation timings and
+resource waterfalls for all four entry points in a mobile Chromium, rather than
+reasoning about file sizes on disk.
+
+### Fixed
+- **WWTBANE downloaded 652 KB of three.js before deciding it needed none of
+  it.** `studio.js` — and through it the whole 3D bundle — is deliberately
+  behind a dynamic `import()`, because `boot()` short-circuits to the "no
+  question bank" screen before ever reaching it. A static
+  `<link rel="modulepreload">` in the HTML defeated that entirely, fetching the
+  bundle with the document either way. Measured on the no-bank path: three.js
+  was **65% of the page's 999 KB**, for a module that is never imported and a
+  screen with no canvas on it. The preload is now injected from
+  `src/boot/preload-three.js`, only when a bank is active and WebGL isn't being
+  skipped — the two conditions that decide whether the studio boots at all.
+  - No bank: **999 KB -> 349 KB** (-650 KB), same screen, same behaviour.
+  - With a bank: unchanged, and the head start is intact — three.js still
+    finishes at ~45 ms, some 110 ms before `studio.js` is even requested.
+
+### Changed
+- **The launcher and Practice Exams now preload their two subset faces.** They
+  were only discovered once `shared/fonts.css` had parsed, costing a waterfall
+  hop before the real typography could swap in. Font fetches now start at
+  ~15 ms instead of 46 ms (launcher) and 74–101 ms (Practice Exams). Request
+  count and total bytes are unchanged — `crossorigin` is set, so the preload
+  hits rather than fetching each face twice.
+
 ## v2.5.4 — StarNix's in-game screens, measured on a phone (2026-08-18)
 
 Development-loop cycle 17 (UI/UX). Earlier mobile passes covered the launcher,

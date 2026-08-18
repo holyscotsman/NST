@@ -22,8 +22,10 @@
 
 <!-- Three.js is vendored into the repo and served locally — never from a CDN.
      (v2.3.4) modulepreload starts the 652KB fetch with the HTML instead of after
-     the boot module's import resolves — one less waterfall hop on first load. -->
-<link rel="modulepreload" href="./vendor/three/build/three.module.min.js" />
+     the boot module's import resolves — one less waterfall hop on first load.
+     (v2.5.5) that preload now happens from src/boot/preload-three.js, and only when
+     the 3D studio will actually boot: with no bank chosen, boot() short-circuits and
+     studio.js is never imported, so the static tag was fetching 652KB for nothing. -->
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three/build/three.module.min.js",
@@ -36,6 +38,8 @@
      Loaded before the module entry point below. -->
 <script src="../shared/bank-parser.js"></script>
 <script src="../shared/bank-loader.js"></script>
+<!-- Conditionally warms the three.js fetch (see the file for why it is not a static tag). -->
+<script src="./src/boot/preload-three.js"></script>
 </head>
 <body>
   <div id="studio-root" aria-hidden="true"></div>

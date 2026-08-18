@@ -21,6 +21,12 @@
 
   <!-- Fonts: Space Grotesk (display) + Manrope (UI) — vendored in shared/fonts.css (v2.2.0),
        zero external requests; system-stack fallback renders if the file is unavailable. -->
+  <!-- (v2.5.5) preload the two subset faces: they are only discovered once
+       shared/fonts.css parses, which costs a waterfall hop before the real
+       typography can swap in. crossorigin is required even same-origin, or the
+       preload misses and the font is fetched twice. -->
+  <link rel="preload" href="shared/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="shared/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="shared/fonts.css" />
 
   <link rel="stylesheet" href="./styles/nst-home.css" />
