@@ -67,7 +67,7 @@
       });
       if (weakest && weakPct < 100) {
         var focus = el("p", "pe-focus");
-        focus.innerHTML = "🎯 <b>Focus next on “" + esc(weakest) + "”</b> — " +
+        focus.innerHTML = "🎯 <b>Focus next on “" + esc(window.NSTDomainLabel ? window.NSTDomainLabel(weakest) : weakest) + "”</b> — " +
           Math.round(weakPct) + "% there (" + weakMiss + " missed). A Practice Mode pass over its explanations is the fastest gain.";
         root.appendChild(focus);
       }
@@ -157,7 +157,7 @@
     tag.innerHTML = (r.correct ? ui.ICONS.check + "<span>Correct</span>"
       : ui.ICONS.x + "<span>" + (chosen.length ? "Incorrect" : "Not answered") + "</span>");
     top.appendChild(tag);
-    if (q.domain) top.appendChild(el("span", "pe-review-domain", esc(q.domain)));
+    if (q.domain) top.appendChild(el("span", "pe-review-domain", esc(window.NSTDomainLabel ? window.NSTDomainLabel(q.domain) : q.domain)));
     item.appendChild(top);
 
     item.appendChild(el("p", "pe-review-prompt", esc(q.prompt)));

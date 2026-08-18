@@ -22,6 +22,21 @@
     window.NSTSafeParse = window.NSTSafeParse || function (raw) {
       return JSON.parse(raw, function (k, v) { return k === "__proto__" ? undefined : v; });
     };
+    // (v2.4.4) Human label for a bank domain key. CSS `text-transform: capitalize`
+    // rendered "vms" as "Vms" and "data-protection" as "Data-protection"; acronyms
+    // and hyphens need real knowledge, not a text transform.
+    var DOMAIN_LABELS = {
+      "vms": "VMs", "vm": "VM", "ui": "UI", "api": "API", "ha": "HA", "dr": "DR",
+      "iam": "IAM", "lcm": "LCM", "cli": "CLI", "acli": "aCLI", "ncli": "nCLI"
+    };
+    window.NSTDomainLabel = window.NSTDomainLabel || function (d) {
+      var key = String(d == null ? "" : d).trim();
+      if (!key) return "";
+      if (DOMAIN_LABELS[key.toLowerCase()]) return DOMAIN_LABELS[key.toLowerCase()];
+      return key.split(/[-_\s]+/).map(function (w) {
+        return DOMAIN_LABELS[w.toLowerCase()] || (w.charAt(0).toUpperCase() + w.slice(1));
+      }).join(" ");
+    };
   }
 })(this, function () {
   "use strict";

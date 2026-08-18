@@ -240,7 +240,7 @@ button.pe-domain-row { width: 100%; background: none; border: 1px solid transpar
 button.pe-domain-row:hover { background: rgba(255, 255, 255, 0.05); }
 button.pe-domain-row:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
 button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rgba(139, 92, 246, 0.45); }
-.pe-domain-name { font-size: 13px; color: var(--muted-2); text-transform: capitalize; font-weight: 600; }
+.pe-domain-name { font-size: 13px; color: var(--muted-2); font-weight: 600; }   /* (v2.4.4) label comes from NSTDomainLabel */
 .pe-domain-bar { height: 8px; background: rgba(255, 255, 255, 0.07); border-radius: 999px; overflow: hidden; }
 .pe-domain-fill { display: block; height: 100%; background: var(--purple); border-radius: 999px; }
 .pe-domain-fill.ok { background: var(--ok); }
@@ -260,7 +260,7 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
 .pe-review-tag svg { width: 14px; height: 14px; }
 .pe-review-tag.ok { color: var(--ok-text); background: rgba(53, 208, 127, 0.12); }
 .pe-review-tag.bad { color: var(--bad-text); background: rgba(229, 72, 77, 0.12); }
-.pe-review-domain { margin-left: auto; font-size: 12px; color: var(--faint); text-transform: capitalize; }
+.pe-review-domain { margin-left: auto; font-size: 12px; color: var(--faint); }   /* (v2.4.4) label comes from NSTDomainLabel */
 .pe-review-prompt { color: var(--heading); font-size: 15.5px; line-height: 1.5; font-weight: 500; }
 .pe-review-opts { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .pe-review-opts .pe-opt { cursor: default; font-size: 14px; }
@@ -404,4 +404,12 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
   .pe-domain-bar { background: #eee !important; }
   button.pe-domain-row { display: grid !important; }
   a { color: #111; text-decoration: none; }
+}
+
+/* (v2.4.4) Results actions on phones: three side-by-side buttons forced
+   "Practice the 25 you missed" onto three cramped lines. Stack them so each
+   label reads on one line at a comfortable tap size. */
+@media (max-width: 480px) {
+  .pe-results-actions { flex-direction: column; gap: 10px; }
+  .pe-results-actions .pe-btn { width: 100%; }
 }
