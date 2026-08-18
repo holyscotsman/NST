@@ -278,7 +278,21 @@
       return e;
     }
     function btn(cls, text, onClick) { var b = mk("button", cls, text); on(b, "click", onClick); return b; }
-    function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+    // (v2.5.6) Discarding a subtree must also drop the listeners we tracked for it.
+    // `listeners` is only released by offAll() at unmount, so every rebuilt panel
+    // used to pin its dead buttons -- and the closures holding their option/core
+    // data -- alive for the rest of the session. The briefing alone re-rendered
+    // its options once per core per sector, leaking one entry each time.
+    function offWithin(node) {
+      for (var i = listeners.length - 1; i >= 0; i--) {
+        var l = listeners[i], t = l.target;
+        if (t && t.nodeType === 1 && t !== node && node.contains && node.contains(t)) {
+          t.removeEventListener(l.type, l.fn, l.opts);
+          listeners.splice(i, 1);
+        }
+      }
+    }
+    function clear(node) { offWithin(node); while (node.firstChild) node.removeChild(node.firstChild); }
     function show(el, vis, disp) { el.style.display = vis ? (disp || "block") : "none"; }
 
     /* ---------------------------------------------------------------------- */

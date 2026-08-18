@@ -5,6 +5,56 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.5.6 — The listener array that never let go (2026-08-18)
+
+Development-loop cycle 19 (audit). ARM is the largest of the three games (~3.9k
+lines) and the only engine never fuzzed — `kbb-fuzz.cjs` covers KBB and
+`core-fuzz.mjs` the question provider. Fuzzing it found a resource leak that no
+scripted harness could have surfaced, because it only shows up under *repeated*
+interaction.
+
+### Fixed
+- **Every rebuilt panel in ARM leaked its listeners for the rest of the
+  session.** `on()` records each listener in a `listeners` array so `offAll()`
+  can release them at unmount — but `clear(node)`, which every panel calls
+  before re-rendering, dropped the DOM nodes without dropping their entries. The
+  array kept every dead button alive, along with the closure holding its option
+  and core data. `clear()` now prunes the tracked listeners for the subtree it
+  discards. Measured, on 20 interactions:
+
+  | surface | before | after |
+  |---|---|---|
+  | REWIRE puzzle (re-renders the grid on every cell tap) | 32 → 152 listeners | flat at 32 |
+  | SORT puzzle (re-renders on every pick) | +80 listeners | flat at 30 |
+  | briefing options (one re-render per core, per sector) | +1 per sector, forever | flat at 26 across 25 sectors |
+
+  The puzzles were the worst of it — a full grid of listeners per tap — and they
+  compound: after the rewire measurement above, the sort puzzle *started* at 156
+  rather than 32. `arm-run.cjs` still passes 163/163, so the buttons all still
+  work; the fix only stops the bookkeeping from outliving the elements.
+
+### Added
+- **`starnix/arm-fuzz.cjs`** — property fuzz of the ARM engine. Drives many runs
+  with random input and, crucially, **random frame times** (1/60 up to a 2.5s
+  backgrounded-tab stall) — what a real device produces and what a scripted
+  harness never sends. Asserts every frame that ship and enemy positions stay
+  finite, coins stay a non-negative integer, charges stay within `[0, maxCharges]`,
+  the state is always a known one, and — the check that caught the leak — that
+  listener and timer counts *plateau* rather than climb. Needs jsdom like
+  `arm-run.cjs`, so it stays local rather than gating CI.
+
+### Checked, and found already sound
+Recording these so a later audit does not re-chase them:
+- **`shared/nst-prefs.js` does not validate stored types**, but every consumer
+  does: StarNix's `setMasterVolume` runs `+v || 0` (which turns `NaN` and
+  `"abc"` into 0) and clamps to `[0, 1.2]`; Practice Exams' `sfx.js` range-checks
+  before use. A poisoned `audioVolume` cannot produce a non-finite or
+  deafening gain.
+- **The launcher's `el(tag, cls, html)` helper assigns `innerHTML`**, but every
+  bank-derived string reaching it (titles, cert codes, names) is wrapped in
+  `esc()`, and the diagnostics panel uses `textContent` for the user-agent and
+  storage keys.
+
 ## v2.5.5 — Stop paying for what the page never uses (2026-08-18)
 
 Development-loop cycle 18 (performance). Measured real navigation timings and
