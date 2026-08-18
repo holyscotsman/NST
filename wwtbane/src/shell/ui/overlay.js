@@ -106,6 +106,7 @@ export class QuizScreen {
     this.locked = false;
     this._roveI = 0;
     this._submitTimer = null; this._pendingIndices = null; this._submitParked = false;
+    this._walkTimer = null; this._walkParked = false; this._walkResult = null;
     if (this._faBubble) { this._faBubble.remove(); this._faBubble = null; }
     document.querySelectorAll('.speech-bubble.you').forEach((el) => el.remove());
     const q = current.q;
@@ -471,7 +472,14 @@ export class QuizScreen {
         h('p', { class: 'fb-note' }, 'The correct answer is lit above. Walking you back to the green room…'),
       );
       this.card.append(fb);
-      this._after(WRONG_WALK_MS, () => { if (this.handlers.onContinue) this.handlers.onContinue(result); });
+      // (v2.4.3) tracked like the lock-in submit: pause must park this walk (a run
+      // must never finalize underneath the pause menu) and quitting must drop it
+      // (it used to fire 2.6s later against a torn-down run).
+      this._walkResult = result;
+      this._walkTimer = this._after(WRONG_WALK_MS, () => {
+        this._walkTimer = null;
+        if (this.handlers.onContinue) this.handlers.onContinue(result);
+      });
       return;
     }
 
@@ -526,9 +534,23 @@ export class QuizScreen {
       this._submitTimer = null;
       this._submitParked = true;
     }
+    if (this._walkTimer != null) {
+      clearTimeout(this._walkTimer);
+      this._timers = this._timers.filter((id) => id !== this._walkTimer);
+      this._walkTimer = null;
+      this._walkParked = true;
+    }
   }
 
   onResume() {
+    if (this._walkParked && this._walkResult) {
+      this._walkParked = false;
+      const r = this._walkResult;
+      this._walkTimer = this._after(reduced() ? 0 : 600, () => {
+        this._walkTimer = null;
+        if (this.handlers.onContinue) this.handlers.onContinue(r);
+      });
+    }
     if (!this._submitParked || !this.locked || !this._pendingIndices) return;
     this._submitParked = false;
     const indices = this._pendingIndices;
@@ -541,6 +563,8 @@ export class QuizScreen {
   // Quitting the run: drop the parked submit entirely so it never fires.
   abortPending() {
     if (this._submitTimer != null) { clearTimeout(this._submitTimer); this._submitTimer = null; }
+    if (this._walkTimer != null) { clearTimeout(this._walkTimer); this._walkTimer = null; }
+    this._walkParked = false; this._walkResult = null;
     this._submitParked = false; this._pendingIndices = null;
     if (this._faBubble) { this._faBubble.remove(); this._faBubble = null; }
   }

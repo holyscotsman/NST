@@ -5,6 +5,33 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.4.3 — The wrong-answer walk survives pause and quit (2026-08-18)
+
+Development-loop cycle 11 (audit, iteration 4): the loose ends left when the
+last hunt was cut short — two confirmed and fixed, two refuted on inspection.
+
+### Fixed
+- **WWTBANE: pausing during the walk back to the green room did not stop it.**
+  A wrong answer starts a 2.6s walk-back before the run finalizes, and `onPause`
+  parked only the lock-in submit — so the run could end *underneath* the open
+  pause menu. The walk timer is now parked on pause and re-armed on resume,
+  exactly like the submit.
+- **WWTBANE: quitting during that walk-back threw 2.6s later.** `abortPending`
+  dropped the submit timer but not the walk timer, which then fired against a
+  torn-down run — `endRun` dereferences the (now null) run controller
+  unconditionally. The walk timer is dropped on quit, and `endRun` refuses to
+  finalize a run that no longer exists.
+
+### Investigated, no change needed
+- The intro cinematic does **not** double-route keys: the screen state is
+  `cinematic`, and the global handler only forwards to the quiz on `quiz`.
+- KBB artifacts with permanent `onAcquire` effects (Bio Reactor, Glass Cannon)
+  are **already unsellable by design** — `isSellable` excludes them precisely
+  because the effect cannot be cleanly reversed, and the UI explains the
+  refusal. The suspected sell-trap and buy/sell ratchet are both unreachable.
+- The StarNix question provider's relax chain (band → domain → excluded) and
+  its weighted pick were reviewed and are sound.
+
 ## v2.4.2 — Lifelines can no longer be burned on a locked answer (2026-08-18)
 
 Development-loop cycle 10 (audit follow-up + supply-chain hardening).
