@@ -5,6 +5,37 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.4.1 — Deep bug hunt: exhibits restored, parser corruption fixed (2026-08-17)
+
+Development-loop cycle 9 (audit, iteration 3): a parallel bug hunt across eight
+surfaces, each finding adversarially verified against the real code before any
+fix. Five defects confirmed and fixed; the rest were refuted as guarded or
+unreachable.
+
+### Fixed
+- **Practice Exams — every exhibit image was missing in Exam Mode.** The
+  option-shuffle rebuilt each question without `imageSrc`, and the fallback it
+  relied on (`window.PE_EXHIBITS`) has not been populated since StarNix's exam
+  mode was removed — so all 27 diagram questions rendered with no diagram,
+  unanswerable, while Practice Mode showed them fine.
+- **Practice Exams — a failing score could print the passing mark.** The result
+  percentage rounded up while pass/fail is decided on the exact fraction, so a
+  203/255 sitting (79.6%) displayed "80%" beside "80% to pass". The score now
+  floors, and can never claim a threshold it did not reach.
+- **Bank parser — the documented `**Q:**` bold-label form was broken.** Only
+  `**Q**:` parsed; the documented variant left a literal `**` glued to the stem
+  (and to any metadata value written that way).
+- **Bank parser — Markdown checklists inside prose became answer options.** A
+  `- [x]` line in an `Explain:`/`Teach:` block was swallowed as a real option
+  and silently flipped the question to multi-answer with a wrong answer key.
+- **Bank parser — duplicate question ids loaded silently.** Two blocks sharing
+  an id collide in every per-question store (mastery, spaced repetition); the
+  parser now reports it as a bank error.
+
+### Added
+- Regression tests for the exhibit-source and score-display defects, both
+  verified to fail against the pre-fix code.
+
 ## v2.4.0 — Cleanup + salvage: branding, README, arms fix, 17 MB lighter (2026-08-17)
 
 Development-loop cycle 8 (code + repository cleanup, with salvage).
