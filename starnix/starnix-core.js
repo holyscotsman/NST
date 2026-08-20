@@ -932,7 +932,12 @@
       // (v0.130.0, V1.1 Backend#1) rotate the previous good state into a backup key BEFORE
       // overwriting — one bad write can no longer take weeks of Leitner history with it.
       try { var prevRaw = storage.getItem(key); if (prevRaw) storage.setItem(key + ":bak", prevRaw); } catch (eB) {}
-      try { storage.setItem(key, JSON.stringify(p)); } catch (e) { /* quota/serialize */ }
+      // (v2.6.0) This used to swallow the error entirely, so a browser that had run
+      // out of storage let the player keep answering while nothing was written --
+      // weeks of Leitner history quietly stopped accumulating. Record it so the
+      // shell can say so once; the write itself still must never throw.
+      try { storage.setItem(key, JSON.stringify(p)); provider.writeError = null; }
+      catch (e) { provider.writeError = (e && e.name === "QuotaExceededError") ? "quota" : "write"; }
     }
     function parseProfile(raw) {   // shared by main + backup load paths
       var parsed = JSON.parse(raw, function (k, v) { return k === "__proto__" ? undefined : v; });   /* (v2.2.1) __proto__ stripped from the stored profile */
@@ -941,6 +946,7 @@
       return migrate(p);
     }
     var provider = {
+      writeError: null,          // (v2.6.0) "quota" | "write" | null -- see writeNow
       load: function () {
         var p = null;
         try {

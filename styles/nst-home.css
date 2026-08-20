@@ -527,6 +527,12 @@ body {
 .nst-btn-ghost:hover { border-color: var(--purple); color: var(--purple-hover); }
 .nst-btn-danger { border-color: rgba(229, 72, 77, 0.5); color: #F0888B; background: rgba(229, 72, 77, 0.1); }
 .nst-btn-danger:hover { background: rgba(229, 72, 77, 0.18); }
+/* (v2.6.0) The one filled variant. `.nst-btn` alone paints no background, so a
+   bare one falls through to the browser's grey chrome — every other use pairs it
+   with a modifier. Saving a backup is the recommended action here, so it gets the
+   accent rather than looking like an unstyled control. */
+.nst-btn-primary { border-color: transparent; color: #fff; background: linear-gradient(135deg, #8B5CF6, #6D3FE0); box-shadow: 0 8px 22px rgba(139, 92, 246, 0.32); }
+.nst-btn-primary:hover { background: linear-gradient(135deg, #9B6DFF, #7A4CF0); }
 
 /* Developer diagnostics */
 .nst-dev-host:not(:empty) { margin-top: 12px; }
@@ -663,3 +669,13 @@ body {
   .nst-certtile { padding: 12px 13px; }
   .nst-certtile-variants { flex-direction: column; gap: 6px; }
 }
+
+/* --- Backup / restore (Settings) ------------------------------------------
+   (v2.6.0) Saving a progress file is the only thing that survives clearing
+   browser data, so the controls sit above Reset and read as a normal pair of
+   buttons that wrap cleanly on a phone. */
+.nst-bk-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.nst-bk-row .nst-btn { flex: 1 1 auto; min-width: 0; }
+.nst-bk-status:empty { display: none; }
+.nst-bk-status { margin-top: 10px; color: var(--text); }
+.nst-bk-quota { margin-top: 6px; color: var(--fainter); font-size: 13px; }

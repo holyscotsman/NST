@@ -77,3 +77,7 @@ jobs:
       # (v2.5.1) hostile-input gate: poisoned storage + malicious bank content
       # must stay inert. Pure Node, no browser needed.
       - run: node ../scripts/security-test.mjs
+      # (v2.6.0) progress backup is the only copy of a user's mastery history that
+      # survives clearing browser data, and it writes to a localStorage shared with
+      # every other site on the same github.io origin. Both properties are gated.
+      - run: node ../scripts/backup-test.mjs
