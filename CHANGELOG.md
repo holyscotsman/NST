@@ -5,6 +5,53 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.6.0 — Progress you can actually keep (2026-08-20)
+
+Development-loop cycle 20 (durability). Everything NST knows about you — mastery
+history built over weeks, exam attempts, game saves — lived only in this
+browser's localStorage, with a Reset button and no way back. "Clear browsing
+data" erased months of work permanently.
+
+**Why not SQLite/IndexedDB/OPFS?** They are the *same* storage bucket the browser
+clears together — a different API over identical fragility, for ~1 MB of WASM, a
+CSP that has to allow `wasm-unsafe-eval`, and COOP/COEP headers GitHub Pages
+cannot send. Durability comes from getting the data *out* of the origin, which is
+what a downloaded file does.
+
+### Added
+- **Back up your progress** (launcher → Settings). Saves every NST key to a dated
+  JSON file, and restores it here or on another device. Restore offers **Replace**
+  or **Merge**, so an old backup on a newer device need not throw away the newer
+  work, and confirms first with what the file actually contains and when it was
+  made. The dialog defaults focus to Cancel, like Reset.
+- **`shared/nst-backup.js`** — the collect/inspect/restore engine, plus a storage
+  estimate and `navigator.storage.persist()` to resist *automatic* eviction (which
+  a manual clear still defeats — only the file survives that).
+- **`scripts/backup-test.mjs` (CI-gated, 26 checks)** covering the round trip, the
+  refusal paths, prototype pollution, replace-vs-merge, and the two properties
+  below.
+
+### Security
+- **A backup file cannot reach a neighbouring site.** A `github.io` user page is
+  **one origin for every project published under it**, so this localStorage is
+  shared with the owner's other sites. Export therefore takes only keys NST owns
+  (`nst.`, `starnix:`, `wwtbane.`), and import refuses to write anything outside
+  that set no matter what the file claims — a hand-edited or hostile backup can't
+  overwrite a neighbouring project's data. Verified in a real browser.
+- Restore is transactional: a mid-write failure (quota) rolls back what was there
+  rather than leaving progress half-replaced, and says so.
+
+### Fixed
+- **StarNix stopped saving silently when storage ran out.** The write path
+  swallowed every error, so a full quota let the player keep answering while
+  nothing persisted — Leitner history quietly stopped accumulating. The failure is
+  now recorded and surfaced once, on the menu the player returns to between runs.
+
+### Changed
+- `.nst-btn` alone paints no background, so a bare one fell through to the
+  browser's grey chrome; every other use pairs it with a modifier. Added the one
+  filled variant (`.nst-btn-primary`) for the recommended action.
+
 ## v2.5.6 — The listener array that never let go (2026-08-18)
 
 Development-loop cycle 19 (audit). ARM is the largest of the three games (~3.9k

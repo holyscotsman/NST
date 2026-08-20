@@ -660,6 +660,18 @@
     this._clearScreen();
     this.screen = "menu";
     var self = this;
+    // (v2.6.0) If the browser has stopped accepting writes (usually a full
+    // storage quota), the player would otherwise keep answering while nothing is
+    // saved. Say it once, on the screen they return to between runs.
+    try {
+      var pw = StarNix.core.persistence;
+      if (pw && pw.writeError && !this._warnedWrite) {
+        this._warnedWrite = true;
+        this._toast(pw.writeError === "quota"
+          ? "\u26a0 Out of browser storage \u2014 progress isn't being saved. Free some space, or back up from the launcher's Settings."
+          : "\u26a0 Progress isn't being saved in this browser.", "sx-toast-warn");
+      }
+    } catch (eW) {}
     // (v0.110.0, D2 — design handoff "Bridge command", Menu Proposals #1a, CHOSEN)
     // The menu is staged as the bridge: mission strips left, the SHATTERED station right,
     // rank/due/settings in a top bar, dailies + Continue in a bottom dock. Behavioral
@@ -2067,6 +2079,7 @@
       "@media (prefers-reduced-motion: reduce){.sx-rank-up{animation:none;}}",
       "[data-motion=reduced] .sx-rank-up{animation:none;}",
       ".sx-toast-gold{border-color:var(--gold);color:#ffedc2;}",
+      ".sx-toast-warn{border-color:var(--peach,#FF6B5B);color:#ffd9d4;}",   // (v2.6.0) storage-write failure
       // Achievements panel (v0.53.0 unit 3) — Progress screen grid; locked = dim, unlocked = gold edge.
       ".sx-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;text-align:left;margin:4px 0 10px;}",
       ".sx-ach-count{color:var(--mid);font-weight:600;font-size:11px;margin-left:6px;}",

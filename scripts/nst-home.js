@@ -375,6 +375,84 @@
     renderDevPanel(prefs.devMode);
     body.appendChild(dev);
 
+    // --- Backup ---
+    // Everything NST knows lives in this browser. "Clear browsing data" takes all
+    // of it, and no in-browser store (IndexedDB, OPFS, SQLite-over-WASM) survives
+    // that -- they are the same bucket. A file the user keeps is the only real
+    // backup, so this section exists to make writing one a one-click habit.
+    var bk = section("Back up your progress");
+    bk.appendChild(el("p", "nst-set-note", "Mastery history, exam attempts and game saves live only in this browser \u2014 clearing your browsing data erases them. Save a backup file you can restore here or on another device."));
+    var bkStatus = el("p", "nst-set-note nst-bk-status", "");
+    var bkRow = el("div", "nst-bk-row");
+
+    var saveBtn = el("button", "nst-btn nst-btn-primary", "\u2193 Save backup file");
+    saveBtn.type = "button";
+    saveBtn.addEventListener("click", function () {
+      var B = window.NSTBackup;
+      if (!B) { bkStatus.textContent = "Backup isn't available in this build."; return; }
+      var sum = B.summarize(B.collect());
+      if (!sum.keys) { bkStatus.textContent = "There's no saved progress to back up yet."; return; }
+      var r = B.download();
+      bkStatus.textContent = r.ok
+        ? "Saved " + r.name + " \u2014 " + sum.keys + " item(s), " + fmtBytes(sum.bytes) + "."
+        : "Couldn't save the file: " + r.error;
+    });
+    bkRow.appendChild(saveBtn);
+
+    // A hidden file input keeps the affordance a normal button.
+    var pick = el("input", "nst-bk-file");
+    pick.type = "file";
+    pick.accept = "application/json,.json";
+    pick.style.display = "none";
+    var restoreBtn = el("button", "nst-btn nst-btn-ghost", "\u2191 Restore from file\u2026");
+    restoreBtn.type = "button";
+    restoreBtn.addEventListener("click", function () { pick.click(); });
+    pick.addEventListener("change", function () {
+      var f = pick.files && pick.files[0];
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onerror = function () { bkStatus.textContent = "Couldn't read that file."; };
+      rd.onload = function () {
+        var B = window.NSTBackup;
+        var chk = B.inspect(String(rd.result || ""));
+        if (!chk.ok) { bkStatus.textContent = chk.error; pick.value = ""; return; }
+        // Restoring overwrites real progress -- always confirm, and say what is in
+        // the file so the choice is informed rather than blind.
+        var when = chk.exportedAt ? new Date(chk.exportedAt).toLocaleDateString() : "an unknown date";
+        confirmRestore(overlay, chk, when, function (mode) {
+          var res = B.restore(String(rd.result || ""), { mode: mode });
+          bkStatus.textContent = res.ok
+            ? "Restored " + res.restored.keys + " item(s) from " + when + ". Reopen a tool to see it."
+            : res.error;
+          pick.value = "";
+        }, function () { pick.value = ""; });
+      };
+      rd.readAsText(f);
+    });
+    bkRow.appendChild(restoreBtn);
+    bkRow.appendChild(pick);
+    bk.appendChild(bkRow);
+    bk.appendChild(bkStatus);
+
+    // Storage headroom + eviction resistance, shown only once we know something.
+    if (window.NSTBackup && window.NSTBackup.estimate) {
+      var quotaLine = el("p", "nst-set-note nst-bk-quota", "");
+      bk.appendChild(quotaLine);
+      window.NSTBackup.estimate().then(function (e) {
+        var mine = "NST is using " + fmtBytes(e.ours) + " on this device";
+        if (e.quota) {
+          var pct = e.pct != null && e.pct < 1 ? "<1" : String(Math.round(e.pct || 0));
+          mine += " \u00b7 " + pct + "% of this browser's storage is in use";
+        }
+        quotaLine.textContent = mine + ".";
+      }).catch(function () {});
+      // Ask the browser not to evict us automatically. This does not survive a
+      // manual clear -- only the backup file does -- so it is a quiet extra, not
+      // a promise we make to the user.
+      try { window.NSTBackup.requestPersist(); } catch (ePst) {}
+    }
+    body.appendChild(bk);
+
     // --- Reset ---
     var reset = section("Reset saved data");
     reset.appendChild(el("p", "nst-set-note", "Clears preferences, Practice Exams history, and WWTBANE/StarNix progress on this device."));
@@ -464,6 +542,57 @@
     // Enter can't wipe every save on the device; the danger button stays last
     // in tab order and visually prominent.
     cancel.focus();
+  }
+
+  // Restoring overwrites real progress, so it gets the same treatment as Reset:
+  // an explicit confirm that says what is in the file, with the safe choice
+  // focused. "Merge" is offered because restoring an old backup onto a newer
+  // device should not have to mean throwing away the newer work.
+  function confirmRestore(settingsOverlay, chk, when, onConfirm, onCancel) {
+    var overlay = el("div", "nst-modal-overlay nst-modal-overlay-top");
+    var modal = el("div", "nst-modal nst-modal-sm");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.appendChild(el("h3", "nst-modal-title", "Restore this backup?"));
+    var what = chk.summary.tools.length ? chk.summary.tools.join(", ") : "saved data";
+    modal.appendChild(el("p", "nst-modal-body-text",
+      "That file was saved on " + esc(when) + " and contains " + chk.summary.keys +
+      " item(s): " + esc(what) + "." +
+      (chk.rejected ? " (" + chk.rejected + " entr" + (chk.rejected === 1 ? "y" : "ies") + " outside NST will be ignored.)" : "")));
+    modal.appendChild(el("p", "nst-modal-body-text",
+      "Replace swaps your current progress for the backup. Merge keeps anything the backup doesn\u2019t mention."));
+    var row = el("div", "nst-modal-actions");
+    var cancel = el("button", "nst-btn nst-btn-ghost", "Cancel");
+    cancel.type = "button";
+    var merge = el("button", "nst-btn nst-btn-ghost", "Merge");
+    merge.type = "button";
+    var replace = el("button", "nst-btn nst-btn-danger", "Replace");
+    replace.type = "button";
+    var opener = document.activeElement;
+    var done = false;
+    function close(cancelled) {
+      try { overlay.remove(); } catch (e) {}
+      document.removeEventListener("keydown", onKeyR, true);
+      if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
+      if (cancelled && !done && onCancel) onCancel();
+    }
+    function onKeyR(e) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(true); return; }
+      if (e.key !== "Tab") return;
+      var items = modal.querySelectorAll("button");
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+    document.addEventListener("keydown", onKeyR, true);
+    cancel.addEventListener("click", function () { close(true); });
+    merge.addEventListener("click", function () { done = true; close(false); onConfirm("merge"); });
+    replace.addEventListener("click", function () { done = true; close(false); onConfirm("replace"); });
+    row.appendChild(cancel); row.appendChild(merge); row.appendChild(replace);
+    modal.appendChild(row);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    cancel.focus();   // same rule as Reset: the safe option takes a reflexive Enter
   }
 
   // (C1-01) the nav Help button — a compact dialog with the same contract as
