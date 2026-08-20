@@ -34,6 +34,9 @@
      the repo root from its own script URL, then fetch Markdown banks from /banks/ at runtime. -->
 <script src="../shared/bank-parser.js"></script>
 <script src="../shared/bank-loader.js"></script>
+<!-- (v2.7.0) the shared per-question mastery store. Loaded BEFORE the inlined core,
+     which reads window.NSTMastery at init to point profile.mastery at it. -->
+<script src="../shared/nst-mastery.js"></script>
 <style>
   html, body { margin: 0; height: 100%; background: #07070e; color: #F2F2F7;
     font-family: 'Montserrat', Arial, sans-serif; overflow: hidden; }
@@ -256,10 +259,10 @@ window.STARNIX_EXHIBITS = {};
   /* =================================================================== *
    * 3. Leitner / spaced-retrieval policy constants  (01 §3, §4)
    * =================================================================== */
-  var MAX_BUCKET = 8;               // (v0.89.0, L5) ladder extended past 24h — see INTERVALS
-  var MASTERED_BUCKET = 4;          // summary().masteredCount threshold
-  // Review interval per bucket (ms). bucket 0 is always due. (v0.89.0, L5) 3-day and 7-day
-  // buckets added: mastered cards stop re-duing EVERY day forever, so the due queue stays a
+  var MAX_BOX = 8;               // (v0.89.0, L5) ladder extended past 24h — see INTERVALS
+  var MASTERED_BOX = 4;          // summary().masteredCount threshold
+  // Review interval per box (ms). Box 0 is always due. (v0.89.0, L5) 3-day and 7-day
+  // boxes added: mastered cards stop re-duing EVERY day forever, so the due queue stays a
   // signal instead of ballooning during multi-week exam prep.
   var INTERVALS = [0, 30e3, 2 * 60e3, 10 * 60e3, 60 * 60e3, 6 * 60 * 60e3, 24 * 60 * 60e3, 3 * 24 * 60 * 60e3, 7 * 24 * 60 * 60e3];
   // Selection weights by reason (tunable).
@@ -271,33 +274,57 @@ window.STARNIX_EXHIBITS = {};
   function makeMasteryStore(profile, opts) {
     opts = opts || {};
     var onChange = opts.onChange || function () {};
-    if (!profile.mastery) profile.mastery = {};
+
+    // (v2.7.0) The Leitner record now lives in the SHARED store (shared/nst-mastery.js)
+    // so an answer in WWTBANE or Practice Exams counts here too -- the thing the
+    // README always promised. StarNix keeps everything that is StarNix's alone: XP,
+    // ranks, achievements, dailies, the station meter, telemetry and pace stats.
+    //
+    // `profile.mastery` is now a LIVE VIEW of the shared records, so every existing
+    // reader (achievements, readiness, the domain heatmap) keeps working untouched.
+    // The profile no longer persists its own copy -- see makeLocalStorageProvider.
+    var shared = (typeof global !== "undefined" && global.NSTMastery) ? global.NSTMastery : null;
+    if (shared) {
+      shared.migrateIfNeeded();            // fold legacy per-tool history in, once
+      profile.mastery = shared.all();
+    } else if (!profile.mastery) {
+      profile.mastery = {};                // no shared module (bare harness): stay self-contained
+    }
     var map = profile.mastery;
 
     function init(id) {
-      return { id: id, seen: 0, correct: 0, incorrect: 0, streak: 0, bucket: 0, lastSeen: 0 };
+      return { id: id, seen: 0, correct: 0, incorrect: 0, streak: 0, box: 0, lastSeen: 0 };
     }
     return {
       record: function (id, correct, ctx) {
-        var m = map[id] || (map[id] = init(id));
         var now = clock.now();
-        var prevBucket = m.bucket;                 // v0.52.0: promotion detection for rank XP
-        // (v0.89.0, L4) classic-Leitner gate: a correct answer PROMOTES only if the card was
-        // actually DUE — cramming the same card across games in one sitting no longer mints
-        // "mastered" (which feeds masteredPct, readiness, trails). Wrong answers always demote.
-        var wasDue = !m.seen || (m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0)) <= now;
-        m.seen++;
-        // (v0.90.0, review) a non-due CORRECT answer must not restart the interval clock —
-        // otherwise early re-answers defer the due date (and thus promotion) indefinitely.
-        // Due answers and ALL wrong answers reset it (demotion restarts the rung's interval).
-        if (wasDue || !correct) m.lastSeen = now;
-        if (correct) {
-          m.correct++; m.streak++;
-          if (m.bucket < MAX_BUCKET && wasDue) m.bucket++;
-          if (!m.firstCorrectAt) m.firstCorrectAt = now;
+        var prevBox, wasDue, m;
+        if (shared) {
+          // StarNix's policy, passed to the shared engine: promote only when the
+          // card is actually DUE, one box at a time.
+          var res = shared.record(id, { correct: !!correct, gate: "due", step: 1, now: now });
+          m = res.rec; prevBox = res.prevBox; wasDue = res.wasDue;
+          map = profile.mastery = shared.all();
         } else {
-          m.incorrect++; m.streak = 0;
-          if (m.bucket > 0) m.bucket--;            // modified Leitner: gentle decay
+          m = map[id] || (map[id] = init(id));
+          prevBox = m.box;
+          // (v0.89.0, L4) classic-Leitner gate: a correct answer PROMOTES only if the card was
+          // actually DUE — cramming the same card across games in one sitting no longer mints
+          // "mastered" (which feeds masteredPct, readiness, trails). Wrong answers always demote.
+          wasDue = !m.seen || (m.lastSeen + (INTERVALS[Math.min(m.box, INTERVALS.length - 1)] || 0)) <= now;
+          m.seen++;
+          // (v0.90.0, review) a non-due CORRECT answer must not restart the interval clock —
+          // otherwise early re-answers defer the due date (and thus promotion) indefinitely.
+          // Due answers and ALL wrong answers reset it (demotion restarts the rung's interval).
+          if (wasDue || !correct) m.lastSeen = now;
+          if (correct) {
+            m.correct++; m.streak++;
+            if (m.box < MAX_BOX && wasDue) m.box++;
+            if (!m.firstCorrectAt) m.firstCorrectAt = now;
+          } else {
+            m.incorrect++; m.streak = 0;
+            if (m.box > 0) m.box--;            // modified Leitner: gentle decay
+          }
         }
         // keep lifetime totals in sync for Stats (01 §5)
         if (profile.totals) {
@@ -305,7 +332,7 @@ window.STARNIX_EXHIBITS = {};
           if (correct) profile.totals.correct++; else profile.totals.incorrect++;
         }
         // Commander-rank XP (v0.52.0 unit 2): every answer, every surface, feeds the one pool.
-        addXP(profile, xpForAnswer(!!correct, prevBucket, m.bucket));
+        addXP(profile, xpForAnswer(!!correct, prevBox, m.box));
         // Achievements (v0.53.0 unit 3): per-surface answer streaks + unlock evaluation.
         // meta.game tags every caller (ARM/KBB/CC/EXAM); untagged callers pool under MISC.
         var g = (ctx && ctx.game) ? String(ctx.game) : "MISC";
@@ -315,7 +342,7 @@ window.STARNIX_EXHIBITS = {};
         if ((sk[g] || 0) > (sb[g] || 0)) sb[g] = sk[g];
         // (v0.183.0, V1.1 Backend#7) telemetry is REAL: per-question rolling pace aggregates
         // (EMA 0.3) + ONE standardized answer event per grade. 'Slow but correct' is a study
-        // signal Leitner buckets can't see; the aggregates are also the scheduler-tuning evidence base.
+        // signal Leitner boxes can't see; the aggregates are also the scheduler-tuning evidence base.
         var lat = (ctx && typeof ctx.latencyMs === "number" && isFinite(ctx.latencyMs) && ctx.latencyMs >= 0) ? Math.round(ctx.latencyMs) : null;
         var tpc = (ctx && typeof ctx.timerPct === "number" && isFinite(ctx.timerPct) && ctx.timerPct >= 0) ? Math.min(1, ctx.timerPct) : null;
         if (lat != null) {
@@ -330,9 +357,9 @@ window.STARNIX_EXHIBITS = {};
         }
         // (v0.186.0, V1.1 Flow#8) the station-rebuild fantasy is PERSISTENT: every surface's
         // mastery feeds ONE 60-module meter, latched like trailsUnlocked — decay never
-        // un-builds a module. Recomputed only when a bucket actually moved.
-        if (m.bucket !== prevBucket) {
-          var mcS = 0; for (var mkS in map) { if (map[mkS] && map[mkS].bucket >= MASTERED_BUCKET) mcS++; }
+        // un-builds a module. Recomputed only when a box actually moved.
+        if (m.box !== prevBox) {
+          var mcS = 0; for (var mkS in map) { if (map[mkS] && map[mkS].box >= MASTERED_BOX) mcS++; }
           var poolNS = 0;
           try { poolNS = StarNix.core.questions ? StarNix.core.questions.pool().length : 0; } catch (ePS) {}
           if (poolNS > 0) {
@@ -347,7 +374,7 @@ window.STARNIX_EXHIBITS = {};
           dd.byGame[g] = (dd.byGame[g] || 0) + 1;
           // (v0.90.0, review) at the ladder top a due correct COUNTS for the promote mission
           // (else late-prep days with <target due cards make it unclaimable).
-          if (m.bucket > prevBucket || (correct && wasDue && m.bucket === MAX_BUCKET)) dd.promotions++;
+          if (m.box > prevBox || (correct && wasDue && m.box === MAX_BOX)) dd.promotions++;
           if (sk[g] > dd.bestStreak) dd.bestStreak = sk[g];
         }
         evaluateAchievements(profile);
@@ -362,7 +389,7 @@ window.STARNIX_EXHIBITS = {};
         for (var k in map) {
           if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
           var m = map[k];
-          var at = m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0);
+          var at = m.lastSeen + (INTERVALS[Math.min(m.box, INTERVALS.length - 1)] || 0);
           if (m.seen && at <= now) out.push({ id: k, at: at });
         }
         // (v0.90.0, review) most OVERDUE first = earliest due-time first — overdue-ness
@@ -378,7 +405,7 @@ window.STARNIX_EXHIBITS = {};
           totalSeen += m.seen;
           if (m.correct > 0) uniqueCorrect++;
           if (m.incorrect > 0) uniqueIncorrect++;
-          if (m.bucket >= MASTERED_BUCKET) masteredCount++;
+          if (m.box >= MASTERED_BOX) masteredCount++;
         }
         return {
           totalSeen: totalSeen, uniqueCorrect: uniqueCorrect,
@@ -398,8 +425,8 @@ window.STARNIX_EXHIBITS = {};
   var XP_AWARDS = {
     answerCorrect: 10,   // any correctly answered question, any surface
     answerWrong: 2,      // attempts still teach — small participation award
-    promotion: 15,       // Leitner bucket moved UP (correct answers only)
-    mastered: 40,        // bonus when a question first crosses MASTERED_BUCKET
+    promotion: 15,       // Leitner box moved UP (correct answers only)
+    mastered: 40,        // bonus when a question first crosses MASTERED_BOX
     runScore: 150        // a positive score submitted through persistence.submitScore (ARM campaign win)
   };
   // ~10 NX-SRC service ranks. Thresholds are FLAT data — the gate pins them; tune only with a version bump.
@@ -455,11 +482,11 @@ window.STARNIX_EXHIBITS = {};
       progress: (next == null) ? 1 : (xp - floor) / span
     };
   }
-  function xpForAnswer(correct, prevBucket, newBucket) {
+  function xpForAnswer(correct, prevBox, newBucket) {
     var n = correct ? XP_AWARDS.answerCorrect : XP_AWARDS.answerWrong;
-    if (correct && newBucket > prevBucket) {
+    if (correct && newBucket > prevBox) {
       n += XP_AWARDS.promotion;
-      if (newBucket === MASTERED_BUCKET) n += XP_AWARDS.mastered;   // first step INTO mastered
+      if (newBucket === MASTERED_BOX) n += XP_AWARDS.mastered;   // first step INTO mastered
     }
     return n;
   }
@@ -498,11 +525,11 @@ window.STARNIX_EXHIBITS = {};
     { id: "scholar",          icon: "📚", xp: 75,  name: "Scholar",          desc: "See 50 distinct questions from the bank.",
       check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; var n = 0; for (var k in m) { if (Object.prototype.hasOwnProperty.call(m, k)) n++; if (n >= 50) return true; } return false; } },
     { id: "first-mastery",    icon: "✦",  xp: 50,  name: "First mastery",    desc: "Bring one question up to mastered.",
-      check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; for (var k in m) { if (m[k] && m[k].bucket >= MASTERED_BUCKET) return true; } return false; } },
+      check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; for (var k in m) { if (m[k] && m[k].box >= MASTERED_BOX) return true; } return false; } },
     { id: "domain-sweep",     icon: "🗺", xp: 150, name: "Domain sweep",     desc: "Answer at least one question in every domain.",
       check: function (s) { var st = s.stats; if (!st || !st.domains || !st.domains.length) return false; for (var i = 0; i < st.domains.length; i++) { if (!(st.domains[i].seen > 0)) return false; } return true; } },
     { id: "archivist",        icon: "🏛", xp: 200, name: "Archivist",        desc: "Master 25 questions.",
-      check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; var n = 0; for (var k in m) { if (m[k] && m[k].bucket >= MASTERED_BUCKET) { n++; if (n >= 25) return true; } } return false; } },
+      check: function (s) { var m = s.profile && s.profile.mastery; if (!m) return false; var n = 0; for (var k in m) { if (m[k] && m[k].box >= MASTERED_BOX) { n++; if (n >= 25) return true; } } return false; } },
     { id: "commander",        icon: "⭐", xp: 250, name: "Commander",        desc: "Reach the rank of Commander.",
       check: function (s) { var p = s.profile; return !!(p && rankFor(p.xp).index >= 6); } },
     // (v0.94.0, A3, Jason) HIDDEN until earned — ARM sets profile.armBeltCleared when a
@@ -757,7 +784,7 @@ window.STARNIX_EXHIBITS = {};
   var TUNING_DEFAULTS = Object.freeze({
     intervals: INTERVALS.slice(),
     w: { due: W.due, "new": W["new"], reinforce: W.reinforce, epsilon: W.epsilon },
-    masteredBucket: MASTERED_BUCKET,
+    masteredBucket: MASTERED_BOX,
     timer: Object.assign({}, TIMER)
   });
   function isDevEnv() {
@@ -778,8 +805,8 @@ window.STARNIX_EXHIBITS = {};
         if (typeof t.w[kT] === "number" && t.w[kT] >= 0) { W[kT] = t.w[kT]; okT = true; }
       });
     }
-    if (typeof t.masteredBucket === "number" && t.masteredBucket >= 1 && t.masteredBucket <= MAX_BUCKET) {
-      MASTERED_BUCKET = t.masteredBucket; okT = true;
+    if (typeof t.masteredBucket === "number" && t.masteredBucket >= 1 && t.masteredBucket <= MAX_BOX) {
+      MASTERED_BOX = t.masteredBucket; okT = true;
     }
     if (t.timer && typeof t.timer === "object") {
       for (var kT2 in TIMER) {
@@ -824,7 +851,7 @@ window.STARNIX_EXHIBITS = {};
       var pw = (q.priority > 1) ? q.priority : 1;
       var m = mastery && mastery.get ? mastery.get(q.id) : undefined;
       if (!m || m.seen === 0) return { reason: "new", weight: (W["new"] + W.epsilon) * pw * dwOf(q) };
-      var due = (m.lastSeen + (INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0)) <= now;
+      var due = (m.lastSeen + (INTERVALS[Math.min(m.box, INTERVALS.length - 1)] || 0)) <= now;
       if (due) return { reason: "review-due", weight: (W.due + W.epsilon) * pw * dwOf(q) };
       return { reason: "reinforce", weight: (W.reinforce + W.epsilon) * pw * dwOf(q) };
     }
@@ -902,7 +929,7 @@ window.STARNIX_EXHIBITS = {};
         return out;
       },
       // Progress rollup for the Stats/Codex screen (01 §3/§4). Centralizes the
-      // Leitner interval/bucket math so the shell just renders numbers.
+      // Leitner interval/box math so the shell just renders numbers.
       stats: function () {
         var now = clock.now();
         function blank(d) { return { domain: d, total: 0, seen: 0, mastered: 0, fresh: 0, due: 0, correct: 0, attempts: 0 }; }
@@ -915,8 +942,8 @@ window.STARNIX_EXHIBITS = {};
             p.seen++; overall.seen++;
             p.attempts += m.seen; overall.attempts += m.seen;
             p.correct += m.correct; overall.correct += m.correct;
-            if (m.bucket >= MASTERED_BUCKET) { p.mastered++; overall.mastered++; }
-            var interval = INTERVALS[Math.min(m.bucket, INTERVALS.length - 1)] || 0;
+            if (m.box >= MASTERED_BOX) { p.mastered++; overall.mastered++; }
+            var interval = INTERVALS[Math.min(m.box, INTERVALS.length - 1)] || 0;
             if ((m.lastSeen + interval) <= now) { p.due++; overall.due++; }
           } else { p.fresh++; overall.fresh++; }   // never seen
         }
@@ -1028,7 +1055,10 @@ window.STARNIX_EXHIBITS = {};
       // out of storage let the player keep answering while nothing was written --
       // weeks of Leitner history quietly stopped accumulating. Record it so the
       // shell can say so once; the write itself still must never throw.
-      try { storage.setItem(key, JSON.stringify(p)); provider.writeError = null; }
+      // (v2.7.0) `mastery` is a live view of the shared store (nst.mastery.v1) and is
+      // persisted there, so it is omitted here rather than written twice -- a second
+      // stale copy would only confuse migration and bloat the profile.
+      try { storage.setItem(key, JSON.stringify(p, function (k, v) { return k === "mastery" && this === p ? undefined : v; })); provider.writeError = null; }
       catch (e) { provider.writeError = (e && e.name === "QuotaExceededError") ? "quota" : "write"; }
     }
     function parseProfile(raw) {   // shared by main + backup load paths
@@ -1389,7 +1419,7 @@ window.STARNIX_EXHIBITS = {};
     current: function () {
       return { intervals: INTERVALS.slice(),
         w: { due: W.due, "new": W["new"], reinforce: W.reinforce, epsilon: W.epsilon },
-        masteredBucket: MASTERED_BUCKET, timer: Object.assign({}, TIMER) };
+        masteredBucket: MASTERED_BOX, timer: Object.assign({}, TIMER) };
     },
     apply: applyTuning,
     set: function (t) {
@@ -1601,7 +1631,7 @@ window.STARNIX_EXHIBITS = {};
     makeTelemetry: makeTelemetry, validateBank: validateBank, defaultProfile: defaultProfile,
     migrate: migrate, SAMPLE_PACK: SAMPLE_PACK, THEME: THEME, StaticAI: StaticAI,
     NoopAudio: NoopAudio, escapeHTML: escapeHTML, DOMAINS: DOMAINS, clock: clock,
-    constants: { MAX_BUCKET: MAX_BUCKET, MASTERED_BUCKET: MASTERED_BUCKET, INTERVALS: INTERVALS, W: W }
+    constants: { MAX_BOX: MAX_BOX, MASTERED_BOX: MASTERED_BOX, INTERVALS: INTERVALS, W: W }
   };
 
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

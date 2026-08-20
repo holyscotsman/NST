@@ -240,6 +240,12 @@
       var results = questions.map(function (q, i) {
         return { q: q, chosen: answers[i], correct: engine.gradeAnswer(q, answers[i]) };
       });
+      // (v2.7.0) feed the shared mastery store, but only for questions actually
+      // ANSWERED -- a skipped question is no evidence either way, and marking it
+      // wrong would demote work the player never got the chance to do.
+      results.forEach(function (r) {
+        if (engine.isAnswered(r.chosen)) engine.recordMastery(r.q, r.correct);
+      });
       var summary = engine.summarize(results);
       if (PE.sfx) PE.sfx.play(summary.pass ? "pass" : "fail");
       engine.saveAttempt({

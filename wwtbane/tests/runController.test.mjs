@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { RunController, defaultLifelines, sameSet } from '../src/core/runController.js';
 import { buildSet } from '../src/core/selection.js';
 import { bankedAfter } from '../src/core/coins.js';
-import { emptyMastery, getRecord } from '../src/core/mastery.js';
+import { emptyMastery, getRecord, seedBoxFor } from '../src/core/mastery.js';
+import { MASTERY } from '../src/core/config.js';
 import { makeBank } from './fixtures.mjs';
 
 function freshRun(seed = 'RUN') {
@@ -65,10 +66,9 @@ test('a lifeline-assisted correct answer does not promote that questions mastery
   b.rc.start();
   const q2 = b.rc.current().q;
   b.rc.answer(q2.answer.slice());
-  assert.equal(getRecord(b.mastery, q2.id).box, seedBoxFor(q2.authoredDifficulty) + 1);
+  assert.equal(getRecord(b.mastery, q2.id).box, seedBoxFor(q2.authoredDifficulty) + MASTERY.STEP);
 });
 
-function seedBoxFor(diff) { return { easy: 4, medium: 2, hard: 0, extreme: 0 }[diff]; }
 
 test('a lifeline cannot be used twice on the same question', () => {
   const { rc } = freshRun();
