@@ -1,5 +1,13 @@
-// mastery.js — per-question Leitner mastery. Pure. Shared learning state that
-// persists across runs and is NEVER wiped by a win (the project design rules).
+// mastery.js — per-question Leitner mastery. Shared learning state that persists
+// across runs and is NEVER wiped by a win (the project design rules).
+//
+// (v2.7.0) The records now live in the SHARED store (shared/nst-mastery.js, exposed
+// as window.NSTMastery) rather than inside this game's save, so an answer here
+// counts in StarNix and Practice Exams too — the thing the README always promised.
+// This module keeps WWTBANE's POLICY: the box moves only on an UNAIDED answer, and
+// it moves in steps of 2 on the shared 0..8 ladder so the ladder keeps its original
+// length. Everything below still reads a `state` object with `.records`, which is
+// now a live view of the shared records.
 //
 // Low box  = the question is still hard for this player.
 // High box = mastered; box === GRADUATED_BOX means graduated (rarely resurfaced).
@@ -8,8 +16,20 @@
 
 import { MASTERY, boxToTier, coldStartTier } from './config.js';
 
-// A fresh, empty mastery state.
+// The shared store, when the page has loaded it. Absent in bare unit tests, which
+// exercise the pure fallback below.
+function sharedStore() {
+  return (typeof window !== 'undefined' && window.NSTMastery) ? window.NSTMastery : null;
+}
+
+// A mastery state. Backed by the shared store when present, so `records` is a live
+// view every tool writes through; otherwise a plain local object.
 export function emptyMastery() {
+  const shared = sharedStore();
+  if (shared) {
+    shared.migrateIfNeeded();          // fold legacy per-tool history in, once
+    return { records: shared.all(), shared: true };
+  }
   return { records: {} /* id -> {box, seen, correct, lastRun} */ };
 }
 
@@ -38,6 +58,21 @@ export function isGraduated(state, id) {
 //    Correct -> box + 1 (capped at GRADUATED_BOX, the graduate-out ceiling).
 //    Wrong   -> box - 1 (floored at MIN_BOX). Bidirectional.
 export function record(state, id, { correct, assisted = false, runIndex = 0, authoredDifficulty = 'medium' }) {
+  const shared = state.shared ? sharedStore() : null;
+  if (shared) {
+    // WWTBANE's policy, handed to the shared engine: every answer counts as
+    // exposure, but only an UNAIDED one moves the box, and it moves by STEP.
+    const res = shared.record(id, {
+      correct: !!correct,
+      assisted: !!assisted,
+      gate: 'always',
+      step: MASTERY.STEP,
+      runIndex,
+      seedBox: shared.seedFor(authoredDifficulty),
+    });
+    state.records = shared.all();
+    return res.rec;
+  }
   let rec = state.records[id];
   if (!rec) {
     rec = { box: seedBox(authoredDifficulty), seen: 0, correct: 0, lastRun: -1 };
@@ -48,18 +83,25 @@ export function record(state, id, { correct, assisted = false, runIndex = 0, aut
   rec.lastRun = runIndex;
 
   if (!assisted) {
-    if (correct) rec.box = Math.min(MASTERY.MAX_BOX, rec.box + 1);
-    else rec.box = Math.max(MASTERY.MIN_BOX, rec.box - 1);
+    if (correct) rec.box = Math.min(MASTERY.MAX_BOX, rec.box + MASTERY.STEP);
+    else rec.box = Math.max(MASTERY.MIN_BOX, rec.box - MASTERY.STEP);
   }
   return rec;
 }
 
 // Where a brand-new question sits the first time it is recorded, so its first
 // unaided answer moves it sensibly relative to its authored difficulty.
+export function seedBoxFor(authoredDifficulty) {
+  const shared = sharedStore();
+  return shared ? shared.seedFor(authoredDifficulty) : seedBox(authoredDifficulty);
+}
+
 function seedBox(authoredDifficulty) {
+  // Same distances from graduation as the original 0..5 ladder, on 0..8 in steps
+  // of 2: one unaided answer still graduates an easy question, four a hard one.
   switch (authoredDifficulty) {
-    case 'easy': return 4;   // one correct graduates it
-    case 'medium': return 2;
+    case 'easy': return 6;   // one correct graduates it
+    case 'medium': return 4;
     case 'hard': return 0;
     default: return 0;       // extreme handled separately (pinned tier)
   }

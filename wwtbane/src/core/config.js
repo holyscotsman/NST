@@ -145,20 +145,27 @@ export const SHOP = {
 // Mastery / Leitner boxes. Low box = still hard for you; high box = mastered.
 // The promotion cap and the graduate-out ceiling are the SAME value — a question
 // graduates exactly when it reaches the top box — so they share one source.
-const MASTERY_MAX_BOX = 5;
+// (v2.7.0) The ladder is now the SHARED 0..8 scale (shared/nst-mastery.js), so an
+// answer here and an answer in StarNix move the same box. The ladder keeps its
+// original LENGTH: WWTBANE promotes in steps of 2, so a hard question still takes
+// four unaided answers to graduate and an easy one still takes a single answer.
+// The tier bands below are the old 0..5 thresholds scaled by 8/5.
+const MASTERY_MAX_BOX = 8;
 export const MASTERY = {
   MIN_BOX: 0,
-  MAX_BOX: MASTERY_MAX_BOX,       // box 5 == graduated (rarely resurfaced)
+  MAX_BOX: MASTERY_MAX_BOX,       // box 8 == graduated (rarely resurfaced)
   GRADUATED_BOX: MASTERY_MAX_BOX, // must equal MAX_BOX (same source above)
+  STEP: 2,                        // how far one unaided answer moves the shared box
   // Chance a graduated question is resurfaced into an easy slot so it isn't forgotten.
   RESURFACE_CHANCE: 0.12,
 };
 
 // Map a Leitner box to the tier a question presents at (for mastery-driven selection).
+// Bands scaled from the original 0..5 ladder: <=1 -> <=2, <=3 -> <=5, <=4 -> <=7.
 export function boxToTier(box) {
-  if (box <= 1) return 'hard';
-  if (box <= 3) return 'medium';
-  if (box <= 4) return 'easy';
+  if (box <= 2) return 'hard';
+  if (box <= 5) return 'medium';
+  if (box <= 7) return 'easy';
   return 'graduated';
 }
 

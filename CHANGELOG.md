@@ -5,6 +5,78 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.7.0 — One mastery tracker, at last (2026-08-20)
+
+Development-loop cycle 21 (architecture). The README has always promised that
+"however you play, right and wrong answers feed the **same mastery tracker** per
+question". Auditing the data layer for the dashboard work found that this was
+**not true**: it held *inside* StarNix (whose three games share one profile), but
+WWTBANE kept its own Leitner state in `wwtbane.save.v1` with a different schema,
+Practice Exams recorded only attempt history, and nothing synced. Answering a
+question in one tool did nothing for the others' scheduling.
+
+This release makes the promise true.
+
+### Added
+- **`shared/nst-mastery.js`** — one per-question record (`nst.mastery.v1`) that
+  every tool reads and writes. Practice Exams now feeds it too, so a practice or
+  exam answer schedules the games.
+
+### How two schedulers became one
+They disagreed on both scale and gate, and those differences are what make each
+tool feel like itself — so the **evidence** is shared while each keeps its
+**policy**, passed per call:
+
+| | scale (before) | gate | now |
+|---|---|---|---|
+| StarNix | 0–8, time-based | only when the card is **due** | `gate:"due", step:1` |
+| WWTBANE | 0–5, run-based | only when **unaided** | `gate:"always", step:2` |
+
+The canonical ladder is StarNix's 0–8 — the finer of the two, and time-based,
+which generalises across tools in a way a per-tool run index cannot. WWTBANE
+moves it two boxes at a time so its ladder keeps its **original length**: one
+unaided answer still graduates an easy question, four still graduate a hard one.
+Its tier bands were rescaled by 8/5 to match, and its run-index staleness nudge
+is preserved.
+
+Practice Exams uses StarNix's due-gate, which is what stops a single 60-question
+sitting from minting a bank's worth of "mastered"; skipped questions record
+nothing, since a question you never saw is no evidence either way.
+
+### Migration
+Both legacy stores are folded in once, on first load. Where only one tool knew a
+question its record carries over intact (WWTBANE's box rescaled 0–5 → 0–8); where
+both did, the counters **add** and the box takes the **higher** — the player
+really did answer it that many times and really did demonstrate the better box
+somewhere, and losing proven progress would be the worse error. A WWTBANE-only
+record is left due rather than given a fabricated review date, since its run
+index carries no wall-clock meaning.
+
+Nothing is deleted: `wwtbane.save.v1` is untouched, and the profile's existing
+backup rotation means the pre-upgrade `starnix:profile` (mastery included) is
+retained in `starnix:profile:bak`. Verified in a live browser with planted
+legacy data — history preserved, XP untouched.
+
+### Verified
+`scripts/mastery-test.mjs` (CI-gated, 47 checks) covers both policies, the
+due-gate anti-cram rule, the unaided rule, the merge, and corrupt-record
+handling. A browser test confirms the round trip end to end: answer in StarNix →
+WWTBANE sees it → WWTBANE's answer moves the same box → Practice Exams sees that.
+
+### Changed
+- StarNix's `bucket` field is now `box`, matching the shared vocabulary. The
+  games and shell never referenced it directly, so the rename is confined to the
+  core, its mock and its harnesses.
+- The StarNix profile no longer persists its own copy of mastery — it is a live
+  view of the shared store, and a second stale copy would only confuse migration.
+- A WWTBANE test kept its own hand-copied seed table, which had silently drifted
+  from production; it now imports the real one.
+
+### Known
+- `starnix/verify-build.mjs` crashes in this environment (`dispatchEvent` on
+  null). Pre-existing and unrelated to this change — it fails identically on the
+  previous commit — and it is not a CI gate. Logged for a later cycle.
+
 ## v2.6.0 — Progress you can actually keep (2026-08-20)
 
 Development-loop cycle 20 (durability). Everything NST knows about you — mastery

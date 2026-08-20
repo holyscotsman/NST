@@ -81,3 +81,7 @@ jobs:
       # survives clearing browser data, and it writes to a localStorage shared with
       # every other site on the same github.io origin. Both properties are gated.
       - run: node ../scripts/backup-test.mjs
+      # (v2.7.0) the shared mastery store now carries every tool's scheduling and
+      # absorbs two legacy per-tool stores holding real user history, so both the
+      # per-tool policies and the migration merge are gated.
+      - run: node ../scripts/mastery-test.mjs
