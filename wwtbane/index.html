@@ -41,6 +41,8 @@
 <!-- (v2.7.0) the shared per-question mastery store: an answer here counts in
      StarNix and Practice Exams too. Classic script, loaded before the module entry. -->
 <script src="../shared/nst-mastery.js"></script>
+<!-- Account sync: active only when served from the app server; dormant on a static host. -->
+<script src="../shared/nst-sync.js"></script>
 <!-- Conditionally warms the three.js fetch (see the file for why it is not a static tag). -->
 <script src="./src/boot/preload-three.js"></script>
 </head>

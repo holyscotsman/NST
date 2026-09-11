@@ -679,3 +679,14 @@ body {
 .nst-bk-status:empty { display: none; }
 .nst-bk-status { margin-top: 10px; color: var(--text); }
 .nst-bk-quota { margin-top: 6px; color: var(--fainter); font-size: 13px; }
+
+/* --- Account chip (only when served from the app server) ------------------ */
+.nst-account { display: flex; align-items: center; gap: 10px; margin-right: 4px; }
+.nst-account-who { font-size: 13px; font-weight: 700; color: var(--muted-2);
+  max-width: 15ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nst-account-form { display: inline; margin: 0; }
+.nst-account-link { background: none; border: none; padding: 4px 2px; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--purple-light); text-decoration: none; }
+.nst-account-link:hover { color: var(--purple-hover); text-decoration: underline; }
+.nst-account-link:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 2px; border-radius: 6px; }
+@media (max-width: 620px) { .nst-account-who { display: none; } }

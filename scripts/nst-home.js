@@ -666,6 +666,45 @@
   function init() {
     var btn = document.getElementById("nst-settings-btn");
     if (btn) btn.addEventListener("click", buildModal);
+    // When the tool is served from the app server (server/server.mjs) rather than a
+    // static host, show who is signed in and give them a way out. NSTSync tells us
+    // asynchronously, and on a static host the event never fires, so nothing renders.
+    window.addEventListener("nst-account", function (ev) {
+      var me = ev && ev.detail;
+      if (!me || document.getElementById("nst-account-chip")) return;
+      var utils = document.querySelector(".nst-nav-utils");
+      if (!utils) return;
+      var wrap = el("div", "nst-account");
+      wrap.id = "nst-account-chip";
+      var who = el("span", "nst-account-who", (me.displayName || me.username) + (me.role === "root" ? " · root" : ""));
+      who.title = "Signed in as " + me.username;
+      wrap.appendChild(who);
+      if (me.role === "root") {
+        var admin = el("a", "nst-account-link", "Accounts");
+        admin.href = "/admin";
+        wrap.appendChild(admin);
+      }
+      // Sign out via fetch rather than a form post. This page's CSP sets
+      // `form-action 'none'` -- correct hardening for a launcher that otherwise has
+      // no forms at all -- which silently blocks a <form> submit. The POST still
+      // carries the CSRF token, so the server's checks are unchanged.
+      var b = el("button", "nst-account-link", "Sign out");
+      b.type = "button";
+      b.addEventListener("click", function () {
+        var tok = (document.cookie.match(/(?:^|;\s*)nst_csrf=([^;]*)/) || [])[1] || "";
+        try { tok = decodeURIComponent(tok); } catch (e) {}
+        b.disabled = true;
+        fetch("/logout", {
+          method: "POST", credentials: "same-origin", redirect: "manual",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "csrf=" + encodeURIComponent(tok),
+        }).then(function () { window.location.href = "/login"; })
+          .catch(function () { b.disabled = false; });
+      });
+      wrap.appendChild(b);
+      utils.insertBefore(wrap, utils.firstChild);
+    });
+
     var help = document.getElementById("nst-help-btn");
     if (help) help.addEventListener("click", buildHelpModal);
     renderNavBadge();

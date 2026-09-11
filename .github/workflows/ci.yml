@@ -85,3 +85,7 @@ jobs:
       # absorbs two legacy per-tool stores holding real user history, so both the
       # per-tool policies and the migration merge are gated.
       - run: node ../scripts/mastery-test.mjs
+      # (v2.8.0) the VM app server is the only part that holds other people's
+      # credentials and keeps one account's progress away from another's. It spawns
+      # its own instance on a scratch port with a throwaway database.
+      - run: node ../scripts/server-test.mjs

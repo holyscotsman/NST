@@ -7,3 +7,7 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+# Server runtime data (SQLite database + WAL). Never committed: it holds real
+# account credentials and per-user progress.
+server/data/
