@@ -330,7 +330,7 @@ async function runFrames(n = 6) {
         const mmF = SN.core.mastery.all();
         const poolF = SN.core.questions.pool();
         const addF = [];
-        for (let fi = 30; fi < 33; fi++) { const idF = poolF[fi].id; if (!mmF[idF]) { mmF[idF] = { id: idF, seen: 1, correct: 0, incorrect: 1, streak: 0, bucket: 0, lastSeen: 0 }; addF.push(idF); } }
+        for (let fi = 30; fi < 33; fi++) { const idF = poolF[fi].id; if (!mmF[idF]) { mmF[idF] = { id: idF, seen: 1, correct: 0, incorrect: 1, streak: 0, box: 0, lastSeen: 0 }; addF.push(idF); } }
         const dueN = SN.core.mastery.dueList(SN.core.clock.now()).length;
         shell.showTitle(); await wait(10);
         const startB = [...w.document.querySelectorAll("button")].find((b) => /^Start/.test(b.textContent));
@@ -1741,7 +1741,7 @@ async function runFrames(n = 6) {
       const seededMp = [];
       for (let si = 20; si < 23; si++) {
         const sid = poolMp[si].id;
-        if (!mmLive[sid]) { mmLive[sid] = { id: sid, seen: 2, correct: 0, incorrect: 2, streak: 0, bucket: 0, lastSeen: 1 }; seededMp.push(sid); }
+        if (!mmLive[sid]) { mmLive[sid] = { id: sid, seen: 2, correct: 0, incorrect: 2, streak: 0, box: 0, lastSeen: 1 }; seededMp.push(sid); }
       }
       shell.showExamSetup(); await wait(10);
       const mpTile = w.document.querySelector(".sx-exam-len-misses");
@@ -2044,7 +2044,7 @@ async function runFrames(n = 6) {
     {
       const poolL = SN.core.questions.pool();
       const seedIds = [poolL[0].id, poolL[1].id, poolL[2].id];
-      seedIds.forEach(id => SN.core.mastery.record(id, false));         // bucket 0 = always due
+      seedIds.forEach(id => SN.core.mastery.record(id, false));         // box 0 = always due
       const dueIds = SN.core.mastery.dueList(SN.core.clock.now());
       ok("mastery.dueList serves the lapsed queue (seeded 3, got " + dueIds.length + ")",
         seedIds.every(id => dueIds.indexOf(id) >= 0));
@@ -2068,8 +2068,8 @@ async function runFrames(n = 6) {
         const addedH = [];
         for (let hq = 3; hq < 13; hq++) {
           const idH = poolH[hq].id;
-          if (!mapH[idH]) { mapH[idH] = { bucket: 1, lastSeen: 0, streak: 0, misses: 1, seen: 1 }; addedH.push(idH); }
-          else { mapH[idH].bucket = Math.max(1, mapH[idH].bucket); mapH[idH].lastSeen = 0; }
+          if (!mapH[idH]) { mapH[idH] = { box: 1, lastSeen: 0, streak: 0, misses: 1, seen: 1 }; addedH.push(idH); }
+          else { mapH[idH].box = Math.max(1, mapH[idH].box); mapH[idH].lastSeen = 0; }
         }
         shell.showMenu(); await wait(10);
         const strip = w.document.querySelector(".sx-due-chip");
@@ -2129,7 +2129,7 @@ async function runFrames(n = 6) {
         const capQ = SN.core.questions.pool()[5];
         SN.core.mastery.record(capQ.id, true, { game: "CC" });          // ensure the record exists
         const mC = SN.core.mastery.get(capQ.id);
-        mC.bucket = SN._internal.constants.MAX_BUCKET; mC.lastSeen = 0; // at cap, long overdue
+        mC.box = SN._internal.constants.MAX_BUCKET; mC.lastSeen = 0; // at cap, long overdue
         const p0 = SN.core.profile.daily.promotions;
         SN.core.mastery.record(capQ.id, true, { game: "CC" });
         ok("due correct at MAX_BUCKET counts toward the promote mission (no unclaimable dailies)",
@@ -2480,17 +2480,17 @@ async function runFrames(n = 6) {
       X.forExam({ abandoned: true, total: 30, pct: 90 }) === 0 && X.forExam(null) === 0
       && X.forExam({ total: 30, pct: 79 }) === 25 && X.forExam({ total: 30, pct: 80 }) === 100);
 
-    // live wiring 1: every mastery.record feeds the pool (promotion detected from the real bucket move)
+    // live wiring 1: every mastery.record feeds the pool (promotion detected from the real box move)
     // (v0.53.0) sentinel: mark every achievement unlocked so the K4 XP-delta pins stay exact —
     // K5 owns achievement behavior and resets this.
     SN.achievements.LIST.forEach(d => { core.profile.achievements[d.id] = 1; });
     core.profile.xp = 0; core.profile.rankSeen = 0;
     const qX = core.questions.pool()[2];
-    const mPrev = core.mastery.get(qX.id), prevB = mPrev ? mPrev.bucket : 0;
+    const mPrev = core.mastery.get(qX.id), prevB = mPrev ? mPrev.box : 0;
     core.mastery.record(qX.id, true, {});
     const mNew = core.mastery.get(qX.id);
     ok("mastery.record awards XP into profile.xp (answer + real promotion delta)",
-      core.profile.xp === X.forAnswer(true, prevB, mNew.bucket));
+      core.profile.xp === X.forAnswer(true, prevB, mNew.box));
 
     // live wiring 2: persistence.submitScore (the 01 seam ARM calls on campaign win) — best + run XP
     const xpAfterAnswer = core.profile.xp;
@@ -2601,16 +2601,16 @@ async function runFrames(n = 6) {
       && by["sim-certified"].check({ profile: { examHistory: [{ mode: "study", pct: 100 }] } }) === false);
     {
       const m49 = {}, m50 = {};
-      for (let i = 0; i < 49; i++) m49["q" + i] = { bucket: 0 };
-      for (let i = 0; i < 50; i++) m50["q" + i] = { bucket: 0 };
+      for (let i = 0; i < 49; i++) m49["q" + i] = { box: 0 };
+      for (let i = 0; i < 50; i++) m50["q" + i] = { box: 0 };
       ok("scholar: 50 distinct questions seen (49 is not enough)",
         by["scholar"].check({ profile: { mastery: m50 } }) === true && by["scholar"].check({ profile: { mastery: m49 } }) === false);
       const m24 = {}, m25 = {};
-      for (let i = 0; i < 24; i++) m24["q" + i] = { bucket: 4 };
-      for (let i = 0; i < 25; i++) m25["q" + i] = { bucket: 4 };
-      ok("first-mastery at bucket>=4; archivist needs 25 mastered",
-        by["first-mastery"].check({ profile: { mastery: { a: { bucket: 4 } } } }) === true
-        && by["first-mastery"].check({ profile: { mastery: { a: { bucket: 3 } } } }) === false
+      for (let i = 0; i < 24; i++) m24["q" + i] = { box: 4 };
+      for (let i = 0; i < 25; i++) m25["q" + i] = { box: 4 };
+      ok("first-mastery at box>=4; archivist needs 25 mastered",
+        by["first-mastery"].check({ profile: { mastery: { a: { box: 4 } } } }) === true
+        && by["first-mastery"].check({ profile: { mastery: { a: { box: 3 } } } }) === false
         && by["archivist"].check({ profile: { mastery: m25 } }) === true
         && by["archivist"].check({ profile: { mastery: m24 } }) === false);
     }
@@ -2807,7 +2807,7 @@ async function runFrames(n = 6) {
     const need = Math.ceil(domQs.length * 0.5);
     const seededIds = [];
     for (let i = 0; i < need; i++) {
-      core.profile.mastery[domQs[i].id] = { id: domQs[i].id, seen: 1, correct: 1, incorrect: 0, streak: 1, bucket: 4, lastSeen: core.clock.now() };
+      core.profile.mastery[domQs[i].id] = { id: domQs[i].id, seen: 1, correct: 1, incorrect: 0, streak: 1, box: 4, lastSeen: core.clock.now() };
       seededIds.push(domQs[i].id);
     }
     const def = C.LIST.find(d => d.domain === smallest.domain);
@@ -2817,7 +2817,7 @@ async function runFrames(n = 6) {
       seededIds.forEach(id => delete core.profile.mastery[id]); seededIds.length = 0;
       const sQs = core.questions.pool().filter(q => q.domain === "storage");
       for (let i = 0; i < Math.ceil(sQs.length * 0.5); i++) {
-        core.profile.mastery[sQs[i].id] = { id: sQs[i].id, seen: 1, correct: 1, incorrect: 0, streak: 1, bucket: 4, lastSeen: core.clock.now() };
+        core.profile.mastery[sQs[i].id] = { id: sQs[i].id, seen: 1, correct: 1, incorrect: 0, streak: 1, box: 4, lastSeen: core.clock.now() };
         seededIds.push(sQs[i].id);
       }
     }
@@ -2998,8 +2998,8 @@ async function runFrames(n = 6) {
       core.profile.qstats[qA.id].n === 2
       && core.telemetry.events().filter(e => e.t === "answer").length === before + 3);
     // the drill feed: slow-but-correct outranks an EQUALLY-mastered fast card
-    core.profile.mastery[qA.id] = { id: qA.id, seen: 5, correct: 5, incorrect: 0, streak: 3, bucket: 4, lastSeen: 1000 };
-    core.profile.mastery[qB.id] = { id: qB.id, seen: 5, correct: 5, incorrect: 0, streak: 3, bucket: 4, lastSeen: 1000 };
+    core.profile.mastery[qA.id] = { id: qA.id, seen: 5, correct: 5, incorrect: 0, streak: 3, box: 4, lastSeen: 1000 };
+    core.profile.mastery[qB.id] = { id: qB.id, seen: 5, correct: 5, incorrect: 0, streak: 3, box: 4, lastSeen: 1000 };
     core.profile.qstats[qA.id] = { n: 3, lat: 30000, pct: 0.9 };   // slow
     core.profile.qstats[qB.id] = { n: 3, lat: 3000, pct: 0.1 };    // fast
     {
@@ -3039,7 +3039,7 @@ async function runFrames(n = 6) {
   console.log("\nB8. Backend#8 tuning (pinned defaults / live apply + reset / dev-gated set / domain-weight seam)");
   {
     const TU = SN.tuning, core = SN.core;
-    ok("B8: DEFAULTS pinned — Leitner intervals, selection weights, mastered bucket, timer table",
+    ok("B8: DEFAULTS pinned — Leitner intervals, selection weights, mastered box, timer table",
       !!TU && TU.DEFAULTS.intervals.join(",") === "0,30000,120000,600000,3600000,21600000,86400000,259200000,604800000"
       && TU.DEFAULTS.w.due === 6 && TU.DEFAULTS.w["new"] === 3 && TU.DEFAULTS.w.reinforce === 1 && TU.DEFAULTS.w.epsilon === 0.12
       && TU.DEFAULTS.masteredBucket === 4
@@ -3328,21 +3328,21 @@ async function runFrames(n = 6) {
     const snapV8 = JSON.stringify({ st: core.profile.station | 0, xp: core.profile.xp, rankSeen: core.profile.rankSeen,
       totals: core.profile.totals, daily: core.profile.daily || null, streaks: core.profile.streaks,
       streaksBest: core.profile.streaksBest, ach: core.profile.achievements });
-    const qV8 = pool.find(q => !core.profile.mastery[q.id] || core.profile.mastery[q.id].bucket < 4);
+    const qV8 = pool.find(q => !core.profile.mastery[q.id] || core.profile.mastery[q.id].box < 4);
     const mSnap = core.profile.mastery[qV8.id] ? JSON.stringify(core.profile.mastery[qV8.id]) : null;
     // stage the card one rung below mastered, long overdue, then promote it through the REAL choke point
-    core.profile.mastery[qV8.id] = { id: qV8.id, seen: 3, correct: 3, incorrect: 0, streak: 3, bucket: 3, lastSeen: 1 };
-    let m0 = 0; for (const k in core.profile.mastery) if (core.profile.mastery[k].bucket >= 4) m0++;
+    core.profile.mastery[qV8.id] = { id: qV8.id, seen: 3, correct: 3, incorrect: 0, streak: 3, box: 3, lastSeen: 1 };
+    let m0 = 0; for (const k in core.profile.mastery) if (core.profile.mastery[k].box >= 4) m0++;
     core.profile.station = 0;                                  // sharp: the promotion alone must set it
     core.mastery.record(qV8.id, true, { game: "PROBE" });
     const expSt = Math.min(60, Math.floor((m0 + 1) / pool.length * 60));
     ok("Flow#8: a promotion into mastered advances the station meter (floor(mastered/bank*60))",
-      core.profile.mastery[qV8.id].bucket === 4 && core.profile.station === expSt);
+      core.profile.mastery[qV8.id].box === 4 && core.profile.station === expSt);
     // the latch: pre-set the meter HIGH — one demotion recomputes low, and only the latch holds 59
     core.profile.station = 59;
     core.mastery.record(qV8.id, false, { game: "PROBE" });
     ok("Flow#8: the latch holds — mastery decay never un-builds a module",
-      core.profile.mastery[qV8.id].bucket === 3 && core.profile.station === 59);
+      core.profile.mastery[qV8.id].box === 3 && core.profile.station === 59);
     // bridge: the ARM strip stat + the vista read the PROFILE meter
     core.profile.station = 33;
     shell.showMenu();

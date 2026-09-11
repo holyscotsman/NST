@@ -122,14 +122,14 @@
     const THRESH = 3;
     function record(id, correct, ctx) {
       let m = map[id];
-      if (!m) m = map[id] = { id, seen: 0, correct: 0, incorrect: 0, streak: 0, bucket: 0, lastSeen: 0 };
+      if (!m) m = map[id] = { id, seen: 0, correct: 0, incorrect: 0, streak: 0, box: 0, lastSeen: 0 };
       m.seen++;
       m.lastSeen = Date.now();
       if (correct) {
-        m.correct++; m.streak++; m.bucket = Math.min(5, m.bucket + 1);
+        m.correct++; m.streak++; m.box = Math.min(5, m.box + 1);
         if (m.firstCorrectAt == null) m.firstCorrectAt = m.lastSeen;
       } else {
-        m.incorrect++; m.streak = 0; m.bucket = Math.max(0, m.bucket - 1);
+        m.incorrect++; m.streak = 0; m.box = Math.max(0, m.box - 1);
       }
     }
     function get(id) { return map[id]; }
@@ -138,7 +138,7 @@
       for (const k in map) {
         const m = map[k]; totalSeen += m.seen;
         if (m.correct > 0) uc++; if (m.incorrect > 0) ui++;
-        if (m.bucket >= THRESH) mastered++;
+        if (m.box >= THRESH) mastered++;
       }
       return { totalSeen, uniqueCorrect: uc, uniqueIncorrect: ui, masteredCount: mastered };
     }

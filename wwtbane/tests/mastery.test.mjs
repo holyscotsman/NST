@@ -16,12 +16,13 @@ test('cold-start tier is the authored difficulty', () => {
 
 test('unaided correct answers promote toward mastery; misses demote', () => {
   const m = emptyMastery();
-  record(m, hard.id, { correct: true, authoredDifficulty: 'hard' }); // box 0 -> 1
+  record(m, hard.id, { correct: true, authoredDifficulty: 'hard' }); // box 0 -> STEP
   const box1 = getRecord(m, hard.id).box;
-  record(m, hard.id, { correct: true, authoredDifficulty: 'hard' }); // 1 -> 2
-  assert.ok(getRecord(m, hard.id).box > box1, 'promotes on correct');
+  record(m, hard.id, { correct: true, authoredDifficulty: 'hard' }); // -> 2*STEP
+  const box2 = getRecord(m, hard.id).box;
+  assert.ok(box2 > box1, 'promotes on correct');
   record(m, hard.id, { correct: false, authoredDifficulty: 'hard' }); // demote
-  assert.ok(getRecord(m, hard.id).box < 2, 'demotes on wrong'); // NEGATIVE CONTROL
+  assert.ok(getRecord(m, hard.id).box < box2, 'demotes on wrong'); // NEGATIVE CONTROL
 });
 
 test('a lifeline-assisted correct answer does NOT promote mastery', () => {
@@ -33,8 +34,8 @@ test('a lifeline-assisted correct answer does NOT promote mastery', () => {
   record(m2, hard.id, { correct: true, assisted: true, authoredDifficulty: 'hard' });
   const rec2 = getRecord(m2, hard.id);
 
-  // seedBox for hard is 0; unaided moves it to 1, assisted leaves it at 0.
-  assert.equal(boxUnaided, 1);
+  // seedBox for hard is 0; unaided moves it one STEP, assisted leaves it at 0.
+  assert.equal(boxUnaided, MASTERY.STEP);
   assert.equal(rec2.box, 0, 'assisted correct leaves the box unchanged'); // NEGATIVE CONTROL
   assert.equal(rec2.seen, 1, 'but exposure is still recorded');
   assert.equal(rec2.correct, 1);

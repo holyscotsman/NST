@@ -78,6 +78,19 @@
     var idx = Array.isArray(chosen) ? (chosen.length ? chosen[0] : -1) : chosen;
     return typeof idx === "number" && idx === q.correct;
   }
+  /* (v2.7.0) Practice Exams now feeds the shared mastery store too, so a question
+   * answered here resurfaces (or stops resurfacing) in StarNix and WWTBANE. It uses
+   * StarNix's policy -- promote only when the card is actually DUE -- which is what
+   * stops a single 60-question sitting from minting a bank's worth of "mastered".
+   * Silent and optional: if the shared module is absent, grading is unaffected. */
+  function recordMastery(q, correct) {
+    try {
+      var M = window.NSTMastery;
+      if (!M || !q || !q.id) return null;
+      return M.record(q.id, { correct: !!correct, gate: "due", step: 1 });
+    } catch (e) { return null; }
+  }
+
   function isAnswered(chosen) {
     if (chosen == null) return false;
     if (Array.isArray(chosen)) return chosen.length > 0;
@@ -193,6 +206,7 @@
     shuffle: shuffle,
     isMulti: isMulti,
     gradeAnswer: gradeAnswer,
+    recordMastery: recordMastery,
     isAnswered: isAnswered,
     shuffleOptions: shuffleOptions,
     buildExam: buildExam,

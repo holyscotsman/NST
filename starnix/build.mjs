@@ -168,6 +168,9 @@ ${fontCss}</style>
      the repo root from its own script URL, then fetch Markdown banks from /banks/ at runtime. -->
 <script src="../shared/bank-parser.js"></script>
 <script src="../shared/bank-loader.js"></script>
+<!-- (v2.7.0) the shared per-question mastery store. Loaded BEFORE the inlined core,
+     which reads window.NSTMastery at init to point profile.mastery at it. -->
+<script src="../shared/nst-mastery.js"></script>
 <style>
   html, body { margin: 0; height: 100%; background: #07070e; color: #F2F2F7;
     font-family: 'Montserrat', Arial, sans-serif; overflow: hidden; }

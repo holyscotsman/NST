@@ -206,6 +206,7 @@
       if (!engine.isAnswered(st.chosen)) return;
       st.checked = true;
       st.correct = engine.gradeAnswer(q, st.chosen);
+      engine.recordMastery(q, st.correct);   // (v2.7.0) feeds the shared mastery store
       streak = st.correct ? streak + 1 : 0;
       if (PE.sfx) PE.sfx.play(st.correct ? "correct" : "incorrect");
       // (C2-06) speak the verdict; on a miss, name the correct letter(s)
