@@ -123,6 +123,27 @@ python3 -m http.server 8000
 # then open http://localhost:8000/
 ```
 
+## Host it for a team (accounts + login)
+
+If the GitHub URL is blocked on your network, or several people want their own
+progress, there is a small server that hosts the same site behind a login:
+
+```bash
+node server/server.mjs        # needs Node 22+, no npm install
+```
+
+Everyone gets an account, and their progress follows them to any browser or
+device instead of living in one browser's storage. A **root** account is created
+on first run for managing the others. Storage is a single SQLite file
+(`node:sqlite`, built into Node) — no database server to run.
+
+The apps themselves are unchanged: they still use `localStorage`, and
+`shared/nst-sync.js` mirrors it to the account. On a static host that module
+stays dormant, so the same build works both ways.
+
+See **[server/README.md](./server/README.md)** for setup, configuration, a
+systemd unit, and the security notes.
+
 ## Develop
 
 Each tool keeps its own tooling:

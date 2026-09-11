@@ -5,6 +5,67 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.8.0 — Host it yourself, with accounts (2026-09-11)
+
+The GitHub URL is blocked on some corporate networks, which makes a static site
+on Pages unreachable for exactly the people who want it. This release adds a
+small server so the tool can be hosted on a VM, behind a login, with each person
+keeping their own progress.
+
+It is **one Node process with no npm dependencies**. Storage is a single SQLite
+file via Node 22's built-in `node:sqlite` — a database *file*, not a database
+*server*: nothing to install, nothing to administer, and you can copy it to back
+up or delete it to reset.
+
+### Added
+- **`server/server.mjs`** — serves the existing site, gated behind a sign-in.
+  Anyone can create an account; a **root** account is created on first run to
+  manage the rest (reset password, disable/enable, promote/demote, delete), with
+  an activity log. The last remaining root cannot be deleted, disabled or
+  demoted, since that would lock administration out permanently.
+- **`shared/nst-sync.js`** — mirrors the browser's local progress to the signed-in
+  account: pull on load, debounced push on change, and a final push as the tab
+  closes. **Progress follows the person, not the browser.**
+- **`server/README.md`** — setup, configuration, a systemd unit, and the security
+  notes, including what this deliberately does not do.
+- **`scripts/server-test.mjs` (CI-gated, 74 checks)** — spawns its own instance on
+  a scratch port with a throwaway database and exercises the whole surface. Most
+  of it is about what the server *refuses*: gating, traversal, account isolation,
+  CSRF, throttling, admin authorisation.
+
+### Why the apps did not have to change
+StarNix, WWTBANE and Practice Exams still read and write `localStorage` exactly
+as before; the sync module moves the same envelope the offline backup already
+produces (v2.6.0). So there was no rewrite of three storage layers, the app
+survives a network hiccup mid-session, and a server blob and a downloaded backup
+file are interchangeable. On a static host `/api/me` simply 404s and the module
+stays dormant — **the same build works in both places**.
+
+### Security
+- passwords stored as **scrypt** hashes with a per-user random salt, never plaintext
+  (the test asserts the default password does not appear in the database file)
+- session tokens random and stored **hashed**, so reading the database does not
+  yield a usable cookie; `HttpOnly` + `SameSite=Strict`, `Secure` over HTTPS
+- failed sign-ins throttled per IP and username, and worded identically whether
+  the username exists or not, so accounts cannot be enumerated
+- **the database, `.git` and CI config are never served** — the repo is the served
+  directory, so this needed an explicit denylist; without it any signed-in user
+  could have downloaded the password hashes
+- a password change ends every other session for that account
+
+The root default password is **`nutanix`**, as requested. It is stored hashed
+like any other, can be set on first run with `NST_ROOT_PASSWORD`, and both the
+server log and the Accounts page warn until it is changed.
+
+### Fixed
+- **Sign-out silently did nothing on the launcher.** The page sets
+  `form-action 'none'` — correct hardening for a page that otherwise has no forms
+  — which blocks a `<form>` submit with no visible failure. Sign-out is a `fetch`
+  now, so the strict policy stands and the CSRF check still applies.
+- **`frame-ancestors` was being ignored.** It has no effect in a `<meta>` CSP, so
+  the sign-in and admin pages had no clickjacking protection; it is sent as a real
+  header now, alongside `X-Frame-Options: DENY`.
+
 ## v2.7.0 — One mastery tracker, at last (2026-08-20)
 
 Development-loop cycle 21 (architecture). The README has always promised that
