@@ -109,6 +109,20 @@ body {
 .pe-modecard-cta svg { width: 17px; height: 17px; }
 .pe-modecard-exam .pe-modecard-cta { color: #7FC4F5; }
 
+/* (v2.12.0) Review due — a full-width card above the two modes, because it is
+   the one action with a deadline attached. Only rendered when something is
+   actually due, so it is never an empty promise. */
+.pe-modecard-review {
+  width: 100%;
+  margin-bottom: 18px;
+  border-color: rgba(255, 212, 121, 0.34);
+  background: linear-gradient(180deg, rgba(255, 212, 121, 0.07), rgba(255, 255, 255, 0.02));
+}
+.pe-modecard-review:hover { border-color: rgba(255, 212, 121, 0.62); }
+.pe-modecard-review .pe-modecard-tag { color: #FFD479; border-color: rgba(255, 212, 121, 0.34); }
+.pe-modecard-review .pe-modecard-cta { color: #FFD479; }
+.pe-modecard-review .pe-modecard-desc { flex: 0 0 auto; }
+
 /* History */
 .pe-history { display: flex; flex-direction: column; gap: 8px; }
 .pe-history-row { display: flex; align-items: center; gap: 14px; background: var(--glass); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px 16px; }

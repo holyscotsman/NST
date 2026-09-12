@@ -109,3 +109,8 @@ jobs:
       # verdict, never a score below blind guessing, time can only lower the
       # estimate, and a corrupt record cannot manufacture confidence.
       - run: node ../scripts/readiness-test.mjs
+      # (v2.12.0) the due-review queue. Its failure mode is a session nobody
+      # finishes or one that studies the wrong thing, so the gate is on the
+      # policy: overdue before new, oldest due date first, a stated cap, and a
+      # queue that does not reshuffle between the count shown and the session run.
+      - run: node ../scripts/review-test.mjs
