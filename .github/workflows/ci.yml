@@ -94,3 +94,8 @@ jobs:
       # catches Windows-only path bugs from a Linux runner -- the original
       # denylist broke on Windows while every Linux test stayed green.
       - run: node ../scripts/path-guard-test.mjs
+      # (v2.8.2) the one-click updater downloads code from the internet and runs
+      # it as the service account. The gate asserts the source stays a constant
+      # (unreachable from a request), that the staged copy is verified before the
+      # live tree is touched, and that the database is never overwritten.
+      - run: node ../scripts/update-test.mjs

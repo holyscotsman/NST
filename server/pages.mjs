@@ -175,7 +175,7 @@ function bytes(n) {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`;
 }
 
-export function adminPage({ me, users, csrf, error, notice, defaultRootPassword, audit = [] }) {
+export function adminPage({ me, users, csrf, error, notice, defaultRootPassword, audit = [], version, repo }) {
   const rows = users.map((u) => {
     const isMe = u.id === me.id;
     const act = (action, label, cls, confirmText) => `
@@ -201,6 +201,25 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
       </td>
     </tr>`;
   }).join('');
+
+  /* Updating pulls code from GitHub and runs it. Both buttons post through the
+     normal CSRF-checked form path; the source URL is fixed in update.mjs. */
+  const update = `
+    <h1 style="font-size:18px;margin-top:34px">Version</h1>
+    <p class="sub">Running <b>v${esc(version || 'unknown')}</b>${repo ? ` &middot; updates come from <span class="muted">${esc(repo)}</span>` : ''}.</p>
+    <div class="bar" style="justify-content:flex-start;gap:10px">
+      <form class="inline" method="POST" action="/admin/update-check">
+        <input type="hidden" name="csrf" value="${esc(csrf)}" />
+        <button class="ghost" type="submit">Check for updates</button>
+      </form>
+      <form class="inline" method="POST" action="/admin/update-apply">
+        <input type="hidden" name="csrf" value="${esc(csrf)}" />
+        <button class="ghost" type="submit">Install update</button>
+      </form>
+    </div>
+    <p class="hint">Installing downloads the latest version, checks it is complete, then replaces the
+      app files and restarts. Your database and every account are kept. If the download fails or looks
+      wrong, nothing is changed.</p>`;
 
   const log = audit.length ? `
     <h1 style="font-size:18px;margin-top:34px">Recent activity</h1>
@@ -232,6 +251,7 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
     <tbody>${rows}</tbody>
   </table>
   <p class="alt"><a href="/account/password">Change your own password</a></p>
+  ${update}
   ${log}
 </div>`, { wide: true });
 }
