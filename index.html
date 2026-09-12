@@ -42,6 +42,8 @@
   <script src="./shared/nst-backup.js"></script>
   <!-- (v2.7.0) the shared per-question mastery store, fed by every tool. -->
   <script src="./shared/nst-mastery.js"></script>
+  <!-- (v2.9.0) the home dashboard's rollup: pure, and tested without a browser. -->
+  <script src="./shared/nst-dashboard.js"></script>
   <!-- Account sync: active only when served from the app server; dormant on a static host. -->
   <script src="./shared/nst-sync.js"></script>
 </head>
@@ -161,6 +163,11 @@
           </span>
         </a>
       </nav>
+
+      <!-- (v2.9.0) One progress picture for all three tools. Populated by
+           scripts/nst-home.js once the active bank is known; stays hidden when
+           there is no bank, because there is then nothing to measure against. -->
+      <section id="nst-dash" class="nst-dash" aria-labelledby="nst-dash-title" hidden></section>
     </main>
   </div>
 

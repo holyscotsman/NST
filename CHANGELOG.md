@@ -5,6 +5,54 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.9.0 — One progress picture (2026-09-12)
+
+Three tools have been feeding one mastery store since v2.7.0, but nothing ever
+showed the result. You could tell how a single session went; you could not tell
+where you stood.
+
+### Added
+- **A progress dashboard on the home page.** Below the three tool cards: mastered
+  share of the active bank as a ring, then seen, accuracy, what's due, the best
+  exam score, and the three weakest domains as bars.
+
+  The interesting part is what it refuses to say. A dashboard that overstates is
+  worse than no dashboard, so:
+
+  - **it stays hidden until a bank is chosen.** With no bank there is no
+    denominator, and a panel of dashes is worse than no panel.
+  - **it never names a weakest area that has never been answered.** Ranking
+    untouched domains ranks nothing — they are all zero, so the list would be
+    alphabetical noise that reshuffles the moment one is opened. Below two
+    answered domains there is no ranking at all.
+  - **it shows a nudge, not a wall of zeros,** before anything has been answered.
+  - **"0 due" is not the same as "nothing scheduled."** An empty queue reads as
+    *finished*, which is the opposite of the truth, so it says when the next card
+    comes back instead.
+  - **accuracy over nothing is blank, not 0%.**
+
+- **`scripts/dashboard-test.mjs` (CI-gated, 53 checks)** tests those claims, not
+  the plumbing — including a poisoned exam history, since `localStorage` is
+  shared with every other site on the `github.io` origin.
+
+  The rollup lives in `shared/nst-dashboard.js` as a pure function from data to a
+  view model, precisely so the decisions can be tested without a browser. It runs
+  against the real `NSTMastery`, so the two cannot drift apart.
+
+- **`NSTMastery.summary()` now reports `nextDueAt`** — the soonest scheduled
+  review when nothing is due right now.
+
+### Fixed
+- **The home page scrolled sideways on a 320px phone.** The nav row (bank chip,
+  gear, avatar) overflowed the viewport, so the whole page did. Under 380px the
+  decorative avatar — `aria-hidden` initials, carrying no information — is the
+  one thing dropped, and the gap tightens before anything else has to. Verified
+  at 320 / 360 / 390 / 768 / 1024 / 1440.
+
+- **Domain names are shown as the bank author wrote them.** A `text-transform:
+  capitalize` would render the authored `vms` as `Vms`, which no generic rule
+  can fix. This also matches how Practice Exams shows them.
+
 ## v2.8.2 — One-click updates, scrollable dialogs (2026-09-12)
 
 The VM is reachable but the GitHub URL is not, so the copy running there had no
