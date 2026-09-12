@@ -202,6 +202,23 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
     </tr>`;
   }).join('');
 
+  /* The database is the only irreplaceable thing here. The restore note is not
+     padding: a snapshot copied back beside a stale nst.db-wal is a backup that
+     silently does not restore, which is worse than none. */
+  const backup = `
+    <h1 style="font-size:18px;margin-top:34px">Backup</h1>
+    <p class="sub">Everyone's progress and every account, in one file. Safe to take while people are using it.</p>
+    <div class="bar" style="justify-content:flex-start;gap:10px">
+      <form class="inline" method="POST" action="/admin/backup">
+        <input type="hidden" name="csrf" value="${esc(csrf)}" />
+        <button class="ghost" type="submit">Download a backup</button>
+      </form>
+    </div>
+    <p class="hint">To restore one: stop the server, delete <span class="muted">nst.db</span>,
+      <span class="muted">nst.db-wal</span> and <span class="muted">nst.db-shm</span>, put the backup
+      in their place named <span class="muted">nst.db</span>, and start it again. Deleting the other two
+      matters &mdash; leaving them beside a restored file loses the very changes you were restoring.</p>`;
+
   /* Updating pulls code from GitHub and runs it. Both buttons post through the
      normal CSRF-checked form path; the source URL is fixed in update.mjs. */
   const update = `
@@ -251,6 +268,7 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
     <tbody>${rows}</tbody>
   </table>
   <p class="alt"><a href="/account/password">Change your own password</a></p>
+  ${backup}
   ${update}
   ${log}
 </div>`, { wide: true });

@@ -156,6 +156,27 @@ export function clearProgress(db, userId) {
 
 /* ---- audit ---------------------------------------------------------- */
 
+/* A consistent single-file snapshot of the whole database, taken WITHOUT
+ * stopping the server.
+ *
+ * `VACUUM INTO` is the right tool and the reason is worth writing down: copying
+ * `nst.db` while the process is running gives you a file whose recent writes are
+ * still in the `-wal` companion, so the copy is silently stale -- or, if writes
+ * land mid-copy, torn. VACUUM INTO writes a fresh, fully checkpointed database
+ * with no `-wal` or `-shm` alongside it. One file, complete, restorable.
+ *
+ * It is also plain SQL rather than a Node API, so it does not depend on which
+ * version of the experimental `node:sqlite` surface this Node happens to ship.
+ *
+ * The path is quoted for SQL, not interpolated raw: on Windows it will contain
+ * backslashes and may contain apostrophes.
+ */
+export function snapshotTo(db, destPath) {
+  const quoted = String(destPath).replace(/'/g, "''");
+  db.exec(`VACUUM INTO '${quoted}'`);
+  return destPath;
+}
+
 export function audit(db, actor, action, detail) {
   db.prepare('INSERT INTO audit (at, actor, action, detail) VALUES (?,?,?,?)')
     .run(Date.now(), actor || null, action, detail ? String(detail).slice(0, 500) : null);

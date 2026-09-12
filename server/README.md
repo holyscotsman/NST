@@ -191,10 +191,10 @@ inside one fails with `EACCES` for no obvious reason. Check with
 `netsh int ipv4 show excludedportrange protocol=tcp` and pick a port outside
 those ranges via `NST_PORT`.
 
-**Backups.** Stop the service before copying `nst.db` — Windows will not let you
-copy a file SQLite holds open, and copying the `.db` without its `-wal` companion
-loses recent writes. Stop, copy all three (`nst.db`, `nst.db-wal`, `nst.db-shm`),
-start.
+**Backups.** Use `/admin` → **Download a backup**: it needs no service stop, and
+Windows will not let you copy a file SQLite holds open anyway. The manual route
+(stop, copy `nst.db`, `nst.db-wal` and `nst.db-shm` together, start) is only for
+when the server will not run.
 
 ## Keeping it running (Linux)
 
@@ -230,9 +230,23 @@ Everything lives in `server/data/nst.db` (plus SQLite's `-wal` / `-shm`
 companions). It is excluded from git, because it holds password hashes and
 everyone's progress.
 
-To back it up, stop the service and copy the three files, or use SQLite's own
-`.backup` if you have the `sqlite3` CLI. To start over, delete them — a fresh
-root account is created on the next start.
+**To back it up: `/admin` → Download a backup.** One file, taken while people are
+still using it, holding every account and everyone's progress. That is the whole
+procedure — the older advice below is only for when the server will not start.
+
+To restore one: stop the server, delete `nst.db`, `nst.db-wal` and `nst.db-shm`,
+put the backup in their place named `nst.db`, and start it again. **Deleting the
+other two matters.** A restored file sitting beside a stale `-wal` loses exactly
+the changes you were trying to restore, silently.
+
+By hand, without the server running: copy all three files together. Copying
+`nst.db` alone while the service is up gives you a file whose recent writes are
+still in `-wal` — a backup that looks fine and is quietly out of date. (This is
+why the button uses SQLite's `VACUUM INTO`, which writes a fully checkpointed
+single file with no companions.)
+
+To start over, delete all three — a fresh root account is created on the next
+start.
 
 Each person's study data is stored the same way as the app's own
 **Save backup file** export (`shared/nst-backup.js`), so the two are

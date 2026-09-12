@@ -5,6 +5,42 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.16.0 — A backup anyone will actually take (2026-09-12)
+
+The database on that VM is the only irreplaceable thing in the system: every
+account, every password hash, and everyone's study history. The documented way
+to protect it was "stop the service and copy three files", which is a procedure
+nobody performs until the morning after they needed to.
+
+### Added
+- **`/admin` → Download a backup.** One click, one file, taken while people are
+  still using the tool. Root only, CSRF-checked, written to the audit log, and
+  streamed rather than read into memory.
+
+  It uses SQLite's `VACUUM INTO`, and the reason is the whole point: copying
+  `nst.db` from a running server gives you a file whose recent writes are still
+  in the `-wal` companion, so the copy is quietly stale — or torn, if writes land
+  mid-copy. `VACUUM INTO` writes a fresh, fully checkpointed database with no
+  `-wal` or `-shm` beside it. One file, complete, restorable. It is also plain
+  SQL rather than a Node API, so it does not depend on which version of the
+  experimental `node:sqlite` surface a given Node ships.
+
+  The restore note in the UI is not padding either: a snapshot copied back next
+  to a stale `nst.db-wal` loses precisely the changes it was restoring, without
+  reporting anything wrong. Both the admin page and `server/README.md` now say
+  to delete the companions.
+
+- **`scripts/backup-db-test.mjs` (CI-gated, 28 checks).** It does not check that
+  a download happened. It takes a backup from a running server, writes it to
+  disk, opens it as a database and reads the rows back: every account present,
+  roles intact, credentials still hashes rather than passwords, and one user's
+  progress recovered down to an individual question's box and sighting count.
+
+  The other half is who may take one. A backup is a complete copy of every
+  credential in the system, so the tests confirm an ordinary account gets 403, a
+  signed-out visitor is sent to the sign-in page, a forged CSRF token is refused
+  even for root, and a plain GET hands out nothing.
+
 ## v2.15.0 — Compression on the app server (2026-09-12)
 
 A measurement pass over every entry point found the runtime already fast — FCP

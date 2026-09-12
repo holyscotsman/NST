@@ -100,6 +100,11 @@ jobs:
       # ETag that does not change with the encoding answers 304 for bytes in the
       # wrong one. Every compressed body is decompressed and compared to disk.
       - run: node ../scripts/compress-test.mjs
+      # (v2.16.0) the database is the only irreplaceable thing here -- every
+      # account, every password hash, everyone's history. The gate takes a
+      # backup from a running server, opens it as a database and reads the rows
+      # back, because a backup that cannot restore is worse than none.
+      - run: node ../scripts/backup-db-test.mjs
       # (v2.8.2) the one-click updater downloads code from the internet and runs
       # it as the service account. The gate asserts the source stays a constant
       # (unreachable from a request), that the staged copy is verified before the

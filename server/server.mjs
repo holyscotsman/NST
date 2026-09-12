@@ -19,7 +19,8 @@
  */
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, statSync, createReadStream } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, extname, resolve } from 'node:path';
 import { resolveWithin } from './safe-path.mjs';
 import { fileURLToPath } from 'node:url';
@@ -428,6 +429,47 @@ async function handle(req, res) {
 
     /* Update: root-only, CSRF-checked, and the download URL is a constant in
      * update.mjs -- nothing in the request chooses what gets installed. */
+    /* Download a snapshot of the database.
+     *
+     * This is the only irreplaceable thing in the whole system -- everyone's
+     * progress and every password hash -- and the documented alternative was
+     * "stop the service and copy three files", which nobody does. POST with the
+     * usual CSRF check, like every other admin action, and streamed rather than
+     * buffered so a large database cannot be read into memory in one piece.
+     */
+    if (path === '/admin/backup' && method === 'POST') {
+      const form = parseForm(await readBody(req, 16 * 1024));
+      if (!csrfValid(req, form)) return redirect(res, '/admin?err=' + encodeURIComponent('Your form expired. Try again.'));
+      const tmp = mkdtempSync(join(tmpdir(), 'nst-backup-'));
+      const file = join(tmp, 'snapshot.db');
+      const cleanup = () => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* temp dir */ } };
+      try {
+        DB.snapshotTo(db, file);
+        const size = statSync(file).size;
+        const d = new Date();
+        const p2 = (n) => String(n).padStart(2, '0');
+        const name = `nst-backup-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.db`;
+        DB.audit(db, me.username, 'backup', `${(size / 1024).toFixed(0)} KB`);
+        res.writeHead(200, {
+          'Content-Type': 'application/vnd.sqlite3',
+          'Content-Length': size,
+          'Content-Disposition': `attachment; filename="${name}"`,
+          // It holds password hashes: never store it anywhere on the way.
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff',
+        });
+        const stream = createReadStream(file);
+        stream.on('error', () => { res.destroy(); cleanup(); });
+        stream.on('close', cleanup);
+        return stream.pipe(res);
+      } catch (e) {
+        cleanup();
+        DB.audit(db, me.username, 'backup-failed', e && e.message ? e.message : String(e));
+        return redirect(res, '/admin?err=' + encodeURIComponent(
+          `Could not make a backup (${e && e.message ? e.message : e}).`));
+      }
+    }
+
     if (path === '/admin/update-check' && method === 'POST') {
       const form = parseForm(await readBody(req, 16 * 1024));
       if (!csrfValid(req, form)) return redirect(res, '/admin?err=' + encodeURIComponent('Your form expired. Try again.'));
