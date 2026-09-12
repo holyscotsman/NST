@@ -5,6 +5,37 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.11.0 — Weak areas you can act on (2026-09-12)
+
+Naming someone's weakest domain and leaving them to go find it is half a
+feature. Each weak area on the home page is now a link that opens Practice
+Exams already focused on it.
+
+### Added
+- **Weakest-area rows drill straight into Practice Exams.** Clicking
+  *networking* opens the tool with `networking` preselected as the practice
+  focus — two clicks from "where am I weak" to answering questions about it.
+
+  It sets Practice Exams' own preference key rather than inventing a second
+  channel between the tools. PE already validates that value against the live
+  bank on load, so a stale domain (a different bank selected since, a renamed
+  area) falls back to "all domains", never to an empty session.
+
+  Each row is a real `<a>`, not a click handler on a div: focusable, openable in
+  a new tab, announced as a link, and carrying the domain and its coverage in
+  its accessible name.
+
+- **`NSTDash.withFocus()`** does the preference merge, because the dashboard is
+  writing *another tool's* settings object. It carries the question-set choice,
+  so clobbering it would silently change what the next exam draws. Anything that
+  is not a plain object is replaced rather than merged into, and a `__proto__`
+  key never survives — `localStorage` is shared with every other site on the
+  origin.
+
+- **17 more checks in `scripts/dashboard-test.mjs` (now 71)** on that merge:
+  unrelated keys survive, the source object is not mutated, junk blobs are
+  replaced, and prototype pollution is refused.
+
 ## v2.10.0 — Am I ready? (2026-09-12)
 
 The dashboard says where you stand. This answers the question people actually

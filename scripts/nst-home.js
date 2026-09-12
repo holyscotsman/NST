@@ -706,24 +706,46 @@
     return wrap;
   }
 
+  /* Naming a weak area and leaving the reader to go find it is half a feature,
+   * so each row is a link that opens Practice Exams already focused on that
+   * domain. It sets PE's own preference key rather than inventing a second
+   * channel -- PE validates that value against the live bank on load, so a
+   * stale domain falls back to "all", never to an empty session. */
+  function drillTo(domain) {
+    try {
+      var K = "nst.practice-exams.prefs.v1";
+      var raw = window.NSTSafeParse ? window.NSTSafeParse(localStorage.getItem(K)) : null;
+      localStorage.setItem(K, JSON.stringify(window.NSTDash.withFocus(raw, domain)));
+    } catch (e) { /* storage unavailable -- the link still opens the tool */ }
+  }
+
   function dashWeak(weakest) {
     var box = el("div", "nst-dash-weak");
     box.appendChild(el("h3", "nst-dash-subtitle", "Weakest areas"));
     var ul = el("ul", "nst-dash-weaklist");
     weakest.forEach(function (w) {
       var li = el("li", "nst-dash-weakrow");
-      li.appendChild(el("span", "nst-dash-weakname", esc(w.domain)));
+      // An <a>, not a click handler on the row: it must be focusable, openable
+      // in a new tab, and readable as a link by a screen reader.
+      var a = el("a", "nst-dash-weaklink");
+      a.href = "./practice-exams/";
+      a.appendChild(el("span", "nst-dash-weakname", esc(w.domain)));
       var bar = el("span", "nst-dash-weakbar");
       var fill = el("i", "nst-dash-weakfill");
       fill.style.width = w.pct + "%";
       bar.appendChild(fill);
-      li.appendChild(bar);
-      li.appendChild(el("span", "nst-dash-weakpct", esc(w.pct + "%")));
+      a.appendChild(bar);
+      a.appendChild(el("span", "nst-dash-weakpct", esc(w.pct + "%")));
       // The bar is decorative; the row already reads as name + percentage.
       bar.setAttribute("aria-hidden", "true");
-      li.setAttribute("aria-label", w.domain + ": " + w.pct + "% mastered, " + w.seen + " of " + w.total + " seen");
+      a.setAttribute("aria-label",
+        "Practise " + w.domain + " — " + w.pct + "% mastered, " + w.seen + " of " + w.total + " seen");
+      a.title = "Practise " + w.domain + " in Practice Exams";
+      a.addEventListener("click", function () { drillTo(w.domain); });
+      li.appendChild(a);
       ul.appendChild(li);
     });
+    box.appendChild(el("p", "nst-dash-weakhint", "Pick one to practise just that area."));
     box.appendChild(ul);
     return box;
   }

@@ -836,12 +836,32 @@ body {
   margin: 0;
   padding: 0;
 }
-.nst-dash-weakrow { display: flex; align-items: center; gap: 12px; }
+.nst-dash-weakrow { display: flex; }
+/* The whole row is the target, so it is a real link: focusable, middle-clickable,
+   and announced as a link. The hit area is the full row, not just the name. */
+.nst-dash-weaklink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  margin: -5px -8px;
+  border-radius: 9px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s var(--ease);
+}
+.nst-dash-weaklink:hover { background: rgba(255, 255, 255, 0.05); }
+.nst-dash-weaklink:hover .nst-dash-weakname { color: var(--heading); }
+.nst-dash-weaklink:focus-visible { outline: 2px solid var(--purple-hover); outline-offset: 1px; }
+.nst-dash-weakhint { font-size: 12px; color: var(--fainter); margin: -4px 0 10px; }
 .nst-dash-weakname {
   flex: 0 0 auto;
-  width: 118px;
+  width: 110px;
   font-size: 13px;
   color: var(--muted);
+  transition: color 0.15s var(--ease);
   /* Shown exactly as the bank author wrote it, like Practice Exams does.
      A capitalize rule turns the authored "vms" into "Vms", which is wrong in a
      way no generic rule can fix. */

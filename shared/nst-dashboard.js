@@ -121,8 +121,31 @@
     };
   }
 
+  /* Set Practice Exams' focus domain without disturbing the rest of its
+   * preferences, and return the object to store.
+   *
+   * The dashboard writes another tool's preference key, so the whole risk here
+   * is clobbering: the same object carries the question-set choice, and the
+   * store is shared with every other site on this origin, so `raw` may be
+   * anything at all. Anything that is not a plain object is replaced rather
+   * than merged into, and a `__proto__` key never survives.
+   */
+  function withFocus(raw, domain) {
+    var base = {};
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      for (var k in raw) {
+        if (!Object.prototype.hasOwnProperty.call(raw, k)) continue;
+        if (k === "__proto__") continue;
+        base[k] = raw[k];
+      }
+    }
+    base.focusDomain = String(domain == null ? "" : domain);
+    return base;
+  }
+
   window.NSTDash = {
     model: model,
+    withFocus: withFocus,
     untilText: untilText,
     cleanAttempts: cleanAttempts,
     WEAK_MAX: WEAK_MAX,

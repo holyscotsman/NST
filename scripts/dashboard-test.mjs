@@ -224,10 +224,50 @@ const BANK = [
   ok('mastery is not claimed from one correct answer', m.masteredPct < 100, m.masteredPct);
 }
 
+/* ---- the drill link's preference merge ---- */
+{
+  const { D } = fresh();
+  // The dashboard writes ANOTHER tool's preference object. Clobbering the
+  // question-set choice there would silently change what the next exam draws.
+  const before = { useFull: true, somethingElse: 7 };
+  const after = D.withFocus(before, 'networking');
+  ok('the focus domain is set', after.focusDomain === 'networking');
+  ok('the question-set choice survives', after.useFull === true);
+  ok('unrelated keys survive', after.somethingElse === 7);
+  ok('the original object is not mutated', before.focusDomain === undefined);
+}
+{
+  const { D } = fresh();
+  for (const junk of [null, undefined, 'a string', 42, ['an', 'array'], true]) {
+    const after = D.withFocus(junk, 'storage');
+    ok('a ' + JSON.stringify(junk) + ' preference blob is replaced, not merged',
+      after && after.focusDomain === 'storage' && Object.keys(after).length === 1);
+  }
+}
+{
+  const { D } = fresh();
+  // localStorage is shared with every other site on this origin.
+  const poisoned = JSON.parse('{"__proto__": {"polluted": true}, "useFull": false}');
+  const after = D.withFocus(poisoned, 'security');
+  ok('a __proto__ key never survives the merge', !Object.prototype.hasOwnProperty.call(after, '__proto__'));
+  ok('and nothing is polluted', ({}).polluted === undefined);
+  ok('the real keys still come through', after.useFull === false && after.focusDomain === 'security');
+}
+{
+  const { D } = fresh();
+  ok('a missing domain clears the focus rather than storing undefined',
+    D.withFocus({}, undefined).focusDomain === '');
+  ok('a non-string domain is coerced, not stored raw',
+    typeof D.withFocus({}, 12).focusDomain === 'string');
+}
+
 /* ---- the renderer actually uses this module ---- */
 {
   const home = read('scripts', 'nst-home.js');
   ok('the home page renders from the model', /NSTDash/.test(home));
+  ok('the weak rows are links, not click handlers', /nst-dash-weaklink/.test(home));
+  ok('they target Practice Exams', /practice-exams\//.test(home));
+  ok('they set the focus through withFocus, not by hand', /withFocus/.test(home));
   const index = read('index.html');
   ok('the module is loaded by the launcher', /shared\/nst-dashboard\.js/.test(index));
   ok('it loads after the mastery store it reads',
