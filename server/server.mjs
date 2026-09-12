@@ -20,7 +20,8 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join, normalize, extname, resolve, sep } from 'node:path';
+import { join, extname, resolve } from 'node:path';
+import { resolveWithin } from './safe-path.mjs';
 import { fileURLToPath } from 'node:url';
 import * as DB from './db.mjs';
 import * as A from './auth.mjs';
@@ -170,40 +171,24 @@ function csrfValid(req, form) {
 // sign-in screen would depend on being signed in.
 const PUBLIC_PREFIXES = ['/shared/fonts.css', '/shared/fonts/'];
 
-/* The repo IS the served directory, which means anything in it is reachable
- * unless we say otherwise. These are never served to anyone, signed in or not:
- *   server/  the SQLite database -- password hashes, live sessions, everyone's progress
- *   .git/    the entire history, including anything ever committed
- *   .github/ CI configuration
- *   node_modules/ local dev installs, not part of the site
+/* The repo IS the served directory, so anything in it is reachable unless we say
+ * otherwise. server/ (the SQLite database -- password hashes, live sessions,
+ * everyone's progress), .git/, .github/ and node_modules/ never are.
+ *
+ * The rules live in ./safe-path.mjs, applied to the RESOLVED path rather than the
+ * URL text, and written with POSIX semantics because a URL is not a filesystem
+ * path. That distinction is not pedantry: the first version used
+ * path.normalize(), which returns backslash-separated paths on Windows, so every
+ * denylist entry silently stopped matching there while Linux tests stayed green.
+ * scripts/path-guard-test.mjs now exercises both platforms' semantics on Linux.
  */
-const DENY_PREFIXES = ['/server/', '/.git/', '/.github/', '/node_modules/'];
-const DENY_EXACT = new Set(['/server', '/.git', '/.github', '/node_modules', '/.gitignore']);
-
-function isDenied(urlPath) {
-  const p = urlPath.split('?')[0];
-  let decoded;
-  try { decoded = decodeURIComponent(p); } catch { return true; }   // malformed: refuse
-  const norm = normalize(decoded);
-  const test = norm.endsWith('/') ? norm.slice(0, -1) : norm;
-  if (DENY_EXACT.has(test)) return true;
-  return DENY_PREFIXES.some((d) => norm === d.slice(0, -1) || norm.startsWith(d));
-}
-
-function safeJoin(rootDir, urlPath) {
-  const decoded = decodeURIComponent(urlPath.split('?')[0]);
-  // normalize collapses ".." before we join, and the prefix check below is the
-  // real guard: a resolved path must still live inside the served directory.
-  const p = normalize(decoded).replace(/^(\.\.[/\\])+/, '');
-  const full = resolve(rootDir, '.' + (p.startsWith('/') ? p : '/' + p));
-  if (full !== rootDir && !full.startsWith(rootDir + sep)) return null;
-  return full;
-}
 
 async function serveStatic(req, res, urlPath) {
-  if (isDenied(urlPath)) return sendHtml(res, 404, P.errorPage(404, "That page isn't here."));
-  let full = safeJoin(ROOT, urlPath);
-  if (!full) return send(res, 403, 'Forbidden', { 'Content-Type': 'text/plain' });
+  // One call: canonicalises the URL, refuses anything denied or malformed, and
+  // guarantees the result is inside ROOT. null means "answer 404" -- the same
+  // reply a missing file gets, so probing cannot distinguish the two.
+  let full = resolveWithin(ROOT, urlPath);
+  if (!full) return sendHtml(res, 404, P.errorPage(404, "That page isn't here."));
   try {
     let st = await stat(full).catch(() => null);
     if (st && st.isDirectory()) {
@@ -493,11 +478,24 @@ server.listen(PORT, HOST, () => {
   if (!ALLOW_SIGNUP) console.log('  Self-registration is closed (NST_ALLOW_SIGNUP=0).\n');
 });
 
+let shuttingDown = false;
 function shutdown() {
+  if (shuttingDown) return;            // a service stop can deliver twice
+  shuttingDown = true;
   server.close(() => { try { db.close(); } catch {} process.exit(0); });
   setTimeout(() => process.exit(0), 3000).unref();
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+
+/* Windows never DELIVERS SIGTERM -- a service stop or `taskkill` terminates the
+ * process outright, so a SIGTERM-only handler would mean db.close() never runs
+ * there. SIGINT (Ctrl+C) and SIGBREAK (Ctrl+Break, Windows-only) do arrive, so
+ * all four are registered; the ones a platform does not raise simply never fire.
+ *
+ * A hard kill is survivable regardless: SQLite is in WAL mode and every write is
+ * committed synchronously, so the next start recovers from the -wal file. The
+ * graceful path is a tidiness measure, not the thing that protects the data. */
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+  try { process.on(sig, shutdown); } catch { /* not raised on this platform */ }
+}
 
 export { server, db };
