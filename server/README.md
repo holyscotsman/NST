@@ -73,6 +73,36 @@ From `/admin`:
 The last remaining root account cannot be deleted, disabled or demoted — that
 would lock everyone out of administration permanently.
 
+## Updating
+
+From `/admin`, signed in as root:
+
+| Button | What it does |
+|---|---|
+| **Check for updates** | Asks GitHub what version is published and compares it with the one running. Changes nothing. |
+| **Install update** | Downloads it, verifies it, installs it, and exits so the service restarts on the new code. |
+
+This is the point of the feature: the VM usually can't reach GitHub *from a
+browser*, which is why the server exists at all — but it can reach it from Node.
+
+**Your database is never touched.** `server/data/`, `node_modules/` and `.git/`
+are preserved across every update.
+
+**A bad download can't break the install.** The archive is extracted to a temp
+directory and checked against a manifest of files that must exist before
+anything live is overwritten. If the download is truncated or wrong, the update
+fails and the old copy keeps running.
+
+**The update always comes from `holyscotsman/NST`.** That address is a constant
+in `server/update.mjs` — no request can point it somewhere else.
+
+After **Install update** the process exits on purpose. Under NSSM or systemd it
+comes straight back on the new version; if you started it by hand in a terminal,
+start it again yourself.
+
+Extraction uses `tar`, which ships with Windows 10 / Server 2019+ and every
+Linux. On anything older, update by re-cloning.
+
 ## Configuration
 
 All optional, all environment variables:
