@@ -99,3 +99,8 @@ jobs:
       # (unreachable from a request), that the staged copy is verified before the
       # live tree is touched, and that the database is never overwritten.
       - run: node ../scripts/update-test.mjs
+      # (v2.9.0) the home dashboard is the first thing a returning user reads, and
+      # it fails by stating something untrue rather than by crashing. The gate is
+      # on the claims: no weak area that was never answered, no wall of zeros in
+      # place of "not started", and a poisoned exam history yields a number.
+      - run: node ../scripts/dashboard-test.mjs

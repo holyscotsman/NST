@@ -235,11 +235,15 @@
             } else {
               hint.textContent = "Couldn't load this bank — it may be missing or malformed.";
             }
+            // The bank is already in hand here; the dashboard needs exactly it.
+            renderDashboard(loaded, own.cert.code + " · " + VARIANT_LABEL[own.variant]);
           }).catch(function () {
             if ((Bank.active() || "") === active) hint.textContent = "Couldn't load this bank — check your connection and re-select it.";
+            renderDashboard(null);
           });
         } else {
           hint.textContent = "Pick an exam and question set to begin.";
+          renderDashboard(null);
         }
       }
 
@@ -645,6 +649,139 @@
     document.addEventListener("keydown", onKey);
     document.body.appendChild(overlay);
     x.focus();
+  }
+
+  /* ---------------------------------------------------------------------
+   * The progress dashboard (v2.9.0)
+   *
+   * One picture for all three tools. Every tool writes to the same mastery
+   * store, so this is a read of that store rolled up against the active bank
+   * (shared/nst-dashboard.js does the deciding; this only draws it).
+   *
+   * Two rules it holds to, because a dashboard that overstates is worse than
+   * none: it stays hidden until there is a bank to measure against, and it
+   * shows a single line rather than a wall of zeros until something has
+   * actually been answered.
+   * ------------------------------------------------------------------- */
+
+  var DASH_R = 26;                       // ring radius, matching the viewBox below
+  var DASH_C = 2 * Math.PI * DASH_R;     // circumference, for the dash offset
+
+  function dashStat(label, value, sub, cls) {
+    var d = el("div", "nst-dash-stat" + (cls ? " " + cls : ""));
+    d.appendChild(el("dt", "nst-dash-stat-k", esc(label)));
+    var dd = el("dd", "nst-dash-stat-v", esc(String(value)));
+    if (sub) dd.appendChild(el("span", "nst-dash-stat-sub", esc(String(sub))));
+    d.appendChild(dd);
+    return d;
+  }
+
+  function dashRing(pct) {
+    var wrap = el("div", "nst-dash-ring");
+    wrap.setAttribute("role", "img");
+    wrap.setAttribute("aria-label", pct + "% of this bank mastered");
+    // Built with createElementNS, not innerHTML: SVG inside an HTML string is
+    // parsed as HTML and the shapes silently never render.
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 64 64");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    function circle(cls) {
+      var c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", "32"); c.setAttribute("cy", "32"); c.setAttribute("r", String(DASH_R));
+      c.setAttribute("class", cls);
+      return c;
+    }
+    var track = circle("nst-dash-ring-track");
+    var fill = circle("nst-dash-ring-fill");
+    // CSSOM, not a style attribute: this page's CSP has no 'unsafe-inline', which
+    // blocks style attributes but not property assignment.
+    fill.style.strokeDasharray = DASH_C.toFixed(2);
+    fill.style.strokeDashoffset = (DASH_C * (1 - Math.max(0, Math.min(100, pct)) / 100)).toFixed(2);
+    svg.appendChild(track); svg.appendChild(fill);
+    wrap.appendChild(svg);
+    var val = el("span", "nst-dash-ring-val", esc(pct + "%"));
+    wrap.appendChild(val);
+    return wrap;
+  }
+
+  function dashWeak(weakest) {
+    var box = el("div", "nst-dash-weak");
+    box.appendChild(el("h3", "nst-dash-subtitle", "Weakest areas"));
+    var ul = el("ul", "nst-dash-weaklist");
+    weakest.forEach(function (w) {
+      var li = el("li", "nst-dash-weakrow");
+      li.appendChild(el("span", "nst-dash-weakname", esc(w.domain)));
+      var bar = el("span", "nst-dash-weakbar");
+      var fill = el("i", "nst-dash-weakfill");
+      fill.style.width = w.pct + "%";
+      bar.appendChild(fill);
+      li.appendChild(bar);
+      li.appendChild(el("span", "nst-dash-weakpct", esc(w.pct + "%")));
+      // The bar is decorative; the row already reads as name + percentage.
+      bar.setAttribute("aria-hidden", "true");
+      li.setAttribute("aria-label", w.domain + ": " + w.pct + "% mastered, " + w.seen + " of " + w.total + " seen");
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    return box;
+  }
+
+  function renderDashboard(bank, label) {
+    var host = document.getElementById("nst-dash");
+    if (!host) return;
+    var Dash = window.NSTDash, Mast = window.NSTMastery;
+
+    // No bank, no measuring stick. Hidden beats a panel full of dashes.
+    if (!bank || !bank.questions || !bank.questions.length || !Dash || !Mast) {
+      host.hidden = true;
+      host.innerHTML = "";
+      return;
+    }
+
+    var history = [];
+    try { history = window.NSTSafeParse(localStorage.getItem("nst.practice-exams.history.v1")) || []; }
+    catch (e) { history = []; }
+
+    var m;
+    try { m = Dash.model({ summary: Mast.summary(bank.questions), history: history }); }
+    catch (e) { host.hidden = true; return; }
+
+    host.innerHTML = "";
+    host.hidden = false;
+
+    var head = el("div", "nst-dash-head");
+    var h2 = el("h2", "nst-dash-title", "Your progress");
+    h2.id = "nst-dash-title";
+    head.appendChild(h2);
+    if (label) head.appendChild(el("span", "nst-dash-bank", esc(label)));
+    host.appendChild(head);
+
+    if (!m.hasData) {
+      host.appendChild(el("p", "nst-dash-nudge", esc(m.nudge)));
+      return;
+    }
+
+    var body = el("div", "nst-dash-body");
+    body.appendChild(dashRing(m.masteredPct));
+
+    var stats = el("dl", "nst-dash-stats");
+    stats.appendChild(dashStat("Mastered", m.mastered, "of " + m.total));
+    stats.appendChild(dashStat("Seen", m.seen, "of " + m.total));
+    if (m.accuracy != null) stats.appendChild(dashStat("Accuracy", m.accuracy + "%"));
+    // "0 due" reads as finished, which is the opposite of what it means, so the
+    // empty queue says when the next card comes back instead.
+    if (m.due > 0) stats.appendChild(dashStat("Due now", m.due, null, "due"));
+    else if (m.nextDue) stats.appendChild(dashStat("Next review", m.nextDue));
+    if (m.exam) {
+      stats.appendChild(dashStat("Best exam", m.exam.best.pct + "%",
+        m.exam.best.pass ? "pass" : "fail", m.exam.best.pass ? "pass" : "fail"));
+    }
+    body.appendChild(stats);
+    host.appendChild(body);
+
+    if (m.weakest.length) host.appendChild(dashWeak(m.weakest));
   }
 
   // (C8-09) remember which tool was opened last and mark its card — a small

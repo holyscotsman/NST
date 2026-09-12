@@ -335,6 +335,10 @@
     var out = {
       total: qs.length, seen: 0, mastered: 0, graduated: 0, due: 0,
       correct: 0, incorrect: 0, boxSum: 0, domains: [],
+      // When nothing is due, this is when the soonest card comes back (0 = never
+      // scheduled). A surface that only shows "0 due" reads as finished; this is
+      // what lets it say "next review in two days" instead.
+      nextDueAt: 0,
     };
     var byDomain = {};
     for (var i = 0; i < qs.length; i++) {
@@ -351,6 +355,10 @@
         if (isGraduated(rec)) out.graduated++;
       }
       if (isDue(rec, when)) { out.due++; acc.due++; }
+      else if (rec) {
+        var at = rec.lastSeen + intervalFor(rec.box);
+        if (at > when && (!out.nextDueAt || at < out.nextDueAt)) out.nextDueAt = at;
+      }
     }
     for (var k in byDomain) {
       if (!Object.prototype.hasOwnProperty.call(byDomain, k)) continue;
