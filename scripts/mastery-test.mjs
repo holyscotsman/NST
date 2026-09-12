@@ -38,7 +38,8 @@ function fresh(seed = {}) {
   return { M: win.NSTMastery, map };
 }
 
-const T0 = 1_700_000_000_000;   // fixed clock; the module takes an injectable now
+const T0 = 1_700_000_000_000;
+const DAY_MS = 24 * 3600_000;   // fixed clock; the module takes an injectable now
 
 /* ---- StarNix policy: promote only when DUE ---- */
 {
@@ -215,6 +216,38 @@ const T0 = 1_700_000_000_000;   // fixed clock; the module takes an injectable n
   ok('recording an answer never throws when storage is full', !threw);
   ok('the answer still counts in-session', M.get('q').seen === 1);
   ok('the write failure is reported', M.saveError() === 'quota', M.saveError());
+}
+
+/* ---- the shared wording for "when does this come back" ---- */
+{
+  const { M } = fresh();
+  const HOUR = 3600e3, DAY = 24 * HOUR;
+  ok('under an hour is not rounded away', M.untilText(T0 + 10 * 60e3, T0) === 'in under an hour');
+  ok('an hour is singular', M.untilText(T0 + HOUR, T0) === 'in 1 hour', M.untilText(T0 + HOUR, T0));
+  ok('hours are plural above one', M.untilText(T0 + 5 * HOUR, T0) === 'in 5 hours');
+  ok('a day is singular', M.untilText(T0 + DAY, T0) === 'in 1 day', M.untilText(T0 + DAY, T0));
+  ok('days are plural above one', M.untilText(T0 + 3 * DAY, T0) === 'in 3 days');
+  ok('the past is not a schedule', M.untilText(T0 - DAY, T0) === null);
+  ok('zero is not a schedule', M.untilText(0, T0) === null);
+  ok('nonsense is not a schedule', M.untilText('soon', T0) === null);
+}
+
+/* ---- dueAt agrees with isDue ---- */
+{
+  const { M } = fresh();
+  ok('a question never answered has no scheduled return', M.dueAt(null) === 0);
+  ok('nor does an unseen record', M.dueAt({ seen: 0, box: 3, lastSeen: T0 }) === 0);
+
+  M.record('q1', { correct: true, gate: 'always', now: T0 });
+  const rec = M.get('q1');
+  const at = M.dueAt(rec);
+  ok('an answered question has one', at > T0, at);
+  // The two must not be able to disagree: before dueAt it is not due, after it is.
+  ok('it is not due a moment before dueAt', M.isDue(rec, at - 1) === false);
+  ok('it is due exactly at dueAt', M.isDue(rec, at) === true);
+  ok('and still due after', M.isDue(rec, at + DAY_MS) === true);
+  ok('untilText and dueAt describe the same moment',
+    typeof M.untilText(at, T0) === 'string' && M.untilText(at, at) === null);
 }
 
 console.log('\n' + (fail ? `MASTERY: ${fail} FAILED of ${pass + fail}` : `MASTERY: ALL GREEN (${pass} checks)`));

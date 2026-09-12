@@ -5,6 +5,41 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.13.0 — Why a domain is weak (2026-09-12)
+
+The dashboard says *networking, 28%*. That is a verdict without evidence. A weak
+domain is a set of questions with histories, and this is where those become
+visible.
+
+### Added
+- **Each question carries its own record in Practice Exams.** Under the
+  explanation, once you have seen it before:
+
+  > Seen 5 times · 1 right, 4 wrong · due now
+
+  "1 right, 4 wrong" says something a percentage cannot: this is not a gap in
+  coverage, it is a question that keeps catching you. It appears only when there
+  is a history to report — the answer just given is already in the record, so a
+  first sighting would read "Seen 1 time" and add nothing.
+
+  It refuses to overstate in two smaller ways as well: a record with sightings
+  but no grades (a lifeline carried the answer) reports the sightings and claims
+  no right/wrong split, and a card that has fallen due says "due now" rather than
+  also promising a return.
+
+### Changed
+- **"When does this come back" is now said in one place.** `NSTMastery` owns the
+  intervals, so it now owns the wording for them (`untilText`, `dueAt`); the home
+  dashboard and Practice Exams both delegate. Two copies of the rounding rules
+  would eventually disagree about the same card, and the one that is wrong would
+  be whichever the reader happened to be looking at.
+
+  `dueAt()` and `isDue()` are now gated against each other directly: not due a
+  moment before, due exactly at, still due after.
+
+### Tests
+- `scripts/review-test.mjs` 48 → 65, `scripts/mastery-test.mjs` 47 → 62.
+
 ## v2.12.1 — An audit of the last five releases (2026-09-12)
 
 Five releases in one session is exactly when things slip through. This is the

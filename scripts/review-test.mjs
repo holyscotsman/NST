@@ -217,6 +217,69 @@ function bank(n) {
     /covers /.test(R.describe(q)), R.describe(q));
 }
 
+/* ---- one question's own history ---- */
+{
+  const { M, R } = fresh();
+  ok('a question never answered has no history to show',
+    R.historyLine(null, M, T0) === null);
+  ok('neither does an empty record',
+    R.historyLine({ id: 'q0', seen: 0, correct: 0, incorrect: 0, box: 0 }, M, T0) === null);
+}
+{
+  const { M, R } = fresh();
+  M.record('q0', { correct: true, gate: 'always', now: T0 });
+  const line = R.historyLine(M.get('q0'), M, T0 + 1);
+  ok('one sighting is singular', /Seen 1 time\b/.test(line), line);
+  ok('the split is reported', /1 right, 0 wrong/.test(line), line);
+  ok('and when it comes back', /back in |due now/.test(line), line);
+}
+{
+  const { M, R } = fresh();
+  for (const c of [true, false, false, false]) M.record('q0', { correct: c, gate: 'always', now: T0 });
+  const line = R.historyLine(M.get('q0'), M, T0 + 1);
+  ok('several sightings are plural', /Seen 4 times/.test(line), line);
+  ok('the record is what it is', /1 right, 3 wrong/.test(line), line);
+}
+{
+  // A card that fell due says so, rather than counting toward a return.
+  const { M, R } = fresh();
+  M.record('q0', { correct: true, gate: 'always', now: T0 });
+  const line = R.historyLine(M.get('q0'), M, T0 + 400 * DAY);
+  ok('an overdue card says it is due now', /due now/.test(line), line);
+  ok('and does not also promise a return', !/back in/.test(line), line);
+}
+{
+  // Ungraded sightings: a lifeline can carry an answer, leaving seen > 0 with no
+  // right/wrong split. "0 right, 0 wrong" beside "seen 3 times" reads as a bug.
+  const { M, R } = fresh();
+  const line = R.historyLine({ id: 'q0', seen: 3, correct: 0, incorrect: 0, box: 2, lastSeen: T0 }, M, T0 + 1);
+  ok('an ungraded record reports the sightings', /Seen 3 times/.test(line), line);
+  ok('and claims no right/wrong split', !/right,/.test(line), line);
+}
+{
+  const { M, R } = fresh();
+  // Hand-edited nonsense must still produce a sentence, not NaN.
+  const line = R.historyLine({ id: 'q0', seen: 'lots', correct: -4, incorrect: NaN, box: 1e9, lastSeen: 'never' }, M, T0);
+  ok('a corrupt record does not print NaN', line === null || !/NaN|undefined|-\d/.test(line), line);
+}
+{
+  // The wording must be the mastery store's, not a second copy.
+  const { M, R } = fresh();
+  M.record('q0', { correct: true, gate: 'always', now: T0 });
+  const rec = M.get('q0');
+  const mine = R.historyLine(rec, M, T0 + 1);
+  const theirs = M.untilText(M.dueAt(rec), T0 + 1);
+  ok('the return wording comes from the scheduler itself',
+    theirs === null || mine.indexOf(theirs) >= 0, mine + ' vs ' + theirs);
+}
+{
+  // Without a mastery store it still says what it can, rather than throwing.
+  const { R } = fresh();
+  const line = R.historyLine({ id: 'q0', seen: 2, correct: 1, incorrect: 1, box: 1, lastSeen: T0 }, null, T0);
+  ok('no scheduler still yields the record', /Seen 2 times/.test(line) && /1 right, 1 wrong/.test(line), line);
+  ok('and simply omits the return', !/back|due now/.test(line), line);
+}
+
 /* ---- Practice Exams actually offers this ---- */
 {
   const app = read('practice-exams', 'app.js');
@@ -224,6 +287,9 @@ function bank(n) {
   ok('it starts a session from an explicit question list', /questions:\s*/.test(app));
   const index = read('practice-exams', 'index.html');
   ok('Practice Exams loads the module', /shared\/nst-review\.js/.test(index));
+  const pm = read('practice-exams', 'practice-mode.js');
+  ok('practice mode shows a question its own history', /historyLine/.test(pm));
+  ok('and only once there is more than this sighting to report', /rec\.seen > 1/.test(pm));
   ok('it loads after the mastery store it reads',
     index.indexOf('nst-review.js') > index.indexOf('nst-mastery.js'));
 }

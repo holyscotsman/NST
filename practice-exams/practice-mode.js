@@ -263,6 +263,21 @@
           exp.appendChild(el("p", null, esc(q.explanation)));
           cardEl.appendChild(exp);
         }
+        /* (v2.13.0) What the store already knows about THIS question. A weak
+         * domain is a set of questions with histories; this is where that
+         * becomes visible -- "1 right, 3 wrong" says something a score cannot.
+         * Nothing is shown for a question with no history: the answer just
+         * given is already in the record, so a first sighting reads "Seen 1
+         * time" and adds nothing. */
+        if (window.NSTReview && window.NSTMastery) {
+          var rec = window.NSTMastery.get(q.id);
+          var line = window.NSTReview.historyLine(rec, window.NSTMastery);
+          if (line && rec && rec.seen > 1) {
+            var hist = el("p", "pe-qhistory", esc(line));
+            hist.setAttribute("aria-label", "Your history with this question: " + line);
+            cardEl.appendChild(hist);
+          }
+        }
       }
 
       // Footer state

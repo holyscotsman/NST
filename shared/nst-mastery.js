@@ -325,6 +325,30 @@
     };
   }
 
+  /* When something comes back, in words: "in 4 hours", "in 2 days".
+   *
+   * Deliberately coarse -- an exact countdown implies a precision the scheduler
+   * does not have -- and deliberately HERE rather than in each surface that
+   * needs it. The home dashboard and Practice Exams both say this, and two
+   * copies of the rounding rules would eventually disagree about the same card.
+   * Returns null when there is nothing scheduled. */
+  function untilText(at, t) {
+    var when = t == null ? now() : t;
+    var ms = Number(at) - Number(when);
+    if (!isFinite(ms) || !(ms > 0)) return null;
+    var HOUR = 3600e3, DAY = 24 * HOUR;
+    if (ms < HOUR) return "in under an hour";
+    if (ms < DAY) { var h = Math.round(ms / HOUR); return "in " + h + (h === 1 ? " hour" : " hours"); }
+    var d = Math.round(ms / DAY);
+    return "in " + d + (d === 1 ? " day" : " days");
+  }
+
+  /* When this card next comes back, as a timestamp. 0 when it is due now. */
+  function dueAt(rec) {
+    if (!rec || !rec.seen) return 0;
+    return Number(rec.lastSeen || 0) + intervalFor(rec.box);
+  }
+
   /* ---- reporting ------------------------------------------------------ */
 
   /* Roll the shared records up against a bank, for dashboards and readiness.
@@ -390,6 +414,7 @@
     all: all, get: get, count: count,
     isDue: isDue, isMastered: isMastered, isGraduated: isGraduated,
     intervalFor: intervalFor, seedFor: seedFor,
+    untilText: untilText, dueAt: dueAt,
     record: record,
     mergeLegacy: mergeLegacy, migrateIfNeeded: migrateIfNeeded,
     summary: summary, reset: reset,

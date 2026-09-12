@@ -32,9 +32,13 @@
   function pct(part, whole) { return whole > 0 ? Math.round((num(part) / whole) * 100) : 0; }
   function clampPct(v) { return Math.max(0, Math.min(100, Math.round(num(v)))); }
 
-  /* "in 4 hours" / "in 2 days". Deliberately coarse: an exact countdown implies a
-   * precision the scheduler does not have. */
+  /* "in 4 hours" / "in 2 days" -- delegated to the mastery store, which owns the
+   * intervals these describe. Practice Exams says the same thing about the same
+   * card, and two copies of the rounding rules would eventually disagree. The
+   * local fallback only matters if this module is loaded without the store. */
   function untilText(at, now) {
+    var M = window.NSTMastery;
+    if (M && M.untilText) return M.untilText(at, now);
     var ms = num(at) - num(now);
     if (!(ms > 0)) return null;
     if (ms < HOUR) return "in under an hour";
