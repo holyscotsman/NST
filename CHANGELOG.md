@@ -5,6 +5,59 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.12.1 — An audit of the last five releases (2026-09-12)
+
+Five releases in one session is exactly when things slip through. This is the
+review pass over that diff. Nothing here was reported by a user; three defects
+were found by writing tests that execute a guarantee instead of pattern-matching
+the source for it.
+
+### Fixed
+- **The review card contradicted itself on a large bank.** With 226 questions
+  due it read *"Review 25 due"* in the heading and *"226 due again"* one line
+  below, because the heading took the capped session length. The heading is the
+  number someone acts on, so it now reports the real total and the session length
+  is stated separately.
+
+- **The updater followed symlinks out of the archive.** `walk()` used `stat()`,
+  which reports a symlinked directory as a directory. A source tarball comes from
+  GitHub, but it is still a tree this process did not build: a self-referential
+  link would recurse until the stack overflowed, and a link pointing outside the
+  tree would have had its **target's** contents copied into the live install. It
+  now uses `lstat()`, skips symlinks, and copies only regular files.
+
+- **The updater's preserve list depended on the platform separator.** It split on
+  `path.sep`, which is right only while the path came from this platform's
+  `relative()`. That is the identical assumption that made the static-file
+  denylist inert on Windows in v2.8.1 — a rule written with forward slashes,
+  compared against a path carrying backslashes. This list is what keeps the
+  database from being overwritten, so it now folds both separators regardless of
+  who built the string. Caught by an executable test, not a code review.
+
+- **"Nothing was changed" could be a lie.** A disk that filled partway through
+  the copy left a half-new tree and still reported that nothing had changed,
+  which would send someone to restart a service that was not going to come back.
+  Failures are now caught per file: before the first write the old message is
+  still true, and after it the message says how many files were replaced, that
+  the install is now a mix of both versions, that the database is untouched, and
+  what to do about it.
+
+### Tests
+- **`scripts/update-test.mjs` 33 → 54 checks**, and the new ones *run* the code
+  rather than matching its text: a real temp tree containing a self-referential
+  symlink and a link to `/etc/hostname`, asserting the walk terminates and copies
+  neither. `walk()` and `isPreserved()` are exported for this — a guarantee that
+  can only be regex-asserted is not really guaranteed.
+- **`scripts/review-test.mjs` 43 → 48 checks**, covering the headline/session
+  distinction that produced the contradictory card.
+
+### Verified, not changed
+- The dashboard's whole cost on the full 255-question bank: **0.35 ms**
+  (`summary` 0.13, `estimate` 0.21, `model` 0.01), and the review queue **0.11
+  ms** over 255 questions. Home page load 41 ms. No optimisation warranted.
+- The real updater end-to-end against GitHub: 279 files installed over a live
+  tree, database preserved, on the hardened walk.
+
 ## v2.12.0 — The due queue, and somewhere to do it (2026-09-12)
 
 "9 due now" was a number with nowhere to go. Spaced repetition only works if the

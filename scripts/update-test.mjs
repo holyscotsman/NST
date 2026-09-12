@@ -11,10 +11,11 @@
  *
  * Pure Node, no browser, no dependencies. Run: node scripts/update-test.mjs
  */
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, sep } from 'node:path';
 import { isNewer, localVersion, REPO, BRANCH } from '../server/update.mjs';
+import * as U from '../server/update.mjs';
 
 let pass = 0, fail = 0;
 const ok = (name, cond, extra) => {
@@ -106,6 +107,73 @@ const ok = (name, cond, extra) => {
   ok('the apply route checks CSRF', applyBlock.includes('csrfValid(req, form)'));
   ok('the apply route is POST only', applyBlock.includes("method === 'POST'"));
   ok('the apply route is audited', applyBlock.includes("DB.audit"));
+}
+
+/* ---- the archive is not one we built: exercised, not pattern-matched ---- */
+{
+  // A real tree with the shapes a hostile or merely odd archive can contain.
+  const tmp = mkdtempSync(join(tmpdir(), 'nst-walk-'));
+  mkdirSync(join(tmp, 'sub', 'deep'), { recursive: true });
+  writeFileSync(join(tmp, 'index.html'), 'x');
+  writeFileSync(join(tmp, 'sub', 'a.js'), 'x');
+  writeFileSync(join(tmp, 'sub', 'deep', 'b.css'), 'x');
+  // A link to the tree's own root: stat() reports a directory, so a stat-based
+  // walk recurses forever.
+  symlinkSync(tmp, join(tmp, 'loop'), 'dir');
+  // A link pointing outside: a stat-based walk would copy the TARGET's bytes
+  // into the live install.
+  symlinkSync('/etc/hostname', join(tmp, 'escape.txt'));
+
+  let files = null, threw = null;
+  try { files = U.walk(tmp); } catch (e) { threw = e.message; }
+  ok('a self-referential symlink does not hang or overflow the stack', threw === null, threw);
+  ok('the real files are all found', files && files.length === 3, files && files.length);
+  const norm = (files || []).map((f) => f.split(sep).join('/')).sort();
+  ok('and they are the right ones',
+    JSON.stringify(norm) === JSON.stringify(['index.html', 'sub/a.js', 'sub/deep/b.css']), norm.join(','));
+  ok('a symlink out of the tree is never copied', norm.indexOf('escape.txt') === -1, norm.join(','));
+  ok('and neither is the loop', norm.every((f) => f.indexOf('loop') === -1), norm.join(','));
+  rmSync(tmp, { recursive: true, force: true });
+}
+{
+  ok('the database directory is preserved', U.isPreserved('server/data/nst.db') === true);
+  ok('so is everything under it', U.isPreserved('server/data/backups/old.db') === true);
+  ok('but not the server code itself', U.isPreserved('server/server.mjs') === false);
+  ok('a Windows-separated path is still recognised', U.isPreserved('server\\data\\nst.db') === true);
+  ok('a lookalike prefix is not preserved', U.isPreserved('server/database/x') === false);
+}
+{
+  const SRC = readFileSync(new URL('../server/update.mjs', import.meta.url), 'utf8');
+  // A source tarball comes from GitHub, but the extraction is still of a tree
+  // this process did not create, so the walk must not follow what is in it.
+  ok('the file walk uses lstat, not stat', /lstatSync\(/.test(SRC));
+  ok('symlinks are skipped rather than followed', /isSymbolicLink\(\)\)\s*continue/.test(SRC));
+  ok('only regular files are copied', /isFile\(\)/.test(SRC));
+  ok('a failed lstat skips the entry instead of aborting the update',
+    /catch \{ continue; \}/.test(SRC));
+}
+
+/* ---- the failure message has to match what actually happened ---- */
+{
+  const SRC = readFileSync(new URL('../server/update.mjs', import.meta.url), 'utf8');
+  // "Nothing was changed" is true right up until the first copyFileSync and
+  // false forever after. A disk that fills mid-copy leaves a half-new tree, and
+  // telling someone nothing changed sends them to restart a service that will
+  // not come back.
+  ok('a write failure is caught per file, not just around the whole loop',
+    /copyFileSync\([\s\S]{0,200}?\} catch \(e\) \{/.test(SRC));
+  ok('a failure before the first write still says nothing was changed',
+    /copied === 0[\s\S]{0,220}Nothing was changed/.test(SRC));
+  ok('a failure after the first write does NOT claim nothing was changed',
+    /partial: true[\s\S]{0,400}mix of both versions/.test(SRC));
+  ok('and it names how many files were replaced',
+    /replacing \$\{copied\} files/.test(SRC));
+  ok('and it reassures about the database', /database is untouched/i.test(SRC));
+  ok('and it says what to do next',
+    /run the update again|re-clone/i.test(SRC));
+  const partialIdx = SRC.indexOf('partial: true');
+  const outerIdx = SRC.lastIndexOf('Nothing was changed.`');
+  ok('the outer catch still covers the pre-write phase', outerIdx > 0 && partialIdx > 0);
 }
 
 console.log('\n' + (fail ? `UPDATE: ${fail} FAILED of ${pass + fail}` : `UPDATE: ALL GREEN (${pass} checks)`));

@@ -135,7 +135,10 @@
         rcard.type = "button";
         rcard.innerHTML =
           '<div class="pe-modecard-tag">REVIEW</div>' +
-          '<h2 class="pe-modecard-title">Review ' + dq.questions.length + ' due</h2>' +
+          // The TOTAL due, not the session length: a card headed "Review 25 due"
+          // beside a line reading "226 due again" contradicts itself, and the
+          // number someone acts on has to be the real one.
+          '<h2 class="pe-modecard-title">Review ' + dq.total + ' due</h2>' +
           '<p class="pe-modecard-desc">The questions the scheduler wants back today, oldest first. ' +
             'Practice Mode rules: instant feedback, the explanation revealed, untimed.</p>' +
           '<ul class="pe-modecard-facts"><li>' + esc(Review.describe(dq)) + '</li></ul>' +

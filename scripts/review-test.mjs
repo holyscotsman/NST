@@ -200,6 +200,23 @@ function bank(n) {
   ok('and counts that still add up', q.overdue + q.fresh === q.total);
 }
 
+/* ---- the headline number is the real one ---- */
+{
+  const { M, R } = fresh();
+  const qs = bank(300);
+  const q = R.dueQueue({ questions: qs, mastery: M, limit: 25, now: T0 });
+  ok('a capped queue still reports the true total', q.total === 300, q.total);
+  ok('the session is the capped slice', q.questions.length === 25, q.questions.length);
+  ok('the two numbers are deliberately different here', q.total !== q.questions.length);
+  // A card headed "Review 25 due" beside "300 new" contradicts itself, so the
+  // headline must come from total and the session length from describe().
+  const app = read('practice-exams', 'app.js');
+  ok('the card headline uses the total, not the session length',
+    /Review ' \+ dq\.total \+ ' due/.test(app));
+  ok('and the session length is stated separately',
+    /covers /.test(R.describe(q)), R.describe(q));
+}
+
 /* ---- Practice Exams actually offers this ---- */
 {
   const app = read('practice-exams', 'app.js');
