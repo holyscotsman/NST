@@ -70,7 +70,7 @@ form.inline{display:inline}
 }
 `;
 
-function shell(title, bodyHtml, { wide = false, csp = '' } = {}) {
+function shell(title, bodyHtml, { wide = false, csp = '', head = '' } = {}) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -79,7 +79,7 @@ function shell(title, bodyHtml, { wide = false, csp = '' } = {}) {
 <title>${esc(title)} · Nutanix Study Tool</title>
 <meta name="color-scheme" content="dark" />
 <meta name="robots" content="noindex, nofollow" />
-<!-- frame-ancestors is sent as a real header (a <meta> copy is ignored). -->
+${head}<!-- frame-ancestors is sent as a real header (a <meta> copy is ignored). -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'${csp}" />
 <link rel="stylesheet" href="/shared/fonts.css" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>" />
@@ -254,6 +254,28 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
   ${update}
   ${log}
 </div>`, { wide: true });
+}
+
+/* Shown directly (not via a redirect) after an update installs.
+ *
+ * The process is about to exit so the service manager restarts it on the new
+ * code. A redirect would make the browser come back for /admin during exactly
+ * that window and show a connection error instead of the result, so the
+ * outcome is delivered in this response and the page reloads itself once the
+ * server is listening again. */
+export function updatedPage({ from, to, copied }) {
+  return shell('Updating', `
+<main class="card">
+  ${BRAND}
+  <h1>Updated to v${esc(String(to))}</h1>
+  <p class="sub">You were running v${esc(String(from))}. ${esc(String(copied))} files were replaced,
+    and your database and accounts were kept exactly as they were.</p>
+  <div class="msg ok">Restarting on the new version. This page reloads itself in a few seconds.</div>
+  <p class="hint">If it doesn&rsquo;t come back: the server exits on purpose after updating, so something
+    has to start it again. As a Windows service or under systemd that happens by itself. If you started
+    it by hand in a terminal, run the start command again.</p>
+  <p class="alt"><a href="/admin">Back to Accounts</a></p>
+</main>`, { head: '<meta http-equiv="refresh" content="8; url=/admin" />\n' });
 }
 
 export function errorPage(code, message) {

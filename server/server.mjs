@@ -431,10 +431,11 @@ async function handle(req, res) {
       // Exiting lets the service manager (NSSM, systemd) start it again; if the
       // server was started by hand there is nothing to restart it, which the
       // message says. Delay so this response actually reaches the browser.
+      // Answer with the result page itself rather than a redirect: a redirect
+      // would send the browser back for /admin inside the restart window, where
+      // it would get a connection error instead of the outcome.
       setTimeout(() => { try { db.close(); } catch {} process.exit(0); }, 1200);
-      return redirect(res, '/admin?done=' + encodeURIComponent(
-        `Updated ${r.from} -> ${r.to}. Restarting now; refresh in a few seconds. ` +
-        `(If you started the server by hand rather than as a service, start it again.)`));
+      return sendHtml(res, 200, P.updatedPage({ from: r.from, to: r.to, copied: r.copied }));
     }
 
     if (method === 'POST') {
