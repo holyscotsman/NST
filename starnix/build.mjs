@@ -19,7 +19,22 @@ const FONT_SHA = "ec10c02708feb2fb7f960556652b732d529e30bf14c5dd59e790aacd65f5d5
 function vendored(rel, sha, label) {
   const buf = readFileSync(new URL(rel, import.meta.url));
   const got = createHash("sha256").update(buf).digest("hex");
-  if (got !== sha) { console.error("BUILD FAIL: " + label + " drifted (sha256 " + got + " != pinned " + sha + ")"); process.exit(1); }
+  if (got !== sha) {
+    // A CRLF checkout (git's core.autocrlf, on by default in Git for Windows)
+    // changes these bytes and so their digest. That is a line-ending problem, not
+    // a tampered dependency -- say which, because "drifted" reads like a supply
+    // chain alarm. Still fail: silently normalising would defeat the pin.
+    const asLf = createHash("sha256").update(buf.toString("utf8").replace(/\r\n/g, "\n")).digest("hex");
+    if (asLf === sha) {
+      console.error("BUILD FAIL: " + label + " has CRLF line endings, so its bytes no longer match the pin.");
+      console.error("  The file itself is intact -- git rewrote it on checkout (core.autocrlf).");
+      console.error("  Fix: the repo ships a .gitattributes with '* -text'. Re-clone, or run:");
+      console.error("      git rm --cached -r . && git reset --hard");
+      process.exit(1);
+    }
+    console.error("BUILD FAIL: " + label + " drifted (sha256 " + got + " != pinned " + sha + ")");
+    process.exit(1);
+  }
   return buf.toString("utf8");
 }
 const threeSrc = vendored("./vendor/three-r128.min.js", THREE_SHA, "vendor/three-r128.min.js");

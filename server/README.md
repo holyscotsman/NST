@@ -49,7 +49,14 @@ page, so you usually only need root for administration.
 > The server and the Accounts page both warn you until you do.
 >
 > To avoid the default existing at all, set the password on the very first run:
-> `NST_ROOT_PASSWORD='something-else' node server/server.mjs`
+> ```bash
+> NST_ROOT_PASSWORD='something-else' node server/server.mjs     # Linux / macOS
+> ```
+> ```powershell
+> $env:NST_ROOT_PASSWORD='something-else'; node server\server.mjs   # Windows PowerShell
+> ```
+> (The `VAR=value command` form is POSIX-shell syntax. It is a syntax error in
+> PowerShell and cmd.exe, which is why the Windows line is spelled out.)
 > (It is read only when the root account is created. After that, change it in the UI.)
 
 ## What root can do
@@ -79,7 +86,70 @@ All optional, all environment variables:
 | `NST_ALLOW_SIGNUP` | on | Set to `0` to close self-registration; root then creates accounts |
 | `NST_TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy, to read `X-Forwarded-For` / `-Proto` |
 
-## Keeping it running
+## Running it on Windows
+
+The server itself is platform-neutral — the path guards, shutdown handling and
+SQLite access are all exercised under Windows semantics in CI
+(`scripts/path-guard-test.mjs` runs every case under `path.win32`). These are the
+Windows-specific operational steps.
+
+**1. Clone with line endings left alone.** The repo ships a `.gitattributes` with
+`* -text` for this, so a normal clone is fine. If you cloned *before* that file
+existed, git may have rewritten files to CRLF, which breaks `node build.mjs`
+(it verifies the vendored assets by SHA-256). Repair an existing clone with:
+
+```powershell
+git rm --cached -r . ; git reset --hard
+```
+
+Check with `git config --get core.autocrlf` if you are unsure.
+
+**2. Install Node 22 or newer** — the MSI from nodejs.org. `node --version` must
+report v22+; `node:sqlite` is built in from 22, which is why there is nothing to
+`npm install`.
+
+**3. Open the port in Windows Firewall.** Nothing can reach the VM until you do,
+and the failure looks like the server "not working" rather than a firewall block:
+
+```powershell
+New-NetFirewallRule -DisplayName "Nutanix Study Tool" -Direction Inbound `
+  -Protocol TCP -LocalPort 8080 -Action Allow
+```
+
+**4. Put the database somewhere a service can write.** `C:\Program Files` is not
+writable by a service account; `C:\ProgramData` is the convention:
+
+```powershell
+$env:NST_DB = 'C:\ProgramData\NST\nst.db'
+```
+
+**5. Run it as a Windows service** so it survives reboots and logoff. Windows has
+no systemd; [NSSM](https://nssm.cc/) is the least-fuss wrapper:
+
+```powershell
+nssm install NST "C:\Program Files\nodejs\node.exe" "C:\nst\server\server.mjs"
+nssm set NST AppDirectory C:\nst
+nssm set NST AppEnvironmentExtra NST_PORT=8080 NST_DB=C:\ProgramData\NST\nst.db
+nssm start NST
+```
+
+Environment variables go in `AppEnvironmentExtra`, **not** as a `VAR=value`
+prefix — that syntax does not exist in cmd.exe or PowerShell.
+
+To stop it: `nssm stop NST`. A hard kill is safe — SQLite is in WAL mode with
+synchronous commits, so the next start recovers automatically.
+
+**Port 8080 in use?** Windows reserves ranges for Hyper-V and WinNAT, and a bind
+inside one fails with `EACCES` for no obvious reason. Check with
+`netsh int ipv4 show excludedportrange protocol=tcp` and pick a port outside
+those ranges via `NST_PORT`.
+
+**Backups.** Stop the service before copying `nst.db` — Windows will not let you
+copy a file SQLite holds open, and copying the `.db` without its `-wal` companion
+loses recent writes. Stop, copy all three (`nst.db`, `nst.db-wal`, `nst.db-shm`),
+start.
+
+## Keeping it running (Linux)
 
 A minimal systemd unit:
 

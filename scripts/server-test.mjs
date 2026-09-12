@@ -80,13 +80,28 @@ async function waitForServer(ms = 15000) {
   return false;
 }
 
-function cleanup() {
-  try { child.kill('SIGTERM'); } catch {}
-  try { rmSync(tmp, { recursive: true, force: true }); } catch {}
+/* Wait for the child to actually die before removing its database.
+ *
+ * On Linux this could be synchronous: POSIX lets you unlink a file another
+ * process still has open. Windows refuses, and SQLite's Windows VFS does not
+ * open with FILE_SHARE_DELETE -- so rmSync would throw EBUSY into a silent
+ * catch, the suite would still report ALL GREEN, and every run would leak a
+ * temp directory containing the test database. kill() is also asynchronous, so
+ * the old code raced even in principle. */
+async function cleanup() {
+  if (child.exitCode === null && child.signalCode === null) {
+    const gone = new Promise((r) => child.once('exit', r));
+    try { child.kill('SIGTERM'); } catch {}
+    // The guard above matters: on the failure path the child is already dead,
+    // and without it every failure would stall here for the full timeout.
+    await Promise.race([gone, new Promise((r) => setTimeout(r, 5000))]);
+  }
+  try { rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+  catch (e) { console.log('note: could not remove ' + tmp + ' (' + (e && e.code) + ')'); }
 }
 
 try {
-  if (!await waitForServer()) { console.log('FAIL server did not start\n' + serverLog); cleanup(); process.exit(1); }
+  if (!await waitForServer()) { console.log('FAIL server did not start\n' + serverLog); await cleanup(); process.exit(1); }
 
   /* ---- 1. nothing is reachable without an account ---- */
   {
@@ -342,6 +357,6 @@ try {
   fail++;
 }
 
-cleanup();
+await cleanup();
 console.log('\n' + (fail ? `SERVER: ${fail} FAILED of ${pass + fail}` : `SERVER: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

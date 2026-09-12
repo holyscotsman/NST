@@ -12,7 +12,7 @@
  * Run: node scripts/security-test.mjs
  */
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +22,12 @@ function group(t) { console.log("\n" + t); }
 
 // Load the shared bank framework the way a page does (window globals).
 globalThis.window = globalThis;
-const parser = await import(path.join(ROOT, "shared/bank-parser.js"));
+// pathToFileURL, not the bare path: on Windows path.join gives "C:\\..." and the
+// ESM loader reads "C:" as a URL scheme, throwing ERR_UNSUPPORTED_ESM_URL_SCHEME
+// before a single assertion runs -- this gate would have silently stopped
+// protecting anything there. (readFileSync below is fine with native paths; only
+// import() has the URL constraint.)
+const parser = await import(pathToFileURL(path.join(ROOT, "shared/bank-parser.js")).href);
 const parse = (parser.default && parser.default.parse) || parser.parse || globalThis.NSTBankParser.parse;
 
 const XSS = '<img src=x onerror="window.__PWNED=1">';
