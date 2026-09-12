@@ -32,7 +32,7 @@
     root.innerHTML =
       '<div class="pe-bar">' +
         '<button type="button" class="pe-btn pe-btn-ghost pe-exit">&#8592; Exit</button>' +
-        '<div class="pe-bar-title">Exam Mode</div>' +
+        '<h1 class="pe-bar-title">Exam Mode</h1>' +
         '<div class="pe-timer" role="timer" aria-live="off"></div>' +
       '</div>' +
       '<div class="pe-progress"><div class="pe-progress-bar"><span></span><i class="pe-progress-pos"></i></div><div class="pe-progress-meta"></div></div>' +
@@ -47,6 +47,8 @@
       '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>' + ui.lastOptKey(questions) + '</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>F</kbd> flag</p>';
     container.innerHTML = "";
     container.appendChild(root);
+    // The old view took the keyboard's place with it; put it at the top of this one.
+    ui.focusView(root, ".pe-bar-title");
 
     var cardEl = root.querySelector(".pe-card");
     var paletteEl = root.querySelector(".pe-palette");

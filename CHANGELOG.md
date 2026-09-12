@@ -5,6 +5,71 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.14.0 — The accessibility pass (2026-09-12)
+
+An audit against axe-core plus the keyboard checks it cannot make. Three real
+defects; the automated rules found one of them.
+
+### Fixed
+- **Keyboard focus was dropped every time a view changed.** Press Enter on
+  *Start practicing* and Practice Exams replaces the whole container — which
+  destroys whatever the keyboard was on, leaving focus on `<body>`. The next Tab
+  restarts from the top of the document, so reaching question one means tabbing
+  past the entire page. Both modes and the way back now move focus to the new
+  view's heading, which also gives a screen reader something to announce.
+
+  Not on the first paint, though: moving focus before anyone has interacted
+  interrupts the page-load announcement.
+
+- **Practice and Exam mode had no `<h1>`.** The bar title was a `<div>`, so a
+  screen-reader user navigating by heading found nothing at all in the two
+  screens where all the work happens. (This is the one axe caught.)
+
+- **The page behind an open dialog stayed reachable.** The focus trap holds Tab
+  inside the dialog, which is what a keyboard user needs — and does nothing for
+  a screen reader's virtual cursor or element list, where all 13 background
+  controls were still exposed and announced. The background is now `inert`,
+  which removes it from focus, hit-testing and the accessibility tree together.
+  A depth counter handles nesting, so closing the Reset confirmation does not
+  un-inert the page while Settings is still open.
+
+- **The dialog close button had no focus style of its own.** It is the control a
+  dialog focuses on open — the first thing a keyboard user sees — and the only
+  one on the page relying on the browser's default ring, which is tuned for
+  light chrome and reads faintly on this theme.
+
+### Added
+- **`scripts/a11y-audit.mjs`** — axe-core across six surfaces, including the
+  ones reachable only by interacting, plus the checks axe cannot make: every
+  control named and visibly focused, focus surviving a view change, the dialog's
+  trap/Escape/restore contract, the background unreachable while it is open, and
+  the first paint not stealing focus. 35 checks.
+
+  Needs a browser and axe-core, so it is a local tool rather than a CI gate (CI
+  stays dependency-free), like `scripts/mobile-audit.mjs`:
+
+  ```bash
+  npm install --no-save axe-core
+  node scripts/a11y-audit.mjs      # expects a static server on :8124
+  ```
+
+  **Two measurement traps are documented in its header, because the first
+  version of the file fell into both.** Probing every control for a focus ring
+  focuses each one in turn, which destroys the state the focus-after-view-change
+  check reads — so ask where focus is *first*. And a `:focus-visible` ring only
+  appears in keyboard modality, which Chrome infers from the last real input
+  event: after any click in the setup, a programmatic `.focus()` matches
+  `:focus` but not `:focus-visible`, and every correctly-styled control reports
+  as having no ring. Between them those produced five false failures, including
+  one against a fix that was working.
+
+### Verified
+- axe-core: **no violations** on the launcher, the Settings and Help dialogs,
+  the Practice Exams entry, Practice mode with a question checked, and a live
+  exam — at WCAG 2.0 A/AA, 2.1 A/AA and best-practice.
+- Every interactive control on all six surfaces has an accessible name and a
+  visible focus indicator.
+
 ## v2.13.0 — Why a domain is weak (2026-09-12)
 
 The dashboard says *networking, 28%*. That is a verdict without evidence. A weak

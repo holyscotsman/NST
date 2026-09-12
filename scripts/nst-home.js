@@ -14,6 +14,44 @@
     return e;
   }
 
+  /* ------------------------------------------------------------------
+   * Opening and closing a dialog.
+   *
+   * The focus trap keeps TAB inside the dialog, which is what a keyboard user
+   * needs -- but it does nothing for a screen reader's virtual cursor or its
+   * element list, so every control on the page behind stayed reachable and
+   * announced. `inert` removes the background from focus, hit-testing and the
+   * accessibility tree in one step.
+   *
+   * The depth counter exists because these nest: the Reset confirmation opens
+   * on top of Settings, and closing it must not un-inert the page while
+   * Settings is still up.
+   * ------------------------------------------------------------------ */
+  var _dialogDepth = 0;
+  function backgroundParts() {
+    return [document.querySelector(".nst-app"), document.querySelector(".nst-bg")].filter(Boolean);
+  }
+  function openDialog(el_) {
+    if (_dialogDepth === 0) {
+      backgroundParts().forEach(function (n) {
+        n.inert = true;                    // the property, where it exists
+        n.setAttribute("inert", "");       // and the attribute, which is what the rest read
+      });
+    }
+    _dialogDepth++;
+    document.body.appendChild(el_);
+  }
+  function closeDialog(el_) {
+    try { el_.remove(); } catch (e) { /* already gone */ }
+    _dialogDepth = Math.max(0, _dialogDepth - 1);
+    if (_dialogDepth === 0) {
+      backgroundParts().forEach(function (n) {
+        n.inert = false;
+        n.removeAttribute("inert");
+      });
+    }
+  }
+
   /* Accessible on/off switch */
   function toggle(labelText, descText, checked, onChange) {
     var row = el("div", "nst-set-row");
@@ -473,7 +511,7 @@
     // and focus returns to the gear button (or whatever opened it) on close.
     var opener = document.activeElement;
     function close() {
-      try { overlay.remove(); } catch (e) {}
+      closeDialog(overlay);
       document.removeEventListener("keydown", onKey);
       if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
     }
@@ -492,7 +530,7 @@
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
     document.addEventListener("keydown", onKey);
 
-    document.body.appendChild(overlay);
+    openDialog(overlay);
     x.focus();
   }
 
@@ -512,7 +550,7 @@
     // inside, focus returns to the reset button that opened this confirm.
     var opener = document.activeElement;
     function close() {
-      try { overlay.remove(); } catch (e) {}
+      closeDialog(overlay);
       document.removeEventListener("keydown", onConfirmKey, true);
       if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
     }
@@ -541,7 +579,7 @@
     row.appendChild(cancel); row.appendChild(ok);
     modal.appendChild(row);
     overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+    openDialog(overlay);
     // (C1-03) irreversible action: default focus goes to Cancel so a reflexive
     // Enter can't wipe every save on the device; the danger button stays last
     // in tab order and visually prominent.
@@ -575,7 +613,7 @@
     var opener = document.activeElement;
     var done = false;
     function close(cancelled) {
-      try { overlay.remove(); } catch (e) {}
+      closeDialog(overlay);
       document.removeEventListener("keydown", onKeyR, true);
       if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
       if (cancelled && !done && onCancel) onCancel();
@@ -595,7 +633,7 @@
     row.appendChild(cancel); row.appendChild(merge); row.appendChild(replace);
     modal.appendChild(row);
     overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+    openDialog(overlay);
     cancel.focus();   // same rule as Reset: the safe option takes a reflexive Enter
   }
 
@@ -632,7 +670,7 @@
     overlay.appendChild(modal);
     var opener = document.activeElement;
     function close() {
-      try { overlay.remove(); } catch (e) {}
+      closeDialog(overlay);
       document.removeEventListener("keydown", onKey);
       if (opener && opener.focus) { try { opener.focus(); } catch (e2) {} }
     }
@@ -647,7 +685,7 @@
     x.addEventListener("click", close);
     overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
     document.addEventListener("keydown", onKey);
-    document.body.appendChild(overlay);
+    openDialog(overlay);
     x.focus();
   }
 

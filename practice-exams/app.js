@@ -21,6 +21,10 @@
 
   // Session continuity: remember the question-set choice so returning players pick up
   // where they left off. Parse-guarded — a corrupt value falls back to defaults.
+  // False until the entry screen has been painted once: the first mount must not
+  // steal focus, every later one must take it back from the view it replaced.
+  var _entryShown = false;
+
   var PREFS_KEY = "nst.practice-exams.prefs.v1";
   function loadPrefs() {
     try { return window.NSTSafeParse(localStorage.getItem(PREFS_KEY)) || {}; } catch (e) { return {}; }
@@ -219,6 +223,12 @@
 
     root.appendChild(el("p", "pe-version", "Nutanix Study Tool · v" + (window.NST_VERSION || "dev")));   // (C6-08)
     container.appendChild(root);
+    // Coming back from a mode replaces this view too, so the keyboard needs
+    // putting back at its top rather than at <body>. NOT on the first paint:
+    // moving focus before anyone has interacted interrupts a screen reader's
+    // page-load announcement and is not what a fresh page should do.
+    if (_entryShown) ui.focusView(root, ".pe-entry-title");
+    _entryShown = true;
     try { window.scrollTo(0, 0); } catch (e) {}
   }
 

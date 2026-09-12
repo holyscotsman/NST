@@ -36,7 +36,7 @@
     root.innerHTML =
       '<div class="pe-bar">' +
         '<button type="button" class="pe-btn pe-btn-ghost pe-exit">&#8592; Modes</button>' +
-        '<div class="pe-bar-title">Practice Mode</div>' +
+        '<h1 class="pe-bar-title">Practice Mode</h1>' +
         '<div class="pe-score-chip" aria-live="polite"></div>' +
       '</div>' +
       '<div class="pe-progress"><div class="pe-progress-bar"><span></span><i class="pe-progress-pos"></i></div><div class="pe-progress-meta"></div></div>' +
@@ -50,6 +50,8 @@
       '<p class="pe-keys" aria-hidden="true"><kbd>A</kbd>–<kbd>' + ui.lastOptKey(questions) + '</kbd> select · <kbd>←</kbd><kbd>→</kbd> navigate · <kbd>Enter</kbd> check / next</p>';
     container.innerHTML = "";
     container.appendChild(root);
+    // The old view took the keyboard's place with it; put it at the top of this one.
+    ui.focusView(root, ".pe-bar-title");
 
     // (C8-02) a silent jump to "Question 14 of 255" looks like a bug — say why,
     // and offer the way back to the top.

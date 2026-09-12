@@ -144,7 +144,16 @@ body {
 /* ---------- Mode shell ---------- */
 .pe-mode { display: flex; flex-direction: column; gap: 16px; }
 .pe-bar { display: flex; align-items: center; gap: 14px; }
-.pe-bar-title { font-family: var(--font-display); font-weight: 600; font-size: 18px; color: var(--heading); }
+/* An <h1>, not a div: in a mode the bar title IS the page's heading, and
+   without one a screen-reader user navigating by heading finds nothing at all.
+   The UA's h1 sizing and margins are overridden so nothing moves. */
+.pe-bar-title { font-family: var(--font-display); font-weight: 600; font-size: 18px; color: var(--heading); margin: 0; }
+/* These headings are focused programmatically when a view mounts, so the
+   keyboard lands at the top of the new view instead of on <body>. Chrome does
+   not count programmatic focus as :focus-visible, so no ring is drawn -- but a
+   ring still appears if someone reaches one another way, which is correct. */
+.pe-bar-title:focus, .pe-entry-title:focus { outline: none; }
+.pe-bar-title:focus-visible, .pe-entry-title:focus-visible { outline: 2px solid var(--purple-light, #A98BFF); outline-offset: 4px; border-radius: 6px; }
 .pe-bar .pe-exit { margin-right: auto; padding: 8px 14px; }
 .pe-score-chip { font-weight: 700; font-size: 14px; color: var(--purple-light); background: rgba(169, 139, 255, 0.1); border: 1px solid rgba(169, 139, 255, 0.3); border-radius: 999px; padding: 7px 14px; }
 
