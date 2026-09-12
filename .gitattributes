@@ -1,0 +1,21 @@
+# Keep every file's bytes EXACTLY as committed, on every platform.
+#
+# Git for Windows defaults to core.autocrlf=true, which rewrites text files to
+# CRLF on checkout. That is normally harmless, but this repo pins the bytes of
+# its vendored assets: starnix/build.mjs sha256-checks vendor/montserrat.css and
+# vendor/three-r128.min.js and refuses to build on a mismatch. A CRLF checkout
+# changes those bytes, so the build dies with
+#
+#     BUILD FAIL: vendor/montserrat.css drifted
+#
+# which reads like a supply-chain tamper alarm when the only thing that changed
+# is line endings. `-text` disables the conversion so the pins keep matching.
+#
+# NOTE for anyone who already cloned on Windows before this file existed: adding
+# it does NOT repair an existing working tree. Re-clone, or run
+#     git rm --cached -r . && git reset --hard
+* -text
+
+# Belt and braces: never treat the pinned vendor assets as text under any rule.
+starnix/vendor/** binary
+wwtbane/vendor/** binary

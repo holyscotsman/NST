@@ -97,12 +97,16 @@ for(const cohort of ['none','random','good']){
   summarize(cohort, vals);
 }
 
-// ---- assert mode (v0.46.0 K4 gate): `KBB_ASSERT=1 node kbb-balance.cjs` ----
+// ---- assert mode (v0.46.0 K4 gate): `node kbb-balance.cjs --assert` ----
 // Learning-integrity tune targets, fuzz-verified with the emergency agency policy:
 //   * a 70%-correct player with a realistic (random-buy) build clears a median of >=3 sections
 //   * a 50%-correct player still fails early (median <=2) — the ladder keeps real stakes
 //   * an 85%-correct good build does NOT trivially clear the whole cap (<=50% cap-reach)
-if(process.env.KBB_ASSERT){
+// Accept a flag as well as the env var: `KBB_ASSERT=1 node ...` is POSIX-shell
+// syntax, and npm runs scripts through cmd.exe on Windows, where that prefix is
+// a syntax error that breaks the whole `npm run check` chain. The env var stays
+// supported so existing callers and CI are unaffected.
+if (process.env.KBB_ASSERT || process.argv.includes('--assert')) {
   function probe(skill,cohort){ const vals=[]; const r=mulberry32(0xBEEF ^ (cohort.length*104729)); for(let i=0;i<300;i++){ vals.push(simRun(5000+i,cohort,skill,r)); } return vals; }
   const med=(v)=>{const d=v.filter(x=>x!==99); return d.length?pct(d,0.5):99;};
   const capPct=(v)=>100*v.filter(x=>x===99).length/v.length;

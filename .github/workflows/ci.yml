@@ -89,3 +89,8 @@ jobs:
       # credentials and keeps one account's progress away from another's. It spawns
       # its own instance on a scratch port with a throwaway database.
       - run: node ../scripts/server-test.mjs
+      # (v2.8.1) the static-file guards under BOTH Linux and Windows path
+      # semantics. path.win32 implements Windows rules on any platform, so this
+      # catches Windows-only path bugs from a Linux runner -- the original
+      # denylist broke on Windows while every Linux test stayed green.
+      - run: node ../scripts/path-guard-test.mjs

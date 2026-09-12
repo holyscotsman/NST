@@ -5,6 +5,64 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.8.1 — Windows deployment (2026-09-12)
+
+Preparing the app server for a Windows VM. A 130-agent audit raised 41
+Windows-compatibility findings; three adversarial refuters each cut that to four
+real ones, none of them in the deployed HTTP path. Verdict: **the server itself
+is Windows-ready** — every confirmed defect was in build/test tooling.
+
+### Security
+- **The static-file denylist was inert on Windows.** `isDenied()` compared
+  denylist entries written with forward slashes against `path.normalize()`
+  output, which is platform-dependent:
+  `path.win32.normalize('/server/data/nst.db')` is `'\server\data\nst.db'`,
+  so `startsWith('/server/')` silently stopped matching. The SQLite database
+  (scrypt hashes, live sessions, everyone's progress) and the full git history
+  became downloadable by any signed-in user — while all 74 Linux tests passed.
+
+  A URL path is not a filesystem path. `server/safe-path.mjs` now canonicalises
+  URLs with POSIX semantics only and uses the platform path module solely for the
+  final resolve, then enforces the denylist on the **resolved** path. It also
+  closes Windows-only spellings: case-insensitive matching, trailing dots and
+  spaces, drive letters, alternate data streams, backslash separators, NUL bytes.
+
+- **`scripts/path-guard-test.mjs` (CI-gated, 162 checks)** runs every case under
+  both `path.posix` and `path.win32`. Node's `path.win32` implements Windows
+  semantics on any platform, so a Linux runner catches Windows path regressions —
+  "we only test on Linux" was itself the vulnerability, and it was fixable without
+  changing where we test.
+
+### Fixed
+- **Shutdown never ran on Windows.** Windows does not deliver `SIGTERM` — a
+  service stop or `taskkill` terminates outright — so `db.close()` was skipped.
+  `SIGINT`/`SIGTERM`/`SIGHUP`/`SIGBREAK` are all registered now. A hard kill was
+  already survivable (WAL + synchronous commits).
+- **A CRLF checkout broke the StarNix build.** `build.mjs` SHA-256-pins its
+  vendored assets; Git for Windows defaults to `core.autocrlf=true`, which
+  rewrites those bytes, so the build failed with `drifted` — indistinguishable
+  from a tampered dependency. A `.gitattributes` (`* -text`) prevents it, and the
+  check now detects the CRLF case specifically and says so, while still failing
+  (silently normalising would defeat the pin).
+- **The hostile-input gate crashed on Windows.** `scripts/security-test.mjs`
+  passed a bare absolute path to `import()`; on Windows the ESM loader reads `C:`
+  as a URL scheme and throws `ERR_UNSUPPORTED_ESM_URL_SCHEME` before a single
+  assertion — the gate would have silently stopped protecting anything. Now uses
+  `pathToFileURL`.
+- **`npm run check` broke at the KBB link.** `KBB_ASSERT=1 node ...` is POSIX
+  shell syntax and npm runs scripts through `cmd.exe` on Windows, skipping every
+  later step in the `&&` chain. `kbb-balance.cjs` now also accepts `--assert`; the
+  env var still works.
+- **The server test leaked a temp directory on Windows.** It removed the database
+  directory immediately after `kill()`, which Windows refuses while SQLite holds
+  the handles; the error landed in a silent `catch` so the suite still reported
+  ALL GREEN. It now waits for the child to exit, retries, and reports.
+
+### Added
+- **A Windows deployment section** in `server/README.md`: firewall rule, NSSM
+  service install, `ProgramData` for the database, PowerShell environment-variable
+  syntax, Hyper-V reserved port ranges, and WAL-aware backups.
+
 ## v2.8.0 — Host it yourself, with accounts (2026-09-11)
 
 The GitHub URL is blocked on some corporate networks, which makes a static site
