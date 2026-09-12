@@ -94,6 +94,12 @@ jobs:
       # catches Windows-only path bugs from a Linux runner -- the original
       # denylist broke on Windows while every Linux test stayed green.
       - run: node ../scripts/path-guard-test.mjs
+      # (v2.15.0) content encoding. Its failure modes are all invisible in the
+      # happy path and break the site for one person at a time: a missing Vary
+      # lets a shared cache hand brotli to a client that asked for none, and an
+      # ETag that does not change with the encoding answers 304 for bytes in the
+      # wrong one. Every compressed body is decompressed and compared to disk.
+      - run: node ../scripts/compress-test.mjs
       # (v2.8.2) the one-click updater downloads code from the internet and runs
       # it as the service account. The gate asserts the source stays a constant
       # (unreachable from a request), that the staged copy is verified before the

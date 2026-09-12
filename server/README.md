@@ -73,6 +73,23 @@ From `/admin`:
 The last remaining root account cannot be deleted, disabled or demoted — that
 would lock everyone out of administration permanently.
 
+## Performance
+
+Text responses are compressed with brotli (falling back to gzip), which is
+roughly a 59% saving across what the site actually sends:
+
+| | on disk | over the wire |
+|---|---|---|
+| StarNix (one self-contained file) | 2868 KB | 1350 KB |
+| The NCP-MCI question bank | 367 KB | 98 KB |
+| WWTBANE's 3D library | 652 KB | 155 KB |
+
+Fonts and images are sent as they are — they are already compressed, and running
+them through brotli costs CPU to make them very slightly larger.
+
+Compressed copies are cached in memory per file, so only the first request for
+each pays for it. Nothing to configure.
+
 ## Updating
 
 From `/admin`, signed in as root:
