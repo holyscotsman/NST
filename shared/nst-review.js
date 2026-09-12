@@ -93,8 +93,44 @@
     return s;
   }
 
+  /* What the store knows about ONE question, as a sentence to show beside it.
+   *
+   * "Seen 4 times · 1 right, 3 wrong · back in 2 days"
+   *
+   * This is the answer to "why is this domain weak" at the level someone can act
+   * on: not a score, but the record. Returns null for a question never answered
+   * -- there is no history to report, and "Seen 0 times" beside a question you
+   * are seeing for the first time is noise.
+   *
+   * `mastery` is passed in rather than read off window so the wording and the
+   * scheduler can never disagree about when a card returns.
+   */
+  function historyLine(rec, mastery, now) {
+    if (!rec || !rec.seen) return null;
+    var M = mastery || null;
+    var t = now == null ? Date.now() : now;
+    var seen = Math.max(0, Math.round(num(rec.seen)));
+    var right = Math.max(0, Math.round(num(rec.correct)));
+    var wrong = Math.max(0, Math.round(num(rec.incorrect)));
+
+    var parts = ["Seen " + seen + (seen === 1 ? " time" : " times")];
+    // Only claim a right/wrong split when there is one to report: a card can be
+    // seen without being graded (a lifeline carried it), and "0 right, 0 wrong"
+    // next to "seen 3 times" reads as a bug.
+    if (right || wrong) parts.push(right + " right, " + wrong + " wrong");
+
+    if (M && M.isDue && M.isDue(rec, t)) {
+      parts.push("due now");
+    } else if (M && M.dueAt && M.untilText) {
+      var back = M.untilText(M.dueAt(rec), t);
+      if (back) parts.push("back " + back);
+    }
+    return parts.join(" · ");
+  }
+
   window.NSTReview = {
     dueQueue: dueQueue,
+    historyLine: historyLine,
     describe: describe,
     DEFAULT_LIMIT: DEFAULT_LIMIT,
   };
