@@ -5,6 +5,51 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.8.2 — One-click updates, scrollable dialogs (2026-09-12)
+
+The VM is reachable but the GitHub URL is not, so the copy running there had no
+way to move forward: every update meant a manual re-clone on a machine whose
+whole point is that it cannot reach GitHub from a browser. It can reach it from
+Node, which is all an updater needs.
+
+### Added
+- **One-click update from `/admin`.** *Check for updates* asks GitHub what the
+  published version is; *Install update* downloads, verifies and installs it,
+  then exits so the service manager restarts on the new code. Root only,
+  CSRF-checked, and written to the audit log like every other admin action.
+
+  It downloads code from the internet and runs it as the service account, so the
+  safety is structural, not procedural:
+
+  - **the source is a constant.** `ARCHIVE_URL` and `VERSION_URL` are built from
+    literals in `server/update.mjs`; `applyUpdate()` takes no URL argument, so
+    nothing in a request can redirect where the code comes from.
+  - **staged, then verified, then swapped.** The archive is extracted to a temp
+    directory and checked against a 7-file manifest *before* anything live is
+    touched. A truncated or wrong download cannot leave a half-broken install —
+    it fails with the old copy still intact.
+  - **`server/data/` is never overwritten.** The database, `node_modules` and
+    `.git` are preserved across every update.
+
+  The archive is a `.tar.gz`, not a `.zip`: Windows' `tar` is bsdtar and reads
+  both, but GNU tar on Linux reads only tar — the zip form worked on the VM and
+  failed in every test.
+
+- **`scripts/update-test.mjs` (CI-gated, 33 checks)** asserts the properties
+  above rather than the happy path: that the source really is a constant, that
+  verification happens before the copy, that the preserve list still contains
+  the database, and that the routes stay root-only, POST-only, CSRF-checked and
+  audited.
+
+### Fixed
+- **Dialogs could not be scrolled on a short window.** `.nst-modal` had no height
+  limit, so on a laptop-height or scaled-up window the bottom of a long settings
+  dialog — including the Reset control — sat below the viewport with nothing to
+  scroll. The modal is now a flex column capped at the viewport height: the
+  header stays pinned and the body scrolls, with `overscroll-behavior: contain`
+  so the page underneath doesn't scroll instead once the dialog hits its end.
+  Verified at five viewport heights down to 400px.
+
 ## v2.8.1 — Windows deployment (2026-09-12)
 
 Preparing the app server for a Windows VM. A 130-agent audit raised 41

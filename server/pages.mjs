@@ -70,7 +70,7 @@ form.inline{display:inline}
 }
 `;
 
-function shell(title, bodyHtml, { wide = false, csp = '' } = {}) {
+function shell(title, bodyHtml, { wide = false, csp = '', head = '' } = {}) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -79,7 +79,7 @@ function shell(title, bodyHtml, { wide = false, csp = '' } = {}) {
 <title>${esc(title)} · Nutanix Study Tool</title>
 <meta name="color-scheme" content="dark" />
 <meta name="robots" content="noindex, nofollow" />
-<!-- frame-ancestors is sent as a real header (a <meta> copy is ignored). -->
+${head}<!-- frame-ancestors is sent as a real header (a <meta> copy is ignored). -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'${csp}" />
 <link rel="stylesheet" href="/shared/fonts.css" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📘</text></svg>" />
@@ -175,7 +175,7 @@ function bytes(n) {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`;
 }
 
-export function adminPage({ me, users, csrf, error, notice, defaultRootPassword, audit = [] }) {
+export function adminPage({ me, users, csrf, error, notice, defaultRootPassword, audit = [], version, repo }) {
   const rows = users.map((u) => {
     const isMe = u.id === me.id;
     const act = (action, label, cls, confirmText) => `
@@ -201,6 +201,25 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
       </td>
     </tr>`;
   }).join('');
+
+  /* Updating pulls code from GitHub and runs it. Both buttons post through the
+     normal CSRF-checked form path; the source URL is fixed in update.mjs. */
+  const update = `
+    <h1 style="font-size:18px;margin-top:34px">Version</h1>
+    <p class="sub">Running <b>v${esc(version || 'unknown')}</b>${repo ? ` &middot; updates come from <span class="muted">${esc(repo)}</span>` : ''}.</p>
+    <div class="bar" style="justify-content:flex-start;gap:10px">
+      <form class="inline" method="POST" action="/admin/update-check">
+        <input type="hidden" name="csrf" value="${esc(csrf)}" />
+        <button class="ghost" type="submit">Check for updates</button>
+      </form>
+      <form class="inline" method="POST" action="/admin/update-apply">
+        <input type="hidden" name="csrf" value="${esc(csrf)}" />
+        <button class="ghost" type="submit">Install update</button>
+      </form>
+    </div>
+    <p class="hint">Installing downloads the latest version, checks it is complete, then replaces the
+      app files and restarts. Your database and every account are kept. If the download fails or looks
+      wrong, nothing is changed.</p>`;
 
   const log = audit.length ? `
     <h1 style="font-size:18px;margin-top:34px">Recent activity</h1>
@@ -232,8 +251,31 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
     <tbody>${rows}</tbody>
   </table>
   <p class="alt"><a href="/account/password">Change your own password</a></p>
+  ${update}
   ${log}
 </div>`, { wide: true });
+}
+
+/* Shown directly (not via a redirect) after an update installs.
+ *
+ * The process is about to exit so the service manager restarts it on the new
+ * code. A redirect would make the browser come back for /admin during exactly
+ * that window and show a connection error instead of the result, so the
+ * outcome is delivered in this response and the page reloads itself once the
+ * server is listening again. */
+export function updatedPage({ from, to, copied }) {
+  return shell('Updating', `
+<main class="card">
+  ${BRAND}
+  <h1>Updated to v${esc(String(to))}</h1>
+  <p class="sub">You were running v${esc(String(from))}. ${esc(String(copied))} files were replaced,
+    and your database and accounts were kept exactly as they were.</p>
+  <div class="msg ok">Restarting on the new version. This page reloads itself in a few seconds.</div>
+  <p class="hint">If it doesn&rsquo;t come back: the server exits on purpose after updating, so something
+    has to start it again. As a Windows service or under systemd that happens by itself. If you started
+    it by hand in a terminal, run the start command again.</p>
+  <p class="alt"><a href="/admin">Back to Accounts</a></p>
+</main>`, { head: '<meta http-equiv="refresh" content="8; url=/admin" />\n' });
 }
 
 export function errorPage(code, message) {

@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import * as DB from './db.mjs';
 import * as A from './auth.mjs';
 import * as P from './pages.mjs';
+import * as U from './update.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = resolve(HERE, '..');                       // the repo: what we serve
@@ -395,11 +396,46 @@ async function handle(req, res) {
     if (path === '/admin' && method === 'GET') {
       return sendHtml(res, 200, P.adminPage({
         me, users: DB.listUsers(db), csrf,
+        version: U.localVersion(ROOT), repo: U.REPO,
         defaultRootPassword: rootUsesDefaultPassword,
         audit: DB.recentAudit(db, 25),
         notice: url.searchParams.get('done') || '',
         error: url.searchParams.get('err') || '',
       }));
+    }
+
+    /* Update: root-only, CSRF-checked, and the download URL is a constant in
+     * update.mjs -- nothing in the request chooses what gets installed. */
+    if (path === '/admin/update-check' && method === 'POST') {
+      const form = parseForm(await readBody(req, 16 * 1024));
+      if (!csrfValid(req, form)) return redirect(res, '/admin?err=' + encodeURIComponent('Your form expired. Try again.'));
+      const r = await U.checkForUpdate(ROOT);
+      if (!r.ok) return redirect(res, '/admin?err=' + encodeURIComponent(r.error));
+      return redirect(res, '/admin?done=' + encodeURIComponent(
+        r.updateAvailable
+          ? `Version ${r.latest} is available (you have ${r.current}). Use "Install update" to apply it.`
+          : `You are up to date (v${r.current}).`));
+    }
+
+    if (path === '/admin/update-apply' && method === 'POST') {
+      const form = parseForm(await readBody(req, 16 * 1024));
+      if (!csrfValid(req, form)) return redirect(res, '/admin?err=' + encodeURIComponent('Your form expired. Try again.'));
+      const lines = [];
+      const r = await U.applyUpdate(ROOT, { log: (m) => lines.push(m) });
+      if (!r.ok) {
+        DB.audit(db, me.username, 'update-failed', r.error);
+        return redirect(res, '/admin?err=' + encodeURIComponent(r.error));
+      }
+      DB.audit(db, me.username, 'updated', `${r.from} -> ${r.to}`);
+      // The new code is on disk but this process is still running the old one.
+      // Exiting lets the service manager (NSSM, systemd) start it again; if the
+      // server was started by hand there is nothing to restart it, which the
+      // message says. Delay so this response actually reaches the browser.
+      // Answer with the result page itself rather than a redirect: a redirect
+      // would send the browser back for /admin inside the restart window, where
+      // it would get a connection error instead of the outcome.
+      setTimeout(() => { try { db.close(); } catch {} process.exit(0); }, 1200);
+      return sendHtml(res, 200, P.updatedPage({ from: r.from, to: r.to, copied: r.copied }));
     }
 
     if (method === 'POST') {

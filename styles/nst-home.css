@@ -482,12 +482,26 @@ body {
   padding: 48px 20px; overflow-y: auto;
 }
 .nst-modal-overlay-top { z-index: 70; align-items: center; }
+/* (v2.8.2) The modal scrolls its own body rather than relying on the overlay.
+   Before, a modal taller than the window pushed its content past the bottom and
+   left scrolling to the backdrop -- which works, but gives no visible scrollbar
+   on the panel and puts the title and close button off-screen once you move.
+   Now the header stays put, the body scrolls, and the scrollbar is on the thing
+   that actually scrolls. */
 .nst-modal {
   background: #14121F; border: 1px solid var(--border); border-radius: 20px;
   width: 100%; max-width: 560px; box-shadow: var(--elev-3);
   overflow: hidden;
+  max-height: calc(100vh - 96px);
+  display: flex; flex-direction: column;
 }
-.nst-modal-sm { max-width: 420px; padding: 24px; }
+.nst-modal-head { flex: 0 0 auto; }
+.nst-modal > .nst-modal-body {
+  flex: 1 1 auto; overflow-y: auto;
+  /* don't hand the wheel to the page behind once the body hits its end */
+  overscroll-behavior: contain;
+}
+.nst-modal-sm { max-width: 420px; padding: 24px; max-height: calc(100vh - 48px); }
 .nst-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px 14px; }
 .nst-modal-title { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--heading); }
 .nst-modal-x {
