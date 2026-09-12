@@ -728,6 +728,50 @@
     return box;
   }
 
+  /* The readiness band: where an estimate of today's exam score sits against the
+   * pass mark. Drawn as a RANGE with the bar marked, never as a single number,
+   * because a point estimate reads as a promise. shared/nst-readiness.js decides
+   * what may be claimed; this only places it on a track. */
+  function dashReadiness(r) {
+    var box = el("div", "nst-dash-ready nst-dash-ready--" + r.verdict);
+    var head = el("div", "nst-dash-readyhead");
+    head.appendChild(el("h3", "nst-dash-subtitle", "Exam readiness"));
+    head.appendChild(el("span", "nst-dash-readylabel", esc(r.label)));
+    box.appendChild(head);
+
+    if (r.verdict !== "not-enough") {
+      var track = el("div", "nst-dash-readytrack");
+      track.setAttribute("role", "img");
+      track.setAttribute("aria-label",
+        "Estimated score between " + r.low + "% and " + r.high + "%, against a " + r.pass + "% pass mark.");
+      var band = el("span", "nst-dash-readyband");
+      band.style.left = r.low + "%";
+      band.style.width = Math.max(1, r.high - r.low) + "%";
+      var mark = el("span", "nst-dash-readymark");
+      mark.style.left = r.pass + "%";
+      var dot = el("span", "nst-dash-readydot");
+      dot.style.left = r.score + "%";
+      track.appendChild(band); track.appendChild(mark); track.appendChild(dot);
+      box.appendChild(track);
+
+      // One caption, under the pass mark itself. The range is prose in the
+      // detail line below: figures pinned to the track's ends would read as
+      // its endpoints, which they are not.
+      var scale = el("div", "nst-dash-readyscale");
+      var passCap = el("span", "nst-dash-readypass", esc(r.pass + "% to pass"));
+      passCap.style.left = r.pass + "%";
+      // Centred under the mark, except near the ends, where centring would push
+      // the caption off the panel. A bank can author any pass threshold.
+      if (r.pass < 15) passCap.style.transform = "translateX(0)";
+      else if (r.pass > 85) passCap.style.transform = "translateX(-100%)";
+      scale.appendChild(passCap);
+      box.appendChild(scale);
+    }
+
+    box.appendChild(el("p", "nst-dash-readydetail", esc(r.detail)));
+    return box;
+  }
+
   function renderDashboard(bank, label) {
     var host = document.getElementById("nst-dash");
     if (!host) return;
@@ -780,6 +824,22 @@
     }
     body.appendChild(stats);
     host.appendChild(body);
+
+    // Readiness needs the raw questions and records, not the rollup: it weighs
+    // each question on its own evidence and its own guessability.
+    var Ready = window.NSTReadiness;
+    if (Ready) {
+      var r = null;
+      try {
+        r = Ready.estimate({
+          questions: bank.questions,
+          mastery: Mast,
+          pass: bank.meta && bank.meta.pass,
+          examSize: window.PE_CONFIG && window.PE_CONFIG.EXAM_QUESTION_COUNT,
+        });
+      } catch (e) { r = null; }
+      if (r) host.appendChild(dashReadiness(r));
+    }
 
     if (m.weakest.length) host.appendChild(dashWeak(m.weakest));
   }

@@ -5,6 +5,51 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.10.0 — Am I ready? (2026-09-12)
+
+The dashboard says where you stand. This answers the question people actually
+have: *if I sat the exam today, would I pass?*
+
+It is the most useful thing a study tool can say and the easiest thing to get
+dishonestly wrong, so `shared/nst-readiness.js` is built around four rules and
+53 tests that hold it to them.
+
+### Added
+- **An exam-readiness estimate on the home page.** A **range** on a track with
+  the pass mark drawn on it — never a single number, because a point estimate
+  reads as a promise. The band's width *is* the uncertainty: narrow means the
+  tool is confident, wide means it isn't, and both are honest.
+
+  Four rules:
+
+  1. **Never below guessing.** Each question's floor is its own blind-guess
+     probability — 1/n for a single answer, 1/C(n,k) for a "choose k", which is
+     far harsher and should be. A four-option question is right a quarter of the
+     time from someone who has never seen it.
+  2. **Evidence is smoothed, and so is the prior.** Observed accuracy is
+     Laplace-smoothed toward a domain prior, and that prior is itself pulled back
+     toward chance. Without the second step a short perfect streak produces a
+     prior of 1.0, smoothing toward it does nothing, and the estimate reads 100%
+     after one pass through the bank. It did, until the tests said so.
+  3. **Time only ever lowers the estimate.** An overdue question decays back
+     toward its guess floor — not toward the prior, which is built from the same
+     ageing data and would barely move. Decay bottoms out at half the
+     demonstrated edge over guessing, and since the target is the floor it can
+     only reduce: a demonstrated miss is never forgiven by the calendar.
+  4. **Below a quarter of the bank seen, there is no verdict.** At low coverage
+     the number is mostly prior — an opinion wearing a percentage. It says how
+     many more questions would change that, and shows no figure at all.
+
+  A verdict is given only when the whole band sits on one side of the pass mark:
+  **Likely ready**, **Not yet**, **On the edge**, or **Not enough data yet**.
+  Each pairs its colour with a word, so colour is never the only signal. The
+  pass mark comes from the bank's own `pass:` metadata, not a constant.
+
+- **`scripts/readiness-test.mjs` (CI-gated, 54 checks)** tests the guarantees,
+  not the arithmetic — including a hand-edited record claiming a billion correct
+  answers. It runs against the real `NSTMastery`, so the estimate and the
+  scheduler can never disagree about what "due" means.
+
 ## v2.9.0 — One progress picture (2026-09-12)
 
 Three tools have been feeding one mastery store since v2.7.0, but nothing ever

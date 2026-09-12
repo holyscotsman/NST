@@ -104,3 +104,8 @@ jobs:
       # on the claims: no weak area that was never answered, no wall of zeros in
       # place of "not started", and a poisoned exam history yields a number.
       - run: node ../scripts/dashboard-test.mjs
+      # (v2.10.0) readiness is the one number in the app that can cost someone an
+      # exam fee. The gate is on its guarantees: a coverage floor before any
+      # verdict, never a score below blind guessing, time can only lower the
+      # estimate, and a corrupt record cannot manufacture confidence.
+      - run: node ../scripts/readiness-test.mjs

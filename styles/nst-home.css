@@ -887,3 +887,73 @@ body {
   .nst-dash-ring-fill, .nst-dash-weakfill { transition: none; }
 }
 .nst-reduced-motion .nst-dash-ring-fill, .nst-reduced-motion .nst-dash-weakfill { transition: none; }
+
+/* Exam readiness (v2.10.0)
+ *
+ * A RANGE on a track, with the pass mark drawn on it — never a single number.
+ * A point estimate reads as a promise, and this one cannot make promises.
+ * Every verdict pairs its colour with a word, so colour is never the signal. */
+.nst-dash-ready { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--glass-border); }
+.nst-dash-readyhead { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.nst-dash-readyhead .nst-dash-subtitle { margin-bottom: 0; }
+.nst-dash-readylabel {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.nst-dash-ready--likely-ready .nst-dash-readylabel { color: #7BE3A6; }
+.nst-dash-ready--on-the-edge .nst-dash-readylabel { color: #FFD479; }
+.nst-dash-ready--not-yet .nst-dash-readylabel { color: #FF9DA6; }
+.nst-dash-ready--not-enough .nst-dash-readylabel { color: var(--faint); }
+
+.nst-dash-readytrack {
+  position: relative;
+  height: 12px;
+  margin: 12px 0 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+}
+/* The estimate's 95% range. Its width IS the uncertainty — a thin band means
+   the tool is confident, a wide one means it is not, and both are honest. */
+.nst-dash-readyband {
+  position: absolute; top: 0; bottom: 0;
+  border-radius: 999px;
+  background: rgba(169, 139, 255, 0.45);
+  transition: left 0.6s var(--ease), width 0.6s var(--ease);
+}
+.nst-dash-ready--likely-ready .nst-dash-readyband { background: rgba(123, 227, 166, 0.45); }
+.nst-dash-ready--on-the-edge .nst-dash-readyband { background: rgba(255, 212, 121, 0.42); }
+.nst-dash-ready--not-yet .nst-dash-readyband { background: rgba(255, 157, 166, 0.40); }
+/* The point estimate, inside the band. */
+.nst-dash-readydot {
+  position: absolute; top: 50%;
+  width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  border-radius: 999px;
+  background: var(--heading);
+  transition: left 0.6s var(--ease);
+}
+/* The pass mark: a hard line, drawn over everything, because it is the only
+   number on this track that is not an estimate. */
+.nst-dash-readymark {
+  position: absolute; top: -4px; bottom: -4px;
+  width: 2px; margin-left: -1px;
+  background: var(--heading);
+  border-radius: 2px;
+}
+/* One caption, sitting under the pass mark where the mark actually is. */
+.nst-dash-readyscale { position: relative; height: 15px; }
+.nst-dash-readypass {
+  position: absolute; top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 11.5px; font-weight: 600; color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+}
+.nst-dash-readydetail { font-size: 12.5px; color: var(--muted-2); margin: 8px 0 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nst-dash-readyband, .nst-dash-readydot { transition: none; }
+}
+.nst-reduced-motion .nst-dash-readyband, .nst-reduced-motion .nst-dash-readydot { transition: none; }
