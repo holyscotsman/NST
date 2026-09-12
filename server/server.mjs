@@ -27,6 +27,7 @@ import * as DB from './db.mjs';
 import * as A from './auth.mjs';
 import * as P from './pages.mjs';
 import * as U from './update.mjs';
+import * as Z from './compress.mjs';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = resolve(HERE, '..');                       // the repo: what we serve
@@ -198,13 +199,34 @@ async function serveStatic(req, res, urlPath) {
     }
     if (!st || !st.isFile()) return sendHtml(res, 404, P.errorPage(404, "That page isn't here."));
     const ext = extname(full).toLowerCase();
+    const type = MIME[ext] || 'application/octet-stream';
+    const baseEtag = `W/"${st.size}-${Number(st.mtimeMs).toString(36)}"`;
+
+    // Negotiate the encoding BEFORE answering a conditional request: the ETag
+    // is per-encoding, so a client holding the brotli copy must be compared
+    // against the brotli tag, not the identity one.
+    const wanted = Z.isCompressible(type, st.size) ? Z.pickEncoding(req.headers['accept-encoding']) : null;
+    const etag = Z.taggedEtag(baseEtag, wanted);
+
+    // Vary goes on the 304 too, or a shared cache learns the wrong thing from it.
+    const varyHdr = Z.isCompressible(type, st.size) ? { Vary: 'Accept-Encoding' } : {};
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag, ...varyHdr });
+      return res.end();
+    }
+
     const body = await readFile(full);
-    const etag = `W/"${st.size}-${Number(st.mtimeMs).toString(36)}"`;
-    if (req.headers['if-none-match'] === etag) { res.writeHead(304, { ETag: etag }); return res.end(); }
     // The HTML entry points must revalidate so a redeploy is picked up; the heavy
     // immutable-ish assets can sit in cache for a while.
     const cache = ext === '.html' ? 'no-cache' : 'public, max-age=3600';
-    send(res, 200, body, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': cache, ETag: etag });
+    const packed = wanted ? await Z.encode(body, wanted, `${full}:${st.mtimeMs}`) : null;
+    send(res, 200, packed || body, {
+      'Content-Type': type,
+      'Cache-Control': cache,
+      ETag: packed ? etag : baseEtag,
+      ...varyHdr,
+      ...(packed ? { 'Content-Encoding': wanted } : {}),
+    });
   } catch {
     sendHtml(res, 500, P.errorPage(500, 'Something went wrong reading that file.'));
   }

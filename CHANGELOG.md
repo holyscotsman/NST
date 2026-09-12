@@ -5,6 +5,60 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.15.0 — Compression on the app server (2026-09-12)
+
+A measurement pass over every entry point found the runtime already fast — FCP
+under 140 ms everywhere, no long tasks — and every win sitting in transfer size,
+on the server the VM actually runs.
+
+### Added
+- **Brotli and gzip for static files.** `server/compress.mjs`, built on Node's
+  own `zlib`, so still no dependencies. Measured over the wire:
+
+  | | on disk | brotli | saved |
+  |---|---|---|---|
+  | `starnix/index.html` | 2868 KB | 1350 KB | 53% |
+  | `wwtbane` three.js | 652 KB | 155 KB | 76% |
+  | `ncp-mci.md` (the bank) | 367 KB | 98 KB | 73% |
+  | `nst-home.js` | 46 KB | 13 KB | 72% |
+  | `nst-home.css` | 38 KB | 9 KB | 76% |
+  | **total** | **3995 KB** | **1648 KB** | **59%** |
+
+  Fonts and images are left alone: re-compressing a woff2 costs CPU to make it
+  very slightly larger.
+
+  Three details carry the weight, and each is its own test:
+
+  - **`Vary: Accept-Encoding` on every negotiated response, including the 304.**
+    Without it a shared cache can hand a brotli body to a client that asked for
+    none, and the page fails to load — intermittently, for one person.
+  - **The ETag changes with the encoding.** An identity ETag matched against a
+    compressed body is the same bug from the other side: revalidate, get a 304,
+    reuse bytes in the wrong encoding. A conditional request is now compared
+    against the tag for the encoding being asked for.
+  - **Brotli quality 5, not the default 11.** On the 2868 KB StarNix build:
+    q5 gives 1350 KB in 67 ms; q11 gives 1301 KB in **3846 ms**. The default
+    would stall the first request for nearly four seconds to save a further
+    3.6%. Results are cached per file and mtime, under a bounded byte budget, so
+    only the first request pays even that.
+
+- **`scripts/compress-test.mjs` (CI-gated, 56 checks).** Every compressed body
+  is decompressed and compared byte-for-byte with the file on disk — the one
+  check that proves the whole path. It also re-asserts that compression changed
+  nothing about the guards: the database and `.git` are still 404, the security
+  headers survive, and the content type is still the file's own.
+
+  **It talks to the server over `node:http`, not `fetch`.** undici decompresses
+  a response transparently and leaves `Content-Encoding` in place, so `fetch()`
+  hands back the original bytes under a header claiming they are brotli — it is
+  structurally unable to prove anything about the wire. The first version of the
+  test used it and duly reported the "compressed" body as exactly the size of the
+  file it was supposed to have shrunk.
+
+### Measured, and deliberately unchanged
+FCP: launcher 100 ms, Practice Exams 72 ms, StarNix 136 ms. No long tasks on any
+surface; heap 3–15 MB. Nothing in the runtime warranted work.
+
 ## v2.14.0 — The accessibility pass (2026-09-12)
 
 An audit against axe-core plus the keyboard checks it cannot make. Three real
