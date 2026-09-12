@@ -19,9 +19,9 @@
  * tar, so the zip form would work on the VM and fail in every test.
  */
 import { execFile } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, lstatSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname, relative, sep } from 'node:path';
+import { join, dirname, relative } from 'node:path';
 import { promisify } from 'node:util';
 
 const run = promisify(execFile);
@@ -93,18 +93,37 @@ export async function checkForUpdate(root, { timeoutMs = 10000 } = {}) {
   }
 }
 
-function walk(dir, base = dir, out = []) {
+/* List the regular files under dir, relative to base.
+ *
+ * lstat, not stat, and symlinks are skipped rather than followed. Two reasons,
+ * both about an archive we did not build:
+ *   - a link pointing at a directory is walked as one by stat, so a self-
+ *     referential link ('a -> .') recurses until the stack blows
+ *   - a link pointing outside the tree would have its TARGET's contents copied
+ *     into the live install
+ * Nothing this app ships is a symlink, so skipping them costs nothing. */
+export function walk(dir, base = dir, out = []) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
-    const st = statSync(full);
+    let st;
+    try { st = lstatSync(full); } catch { continue; }
+    if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) walk(full, base, out);
-    else out.push(relative(base, full));
+    else if (st.isFile()) out.push(relative(base, full));
   }
   return out;
 }
 
-function isPreserved(relPath) {
-  const norm = relPath.split(sep).join('/');
+export function isPreserved(relPath) {
+  // Fold BOTH separators, not just this platform's.
+  //
+  // This used to split on `sep`, which is correct only as long as the path was
+  // produced by this platform's `relative()`. That is exactly the assumption
+  // that made the static-file denylist inert on Windows in v2.8.1: a rule
+  // written with forward slashes, compared against a path that had backslashes.
+  // The preserve list is what keeps the database from being overwritten, so it
+  // is not a place to depend on who built the string.
+  const norm = String(relPath).replace(/\\/g, '/');
   return PRESERVE.some((p) => norm === p || norm.startsWith(p + '/'));
 }
 
@@ -145,18 +164,38 @@ export async function applyUpdate(root, { log = () => {} } = {}) {
 
     // Copy over the live tree. Fast and local: the slow, failure-prone part
     // (network) is already done and verified.
+    //
+    // From the first copyFileSync onward the install is PARTIALLY WRITTEN, and
+    // the failure message has to change with it. A disk that fills here leaves a
+    // half-new tree, and telling someone "nothing was changed" would send them
+    // to restart a service that will not come back.
     const files = walk(staged);
     let copied = 0, skipped = 0;
     for (const rel of files) {
       if (isPreserved(rel)) { skipped++; continue; }
       const dest = join(root, rel);
-      mkdirSync(dirname(dest), { recursive: true });
-      copyFileSync(join(staged, rel), dest);
+      try {
+        mkdirSync(dirname(dest), { recursive: true });
+        copyFileSync(join(staged, rel), dest);
+      } catch (e) {
+        const why = e && e.message ? e.message : e;
+        if (copied === 0) {
+          return { ok: false, error: `Could not write to the app directory (${why}). Nothing was changed.` };
+        }
+        return {
+          ok: false, partial: true, copied,
+          error: `The update stopped partway through after replacing ${copied} files (${why}). ` +
+            `The install is now a mix of both versions. Your database is untouched. ` +
+            `Free up disk space and run the update again, or re-clone the repository over this directory.`,
+        };
+      }
       copied++;
     }
     log(`Updated ${copied} files (kept ${skipped}, including your database).`);
     return { ok: true, from: current, to: newVersion, copied, skipped };
   } catch (e) {
+    // Everything reaching here is before the first write: download, extraction
+    // and verification all happen in the temp directory.
     return { ok: false, error: `Update failed: ${e && e.message ? e.message : e}. Nothing was changed.` };
   } finally {
     try { rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch { /* temp dir */ }
