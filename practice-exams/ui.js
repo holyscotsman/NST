@@ -170,8 +170,31 @@
     return "ABCDEFGHIJ".charAt(Math.min(mx, 10) - 1);
   }
 
+  /* Move focus to a new view's heading after the old view is torn out.
+   *
+   * Replacing container.innerHTML destroys whatever the keyboard was on, and
+   * focus falls to <body>: the next Tab restarts from the top of the document,
+   * so someone who pressed Enter on "Start practicing" has to tab past the whole
+   * page to reach the first question. Focusing the heading puts them at the top
+   * of the NEW view and gives a screen reader something to announce.
+   *
+   * tabindex="-1" makes a heading programmatically focusable without adding it
+   * to the tab order. Chrome does not treat programmatic focus as :focus-visible,
+   * so this shows no ring -- the styles pair with that.
+   */
+  function focusView(root, selector) {
+    if (!root) return null;
+    var h = selector ? root.querySelector(selector) : root;
+    if (!h) return null;
+    try {
+      h.setAttribute("tabindex", "-1");
+      h.focus({ preventScroll: true });
+    } catch (e) { /* focus is best-effort */ }
+    return h;
+  }
+
   PE.ui = {
-    el: el, esc: esc, ICONS: ICONS, LETTERS: LETTERS,
+    el: el, esc: esc, ICONS: ICONS, LETTERS: LETTERS, focusView: focusView,
     exhibit: exhibit, option: option, domainBreakdown: domainBreakdown,
     centerPalette: centerPalette, confirm: confirm, lastOptKey: lastOptKey,
   };
