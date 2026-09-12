@@ -123,6 +123,34 @@
     function chosenCount() { return useFull ? meta.total : randomCount; }
     function examMinutes() { return Math.round(cfg.EXAM_TIME_LIMIT_MIN * chosenCount() / cfg.EXAM_QUESTION_COUNT); }
 
+    /* (v2.12.0) Review due — the first thing to offer someone coming back.
+     * Spaced repetition only works if the due cards actually get answered, and
+     * "17 due" on the home page was a number with nowhere to go. Rendered only
+     * when something IS due, so it never sits there as an empty promise. */
+    var Review = window.NSTReview, Mast = window.NSTMastery;
+    if (Review && Mast && hasQ) {
+      var dq = Review.dueQueue({ questions: engine.buildPractice(), mastery: Mast });
+      if (dq.total > 0) {
+        var rcard = el("button", "pe-modecard pe-modecard-review");
+        rcard.type = "button";
+        rcard.innerHTML =
+          '<div class="pe-modecard-tag">REVIEW</div>' +
+          '<h2 class="pe-modecard-title">Review ' + dq.questions.length + ' due</h2>' +
+          '<p class="pe-modecard-desc">The questions the scheduler wants back today, oldest first. ' +
+            'Practice Mode rules: instant feedback, the explanation revealed, untimed.</p>' +
+          '<ul class="pe-modecard-facts"><li>' + esc(Review.describe(dq)) + '</li></ul>' +
+          '<span class="pe-modecard-cta">Start review ' + ui.ICONS.arrowRight + '</span>';
+        rcard.addEventListener("click", function () {
+          PE.practice.start(container, {
+            questions: dq.questions,
+            onExit: function () { showEntry(container); },
+            onHome: function () { window.location.href = HOME; },
+          });
+        });
+        root.appendChild(rcard);
+      }
+    }
+
     // Mode cards
     var modes = el("div", "pe-modes");
 

@@ -667,11 +667,22 @@
   var DASH_R = 26;                       // ring radius, matching the viewBox below
   var DASH_C = 2 * Math.PI * DASH_R;     // circumference, for the dash offset
 
-  function dashStat(label, value, sub, cls) {
+  function dashStat(label, value, sub, cls, href, title) {
     var d = el("div", "nst-dash-stat" + (cls ? " " + cls : ""));
     d.appendChild(el("dt", "nst-dash-stat-k", esc(label)));
-    var dd = el("dd", "nst-dash-stat-v", esc(String(value)));
-    if (sub) dd.appendChild(el("span", "nst-dash-stat-sub", esc(String(sub))));
+    var dd = el("dd", "nst-dash-stat-v");
+    // A figure that leads somewhere becomes a link; the rest stay plain text, so
+    // nothing looks clickable that isn't.
+    var host = dd;
+    if (href) {
+      var a = el("a", "nst-dash-statlink");
+      a.href = href;
+      if (title) { a.title = title; a.setAttribute("aria-label", title); }
+      dd.appendChild(a);
+      host = a;
+    }
+    host.appendChild(document.createTextNode(String(value)));
+    if (sub) host.appendChild(el("span", "nst-dash-stat-sub", esc(String(sub))));
     d.appendChild(dd);
     return d;
   }
@@ -838,7 +849,12 @@
     if (m.accuracy != null) stats.appendChild(dashStat("Accuracy", m.accuracy + "%"));
     // "0 due" reads as finished, which is the opposite of what it means, so the
     // empty queue says when the next card comes back instead.
-    if (m.due > 0) stats.appendChild(dashStat("Due now", m.due, null, "due"));
+    // "Due now" is the one figure with work attached, so it opens the review
+    // session Practice Exams offers for exactly these questions.
+    if (m.due > 0) {
+      stats.appendChild(dashStat("Due now", m.due, null, "due", "./practice-exams/",
+        "Review the " + m.due + " questions due now, in Practice Exams"));
+    }
     else if (m.nextDue) stats.appendChild(dashStat("Next review", m.nextDue));
     if (m.exam) {
       stats.appendChild(dashStat("Best exam", m.exam.best.pct + "%",

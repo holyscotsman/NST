@@ -5,6 +5,41 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.12.0 — The due queue, and somewhere to do it (2026-09-12)
+
+"9 due now" was a number with nowhere to go. Spaced repetition only works if the
+due cards actually get answered.
+
+### Added
+- **A "Review N due" card in Practice Exams.** It appears above the two mode
+  cards when something is actually due, and never otherwise — an empty promise
+  is worse than no card. It runs under Practice Mode rules: instant feedback,
+  the explanation revealed, untimed.
+
+- **The home page's "Due now" figure is now a link** to that session, with an
+  accessible name that says where it goes. It is the only figure in the row that
+  leads anywhere, and the only one styled as a link.
+
+- **`shared/nst-review.js`** builds the queue, and the three arguable decisions
+  live there with `scripts/review-test.mjs` (CI-gated, 43 checks) holding them:
+
+  - **Overdue before new.** `NSTMastery.isDue()` counts a never-answered question
+    as due, which is right for the scheduler and wrong for a review session: a
+    255-question bank you have barely started would produce a "review" of 240
+    questions you have never seen. Cards you have learned and are losing come
+    first; new material fills whatever room is left.
+  - **Oldest due date first,** among the overdue — the ordinary spaced-repetition
+    rule. Ties keep the bank's authored order, so the queue does not reshuffle
+    between the count shown and the session started.
+  - **The session is capped at 25, and the cap is stated.** An uncapped queue on
+    a fully-due bank is a sitting nobody finishes, and an abandoned review is
+    worse than a short one — the scheduler only learns from answers. The counts
+    always describe the whole due set, so "9 due" is never contradicted by a
+    session of 25.
+
+  Both surfaces describe a queue the same way — "10 due again · 15 new" — because
+  those are different kinds of work and a reader plans differently for each.
+
 ## v2.11.0 — Weak areas you can act on (2026-09-12)
 
 Naming someone's weakest domain and leaving them to go find it is half a
