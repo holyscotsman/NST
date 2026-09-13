@@ -192,6 +192,12 @@ jobs:
       # on the claims: no weak area that was never answered, no wall of zeros in
       # place of "not started", and a poisoned exam history yields a number.
       - run: node ../scripts/dashboard-test.mjs
+      # (v2.66.0) one property across all three "what should I study next"
+      # rankers. Three times a recommendation was decided by a RATE, which the
+      # smallest sample wins: a single question answered wrong is 0%, and 0%
+      # beats everything. Each ranker is asked in its own vocabulary and all
+      # three must answer the same way.
+      - run: node ../scripts/ranker-test.mjs
       # (v2.10.0) readiness is the one number in the app that can cost someone an
       # exam fee. The gate is on its guarantees: a coverage floor before any
       # verdict, never a score below blind guessing, time can only lower the
