@@ -5,6 +5,64 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.70.0 — the cache that stopped caching the bank you were reading (2026-09-13)
+
+**A five-minute TTL enforced on read and nowhere else, so the store grew by one
+whole bank per bank opened and never shrank — and what it did when full was the
+opposite of what it was for.**
+
+The bank cache (C6-05) exists because "every hop between the launcher and a tool
+refetched the manifest plus the full bank markdown". It checked its TTL when
+reading: a stale entry was found stale, ignored, and left in place. Nothing in
+the app ever removed a cache key.
+
+Measured:
+
+```
+one bank, as stored              380 KB   (UTF-16 in the browser: 760 KB)
+entries before setItem throws     13      Chromium, ~9.7 MB
+                                   6      at a 5 MB quota (Firefox, Safari)
+roadmap                            8 certifications
+NCP-MCI today                      2 banks — a 25-question set and the full one
+```
+
+The growth is untidy. What happens at the wall is the bug. `setItem` threw, the
+throw was swallowed, and nothing was evicted — so the cache keeps whichever
+banks were opened **first**, and the bank being studied **now** is the one that
+never gets cached. Measured in a browser before the fix: with the store full,
+writing the active bank threw and it read back absent. Every launcher↔tool hop
+then refetches 376 KB, silently, and only for the people who have been using it
+longest.
+
+Three changes, all of them still failing soft — correctness never depended on
+this cache, a miss is just a refetch:
+
+- `sweepCache()` drops every entry past the TTL, on each write. The store is now
+  bounded by the contract the cache already claimed.
+- `evictOldest()` drops the least recently written entry when the quota refuses,
+  never the key being written, and the write is retried.
+- One `sessionStorage.setItem` remains in the module, inside `cachePut`, and the
+  suite asserts that.
+
+After the fix, at the same wall: the write succeeds, the active bank reads back,
+and the entry count does not grow.
+
+storage-growth-test gains 17 checks (9 → 26) and covers sessionStorage for the
+first time — it was written for localStorage, which is bounded by design, and
+the unbounded store was the one nothing looked at. It runs against a simulated
+quota so "full" means what it means in a browser. Three `[neg]` controls: the
+bare `setItem` this replaced must still leave the active bank uncached; an
+entry inside the TTL must survive, so "evict everything" cannot pass; and a
+storage that refuses every call must not throw out of the loader. Reverting the
+eviction turns 4 red.
+
+Also swept this cycle and found clean, recorded so they are not re-investigated:
+the exam-resume path already refuses a bank edited under a paused sitting
+(`rebuild()` compares option counts and discards rather than half-restoring);
+the login throttle's map is already capped with lockout-aware eviction; and page
+load was measured on all four surfaces at 1280px and 390px — 55-137 ms to
+interactive, no horizontal overflow, no page errors.
+
 ## v2.69.0 — "Review 255 due" on a bank nobody had opened (2026-09-13)
 
 **Practice Exams greeted every new user, and will greet every new bank, with a

@@ -33,6 +33,83 @@
   // bypasses it. Failures are never cached; storage errors never break loads.
   var SESS_PREFIX = "nst.bankcache:";
   var SESS_TTL = 5 * 60 * 1000;
+
+  /* (v2.70.0) The cache had a TTL but no eviction: an entry past five minutes was
+   * read, found stale, and left there. Nothing in the app ever removed one, so
+   * the store grew by one full bank per bank visited and never shrank.
+   *
+   * Measured: one bank is 380 KB stored, which the browser holds as UTF-16, so
+   * 760 KB each. Chromium fits 13 before setItem throws QuotaExceededError;
+   * a 5 MB quota (Firefox, Safari) fits 6. The roadmap is eight certifications,
+   * and NCP-MCI already ships two banks -- a 25-question set and the full one.
+   *
+   * What happens at the wall is the part worth fixing. setItem throws, the throw
+   * was swallowed, and the entries already in there stay: so the cache fills with
+   * whichever banks were opened FIRST and the bank being studied now is the one
+   * that never gets cached. Measured directly -- with the store full, writing the
+   * active bank threw and it read back absent. The feature then does the opposite
+   * of its purpose (C6-05: "every hop between the launcher and a tool refetched
+   * the manifest plus the full bank markdown"), silently, and only for the people
+   * who have been using it longest.
+   *
+   * Correctness never depended on this -- a miss is a refetch -- so every path
+   * here still fails soft. What changes is that the store is bounded by the TTL
+   * the cache already claimed, and a full quota evicts rather than gives up. */
+  function cacheKeys() {
+    var out = [];
+    try {
+      for (var i = 0; i < sessionStorage.length; i++) {
+        var k = sessionStorage.key(i);
+        if (k && k.indexOf(SESS_PREFIX) === 0) out.push(k);
+      }
+    } catch (e) { /* storage unavailable: nothing to evict */ }
+    return out;
+  }
+
+  function entryAge(k, now) {
+    try {
+      var hit = window.NSTSafeParse(sessionStorage.getItem(k));
+      // An entry we cannot read the timestamp of is the best thing to drop.
+      return hit && typeof hit.t === "number" && isFinite(hit.t) ? now - hit.t : Infinity;
+    } catch (e) { return Infinity; }
+  }
+
+  /* Drop every entry past the TTL. Returns how many went. */
+  function sweepCache(now) {
+    var keys = cacheKeys(), gone = 0;
+    for (var i = 0; i < keys.length; i++) {
+      if (entryAge(keys[i], now) > SESS_TTL) {
+        try { sessionStorage.removeItem(keys[i]); gone++; } catch (e) { /* best effort */ }
+      }
+    }
+    return gone;
+  }
+
+  /* The oldest live entry, so a full quota costs the least useful thing rather
+   * than the thing being asked for. Returns false when there is nothing to drop. */
+  function evictOldest(now, except) {
+    var keys = cacheKeys(), worst = null, worstAge = -1;
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i] === except) continue;
+      var age = entryAge(keys[i], now);
+      if (age > worstAge) { worstAge = age; worst = keys[i]; }
+    }
+    if (!worst) return false;
+    try { sessionStorage.removeItem(worst); return true; } catch (e) { return false; }
+  }
+
+  function cachePut(key, value) {
+    var now = Date.now();
+    sweepCache(now);
+    // Evict until it fits. Bounded by the number of entries, and each pass
+    // removes one, so this cannot spin.
+    for (var tries = 0; tries < 64; tries++) {
+      try { sessionStorage.setItem(key, value); return true; }
+      catch (e) { if (!evictOldest(now, key)) return false; }
+    }
+    return false;
+  }
+
   function fetchText(url, fresh) {
     if (!fresh) {
       try {
@@ -46,7 +123,7 @@
     return fetch(url, { cache: "no-cache" }).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status + " for " + url);
       return r.text().then(function (t) {
-        try { sessionStorage.setItem(SESS_PREFIX + url, JSON.stringify({ t: Date.now(), x: t })); } catch (e2) {}
+        cachePut(SESS_PREFIX + url, JSON.stringify({ t: Date.now(), x: t }));
         return t;
       });
     });
@@ -209,6 +286,11 @@
     setActive: setActive,
     load: load,
     bankName: bankName,
+    // Exposed for the boundedness suite; the app itself only ever goes through
+    // fetchText.
+    _cacheKeys: cacheKeys,
+    _sweepCache: sweepCache,
+    _cachePut: cachePut,
     toStarNix: toStarNix,
     toWWTBANE: toWWTBANE,
   };
