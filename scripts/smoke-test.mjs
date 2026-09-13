@@ -20,8 +20,8 @@
  * connect-src is 'self', it passes. Worth keeping as a note, because the same
  * mistake is easy to repeat.
  *
- * Needs a browser, so it is a local tool rather than a CI gate (CI stays
- * dependency-free), like scripts/mobile-audit.mjs and scripts/a11y-audit.mjs.
+ * Needs a browser, so it skips without one; CI installs Chromium and sets
+ * NST_REQUIRE_BROWSER=1, which turns that skip into a failure.
  * It brings its own server and database, so nothing needs to be running first:
  *   node scripts/smoke-test.mjs
  */
@@ -30,6 +30,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadChromium, launchOptions, missing } from './browser-env.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -42,21 +43,14 @@ const child = spawn(process.execPath, [join(ROOT, 'server', 'server.mjs')], {
 await new Promise((ok, no) => { const t = setTimeout(() => no(new Error('no start')), 15000);
   child.stdout.on('data', d => { if (String(d).includes('listening')) { clearTimeout(t); ok(); } }); child.stderr.on('data', () => {}); });
 
-async function loadChromium() {
-  for (const spec of ['playwright', '/opt/node22/lib/node_modules/playwright/index.js']) {
-    try { const mod = await import(spec); const c = mod.chromium || (mod.default && mod.default.chromium); if (c) return c; }
-    catch { /* try the next location */ }
-  }
-  return null;
-}
 const chromium = await loadChromium();
 if (!chromium) {
-  child.kill('SIGKILL'); rmSync(dir, { recursive: true, force: true });
-  console.log('SKIP: playwright not available');
-  process.exit(0);
+  // The server and its scratch database are already up; tear them down whichever
+  // way this ends.
+  missing('playwright', 'npm install --no-save playwright && npx playwright install chromium',
+    () => { child.kill('SIGKILL'); rmSync(dir, { recursive: true, force: true }); });
 }
-const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const b = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox', '--use-gl=swiftshader'] });
+const b = await chromium.launch(launchOptions());
 const BASE = `http://127.0.0.1:${PORT}`;
 let pass = 0, fail = 0;
 const ok = (n, c, x) => { if (c) { pass++; console.log('ok   ' + n); } else { fail++; console.log('FAIL ' + n + (x !== undefined ? '  -- ' + x : '')); } };

@@ -5,25 +5,17 @@
  * storage are loaded into all four real pages, and nothing may execute, no
  * prototype may be polluted, and every page must still work.
  *
- * Needs a browser, so it is not a CI gate. Run locally:
+ * Needs a browser. Run:
  *   node scripts/attack-browser.mjs        (expects a static server on :8124)
+ * Skips without one; CI sets NST_REQUIRE_BROWSER=1 so the skip fails instead —
+ * a security gate that silently ran nothing is worse than no gate at all.
  */
-// playwright is CJS: its exports arrive on `.default` under an ESM import.
-async function loadChromium() {
-  for (const spec of ['playwright', '/opt/node22/lib/node_modules/playwright/index.js']) {
-    try {
-      const m = await import(spec);
-      const c = m.chromium || (m.default && m.default.chromium);
-      if (c) return c;
-    } catch { /* try the next location */ }
-  }
-  return null;
-}
+import { loadChromium, launchOptions, missing } from './browser-env.mjs';
+
 const chromium = await loadChromium();
-if (!chromium) { console.log('SKIP: playwright not available'); process.exit(0); }
-const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+if (!chromium) missing('playwright', 'npm install --no-save playwright && npx playwright install chromium');
 const B = process.env.NST_BASE || 'http://localhost:8124';
-const browser = await chromium.launch({ executablePath: EXE, args:['--no-sandbox','--use-gl=swiftshader'] });
+const browser = await chromium.launch(launchOptions());
 let pass=0, fail=0;
 const ok=(n,c)=>{ console.log((c?'ok   ':'FAIL ')+n); c?pass++:fail++; };
 

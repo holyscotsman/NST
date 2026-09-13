@@ -37,44 +37,23 @@
  * first version reported four such false failures, all on pages whose setup
  * happened to click something.)
  *
- * Needs a browser, axe-core and a served copy of the site, so it is not a CI
- * gate (CI stays dependency-free). Run:
- *   npm install --no-save axe-core
+ * Needs a browser, axe-core and a served copy of the site. Run:
+ *   npm install --no-save playwright axe-core && npx playwright install chromium
  *   node scripts/a11y-audit.mjs
  *   (expects a static server on :8124 serving the repo root)
+ *
+ * Without those it prints SKIP and exits 0, so a checkout that has not installed
+ * them is not a red build. CI sets NST_REQUIRE_BROWSER=1, which turns that skip
+ * into a hard failure -- an exit 0 that ran nothing looks exactly like 45
+ * passing checks, and that is not a distinction a gate may leave to chance.
  */
-import { readFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-
-async function loadChromium() {
-  for (const spec of ['playwright', '/opt/node22/lib/node_modules/playwright/index.js']) {
-    try { const m = await import(spec); const c = m.chromium || (m.default && m.default.chromium); if (c) return c; }
-    catch { /* try the next location */ }
-  }
-  return null;
-}
-function loadAxe() {
-  const candidates = [
-    join(HERE, '..', 'node_modules', 'axe-core', 'axe.min.js'),
-    join(process.cwd(), 'node_modules', 'axe-core', 'axe.min.js'),
-    process.env.AXE_PATH || '',
-  ].filter(Boolean);
-  for (const c of candidates) { if (existsSync(c)) return readFileSync(c, 'utf8'); }
-  return null;
-}
+import { loadChromium, loadAxe, launchOptions, missing } from './browser-env.mjs';
 
 const chromium = await loadChromium();
-if (!chromium) { console.log('SKIP: playwright not available'); process.exit(0); }
+if (!chromium) missing('playwright', 'npm install --no-save playwright && npx playwright install chromium');
 const AXE = loadAxe();
-if (!AXE) {
-  console.log('SKIP: axe-core not found. Install it first:  npm install --no-save axe-core');
-  process.exit(0);
-}
+if (!AXE) missing('axe-core', 'npm install --no-save axe-core');
 
-const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const B = process.env.NST_BASE || 'http://localhost:8124';
 
 let pass = 0, fail = 0;
@@ -131,7 +110,7 @@ const FOCUS_PROBE = () => {
   return { total: els.length, unnamed, noRing };
 };
 
-const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox', '--use-gl=swiftshader'] });
+const browser = await chromium.launch(launchOptions());
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 950 } });
 
 async function open(url, prep) {
