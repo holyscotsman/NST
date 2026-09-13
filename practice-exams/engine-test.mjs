@@ -212,4 +212,76 @@ group = 'focus';
 pass();
 
 
+// ---- selection state -------------------------------------------------------
+// Answered and scoreable are different claims. gradeAnswer() has always required
+// an exact-size match for a multi-answer question -- three choices on a "Choose
+// two" is wrong, always -- while isAnswered() returns true for any non-empty
+// array. Nothing asked the question in between, so the palette chip, its
+// aria-label, the "N answered" counter and the submit dialog all reported a
+// guaranteed-wrong question as answered. Measured in a browser on the shipped
+// bank: a question badged "SELECT 2" took all four options and said nothing.
+group = 'selection-state';
+{
+  const two = { correct: [0, 2] };
+  const one = { correct: 1 };
+  const st = (q, c) => E.selectionState(q, c).state;
+
+  check('nothing chosen is empty', st(two, null) === 'empty' && st(two, []) === 'empty');
+  check('one of two is short', st(two, [0]) === 'short');
+  check('two of two is ready', st(two, [0, 2]) === 'ready');
+  check('the RIGHT two and the WRONG two are both ready -- this is not grading',
+    st(two, [1, 3]) === 'ready');
+  check('three of two is over', st(two, [0, 1, 2]) === 'over');
+  check('four of two is over', st(two, [0, 1, 2, 3]) === 'over');
+  check('it reports the numbers, not just the verdict',
+    E.selectionState(two, [0, 1, 2]).have === 3 && E.selectionState(two, [0, 1, 2]).need === 2);
+
+  // Single-answer questions use the same vocabulary, so callers need one branch.
+  check('a single-answer question unanswered is empty', st(one, null) === 'empty');
+  check('and answered is ready', st(one, 1) === 'ready' && st(one, 0) === 'ready');
+  check('it is never multi', E.selectionState(one, 1).multi === false);
+  check('a two-answer question is multi', E.selectionState(two, [0]).multi === true);
+
+  // isReady is the figure a timed sitting should count.
+  check('isReady agrees with ready', E.isReady(two, [0, 2]) === true);
+  check('and refuses over-selection', E.isReady(two, [0, 1, 2]) === false);
+  check('and refuses under-selection', E.isReady(two, [0]) === false);
+
+  // The gap this closes, stated as the relationship between the two functions.
+  check('an over-selected answer IS answered', E.isAnswered([0, 1, 2]) === true);
+  check('and is certain to be graded wrong', E.gradeAnswer(two, [0, 1, 2]) === false);
+  check('so answered-and-wrong-sized is exactly what isReady rules out',
+    E.isAnswered([0, 1, 2]) === true && E.isReady(two, [0, 1, 2]) === false);
+
+  // [neg] isAnswered alone cannot tell these apart -- the reason a second
+  // function was needed rather than a stricter isAnswered.
+  check('[neg] isAnswered says the same thing about 2-of-2 and 4-of-2',
+    E.isAnswered([0, 2]) === E.isAnswered([0, 1, 2, 3]));
+  check('[neg] isReady does not', E.isReady(two, [0, 2]) !== E.isReady(two, [0, 1, 2, 3]));
+
+  // Junk must not throw or answer "ready".
+  check('a malformed record is empty, not ready', st(two, 'abc') === 'empty' && st(two, -1) === 'empty');
+  check('a missing question does not throw', E.selectionState(null, [0]).need === 1);
+  check('NaN is not a choice', st(one, NaN) === 'empty');
+}
+pass();
+
+// ---- the exam surfaces use it ----------------------------------------------
+group = 'selection-surfaces';
+{
+  const src = readFileSync(join(here, 'exam-mode.js'), 'utf8');
+  check('the progress counter counts scoreable answers', /readyCount\(\) \+ " answered"/.test(src));
+  check('the progress bar does too', /progFill\.style\.width = \(readyCount\(\)/.test(src));
+  check('the palette marks a chip that cannot score', /cls \+= " incomplete"/.test(src));
+  check('its aria-label says which state, not just answered/not', /chosen, needs "/.test(src));
+  check('the submit dialog names them separately', /with the wrong number of choices/.test(src));
+  check('and the three counts partition the exam', /N - ready - incomplete/.test(src));
+  check('the card shows a running tally', /" of " \+ sel\.need \+ " chosen"/.test(src));
+  const css = readFileSync(join(here, 'styles.css'), 'utf8');
+  check('an incomplete chip is styled apart', /\.pe-pal\.incomplete/.test(css));
+  check('and survives high contrast', /nst-high-contrast \.pe-pal\.incomplete/.test(css));
+}
+pass();
+
+
 console.log('engine-test: all groups green');

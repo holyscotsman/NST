@@ -5,6 +5,59 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.71.0 — four boxes ticked on a question that said "Select 2" (2026-09-13)
+
+**A question certain to be marked wrong, shown as answered on every surface of a
+timed exam, with nothing anywhere to notice it by.**
+
+Driven in a browser on the shipped bank. A question badged `SELECT 2` accepts
+all four options. `engine.gradeAnswer()` requires an exact-size match for a
+multi-answer question, so that answer cannot score — but `engine.isAnswered()`
+is true for any non-empty array, and four surfaces used it:
+
+| surface | said |
+|---|---|
+| palette chip | the answered colour |
+| its aria-label | "Question 27, answered" |
+| the progress counter | counted it |
+| the submit dialog | "1 of 75 answered · 74 unanswered" |
+
+Nothing on the card said how many were chosen. A fourth click looked exactly
+like a second one. The mark is lost at submission and the first the person hears
+of it is the score.
+
+`engine.selectionState(q, chosen)` is new and pure, returning `need`, `have`,
+`multi` and `state` — `"empty" | "short" | "ready" | "over"`. Single-answer
+questions need one, so they are only ever empty or ready and every caller reads
+one vocabulary. `engine.isReady()` is the figure a timed sitting should be
+steered by.
+
+Now:
+
+- the card carries a running tally beside the rule — `SELECT 2` · `3 OF 2
+  CHOSEN`, in red, as a `role="status"` so it is announced
+- the palette marks a chip that cannot score apart from one that can, and its
+  aria-label says which ("3 chosen, needs 2"), so colour is never the only
+  carrier
+- the counter and the progress bar count what can actually score
+- the submit dialog names three kinds rather than two: "0 of 75 answered · 74
+  unanswered · 1 with the wrong number of choices"
+
+`isAnswered()` is unchanged and still means "did they touch this" — it is the
+right question for other callers, and the defect was asking it in the four
+places that needed the other one.
+
+engine-test gains two groups, 25 checks; palette-test gains 17 browser checks
+(14 → 31) driving a real multi-answer question through 1-of-2, 2-of-2 and
+3-of-2 and then into the submit dialog. Two `[neg]` controls state the
+relationship directly: `isAnswered` must report 2-of-2 and 4-of-2 identically,
+and `isReady` must not. Reverting turns 8 of the browser checks red, and the
+dialog goes back to reading "1 of 75 answered · 74 unanswered".
+
+ARIA was already right, incidentally: the options group is `role="group"` with
+`role="checkbox"` children and correct `aria-checked`. The semantics said
+multi-select all along; only the reporting did not.
+
 ## v2.70.0 — the cache that stopped caching the bank you were reading (2026-09-13)
 
 **A five-minute TTL enforced on read and nowhere else, so the store grew by one
