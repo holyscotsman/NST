@@ -5,6 +5,51 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.26.0 — One preference, four front-ends (2026-09-13)
+
+**No bug was found here, and none is fixed.** This is the check that would have
+answered the question in a second, written because answering it by reading took a
+browser probe and two wrong conclusions on the way.
+
+Accessibility preferences are set in one place — the launcher's Settings, into
+`localStorage` `"nst.prefs"` — and have to reach four independently-built
+front-ends, none of which express them the same way:
+
+| surface | how it says "reduced motion" |
+|---|---|
+| launcher | `<html class="nst-reduced-motion …">` |
+| Practice Exams | the same classes, its own stylesheet |
+| StarNix | `StarNix.core.profile.settings.reducedMotion` — high contrast is `colorblind` |
+| WWTBANE | `<body class="reduced-motion">`, via its own tri-state `settings.motion` |
+
+All four work. Neither game *looks* like it does: a grep for the prefs key in
+`wwtbane/*.js` finds nothing, because that game's source lives under
+`src/shell/`; and StarNix shows no class at all, because it keeps the state on a
+profile object. Both readings are wrong, and both were made here before the
+browser settled it.
+
+That is precisely the kind of cross-module contract that rots quietly. Any one of
+the four could stop reading the key and **every existing suite would still
+pass**, while somebody who needs reduced motion gets a 3D camera flight.
+
+### Added
+- **`scripts/prefs-test.mjs` (CI-gated, 28 checks).** Sets the preferences on,
+  then off, loads all four surfaces, and asserts each reflects the setting in its
+  own idiom — including that muting the launcher mutes StarNix, and that high
+  contrast arrives in StarNix under its own name.
+
+  Both directions, deliberately: a surface that simply hardcoded the accessible
+  mode would pass every "it arrives" check, so the OFF cases are what make it a
+  test. A final check asserts the two runs actually differ, so "it arrives"
+  cannot be trivially true.
+
+### Verified
+Removing WWTBANE's prefs import fails its check by name. Removing StarNix's fails
+its own — but only after `build.mjs` runs, because StarNix is served as a built
+monolith and editing the source changes nothing the test can see. The first
+attempt at that control was invalid for exactly that reason; the suite is
+ordered after the build in CI.
+
 ## v2.25.0 — When the browser refuses to store anything (2026-09-13)
 
 `NSTMastery.saveError()` has always existed. It was exported, and it was read by
