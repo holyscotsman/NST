@@ -67,6 +67,13 @@ form.inline{display:inline}
   tr{border:1px solid #24243a;border-radius:12px;padding:10px;margin-bottom:12px}
   td{border:none;padding:5px 4px}
   td.actions{padding-top:10px}
+  /* (v2.73.0) Stacking the table hides the header row, and nothing put the
+     headings back -- so an account read "never / 0 active session(s) / none"
+     and one with progress showed two identical timestamps in a row with no way
+     to tell last-seen from last-synced. display:block also strips the table
+     semantics a screen reader would have used, so this is the label for both. */
+  td[data-col]::before{content:attr(data-col);display:block;font-size:11px;
+    letter-spacing:.06em;text-transform:uppercase;color:#7E77A0;margin-bottom:2px}
 }
 `;
 
@@ -185,13 +192,13 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
         <button class="${cls}" type="submit"${confirmText ? ` formnovalidate` : ''}>${esc(label)}</button>
       </form>`;
     return `<tr>
-      <td><b>${esc(u.username)}</b>${u.display_name && u.display_name !== u.username ? `<div class="muted">${esc(u.display_name)}</div>` : ''}</td>
-      <td><span class="tag ${u.role === 'root' ? 'root' : ''}">${esc(u.role)}</span>
+      <td data-col="User"><b>${esc(u.username)}</b>${u.display_name && u.display_name !== u.username ? `<div class="muted">${esc(u.display_name)}</div>` : ''}</td>
+      <td data-col="Role"><span class="tag ${u.role === 'root' ? 'root' : ''}">${esc(u.role)}</span>
           ${u.disabled ? '<span class="tag off">disabled</span>' : ''}
           ${u.must_change ? '<span class="tag">must reset</span>' : ''}</td>
-      <td>${when(u.last_login_at)}<div class="muted">${u.active_sessions} active session(s)</div></td>
-      <td>${bytes(u.progress_bytes)}<div class="muted">${u.progress_at ? when(u.progress_at) : ''}</div></td>
-      <td class="actions">
+      <td data-col="Last seen">${when(u.last_login_at)}<div class="muted">${u.active_sessions} active session(s)</div></td>
+      <td data-col="Progress">${bytes(u.progress_bytes)}<div class="muted">${u.progress_at ? when(u.progress_at) : ''}</div></td>
+      <td class="actions" data-col="Actions">
         ${isMe ? '<span class="muted">that’s you</span>' : `
           ${act('reset', 'Reset password', 'ghost')}
           ${u.disabled ? act('enable', 'Enable', 'ghost') : act('disable', 'Disable', 'ghost')}
@@ -242,8 +249,8 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
     <h1 style="font-size:18px;margin-top:34px">Recent activity</h1>
     <table>
       <thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead>
-      <tbody>${audit.map((a) => `<tr><td>${when(a.at)}</td><td>${esc(a.actor || '—')}</td>
-        <td>${esc(a.action)}${a.detail ? ` <span class="muted">${esc(a.detail)}</span>` : ''}</td></tr>`).join('')}</tbody>
+      <tbody>${audit.map((a) => `<tr><td data-col="When">${when(a.at)}</td><td data-col="Who">${esc(a.actor || '—')}</td>
+        <td data-col="What">${esc(a.action)}${a.detail ? ` <span class="muted">${esc(a.detail)}</span>` : ''}</td></tr>`).join('')}</tbody>
     </table>` : '';
 
   return shell('Accounts', `

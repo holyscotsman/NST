@@ -341,6 +341,44 @@ try {
     ok('the console lists the accounts', /alice/.test(page.text) && /bob/.test(page.text));
     ok('the console warns that root still uses the default password', /default password/i.test(page.text));
 
+    /* (v2.73.0) On a phone the console's tables stack: `table,tr,td{display:block}`
+     * with `thead{display:none}`. Nothing put the headings back, so an account
+     * read "never / 0 active session(s) / none" -- and one WITH progress showed
+     * two identical timestamps in a row, last-seen above last-synced, with no
+     * way to tell them apart. Screenshotted at 390px before the fix.
+     *
+     * display:block also strips the table semantics a screen reader would have
+     * used to announce the column, so the per-cell label is what restores the
+     * meaning for both. Every cell needs one, or a later column is the one that
+     * goes bare. */
+    {
+      const bodyRows = page.text.split('<tr>').filter((r) => r.includes('<td'));
+      const cells = bodyRows.join('').match(/<td[^>]*>/g) || [];
+      const unlabelled = cells.filter((c) => !/data-col="/.test(c));
+      ok('every table cell in the console carries its column heading',
+        cells.length > 0 && unlabelled.length === 0,
+        `${unlabelled.length} of ${cells.length} bare: ${unlabelled.slice(0, 3).join(' ')}`);
+      ok('the accounts table labels the two that are not self-describing',
+        /data-col="Progress"/.test(page.text) && /data-col="Last seen"/.test(page.text));
+      ok('the activity table is labelled too',
+        /data-col="When"/.test(page.text) && /data-col="Who"/.test(page.text) && /data-col="What"/.test(page.text));
+      ok('and the stacked layout is what renders them',
+        /td\[data-col\]::before\{content:attr\(data-col\)/.test(page.text));
+      // [neg] the label must live INSIDE the narrow-screen media query, or it
+      // would double up with the real <thead> on a desktop.
+      const mqStart = page.text.indexOf('@media (max-width:620px)');
+      let depth = 0, mqEnd = mqStart;
+      for (let i = page.text.indexOf('{', mqStart); i < page.text.length; i++) {
+        if (page.text[i] === '{') depth++;
+        else if (page.text[i] === '}' && --depth === 0) { mqEnd = i + 1; break; }
+      }
+      const mqBlock = page.text.slice(mqStart, mqEnd);
+      ok('[neg] it is scoped to the narrow layout, not applied everywhere',
+        mqBlock.includes('data-col]::before'), mqBlock.slice(0, 60));
+      ok('[neg] and the wide layout still has a real header row to use',
+        /<thead><tr><th>User<\/th>/.test(page.text));
+    }
+
     csrf = (page.text.match(/name="csrf" value="([^"]+)"/) || [])[1];
 
     // find bob's id from the admin table reliably: the row contains his name and hidden id inputs

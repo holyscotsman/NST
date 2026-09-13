@@ -5,6 +5,124 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.73.0 — two identical timestamps and no way to tell them apart (2026-09-13)
+
+**The root console stacks its tables on a phone and hides the header row.
+Nothing put the headings back.**
+
+The console is what the user runs their deployment from, and it had never been
+looked at on a narrow screen. Screenshotted at 390px with four real accounts:
+
+```
+akhan                          jsimmonds
+Aisha Khan                     Jason Simmonds
+USER                           USER
+never                          9/13/2026 04:46 PM
+0 active session(s)            1 active session(s)
+none                           151 B
+                               9/13/2026 04:46 PM
+```
+
+`none` is the Progress column. `never` is Last seen. And on an account that has
+actually synced, two identically-formatted timestamps sit one above the other —
+the last sign-in and the last sync — with nothing to say which is which.
+
+The cause is four lines of CSS that have been right about the layout and silent
+about the meaning:
+
+```css
+@media (max-width:620px){
+  table,thead,tbody,tr,td,th{display:block}
+  thead{display:none}
+}
+```
+
+`display:block` also strips the table semantics a screen reader would have used
+to announce the column, so on a phone the headings were gone for everyone, not
+just for people looking at the screen.
+
+Every cell in both tables now carries `data-label`, rendered above its value by
+a `::before` inside the same media query — so the wide layout keeps its real
+`<thead>` and never doubles up. Measured after the fix: at 390px the header row
+is hidden and every cell renders its heading; at 1280px the header row is back
+and every `::before` computes to `none`.
+
+server-test gains 6 checks (88 → 94), asserted against the rendered page rather
+than the source: every `<td>` in the console carries a label, both tables are
+covered, and two `[neg]` controls require the rule to be scoped to the narrow
+layout and the wide layout to still have a real header row. Stripping the labels
+turns 5 red.
+
+Two suites had to move with it, and both were worth the trip. `session-test`
+matched audit rows with a literal `<td>`, so any attribute at all broke its
+parser — widened to `<td[^>]*>`. And the attribute is `data-col`, not
+`data-label`, because `label` is one of the tokens pages-test watches for
+unescaped user text: the new markup tripped that rule by name alone. Renaming
+the attribute keeps a security rule at full strength rather than teaching it an
+exception.
+
+Also in this release, a flake of this session's own making. v2.71.0 redefined
+the exam's "answered" count to mean scoreable, and `resume-test` answers each
+question with a single keypress and then asserts six chips read answered — so
+whenever the shuffle put a multi-answer question in its first six, it got five.
+About 13% of the bank is multi-answer, so it failed perhaps one run in three and
+went red on the first PR after the change. The sitting now answers each question
+the way it asks to be answered. The product was right; the fixture was measuring
+something the change had moved.
+
+The rest of the server-rendered screens were measured at 390px and 1280px in the
+same pass and are clean: sign-in, sign-up, the failed-sign-in state and the
+console itself have no horizontal overflow, no page errors, and every visible
+input is labelled and carries an `autocomplete` attribute.
+
+## v2.72.0 — the pass mark the bank sets and the exam ignored (2026-09-13)
+
+**`pass: 0.80` is the second line of the bank format. The launcher honoured it.
+Exam Mode graded every certification against a constant.**
+
+`banks/README.md`'s format section shows it as bank-level front matter,
+`bank-parser` reads it into `meta.pass`, and the launcher passes
+`bank.meta.pass` into the readiness estimate. `toStarNix()` — the only route a
+bank has into Practice Exams — dropped the field, so grading, the results
+screen's "you did not meet the N% pass bar" and the entry screen's promise all
+read `PE_CONFIG.PASS_THRESHOLD`.
+
+Measured against a bank authoring `pass: 0.70`:
+
+```
+bank authors                    0.70
+adapter carries                 (nothing — the field was not in the envelope)
+launcher readiness measures     70%
+Exam Mode grades against        80%
+```
+
+So the launcher would say "ready" at 70%, the exam would fail the same score,
+and the results screen would tell the person the bar was 80% — three surfaces,
+two numbers, one of them invented.
+
+Nothing is wrong today: neither shipped bank authors a pass mark, so both take
+the parser's 0.80 default and every surface agrees by coincidence. It goes wrong
+on the first bank that opts in, which the documented format invites and seven
+more certifications — which do not share a pass mark — make likely.
+
+The chain now carries it end to end. `toStarNix` includes `pass`;
+`engine.passMark()` reads it, validating the range and falling back to
+`PE_CONFIG.PASS_THRESHOLD` for a bank that says nothing and for harness
+fixtures that have no bank at all; `summarize()` grades against it and returns
+`passMark` alongside the verdict, so the screen reporting a result cannot name
+a different bar than the one that produced it. A mark of 0, above 1, negative or
+non-numeric falls back rather than making an exam unpassable or free.
+
+This is v2.56.0's class the other way round. That cycle closed "a field the
+pipeline cannot supply". This is a field the pipeline supplies, parses,
+documents and uses — dropped by one adapter, so the authority on pass and fail
+never saw it.
+
+engine-test gains two groups, 21 checks; adapter-test gains 2 (71 → 73). Two
+`[neg]` controls: the same 7-of-10 must pass a 70% bank and fail an 80% one, so
+the verdict is demonstrably reading the bank rather than a constant. Reverting
+the lookup turns the group red on its first check.
+
 ## v2.71.0 — four boxes ticked on a question that said "Select 2" (2026-09-13)
 
 **A question certain to be marked wrong, shown as answered on every surface of a
