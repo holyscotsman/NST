@@ -5,6 +5,48 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.20.0 — The question banks are checked now (2026-09-13)
+
+Seven more certification banks are planned, and nothing checked the ones that
+exist. `starnix/bank-lint.mjs` lints StarNix's *generated* `questions.js`; the
+Markdown banks in `/banks/` — what the runtime actually loads, and what a person
+edits by hand — had no check at all.
+
+### Added
+- **`scripts/bank-test.mjs` (CI-gated, 55 checks).** It parses every bank with
+  the **real** `shared/bank-parser.js` rather than a re-implementation, so the
+  lint and the runtime cannot disagree about what a bank means.
+
+  **The check that matters most: question ids are global.** `NSTMastery.get(id)`
+  keys on the bare id with no bank scoping, so two banks using the same id share
+  one record — answering a question in one moves the other's box, its counters
+  and its review date. Nothing reports it; the schedule just becomes quietly
+  wrong for both. Today's two banks happen not to collide because they were
+  written with different prefixes. Nothing enforced that.
+
+  Also checked: the manifest's banks all exist and belong to declared certs;
+  every cert variant resolves; no `.md` sits under `/banks/` unlisted and
+  therefore invisible; every question has a stem, two options, an answer key
+  pointing at a real option, and a domain from the bank's own declared list (a
+  typo there silently creates a one-question "domain" in the dashboard and the
+  practice focus); no explanation names an option **by letter** and no option
+  says "all of the above", both of which are wrong under the runtime's option
+  shuffling; and every exhibit image resolves. Missing explanations and
+  correct-answer-is-longest tells are reported as warnings, not failures.
+
+### The linter proves it is not vacuous
+Every check passing proves nothing on its own — a rule with a typo in it passes
+everything too. The suite ends by running **the same functions** over
+deliberately broken synthetic banks and requiring them to complain: a duplicate
+id, an explanation naming an option by letter, positional option text, and a
+domain outside the declared list.
+
+Separately, before shipping, the whole linter was driven against nine broken
+bank trees in a temp copy of the repo — including the cross-bank id collision, a
+manifest entry with no file, an orphaned bank file, a cert pointing at a missing
+bank, and an unresolvable image. All nine were caught, and a healthy pair of
+banks still passed.
+
 ## v2.19.0 — Sync says when it isn't working (2026-09-13)
 
 Having found one silent way to lose progress, I went looking for the rest in the
