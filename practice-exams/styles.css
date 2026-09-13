@@ -475,3 +475,15 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
 .pe-modecard-resume .pe-modecard-tag { color: #FFC857; }
 .pe-modecard-resume:hover { border-color: rgba(255, 200, 87, 0.85); }
 .pe-resume-discard { display: block; margin: -4px auto 18px; }
+
+/* (v2.31.0) A saved exam that could not be rebuilt. Muted, not alarming: nothing
+   the reader did caused it and nothing is required of them -- but they may have
+   arrived from the launcher looking for exactly this, and silence would be a
+   dead end. */
+.pe-resume-gone {
+  max-width: 1100px; margin: 0 auto 16px; padding: 11px 15px;
+  font-family: var(--font-ui, system-ui); font-size: 13.5px; line-height: 1.55;
+  color: rgba(255,255,255,0.72);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.16); border-radius: 10px;
+}

@@ -66,15 +66,24 @@
     /* What the entry screen needs to offer it, or null when there is nothing to
      * offer. `expired` means the clock ran out while the page was away. */
     pending: function (bankId) {
+      var raw = null;
+      try { raw = localStorage.getItem(EXAM_KEY); } catch (e) { raw = null; }
       var s = readSaved();
-      if (!s) { clearUnreadable(); return null; }
+      if (!s) {
+        clearUnreadable();
+        // Something WAS there and could not be read. The launcher may well have
+        // advertised it -- its check is necessarily shallower, since it has no
+        // engine to rebuild questions with -- and following that link to a page
+        // that silently says nothing is the dead end this reports instead.
+        return raw !== null ? { unusable: true } : null;
+      }
       // A record for another certification is not offered, but it is not junk
       // either -- switching back should still find it. Only a record this bank
       // genuinely cannot rebuild is thrown away, so nothing dead is left sitting
       // in storage that will never be offered again.
       if (bankId && s.bank && s.bank !== bankId) return null;
       var qs = rebuild(s);
-      if (!qs) { clearSaved(); return null; }
+      if (!qs) { clearSaved(); return { unusable: true }; }
       var answered = 0;
       for (var i = 0; i < s.answers.length; i++) if (engine.isAnswered(s.answers[i])) answered++;
       return {

@@ -324,6 +324,24 @@ const BANK = [
   ok('an infinite deadline is refused, not treated as forever',
     D.pendingExam(rec({ endTime: Infinity }), '', NOW) === null);
 
+  /* The launcher cannot know whether the bank still HAS these questions -- it has
+   * no engine to rebuild with -- so its check can never be complete. It can still
+   * refuse the records that are plainly broken, rather than advertising an exam
+   * the link then cannot produce. Every one of these used to be advertised. */
+  const q1 = (over) => rec({ q: [Object.assign({ id: 'a', perm: [1, 0] }, over)] });
+  ok('a well-formed permutation is advertised', !!D.pendingExam(q1(), '', NOW));
+  ok('a permutation that is not an array is refused', D.pendingExam(q1({ perm: 'xy' }), '', NOW) === null);
+  ok('an out-of-range index is refused', D.pendingExam(q1({ perm: [99, -5] }), '', NOW) === null);
+  ok('a repeated index is refused -- a permutation cannot repeat',
+    D.pendingExam(q1({ perm: [0, 0] }), '', NOW) === null);
+  ok('a one-option permutation is refused', D.pendingExam(q1({ perm: [0] }), '', NOW) === null);
+  ok('a fractional index is refused', D.pendingExam(q1({ perm: [0.5, 1] }), '', NOW) === null);
+  ok('a question with no id is refused', D.pendingExam(rec({ q: [{ perm: [0, 1] }] }), '', NOW) === null);
+  ok('an id that is not a string is refused', D.pendingExam(q1({ id: 7 }), '', NOW) === null);
+  ok('a null question entry is refused', D.pendingExam(rec({ q: [null] }), '', NOW) === null);
+  ok('one bad entry among good ones refuses the whole record -- half an exam is not the exam',
+    D.pendingExam(rec({ q: [{ id: 'a', perm: [1, 0] }, { id: 'b', perm: [5, 9] }] }), '', NOW) === null);
+
   // It is a read, not a write: nothing it is handed may be mutated.
   const obj = JSON.parse(rec());
   const before = JSON.stringify(obj);
