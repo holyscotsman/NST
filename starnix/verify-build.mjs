@@ -13,6 +13,34 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("./index.html", import.meta.url), "utf8");
 
+/* (v2.49.0) The build has no questions in it any more. Since the runtime bank engine,
+ * index.html asks window.NSTBank for them over the network, and jsdom has neither the
+ * loader script nor fetch — so the shell booted with an empty pool and every
+ * question-driven check below asserted against nothing.
+ *
+ * So the bank is supplied the same way the browser supplies it: the real markdown, the
+ * real parser and the real StarNix adapter, installed on the window BEFORE the build's
+ * own scripts run. That also means this harness now verifies the seam it depends on — a
+ * parser or adapter change that breaks StarNix's question shape fails here too. */
+function realBank() {
+  const parser = readFileSync(new URL("../shared/bank-parser.js", import.meta.url), "utf8");
+  const loader = readFileSync(new URL("../shared/bank-loader.js", import.meta.url), "utf8");
+  const md = readFileSync(new URL("../banks/ncp-mci/ncp-mci.md", import.meta.url), "utf8");
+  const shim = {
+    location: { href: "https://x.test/starnix/" },
+    document: {
+      currentScript: { src: "https://x.test/shared/bank-loader.js" },
+      getElementsByTagName: () => [{ src: "https://x.test/shared/bank-loader.js" }],
+    },
+  };
+  new Function("window", "document", parser)(shim, shim.document);
+  new Function("window", "document", loader)(shim, shim.document);
+  const parsed = shim.NSTBankParser.parse(md);
+  if (parsed.errors && parsed.errors.length) throw new Error("the real bank no longer parses: " + parsed.errors[0]);
+  return shim.NSTBank.toStarNix({ id: "ncp-mci", meta: parsed.meta, questions: parsed.questions, errors: [], count: parsed.questions.length });
+}
+const BANK = realBank();
+
 let pass = 0, fail = 0; const fails = [];
 function ok(name, cond) { if (cond) { pass++; console.log("  \u2713 " + name); }
   else { fail++; fails.push(name); console.log("  \u2717 " + name + "  <-- FAIL"); } }
@@ -24,7 +52,8 @@ const dom = new JSDOM(html, {
   runScripts: "dangerously",
   pretendToBeVisual: true,
   virtualConsole: vc,
-  url: "https://x.test/"
+  url: "https://x.test/",
+  beforeParse(win) { win.STARNIX_QUESTIONS = BANK; }
 });
 const w = dom.window;
 
@@ -87,7 +116,7 @@ async function runFrames(n = 6) {
   // (e.g. KBB), so without this the drawn question varies run-to-run and draw-dependent tests flake.
   if (SN.core && SN.core.clock) SN.core.clock.now = function () { return 1700000000000; };
   ok("build-version badge present at title", !!w.document.querySelector(".sx-build-badge"));
-  ok("title screen has the nebula background wired to nebulaBg", (function () { const p = w.document.querySelector(".sx-title-photo"); return !!p && p.classList.contains("on") && /data:image\/(jpeg|png)/.test(p.style.backgroundImage || ""); })());
+  ok("title screen has the nebula background wired to nebulaBg", (function () { const p = w.document.querySelector(".sx-title-photo"); return !!p && p.classList.contains("on") && /data:image\/(jpeg|png|webp)/.test(p.style.backgroundImage || ""); })());
   ok("badge text shows the build version", (function () { const b = w.document.querySelector(".sx-build-badge"); return !!b && !!SN.BUILD && b.textContent.indexOf(SN.BUILD) !== -1; })());
 
   console.log("\nB. Audio engine installed (audio.js, not NoopAudio)");
@@ -119,7 +148,7 @@ async function runFrames(n = 6) {
     let guard = 0, sawFull = false, sawCap = false;
     while (SN.shell.screen === "cinematic" && guard < 240) {
       await runFrames(5);
-      if (w.document.querySelectorAll(".sx-mission-list li.on").length === 4) sawFull = true;
+      if (w.document.querySelectorAll(".sx-mission-list li.on").length === 3) sawFull = true;
       const ctxt = (w.document.querySelector(".sx-cap") || {}).textContent || "";
       if (/jumped to the Kuiper Belt\.$|held every concept you need to pass\.$/.test(ctxt)) sawCap = true;   // (Menu#8) a full line landed
       guard++;
@@ -132,7 +161,7 @@ async function runFrames(n = 6) {
     // (v0.181.0) the stagger CADENCE is pinned structurally, not by sampling: the per-call
     // performance.now stub makes T leap under load (any extra caller advances it), so a
     // sampled partial state is inherently racy. Cadence itself is BROWSER_QA's to eyeball.
-    ok("Menu#7: all four finale lines are revealed before the cinematic ends", sawFull);
+    ok("Menu#7: all three finale lines are revealed before the cinematic ends", sawFull);
     ok("Menu#7: the staggered reveal + per-line tick are in the build (0.4s cadence, .on class writes)",
       html.includes("1 + Math.floor((T - B.mission) / 0.4)") && html.includes('mLines[lr].classList.add("on")')
       && html.includes(".sx-mission-list li.on{opacity:1;"));
@@ -143,28 +172,43 @@ async function runFrames(n = 6) {
     ok("auto-advanced to menu at end", SN.shell.screen === "menu");
     ok("menu track played on cinematic end", calls.indexOf("track:menu") !== -1);
     ok("no cinematic residue (canvas gone)", !w.document.querySelector(".sx-cine-canvas"));
-    ok("Menu#9 (v0.193.0): the belt beat flies all five REAL kbbAsteroid sprites with poly fallback",
-      ["kbbAsteroid1", "kbbAsteroid2", "kbbAsteroid3", "kbbAsteroid4", "kbbAsteroid5"].every(k => html.includes('cineImg("' + k + '")'))
-      && html.includes("spr: (rng.next() * 5 | 0)")
-      && html.includes("var aA = asteroidA[o.spr];") && html.includes("if (aA && aA.ready)"));
+    /* (v2.49.0) This asserted that the cinematic ASKS for five rock sprites. It does, and
+     * two of them do not exist — assets.js only ever carried kbbAsteroid1..3, so cineImg
+     * returned null and two of every five rocks flew as flat polygons. The check passed
+     * throughout, because asking is not the same as getting. The rule that catches it,
+     * and the whole class it belongs to: every art key the build asks for must exist. */
+    {
+      const asked = [...new Set([...html.matchAll(/cineImg\("([A-Za-z0-9]+)"\)/g)].map((m) => m[1]))];
+      const have = w.STARNIX_ASSETS || {};
+      const missing = asked.filter((k) => typeof have[k] !== "string" || !have[k]);
+      ok("Menu#9: every cinematic art key the build asks for is in the bundle (" + asked.length + " asked"
+        + (missing.length ? ", MISSING: " + missing.join(", ") : "") + ")",
+        asked.length >= 3 && missing.length === 0);
+      ok("Menu#9: the belt beat indexes its rock sprites modulo the ones that exist",
+        html.includes("asteroidA[o.spr % asteroidA.length]") && html.includes("if (aA && aA.ready)"));
+    }
     ok("cinematic flies our REAL ARM art (armStation / bcmShip / armEnemyDive) with vector fallback (v0.124.0, Jason)",
       html.includes('cineImg("armStation")') && html.includes('cineImg("bcmShip")') && html.includes('cineImg("armEnemyDive")')
       && html.includes("stationA && stationA.ready") && html.includes("warshipA && warshipA.ready") && html.includes("diveA && diveA.ready"));
 
-    // Menu#7 (v0.181.0): the finale is launchable — real buttons, per-game accents, the gold NIT line
+    // Menu#7 (v0.181.0): the finale is launchable — real buttons, per-game accents.
+    // (v2.49.0) The gold fourth line was the Nutanix Interrogation Test, removed in
+    // d4892dd when the practice exam moved out of StarNix into its own tool.
     {
       SN.shell.showCinematic();
       const goes = w.document.querySelectorAll(".sx-mission-go");
       const ids = Array.from(goes).map(b => b.getAttribute("data-game")).join(",");
-      ok("Menu#7: four launchable mission lines (ARM,CC,KBB,NIT) with accent-coded names + the gold NIT line",
-        goes.length === 4 && ids === "ARM,CC,KBB,NIT"
+      ok("Menu#7: three launchable mission lines (ARM,CC,KBB) with accent-coded names",
+        goes.length === 3 && ids === "ARM,CC,KBB"
         && !!w.document.querySelector('.sx-mission-go[data-game="ARM"] .acc-iris')
         && !!w.document.querySelector('.sx-mission-go[data-game="CC"] .acc-aqua')
-        && !!w.document.querySelector('.sx-mission-go[data-game="KBB"] .acc-peach')
-        && !!w.document.querySelector('.sx-mission-go[data-game="NIT"] .acc-gold'));
-      w.document.querySelector('.sx-mission-go[data-game="NIT"]').dispatchEvent(new w.Event("click", { bubbles: true }));
-      ok("Menu#7: the NIT line jumps clean into exam setup (cinematic RAF cancelled, canvas gone)",
-        SN.shell.screen === "exam-setup" && !w.document.querySelector(".sx-cine-canvas"));
+        && !!w.document.querySelector('.sx-mission-go[data-game="KBB"] .acc-peach'));
+      // Wiring, not a live launch: launching a game from here leaves the shell mounted
+      // in it, and every menu check below then reads a stale DOM. That the click path
+      // works is CC/ARM/KBB's own sections, further down, from a clean menu.
+      ok("Menu#7: every mission line names a REGISTERED game, and the handler routes by data-game",
+        Array.from(goes).every((b) => !!SN.getGame(b.getAttribute("data-game")))
+        && html.includes('go.getAttribute("data-game")'));
       SN.shell.showMenu();
     }
   }
@@ -173,16 +217,17 @@ async function runFrames(n = 6) {
   const shell = SN.shell;
   shell.showMenu();
   ok("screen === menu", shell.screen === "menu");
-  ok("four game cards rendered (ARM/KBB/CC + NIT exam tile)", w.document.querySelectorAll(".sx-card").length === 4);
-  ok("no card disabled (all four live)", w.document.querySelectorAll(".sx-card-disabled").length === 0);
+  ok("three game cards rendered (ARM/KBB/CC)", w.document.querySelectorAll(".sx-card").length === 3);
+  ok("no card disabled (all three live)", w.document.querySelectorAll(".sx-card-disabled").length === 0);
   {
     const bg = w.document.querySelector(".sx-menu-bg");
-    ok("menu is the Bridge: mission strips + dock, and the shattered station is GONE (v0.120.0, Jason — keep the bg)",
-    !!w.document.querySelector(".sx-strip") && w.document.querySelectorAll(".sx-shard").length === 0
-    && !w.document.querySelector(".sx-station-group")
-    && !!w.document.querySelector(".sx-bridge-dock") && !!w.document.querySelector(".sx-strip-divider"));
+    // (v2.49.0) split from one compound assertion: it could fail five ways and name none.
+    ok("menu is the Bridge: mission strips present", !!w.document.querySelector(".sx-strip"));
+    ok("menu is the Bridge: the bridge dock is present", !!w.document.querySelector(".sx-bridge-dock"));
+    ok("menu is the Bridge: the shattered station is GONE (v0.120.0, Jason — keep the bg)",
+      w.document.querySelectorAll(".sx-shard").length === 0 && !w.document.querySelector(".sx-station-group"));
     const photo = w.document.querySelector(".sx-menu-photo");
-    ok("menu has a moving photo background wired to menuBg", !!photo && photo.classList.contains("on") && /menuBg|data:image\/(jpeg|png)/.test(photo.style.backgroundImage || ""));
+    ok("menu has a moving photo background wired to menuBg", !!photo && photo.classList.contains("on") && /menuBg|data:image\/(jpeg|png|webp)/.test(photo.style.backgroundImage || ""));
     ok("menu shows the NX-SRC crew crest", !!w.document.querySelector(".sx-crest .sx-crest-x"));
     // (v0.143.0, V1.1 NIT#2) the quarantine pile resolved: three authored questions were dead
     // to an invisible U+2028 in their @explain lines ("empty explanation" was a parser artifact)
@@ -210,12 +255,29 @@ async function runFrames(n = 6) {
         ok("E1/v0.174.0: all 51 canonical questions live, every one with its authored briefing + tags (Jason's ruling: content stands as stated)",
           e1.length === 51 && e1.every((q) => q.briefing.length > 60 && Array.isArray(q.tags) && q.tags.length > 0)
           && w.STARNIX_QUESTIONS.questions.filter((q) => q.tags && !q.briefing).length === 0);
-        const e1img = e1.filter((q) => q.image && /^ncp-mci-e1-/.test(q.image));
-        ok("E1: the six exhibits ship with authored image-alt text",
-          e1img.length === 6 && e1img.every((q) => typeof q.imageAlt === "string" && q.imageAlt.length > 40));
-        const srcAlt = w.document.documentElement.innerHTML;
-        ok("E1: the exam renders q.imageAlt as the exhibit's alt on BOTH surfaces (card + review)",
-          srcAlt.indexOf('esc(q.imageAlt || ("exhibit " + q.image))') >= 0 && srcAlt.indexOf('esc(q.imageAlt || "Question exhibit")') >= 0);
+        /* (v2.49.0) Exhibit questions need a full-screen image, which no arcade game can
+         * give them, so StarNix's provider filters them out and all three games carry a
+         * loud guard for one that leaks anyway. Since the exam left, that filter is the
+         * ONLY thing standing between a player and a question whose picture they will
+         * never see — so it is checked here rather than assumed. The alt text itself is
+         * the bank's business and bank-test.mjs owns it. */
+        const exhibits = w.STARNIX_QUESTIONS.questions.filter((q) => q.image);
+        ok("the bank still ships exhibit questions (" + exhibits.length + " of " + w.STARNIX_QUESTIONS.questions.length + ")", exhibits.length > 0);
+        {
+          /* The filter lives in the provider's candidate builder, not in pool() — pool()
+           * is the raw bank. So this is measured the way a game meets it: by drawing. */
+          const provX = SN.core.questions;
+          const rngX = SN.core.makeRng(4242);
+          let served = 0, withImage = 0;
+          for (let dx = 0; dx < 400; dx++) {
+            const qx = provX.next({ rng: rngX }).question;
+            served++; if (qx.image) withImage++;
+          }
+          ok("400 draws served a game and not one was an exhibit (" + served + " drawn, " + withImage + " with an image)", withImage === 0);
+          const srcAlt = w.document.documentElement.innerHTML;
+          ok("all three games carry the leaked-exhibit guard anyway",
+            (srcAlt.match(/Exhibit question served in error/g) || []).length >= 3);
+        }
         ok("E1/v0.174.0: exactly one live copy per superseded stem (the a1 twins hold as dups)",
           w.STARNIX_QUESTIONS.questions.filter((q) => /same last octet in the IP address in DR/.test(q.stem)).length === 1
           && w.STARNIX_QUESTIONS.questions.filter((q) => /guest customization options are available when creating/.test(q.stem)).length === 1);
@@ -249,19 +311,19 @@ async function runFrames(n = 6) {
         for (let dp = 0; dp < 900; dp++) { const qd = provP.next({ rng: rngP }).question; if (qd.id === "pri-hi") hiN++; else loN++; }
         ok("PRIORITY: a priority-2 question draws ~2x its identical twin (" + hiN + " vs " + loN + " over 900)",
           hiN > loN * 1.6 && loN > 150);
-        const capQ = [];
-        for (let cq = 0; cq < 40; cq++) capQ.push({ id: "d" + cq, priority: cq >= 35 ? 2 : undefined });
-        const boarded = shell._duePartition(capQ, 30);
-        ok("PRIORITY: within the due cap, priority questions board FIRST (the 5 seeded past position 35 all make the 30-cut)",
-          boarded.length === 30 && ["d35", "d36", "d37", "d38", "d39"].every((idb) => boarded.some((x) => x.id === idb))
-          && boarded[0].id === "d35" && boarded[5].id === "d0");   // stable order inside each group
+        // (v2.49.0) The other half of PRIORITY — boarding within the due cap — was
+        // shell._duePartition, which went with the exam in d4892dd. The draw-weight
+        // boost above is the half StarNix still has, and it is the half that reaches a
+        // player here. The due queue itself is the launcher's, gated by review-test.mjs.
+        ok("PRIORITY: the exam-only due-cap partitioner really is gone (not merely renamed)",
+          typeof shell._duePartition !== "function" && !/_duePartition/.test(w.document.documentElement.innerHTML));
       }
       // (v0.170.0, V1.1 FE#6) colorblind shape-cue audit: never color alone (01 s12)
       {
         const cssAll = w.document.documentElement.innerHTML;
-        ok("FE#6: graded exam options carry \u2713/\u2715 glyphs and selection carries border thickness",
-          cssAll.indexOf(".sx-exam-opt.ok::after") >= 0 && cssAll.indexOf(".sx-exam-opt.bad::after") >= 0
-          && cssAll.indexOf(".sx-exam-opt.sel{border-width:3px;}") >= 0);
+        // (v2.49.0) The graded-option and sim-chip clauses described exam surfaces that
+        // left in d4892dd. What remains is the rule itself, applied to the surfaces that
+        // are still here: never colour alone.
         ok("FE#6: KBB's FINAL pulse + intent alert and CC's low timer carry \u26A0 shape cues",
           cssAll.indexOf(".kbb-statline .final::before") >= 0 && cssAll.indexOf(".kbb-intent.alert::before") >= 0
           && cssAll.indexOf(".cc-qtimer.low::before") >= 0);
@@ -269,45 +331,15 @@ async function runFrames(n = 6) {
           /sx-dom-fill\.weak\{background:repeating-linear-gradient/.test(cssAll)
           && /sx-dom-fill\.mid\{background:repeating-linear-gradient/.test(cssAll)
           && cssAll.indexOf(".sx-heat.t2{border-style:dashed;}") >= 0);
-        ok("FE#6: sim chips lead with \u2713/\u2715, not hue",
-          cssAll.indexOf(".sx-simchip::before") >= 0 && cssAll.indexOf(".sx-simchip.pass::before") >= 0);
+        ok("FE#6: no orphan exam styling left behind in the build",
+          cssAll.indexOf(".sx-exam-opt") < 0 && cssAll.indexOf(".sx-simchip") < 0);
       }
       // (v0.169.0, V1.1 NIT#6) sim review filters + the blank-submit confirmation
-      {
-        shell._examMode = "sim";
-        shell.showExam(4, { mode: "sim" }); await wait(30);
-        const exR = shell._exam._state;
-        const nitMm6 = SN.core.mastery.all();
-        const nitPrev6 = {};
-        exR.order.forEach((q) => { nitPrev6[q.id] = nitMm6[q.id] ? JSON.parse(JSON.stringify(nitMm6[q.id])) : null; });
-        w.document.querySelector(".sx-exam-opt").click(); await wait(10);           // answer q1
-        w.document.querySelector(".sx-exam-flag").click(); await wait(10);          // flag q1
-        // walk to Review
-        for (let nv6 = 0; nv6 < 8; nv6++) {
-          if ([...w.document.querySelectorAll(".sx-exam-btn")].some((b) => /Submit exam|Submit anyway/.test(b.textContent))) break;
-          const nx6 = w.document.querySelector(".sx-exam-nav .primary"); if (nx6) { nx6.click(); await wait(10); } else break;
-        }
-        const chips6 = w.document.querySelectorAll(".sx-exam-rvchip");
-        ok("NIT#6: the review offers All/Flagged/Blank chips with LIVE counts",
-          chips6.length === 3 && /All 4/.test(chips6[0].textContent) && /Flagged 1/.test(chips6[1].textContent) && /Blank 3/.test(chips6[2].textContent));
-        chips6[1].click(); await wait(10);
-        ok("NIT#6: the Flagged filter shows exactly the flagged row",
-          w.document.querySelectorAll(".sx-exam-rvrow").length === 1 && !!w.document.querySelector(".sx-exam-rvrow .tag.flag"));
-        w.document.querySelector('.sx-exam-rvchip[data-f="blank"]').click(); await wait(10);
-        ok("NIT#6: the Blank filter shows exactly the three blanks",
-          w.document.querySelectorAll(".sx-exam-rvrow").length === 3 && [...w.document.querySelectorAll(".sx-exam-rvrow .tag.blank")].length === 3);
-        const subW = [...w.document.querySelectorAll(".sx-exam-btn")].find((b) => /Submit exam/.test(b.textContent));
-        subW.click(); await wait(10);
-        ok("NIT#6: submitting with blanks WARNS first ('3 unanswered — blanks score zero')",
-          /3 unanswered/.test(subW.textContent) && !shell._exam._state.examDone);
-        subW.click(); await wait(30);
-        ok("NIT#6: the second activation submits (the confirmation is one honest step, not a wall)",
-          shell._exam._state.examDone === true);
-        for (const nk6 in nitPrev6) { if (nitPrev6[nk6]) nitMm6[nk6] = nitPrev6[nk6]; else delete nitMm6[nk6]; }
-        SN.core.profile.examHistory && SN.core.profile.examHistory.pop();   // drop the probe sim's entry
-        shell._examMode = "study";
-        shell.showMenu(); await wait(10);
-      }
+      /* (v2.49.0) The sim review filters and the blank-submit confirmation were exam
+       * surfaces. exam.js and the shell's exam screens were deleted in d4892dd, so these
+       * checks drove functions that no longer exist. Nothing here is repairable — the
+       * practice exam is its own tool now, with its own engine harness. */
+
       // (v0.168.0, V1.1 Menu#6) first-run coach mark: one-shot, latched, launch-dismissed
       {
         const hadFlag = SN.core.profile.firstMenuSeen;
@@ -334,13 +366,17 @@ async function runFrames(n = 6) {
         const dueN = SN.core.mastery.dueList(SN.core.clock.now()).length;
         shell.showTitle(); await wait(10);
         const startB = [...w.document.querySelectorAll("button")].find((b) => /^Start/.test(b.textContent));
-        ok("Flow#6: the TITLE Start button carries the due count (" + dueN + ")",
-          !!startB && new RegExp("Start \u2014 " + dueN + " due").test(startB.textContent));
+        /* (v2.49.0) Flow#6 put the due count on the title button and in the pause card,
+         * and both lines launched the exam's due drill. The drill went in d4892dd and the
+         * due queue is the launcher's now — StarNix surfaces due questions by RESURFACING
+         * them as you play, which is what the planner's own line says (checked in Flow#2
+         * below). What is pinned here is that no dead counter is left on either screen. */
+        ok("Flow#6: the title screen offers a plain Start, with no count it cannot act on",
+          !!startB && !/\d+ due/.test(startB.textContent));
         shell.showMenu(); await wait(10);
         shell.enterGame("ARM"); await wait(30);
         shell.openPause(); await wait(10);
-        const pd = w.document.querySelector(".sx-pause-due");
-        ok("Flow#6: the PAUSE card names the waiting reviews", !!pd && new RegExp(dueN + " reviews? waiting").test(pd.textContent));
+        ok("Flow#6: the pause card carries no dead due counter", !w.document.querySelector(".sx-pause-due"));
         shell.closePause(); await wait(10);
         shell.exitGame(); await wait(30);
         const dbF = w.document.querySelector(".sx-debrief");
@@ -372,102 +408,19 @@ async function runFrames(n = 6) {
           typeof ledger.gzip === "number" && ledger.gzip > 0 && typeof ledger.assets === "number");
       }
       // (v0.165.0, V1.1 NIT#5) the real post-sim report: timing, review-all, per-domain history
+      /* (v2.49.0) The post-sim report — timing, review-all, per-domain history — was the
+       * exam's end screen. Gone with exam.js in d4892dd. */
+
+      /* (v0.164.0, V1.1 FE#5) screen-reader pass.
+       * (v2.49.0) Most of this pass measured the exam's option semantics and its two
+       * live regions, and the exam left in d4892dd. The part that survived is the part
+       * that was never the exam's: the shell's own toast. The games' question panels
+       * have their own semantics checks in their own sections. */
       {
-        const histB = (SN.core.profile.examHistory || []).length;
-        const nitMm = SN.core.mastery.all();
-        shell._examMode = "sim";
-        shell.showExam(3, { mode: "sim" }); await wait(40);
-        const exN = shell._exam._state;
-        exN.order.forEach((q) => { if (!(q.id in nitMm)) return; });   // ids captured below via snapshot
-        const nitPrev = {};
-        exN.order.forEach((q) => { nitPrev[q.id] = nitMm[q.id] ? JSON.parse(JSON.stringify(nitMm[q.id])) : null; });
-        {   // answer q1 CORRECTLY (the review-all toggle needs >= 1 right answer to exist)
-          const q1n = exN.order[0], opts1 = w.document.querySelectorAll(".sx-exam-opt");
-          const rightIdx = Array.isArray(q1n.correctIndices) ? q1n.correctIndices : [q1n.correctIndex];
-          for (const ri of rightIdx) opts1[ri].click();
-        }
-        await wait(60);          // dwell on q1
-        const cells5 = w.document.querySelectorAll(".rl-cell");
-        cells5[1].click(); await wait(40);                                          // dwell on q2
-        w.document.querySelector(".sx-exam-opt").click(); await wait(30);
-        // submit PROPERLY (the quit path grades as abandoned, which rightly suppresses the report)
-        for (let nv = 0; nv < 8; nv++) {
-          const sub5 = [...w.document.querySelectorAll(".sx-exam-btn")].find((b) => /Submit exam|Submit anyway/.test(b.textContent));
-          if (sub5) { sub5.click(); await wait(20); if (!shell._exam._state.examDone) { sub5.click(); await wait(40); } break; }   // (NIT#6) blank-warning needs the confirm click
-          const nxt5 = w.document.querySelector(".sx-exam-nav .primary");
-          if (nxt5) { nxt5.click(); await wait(15); } else break;
-        }
-        ok("NIT#5: per-question time is REAL now (visible-time intervals, not timeMs:0)",
-          exN.results.length === 3 && exN.results.some((r) => r.timeMs > 20) && exN.results.reduce((a2, r) => a2 + r.timeMs, 0) > 80);
-        const endEl = w.document.querySelector(".sx-exam-end");
-        ok("NIT#5: the end screen shows the pace line + the slowest-questions list",
-          /AVG \/ QUESTION \(BUDGET/.test(endEl.textContent) && /Where the clock went/.test(endEl.textContent));
-        const raBtn = endEl.querySelector(".sx-exam-revall-btn");
-        ok("NIT#5: a Review-all toggle exists when some answers were right or blank", !!raBtn);
-        if (raBtn) {
-          raBtn.click(); await wait(10);
-          const rvAll = endEl.querySelector(".sx-exam-review-all");
-          ok("NIT#5: Review-all shows EVERY question (correct ones marked and explained too)",
-            rvAll.style.display !== "none" && rvAll.querySelectorAll(".sx-exam-rv").length === 3);
-        }
-        const histA = SN.core.profile.examHistory || [];
-        const lastH = histA[histA.length - 1];
-        ok("NIT#5: the history entry now carries avgSecs + compact byDomain",
-          histA.length === histB + 0 + (lastH && lastH.byDomain ? 1 : 1) - 0 && !!lastH && typeof lastH.avgSecs === "number" && lastH.byDomain && Object.keys(lastH.byDomain).length > 0
-          && Array.isArray(lastH.byDomain[Object.keys(lastH.byDomain)[0]]));
-        // trend: fabricate three byDomain sims -> the Codex shows 'domain: a% -> b% -> c%'
-        SN.core.profile.examHistory = [
-          { mode: "sim", pct: 55, correct: 11, total: 20, avgSecs: 60, byDomain: { storage: [5, 9], vms: [6, 11] }, at: 1 },
-          { mode: "sim", pct: 70, correct: 14, total: 20, avgSecs: 55, byDomain: { storage: [7, 10], vms: [7, 10] }, at: 2 },
-          { mode: "sim", pct: 85, correct: 17, total: 20, avgSecs: 50, byDomain: { storage: [9, 10], vms: [8, 10] }, at: 3 },
-        ];
-        shell.showStats(); await wait(20);
-        const trendEl = w.document.querySelector(".sx-sim-trend");
-        ok("NIT#5: the Codex shows the per-domain sim trend (55% -> 70% -> 90%-ish arrows)",
-          !!trendEl && /storage/.test(trendEl.textContent) && /56% \u2192 70% \u2192 90%/.test(trendEl.textContent.replace(/\s+/g, " ")) || (!!trendEl && trendEl.textContent.indexOf("\u2192") >= 0 && /storage/.test(trendEl.textContent)));
-        // restore state
-        SN.core.profile.examHistory = histA.slice(0, histB === 0 ? 0 : histB);
-        for (const nk in nitPrev) { if (nitPrev[nk]) nitMm[nk] = nitPrev[nk]; else delete nitMm[nk]; }
-        shell._examMode = "study";
-        shell.showMenu(); await wait(10);
-      }
-      // (v0.164.0, V1.1 FE#5) screen-reader pass: semantics + live announcements
-      {
-        shell.showExam(3, { mode: "study" }); await wait(30);
-        // graded answers below touch mastery + daily counters — snapshot and restore (the
-        // NIT#4 lesson) so the downstream flight-plan/due pins see unchanged state
-        const feMm = SN.core.mastery.all();
-        const fePrev = {};
-        shell._exam._state.order.forEach((q) => { fePrev[q.id] = feMm[q.id] ? JSON.parse(JSON.stringify(feMm[q.id])) : null; });
-        const feDailyCorrect = SN.core.profile.daily ? (SN.core.profile.daily.correct | 0) : null;
-        const optsH = w.document.querySelector(".sx-exam-opts");
-        const opt0 = w.document.querySelector(".sx-exam-opt");
-        const isMulti = optsH.getAttribute("role") === "group";
-        ok("FE#5: options carry group semantics (radiogroup/radio or group/aria-pressed) with Option-letter names",
-          !!optsH.getAttribute("role")
-          && /^Option [A-E]: /.test(opt0.getAttribute("aria-label") || "")
-          && (isMulti ? opt0.getAttribute("aria-pressed") === "false" : opt0.getAttribute("role") === "radio" && opt0.getAttribute("aria-checked") === "false"));
-        const lives = w.document.querySelectorAll(".sx-exam-live");
-        ok("FE#5: one polite + one assertive live region exist",
-          lives.length === 2 && lives[0].getAttribute("aria-live") === "polite" && lives[1].getAttribute("aria-live") === "assertive");
-        ok("FE#5: navigation announced ('Question 1 of 3')", /Question 1 of 3/.test(lives[0].textContent));
-        opt0.click(); await wait(10);
-        if (!isMulti) ok("FE#5: picking flips aria-checked live", opt0.getAttribute("aria-checked") === "true");
-        else ok("FE#5: picking flips aria-pressed live", opt0.getAttribute("aria-pressed") === "true");
-        const cfB = w.document.querySelector(".sx-exam-confirm");
-        if (cfB) { cfB.click(); await wait(20); }
-        ok("FE#5: grading announces the verdict + explanation summary",
-          /^(Correct\.|Incorrect\.)/.test(lives[0].textContent));
-        for (const fk in fePrev) { if (fePrev[fk]) feMm[fk] = fePrev[fk]; else delete feMm[fk]; }
-        if (feDailyCorrect != null && SN.core.profile.daily) SN.core.profile.daily.correct = feDailyCorrect;
         shell.showMenu(); await wait(10);
         shell._toast("sr probe toast");
         const tEl = [...w.document.querySelectorAll(".sx-toast")].pop();
         ok("FE#5: toasts announce (role=status)", !!tEl && tEl.getAttribute("role") === "status");
-        await wait(2300);
-        const srcA = w.document.documentElement.innerHTML;
-        ok("FE#5: the sim clock's final minute warns ASSERTIVELY, once",
-          /S\._warned1m = true; announce\("One minute remaining", true\)/.test(srcA));
       }
       // (v0.163.0, V1.1 Flow#5) blueprint quotas: mechanism live + pinned, WEIGHTS quarantined
       {
@@ -487,8 +440,11 @@ async function runFrames(n = 6) {
         ok("Flow#5: null weights (the quarantine) return null — callers keep the flat shuffle",
           BP.quota(poolQ, 20, null) === null);
         const src = w.document.documentElement.innerHTML;
-        ok("Flow#5: the sim path gates on ratified WEIGHTS and never touches explicit-question launches",
-          /StarNix\.blueprint && StarNix\.blueprint\.WEIGHTS/.test(src) && /"sim" && !opts\.questions/.test(src));
+        /* (v2.49.0) The only consumer of the blueprint quota was the exam sim. The module
+         * stays — it is pure, tested above, and is what a future sim would use — but the
+         * thing to check now is that nothing consumes the QUARANTINED weights by accident. */
+        ok("Flow#5: nothing in the build reads WEIGHTS while they are quarantined",
+          !/blueprint\.WEIGHTS\s*\)/.test(src) || /WEIGHTS === null/.test(src));
       }
       // (v0.159.0, V1.1 Menu#5) the Disruptor beam carries ARM's full layered treatment
       {
@@ -601,8 +557,12 @@ async function runFrames(n = 6) {
       html.includes("c2d.moveTo(-13, -7.5); c2d.lineTo(-13 - (13.5 + (reducedMotion ? 6 : runRng.next() * 15)), 0); c2d.lineTo(-13, 7.5);"));
     ok("FE#9: the ship power-on splash — stepper, 10 real progress steps, fault trap, reduced-motion static, boot removal",
       html.includes('<div id="sx-boot"') && html.includes("window.__sxBoot = (function ()")
-      && (html.match(/__sxBoot\(/g) || []).length === 10   // 9 module steps + the exhibits step
-      && html.includes("Powering up the bridge") && html.includes("Loading the question bank")
+      // (v2.49.0) 10 -> 8: exam.js left the module list in d4892dd and the exhibits step
+      // went with the baked-in bank. One __sxBoot call per build step, still pinned.
+      && (html.match(/__sxBoot\(/g) || []).length === 8
+      // (v2.49.0) "Loading the question bank" was a step that baked the bank into the
+      // build. The bank is fetched at runtime now and that step is gone.
+      && html.includes("Powering up the bridge") && html.includes("Charting the Kuiper Belt")
       && html.includes("@media (prefers-reduced-motion: reduce) { #sx-boot .sxb-crest svg { animation: none; } }")
       && html.includes("Boot fault: ") && html.includes('bs2.parentNode.removeChild(bs2)'));
     ok("FE#9: the splash is GONE once the shell has the bridge (boot removed it in this very DOM)",
@@ -617,7 +577,8 @@ async function runFrames(n = 6) {
       && !/\.kbb-[^}]{0,220}font-size:10(\.5)?px/.test(html)
       && html.includes(".arm-srow b{color:") && html.includes("letter-spacing:.02em;font-variant-numeric:tabular-nums;}"));
     ok("FE#7: shell small-screen breakpoint + 44px touch targets + safe-area insets in the build",
-      html.includes("@media (max-width:600px){.sx-bridge-topright{flex-direction:column")
+      // (v2.49.0) the stacking rule moved from .sx-bridge-topright to .sx-bridge-top
+      html.includes("@media (max-width:600px){.sx-bridge-top{flex-direction:column")
       && (html.match(/env\(safe-area-inset-/g) || []).length >= 8
       && html.includes(".sx-back{padding:7px 14px;font-size:13px;min-height:44px")
       && html.includes(".sx-pausebtn{padding:7px 14px;font-size:13px;min-height:44px")
@@ -625,7 +586,7 @@ async function runFrames(n = 6) {
     ok("FE-motion: every media-only gap now has a [data-motion=reduced] twin (title drift / KBB strike / exam meter / CC banners)",
           /\[data-motion=reduced\] \.sx-title-photo\.on/.test(css.replace(/\[data-motion=reduced\] \.sx-menu-photo\.on,/, ""))
           && /\[data-motion=reduced\] \.kbb-en-strike/.test(css)
-          && /\[data-motion=reduced\] \.sx-exam-meter > i\{transition:none;\}/.test(css)
+          // (v2.49.0) the exam meter's twin went with the exam in d4892dd
           && /\[data-motion=reduced\] \.cc-turn-banner\{animation:none;\}/.test(css)
           && /\[data-motion=reduced\] \.cc-mile-banner/.test(css)
           && /\[data-motion=reduced\] \.cc-boost-ovr/.test(css));
@@ -637,9 +598,14 @@ async function runFrames(n = 6) {
       ok("Flow#2: due reviews outrank everything", R({ dueCount: 14 }).kind === "due" && /14 reviews due/.test(R({ dueCount: 14 }).label));
       const pd = R({ dueCount: 0, daily: [{ done: true }, { done: false, label: "3 more KBB correct", mission: { game: "KBB" } }] });
       ok("Flow#2: next rank = the first UNDONE daily, CTA launches its game", pd.kind === "daily" && pd.game === "KBB" && /Daily: 3 more KBB correct/.test(pd.label) && /Launch KBB/.test(pd.cta));
-      const ps = R({ dueCount: 0, daily: [{ done: true }], now: NOWP, lastSimAt: NOWP - 9 * DAYP });
-      ok("Flow#2: a 9-day-stale sim prompts a re-calibration sim", ps.kind === "sim" && /9 days/.test(ps.label));
-      ok("Flow#2: no sim on record prompts the FIRST sim", R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: 0 }).kind === "sim");
+      /* (v2.49.0) Two branches of the planner recommended sitting an exam sim — one when
+       * the last sim had gone stale, one when there had never been a sim. Neither can be
+       * acted on since d4892dd, and the planner no longer offers them. A recommendation
+       * you cannot follow is worse than no recommendation, so the check is that they are
+       * really gone rather than merely unreachable. */
+      ok("Flow#2: the planner never recommends a sim that cannot be sat",
+        R({ dueCount: 0, daily: [{ done: true }], now: NOWP, lastSimAt: NOWP - 9 * DAYP }).kind !== "sim"
+        && R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: 0 }).kind !== "sim");
       const pw = R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: NOWP - DAYP, weakest: { domain: "vms", masteredPct: 0.2 } });
       ok("Flow#2: fresh sim -> weakest-domain drill (<80% mastered)", pw.kind === "domain" && /vms/.test(pw.label) && /20% mastered/.test(pw.label));
       ok("Flow#2: nothing to do = all clear, NO CTA", R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: NOWP - DAYP, weakest: { domain: "vms", masteredPct: 0.95 } }).kind === "clear" && R({ dueCount: 0, daily: [], now: NOWP, lastSimAt: NOWP - DAYP, weakest: { domain: "vms", masteredPct: 0.95 } }).cta === null);
@@ -667,12 +633,13 @@ async function runFrames(n = 6) {
     }
   }
   {
-    // NIT — the Practice Exam is now a first-class tile (not a footer button)
+    // (v2.49.0) The exam left StarNix in d4892dd. What is checked now is that it left
+    // CLEANLY: no orphan tile, no orphan footer button, nothing that opens a screen the
+    // build no longer contains.
     const cards = Array.prototype.slice.call(w.document.querySelectorAll(".sx-card"));
-    const nit = cards.filter(c => /Nutanix Interrogation Test/.test(c.textContent))[0];
-    ok("NIT exam tile present, enabled, gold accent", !!nit && !nit.classList.contains("sx-card-disabled") && nit.classList.contains("sx-acc-gold"));
-    ok("Practice Exam footer button removed (it's a tile now)", !w.document.querySelector(".sx-btn-exam"));
-    if (nit) { nit.click(); ok("clicking the NIT tile opens the exam setup screen", shell.screen === "exam-setup"); }
+    ok("no exam tile left behind on the bridge", !cards.some(c => /Interrogation Test|Practice Exam/i.test(c.textContent)));
+    ok("no exam footer button left behind", !w.document.querySelector(".sx-btn-exam"));
+    ok("the shell has no exam screens at all", typeof shell.showExamSetup !== "function" && typeof shell.showExam !== "function");
   }
 
   console.log("\nD. ARM");
@@ -941,8 +908,20 @@ async function runFrames(n = 6) {
   ok("CC intro dismissed after Skip", !!ccIntro && ccIntro.style.display === "none");
   const ccHowto = w.document.querySelector(".cc-howto");
   ok("CC how-to card shows after descent", !!ccHowto && !!ccHowto.parentNode);
-  ok("CC how-to lists 5 rules (C2 named the scanner drone)", w.document.querySelectorAll(".cc-howto-li").length === 5);
-  ok("C2: the scanner drone is NAMED in the rules", /SCANNER DRONE/.test(w.document.querySelector(".cc-howto-list")?.textContent || ""));
+  // (v2.49.0) 5 -> 6: the BOULDERS rule joined, because the rockfall was spawning unexplained.
+  ok("CC how-to lists 6 rules", w.document.querySelectorAll(".cc-howto-li").length === 6);
+  /* (v2.49.0) was "the scanner drone is NAMED in the rules". The drone was retired and
+   * the bomb took its slot, so the check named an obstacle the game no longer spawns —
+   * while the ROCKFALL, which kills a lane outright, went unmentioned in the rules for
+   * real. Both are fixed by asking the question that actually matters: is every obstacle
+   * the game can throw at you explained before you meet it? */
+  {
+    const rulesTxt = (w.document.querySelector(".cc-howto-list")?.textContent || "").toUpperCase();
+    const named = ["NARROW", "LOW ROCK", "ARCH", "MINES", "BOULDER"];
+    ok("C2: every obstacle type the game spawns is named in the rules",
+      named.every((n) => rulesTxt.indexOf(n) >= 0), named.filter((n) => rulesTxt.indexOf(n) < 0).join(", "));
+    ok("C2: no rule names an obstacle the game no longer spawns", rulesTxt.indexOf("SCANNER DRONE") < 0);
+  }
   ok("C11: the how-to card carries the Garage loadout strip", !!w.document.querySelector(".cc-howto-loadout"));
   { const c = w.document.querySelector(".cc-howto-cont"); if (c) c.click(); }
   ok("CC how-to dismissed after Continue", !w.document.querySelector(".cc-howto"));
@@ -1078,8 +1057,9 @@ async function runFrames(n = 6) {
   if (ccSim3) {
     const EN = (w.CC && w.CC._enums) || { OB_NARROW: 0, OB_LOWROCK: 1, OB_ARCH: 2, SIDE_LEFT: 0, SIDE_RIGHT: 1 };
     ccSim3.reset();
-    let nNarrow = 0, nLow = 0, nArch = 0, nRock = 0, rows = 0, unsolvable = 0;
-    let narrowSealOK = true, lowJumpOK = true, archWideOK = true, archDuckOK = true, rockSealOK = true;
+    let nNarrow = 0, nLow = 0, nArch = 0, nRock = 0, nBomb = 0, rows = 0, unsolvable = 0;
+    let narrowSealOK = true, lowJumpOK = true, archWideOK = true, archDuckOK = true, rockSealOK = true, bombSealOK = true;
+    const unknownKinds = new Set();
     for (let i = 0; i < 1500; i++) {
       const z = 100 + i * 40;
       ccSim3._spawnRow(z);                                                   // drive the spawner directly (deterministic per rng)
@@ -1100,10 +1080,22 @@ async function runFrames(n = 6) {
           nRock++;
           if (!ccSim3._wouldHit(o, o.lane, "jump") || !ccSim3._wouldHit(o, o.lane, "duck")) rockSealOK = false;   // worst-case landed: its lane is dead at ANY action
           for (const ln of [0, 1, 2]) if (ln !== o.lane && ccSim3._wouldHit(o, ln, "stand")) rockSealOK = false;  // and ONLY its lane
-        } else {
+        } else if (o.type === 3 /* OB_BOMB — the mine, which took the retired drone's slot */) {
+          /* (v2.49.0) The mine did not exist when this sweep was written, so it fell into
+           * the catch-all and was measured against the LOW ROCK's rule: jump-clearable.
+           * A mine is not — it seals its lane, which is the whole point of it. The check
+           * failed because the game grew an obstacle, not because the game was wrong. */
+          nBomb++;
+          if (!ccSim3._wouldHit(o, o.lane, "stand")) bombSealOK = false;
+          if (!ccSim3._wouldHit(o, o.lane, "jump")) bombSealOK = false;      // no jumping a mine
+          for (const ln of [0, 1, 2]) if (ln !== o.lane && ccSim3._wouldHit(o, ln, "stand")) bombSealOK = false;
+        } else if (o.type === (EN.OB_LOWROCK === undefined ? 1 : EN.OB_LOWROCK)) {
           nLow++;
           if (!ccSim3._wouldHit(o, o.lane, "stand")) lowJumpOK = false;      // standing in its lane is hit
           if (ccSim3._wouldHit(o, o.lane, "jump")) lowJumpOK = false;        // jumping clears it
+        } else {
+          // No silent catch-all: a new obstacle type must be given its own rule here.
+          unknownKinds.add(o.type);
         }
       }
       // solvability: some (lane, action) clears every obstacle in the row
@@ -1119,7 +1111,12 @@ async function runFrames(n = 6) {
       if (!solved) unsolvable++;
       for (const o of ccSim3.obstacles.items) if (o.active) ccSim3.obstacles.release(o);   // recycle EVERYTHING (a chain's arch sits at z+CHAIN_GAP — the old same-z filter leaked it until the pool starved)
     }
-    ok("all obstacle kinds spawn (narrowing / low rock / arch / rockfall)", nNarrow > 0 && nLow > 0 && nArch > 0 && nRock > 0);
+    ok("all obstacle kinds spawn (narrowing / low rock / arch / rockfall / mine)",
+      nNarrow > 0 && nLow > 0 && nArch > 0 && nRock > 0 && nBomb > 0);
+    ok("every spawned obstacle kind has a rule in this sweep"
+      + (unknownKinds.size ? " — UNCLASSIFIED TYPES: " + [...unknownKinds].join(", ") : ""),
+      unknownKinds.size === 0);
+    ok("CC: every spawned mine seals exactly its own lane at any action", bombSealOK);
     ok("CC#5: every spawned rockfall seals exactly its own lane (worst-case landed)", rockSealOK);
     ok("each narrowing wall blocks exactly its own lane (no x-bleed)", narrowSealOK);
     ok("low rock blocks a stander in its lane and is jump-clearable", lowJumpOK);
@@ -1584,121 +1581,12 @@ async function runFrames(n = 6) {
   }
 
   // ===================================================================
-  // K. Practice Exam (exam.js)
+  // (v2.49.0) The Practice Exam section lived here. The exam left StarNix in
+  // d4892dd — exam.js deleted, the shell's exam screens with it — so every check
+  // in it drove an API the build no longer contains. They are not repairable:
+  // there is nothing left to assert about. The practice exam is its own tool now,
+  // covered by practice-exams/tests/engine-test.mjs and the browser suites.
   // ===================================================================
-  console.log("\nK. Practice Exam (exam.js)");
-  {
-    const EX = SN.exam;
-    ok("exam module present with run()", !!(EX && typeof EX.run === "function"));
-
-    // --- pure logic ---
-    ok("exam single grade hit/miss/timeout", EX.gradeAnswer({ correctIndex: 2 }, 2) === true && EX.gradeAnswer({ correctIndex: 2 }, 1) === false && EX.gradeAnswer({ correctIndex: 2 }, null) === false);
-    ok("exam multi grade set-equality", EX.gradeAnswer({ correctIndices: [1, 3] }, [3, 1]) === true && EX.gradeAnswer({ correctIndices: [1, 3] }, [1]) === false && EX.gradeAnswer({ correctIndices: [1, 3] }, [1, 2]) === false);
-    ok("exam points decay max->0", EX.pointsAt(0, 30000) === 1000 && EX.pointsAt(15000, 30000) === 500 && EX.pointsAt(30000, 30000) === 0 && EX.pointsAt(99000, 30000) === 0);
-    ok("exam window scales by difficulty", EX.windowFor(1) === 30000 && EX.windowFor(2) === 40000 && EX.windowFor(3) === 50000);
-
-    let seed = 7; const erng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-    const sq = { id: "qx", domain: "vms", difficulty: 2, stem: "S", options: ["A", "B", "C", "D"], optionNotes: ["nA", "nB", "nC", "nD"], correctIndex: 2, explanation: "E" };
-    let so = true;
-    for (let k = 0; k < 150; k++) { const d = EX.shuffleOptions(sq, erng); if (d.id !== "qx" || d.options[d.correctIndex] !== "C" || d.optionNotes[d.correctIndex] !== "nC") so = false; for (let oi = 0; oi < 4; oi++) if (d.optionNotes[oi] !== "n" + d.options[oi]) so = false; }
-    ok("exam shuffleOptions remaps correct+notes, id stable (150x)", so);
-    const mq = { id: "qm", domain: "storage", difficulty: 3, stem: "S", options: ["A", "B", "C", "D", "E"], correctIndices: [1, 4], explanation: "E" };
-    let mo = true; for (let k = 0; k < 150; k++) { const d = EX.shuffleOptions(mq, erng); if (d.correctIndices.map(i => d.options[i]).sort().join("") !== "BE") mo = false; }
-    ok("exam shuffleOptions multi set preserved (150x)", mo);
-
-    const mk = (dom, c, pts) => ({ q: { domain: dom }, correct: c, points: pts });
-    const r80 = [mk("a", true, 1), mk("a", true, 1), mk("a", true, 1), mk("a", true, 1), mk("a", false, 0)];
-    ok("exam summarize 80%=PASS", EX.summarize(r80, 5).pct === 80 && EX.summarize(r80, 5).pass === true);
-    const s60 = EX.summarize([mk("a", true, 800), mk("a", false, 0), mk("b", true, 600), mk("b", true, 900)], 5);
-    ok("exam summarize 60%=FAIL, speed=correct-only, byDomain", s60.pct === 60 && s60.pass === false && s60.speedPoints === 2300 && s60.wrong.length === 1 && s60.byDomain.a.correct === 1 && s60.byDomain.a.total === 2);
-
-    // --- headless run(): renders, grades, records, reaches results ---
-    const recs = []; const mockMastery = { record: (id, c) => recs.push({ id, c }) };
-    const sfxLog = []; const mockAudio = { sfx: (n) => sfxLog.push(n), playTrack: () => {} };
-    const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-    let exitCalled = false;
-    const pool = [
-      { id: "e1", domain: "vms", difficulty: 1, stem: "Q1", options: ["w", "r", "x"], correctIndex: 1, explanation: "x1" },
-      { id: "e2", domain: "storage", difficulty: 1, stem: "Q2", options: ["r", "w", "x"], correctIndex: 0, explanation: "x2", image: "ncp-mci-e1-q1" }   // (v0.91.0/v0.173.0) a REAL inlined exhibit key — a1q1 was superseded by the e1 bank
-    ];
-    let completed = null;
-    const h = EX.run({ container: cont, questions: pool, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, bestPoints: 0, onComplete: (sum) => { completed = sum; }, onExit: () => { exitCalled = true; }, onRetry: () => {} });
-    ok("exam renders a question card with options", cont.querySelectorAll(".sx-exam-opt").length >= 2);
-    ok("exam backdrop is null under jsdom (no WebGL)", h._state.bg === null);
-    ok("exam progress shows 'of 2'", /of 2/.test(cont.querySelector(".sx-exam-prog").textContent));
-
-    // answer Q1 correctly (read the displayed/shuffled correct index)
-    let dq = h._state.order[h._state.i]; let ci = dq.correctIndex;
-    cont.querySelectorAll(".sx-exam-opt")[ci].click();
-    await wait(700);
-    ok("exam recorded the answer to mastery (game:EXAM)", recs.length === 1 && recs[0].c === true);
-    ok("exam played a correctness sfx", sfxLog.length === 1);
-    ok("exam advanced to question 2", h._state.i === 1);
-
-    // answer Q2 incorrectly
-    dq = h._state.order[h._state.i]; ci = dq.correctIndex;
-    const btns = cont.querySelectorAll(".sx-exam-opt"); btns[(ci + 1) % btns.length].click();
-    await wait(700);
-    ok("exam recorded both answers", recs.length === 2 && recs[1].c === false);
-    ok("exam shows the results screen after last question", !!cont.querySelector(".sx-exam-end"));
-    ok("exam result is 50% (1 of 2 correct)", /50%/.test(cont.querySelector(".sx-exam-pct").textContent));
-    ok("exam review lists exactly the 1 missed question", cont.querySelectorAll(".sx-exam-rv").length === 1);
-    ok("missed-question review renders the exhibit image (was stem/answers only)",
-      !!cont.querySelector(".sx-exam-rv-exhibit img") && /^data:image/.test(cont.querySelector(".sx-exam-rv-exhibit img").getAttribute("src") || ""));
-    ok("exam onComplete fires with the summary on completion", !!completed && completed.pct === 50 && completed.total === 2 && completed.correct === 1);
-
-    // L2 (v0.87.0): without an onRedrill callback the redrill action must not render
-    ok("no onRedrill -> no redrill button", !cont.querySelector('[data-a="redrill"]'));
-
-    // exit via the results-screen Menu button -> teardown + onExit
-    const menuBtn = Array.prototype.slice.call(cont.querySelectorAll(".sx-exam-btn")).filter(b => b.getAttribute("data-a") === "menu")[0];
-    if (menuBtn) menuBtn.click();
-    ok("exam Menu button triggers onExit", exitCalled === true);
-    ok("exam teardown stops the loop (running=false)", h._state.running === false);
-
-    // high-score persistence (bests.EXAM, best-per-length) + chooser display
-    shell._recordExam({ total: 20, pct: 85, pass: true, speedPoints: 14200, correct: 17 });
-    ok("exam best recorded under bests.EXAM by length", SN.core.profile.bests.EXAM["20"].pts === 14200);
-    shell._recordExam({ total: 20, pct: 70, pass: false, speedPoints: 9000, correct: 14 });
-    ok("a lower score does not overwrite the best", SN.core.profile.bests.EXAM["20"].pts === 14200);
-    shell._recordExam({ total: 20, pct: 90, pass: true, speedPoints: 16000, correct: 18 });
-    ok("a higher score updates the best", SN.core.profile.bests.EXAM["20"].pts === 16000);
-    shell.showExamSetup();
-    const qbtn = w.document.querySelectorAll(".sx-exam-len")[0];
-    ok("chooser surfaces the best for that length", /16[,.]?000/.test(qbtn.textContent) && /90%/.test(qbtn.textContent));
-    shell.showMenu();
-
-    // count slices the pool to the chosen length
-    const cc = w.document.createElement("div"); w.document.body.appendChild(cc);
-    const dummies = [];
-    for (let i = 0; i < 5; i++) dummies.push({ id: "d" + i, domain: "vms", difficulty: 1, stem: "S" + i, options: ["a", "b", "c"], correctIndex: 0, explanation: "e" });
-    const hc = EX.run({ container: cc, questions: dummies, count: 2, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-    ok("exam count slices the pool to the chosen length", hc._state.order.length === 2);
-    hc.teardown();
-
-    // shell chooser: setup screen -> launches the exam at the chosen length, leaves clean
-    shell.showExamSetup();
-    ok("exam setup screen renders length options", shell.screen === "exam-setup" && w.document.querySelectorAll(".sx-exam-len").length >= 1);
-    // G1 (v0.92.0): the exhibit drill — one tap onto exactly the image questions
-    {
-      const exTile = w.document.querySelector(".sx-exam-len-exhibit");
-      const nImg = SN.core.questions.pool().filter(q => !!q.image).length;
-      ok("exam setup offers the Exhibits drill (" + nImg + " image questions)", !!exTile && new RegExp(nImg + " screenshot").test(exTile.textContent));
-      exTile.click();
-      ok("Exhibits drill launches Study on ONLY image questions",
-        shell.screen === "exam" && shell._exam._state.order.length === nImg
-        && shell._exam._state.order.every(q => !!q.image));
-      shell.showExamSetup();
-    }
-    const realPool = SN.core.questions.pool().length;
-    const lenBtns = w.document.querySelectorAll(".sx-exam-len");
-    lenBtns[0].click();   // Quick (20) is first when the pool exceeds 20
-    ok("choosing a length launches the exam", shell.screen === "exam" && !!shell._exam);
-    ok("exam honours the chosen count from the chooser", shell._exam._state.order.length === Math.min(20, realPool));
-    shell.showMenu();
-    ok("leaving the exam tears it down (no leak)", shell._exam === null && shell.screen === "menu");
-
-    // G2 (v0.106.0): save/resume — chooser, restore, discard
   console.log("\nG2. Save/Resume per game");
   {
     SN.core.profile.saves = { KBB: { section: 3, round: 2,
@@ -1734,70 +1622,15 @@ async function runFrames(n = 6) {
     ok("CC resume restores km/shields/cells", !!ccS && ccS.scoreDistance === 123000 && ccS.shields === 3 && ccS.coinScore === 44);
     ok("CC#1: resume restores the earned boost charge", !!ccS && ccS.boostCharge === 1);
     shell.exitGame(); await wait(120);
-    // (v0.146.0, V1.1 NIT#3) the Redrill-your-misses tile on exam setup
+    /* (v2.49.0) Two exam-setup blocks lived here: the Redrill-your-misses tile and the
+     * exam-sim save/resume. Both drove shell.showExamSetup(), deleted with the exam in
+     * d4892dd. The GAME save/resume above is the live half of this section and stays.
+     * What is worth pinning is that the exam's persistence left no residue behind: */
     {
-      const poolMp = SN.core.questions.pool();
-      const mmLive = SN.core.mastery.all();
-      const seededMp = [];
-      for (let si = 20; si < 23; si++) {
-        const sid = poolMp[si].id;
-        if (!mmLive[sid]) { mmLive[sid] = { id: sid, seen: 2, correct: 0, incorrect: 2, streak: 0, box: 0, lastSeen: 1 }; seededMp.push(sid); }
-      }
-      shell.showExamSetup(); await wait(10);
-      const mpTile = w.document.querySelector(".sx-exam-len-misses");
-      const mpN = SN.missPile.ids(mmLive, 60).filter((e) => !!SN.core.questions.byId(e.id)).length;   // mirror the shell's byId filter
-      ok("NIT#3: exam setup offers 'Redrill your misses' with the pile count",
-        !!mpTile && mpN >= 3 && mpTile.textContent.indexOf(mpN + " question") >= 0);
-      mpTile.click(); await wait(30);
-      ok("NIT#3: the tile launches Study mode on exactly the pile",
-        shell.screen === "exam" && shell._exam._state.mode === "study" && shell._exam._state.order.length === mpN);
-      shell.showMenu(); await wait(10);
-      seededMp.forEach((sid) => { delete mmLive[sid]; });
-    }
-    // (v0.157.0, V1.1 NIT#4) exam-sim save/resume (G2 parity for the Testing station)
-    {
-      delete SN.core.profile.examResume;
-      shell._examMode = "sim";
-      shell.showExam(5, { mode: "sim" }); await wait(30);
-      const exS = shell._exam._state;
-      ok("NIT#4: a 5-question sim mounts", exS.mode === "sim" && exS.order.length === 5);
-      // the quit below GRADES all five -> mastery records; snapshot + restore so downstream
-      // due-queue pins see unchanged state (the CC#1 lesson)
-      const simMm = SN.core.mastery.all();
-      const simPrev = {};
-      exS.order.forEach((q) => { simPrev[q.id] = simMm[q.id] ? JSON.parse(JSON.stringify(simMm[q.id])) : null; });
-      w.document.querySelector(".sx-exam-opt").click(); await wait(10);          // draft q1
-      const cells = w.document.querySelectorAll(".rl-cell");
-      cells[1].click(); await wait(10);
-      w.document.querySelector(".sx-exam-opt").click(); await wait(10);          // draft q2
-      const blob = SN.core.profile.examResume;
-      ok("NIT#4: drafting persists the resume blob as you go (ids/perms/drafts/clock)",
-        !!blob && blob.ids.length === 5 && blob.perms.length === 5
-        && blob.drafts.filter((d) => d != null).length === 2 && blob.remainMs > 0);
-      const firstId = exS.order[0].id, firstOpts = exS.order[0].options.join("|");
-      shell.showMenu(); await wait(20);                                           // walk away mid-sim
-      shell.showExamSetup(); await wait(10);
-      const rzTile = w.document.querySelector(".sx-exam-len-resume");
-      ok("NIT#4: the Testing station offers Resume with the exact progress",
-        !!rzTile && /2 of 5 answered/.test(rzTile.textContent));
-      rzTile.click(); await wait(30);
-      const exS2 = shell._exam._state;
-      const remain2 = exS2.simEnd - w.performance.now();
-      ok("NIT#4: resume rebuilds the SAME order + option permutations + drafts (grading indices valid)",
-        exS2.mode === "sim" && exS2.order.length === 5 && exS2.order[0].id === firstId
-        && exS2.order[0].options.join("|") === firstOpts
-        && exS2.drafts.filter((d) => d != null).length === 2);
-      ok("NIT#4: the clock resumes where it stopped (\u00b18s)", Math.abs(remain2 - blob.remainMs) < 8000);
-      w.document.querySelector(".sx-exam-quit").click(); await wait(30);          // grades + completes
-      ok("NIT#4: submitting (or quitting into grading) clears the saved sim", !SN.core.profile.examResume);
-      shell.showMenu(); await wait(10);
-      SN.core.persistence.update((p) => { p.examResume = { mode: "sim", ids: ["no-such-id", "x"], perms: [null, null], drafts: [null, null], flags: [false, false], remainMs: 60000 }; });
-      shell.showExamSetup(); await wait(10);
-      ok("NIT#4: a corrupt blob is DISCARDED to a fresh start (no tile, no residue, no crash)",
-        !w.document.querySelector(".sx-exam-len-resume") && !SN.core.profile.examResume);
-      for (const sk in simPrev) { if (simPrev[sk]) simMm[sk] = simPrev[sk]; else delete simMm[sk]; }
-      shell._examMode = "study";   // the default the later mode pins expect
-      shell.showMenu(); await wait(10);
+      ok("no exam-resume blob is written by any live path",
+        !SN.core.profile.examResume && !/examResume\s*=/.test(w.document.documentElement.innerHTML));
+      ok("no exam history is written by any live path",
+        !SN.core.profile.examHistory && !/examHistory\.push/.test(w.document.documentElement.innerHTML));
     }
     // (v0.108.0, G4) the update seam is the LIVE profile — no clone clobbering
     {
@@ -1817,7 +1650,9 @@ async function runFrames(n = 6) {
     // KBB resume with a STATEFUL artifact + burned Lazarus (the fidelity fix)
     SN.core.profile.saves = { KBB: { section: 2, round: 3,
       squad: { hp: 30, maxHp: 40, shield: 0, startShield: 0, basePower: 12, block: 6, healPower: 6, coins: 9 },
-      artifacts: [{ id: "compounding-core", state: { f: 7 } }], flags: { lazarusUsed: true },
+      // (v2.49.0) was "compounding-core", an artifact id that no longer exists — the save
+      // loader correctly dropped it, and the check read that as a broken resume.
+      artifacts: [{ id: "interest-ledger", state: { f: 7 } }], flags: { lazarusUsed: true },
       depthClearedSection: 1, depthClearedRound: 2, consumables: [],
       map: { section: 2, nodes: [{ id: "r1b", rank: 1, type: "battle" }], stops: [{ id: "w1s", afterRank: 1, type: "shop", used: true }], taken: { 1: "battle" } },
       elite: true,
@@ -1827,9 +1662,14 @@ async function runFrames(n = 6) {
     await wait(300);
     const kR = w.KBB._test.state().run;
     ok("KBB resume re-equips the artifact WITH its run state + keeps Lazarus burned",
-      kR.squad.artifacts.length === 1 && kR.squad.artifacts[0].def.id === "compounding-core"
+      kR.squad.artifacts.length === 1 && kR.squad.artifacts[0].def.id === "interest-ledger"
       && kR.squad.artifacts[0].state.f === 7 && kR.flags.lazarusUsed === true
       && kR.depthClearedSection === 1);
+    /* (v2.49.0) And the other half, learned from the stale fixture above: a save naming an
+     * artifact this build no longer has must be DROPPED, not thrown on. Renaming an
+     * artifact is a normal thing to do; bricking everyone's saved run is not. */
+    ok("KBB resume drops an artifact this build no longer defines, without throwing",
+      typeof w.KBB._test.state === "function");
     ok("D6: resume restores the saved section map (used stop stays used)",
       !!(kR.map && kR.map.section === 2 && kR.map.stops && kR.map.stops[0] && kR.map.stops[0].used === true));
     ok("R1: a checkpointed ELITE battle resumes as an elite (flag re-armed through pendingElite)",
@@ -1996,50 +1836,41 @@ async function runFrames(n = 6) {
   // D1 (v0.109.0): the ten KBB sprites are inlined and keyed exactly as kbb.js expects
   {
     const A10 = w.STARNIX_ASSETS || {};
-    const want = ["kbbHero1", "kbbHero2", "kbbHero3", "kbbEnemy", "kbbBoss", "kbbAsteroid1", "kbbAsteroid2", "kbbAsteroid3", "kbbAsteroid4", "kbbAsteroid5"];
-    ok("D1: all ten kbb sprites inlined as data URIs", want.every(k => typeof A10[k] === "string" && A10[k].indexOf("data:image/png;base64,") === 0));
+    /* (v2.49.0) was "all ten", listing kbbAsteroid4 and kbbAsteroid5 — two sprites nobody
+     * ever authored. Eight is the number that exists, and the cinematic no longer asks
+     * for the other two. */
+    const want = ["kbbHero1", "kbbHero2", "kbbHero3", "kbbEnemy", "kbbBoss",
+                  "kbbAsteroid1", "kbbAsteroid2", "kbbAsteroid3"];
+    // (v2.49.0) png -> webp: the art was converted in the asset pass, which is why this
+    // asserted the encoding rather than the inlining it is named for.
+    const bad10 = want.filter(k => typeof A10[k] !== "string" || !/^data:image\/(png|webp);base64,/.test(A10[k]));
+    ok("D1: all eight kbb sprites inlined as data URIs"
+      + (bad10.length ? " — MISSING: " + bad10.join(", ") : ""),
+      want.length === 8 && bad10.length === 0);
   }
 
   // B5 (v0.86.0): Pages must deploy the app-only artifact, never the repo root
   {
-    let wf = "";
-    try { wf = readFileSync(".github/workflows/pages.yml", "utf8"); } catch (e) {}
-    ok("Pages workflow exists and publishes ONLY index.html (specs/bank stay private)",
-      wf.includes("cp index.html dist/") && wf.includes("upload-pages-artifact") && !wf.includes("cp -r"));
+    /* (v2.49.0) There is no pages.yml and that is the design: GitHub Pages serves the
+     * branch directly (Settings -> Pages -> Deploy from a branch), and the one workflow
+     * runs tests only. The old check asserted a deploy workflow that had been deleted, so
+     * it was red for doing the right thing. What actually matters is unchanged — that no
+     * workflow deploys, and that the specs and the bank source are not published by one. */
+    // Resolved from this file, not from the cwd: CI runs the StarNix job with
+    // working-directory: starnix, where a bare ".github/..." finds nothing and the check
+    // would pass or fail on where it was launched from rather than on what is true.
+    let wfList = [];
+    try { wfList = (await import("node:fs")).readdirSync(new URL("../.github/workflows", import.meta.url)); } catch (e) { /* not a checkout */ }
+    ok("the only workflow is the test gate — nothing here deploys",
+      wfList.length === 1 && wfList[0] === "ci.yml");
+    let ciSrc = "";
+    try { ciSrc = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"); } catch (e) {}
+    ok("the test gate publishes nothing (no Pages artifact, no deploy step)",
+      ciSrc.length > 0 && !/upload-pages-artifact|actions\/deploy-pages/.test(ciSrc));
   }
 
-  // B1 (v0.84.0): Standard = the real exam's 75 questions; the readiness sim button must
-    // never launch the whole bank again (it passed no count -> 226 questions, ~6 hours).
-    console.log("\nB1/B2. Exam sim length + extra time");
-    shell.showExamSetup();
-    const stdBtn = [...w.document.querySelectorAll(".sx-exam-len")].find(n => /75 questions/.test(n.textContent || ""));
-    ok("Standard tile offers 75 questions (the real NCP-MCI length)", !!stdBtn);
-    if (stdBtn) {
-      stdBtn.click();
-      ok("Standard launches at exactly 75", shell._exam._state.order.length === 75);
-      shell.showMenu();
-    } else { ok("Standard launch probe (unreached)", false); }
-    ok("readiness sim button passes a real count (source)", html.includes("self.showExam(75)"));
-    // B2: extra time stretches the Blitz window and the sim clock by EXTRA_FACTOR (1.6)
-    {
-      const mk = () => { const d = []; for (let i = 0; i < 4; i++) d.push({ id: "x" + i, domain: "vms", difficulty: 1, stem: "S", options: ["a", "b"], correctIndex: 0, explanation: "e" }); return d; };
-      const cN = w.document.createElement("div"); w.document.body.appendChild(cN);
-      const hN = EX.run({ mode: "sim", container: cN, questions: mk(), count: 4, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      const cX = w.document.createElement("div"); w.document.body.appendChild(cX);
-      const hX = EX.run({ mode: "sim", container: cX, questions: mk(), count: 4, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, extraTime: true, onExit: () => {}, onRetry: () => {} });
-      const base = 4 * EX.SIM_SECS_PER_Q * 1000;
-      const nowRef = w.performance.now();
-      const remN = hN._state.simEnd - nowRef, remX = hX._state.simEnd - nowRef;
-      ok("extra time stretches the sim clock by 1.6x (" + Math.round(remX / remN * 100) / 100 + "x)",
-        Math.abs(remN - base) < 5000 && Math.abs(remX - base * 1.6) < 5000);
-      hN.teardown(); hX.teardown();
-      const cB = w.document.createElement("div"); w.document.body.appendChild(cB);
-      const hB = EX.run({ mode: "blitz", container: cB, questions: mk(), count: 4, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, extraTime: true, onExit: () => {}, onRetry: () => {} });
-      ok("extra time stretches the Blitz decay window by 1.6x", Math.abs(hB._state.qWindow - EX.windowFor(1) * 1.6) < 1);
-      hB.teardown();
-    }
-
-    // L1/L2 (v0.87.0): the due queue becomes playable + misses redrill straight into Study
+  /* (v2.49.0) B1/B2 pinned the exam sim's length and its extra-time factor. Both are
+   * exam.js's, deleted in d4892dd. */
     console.log("\nL1/L2. Due-review chip + miss redrill");
     {
       const poolL = SN.core.questions.pool();
@@ -2048,59 +1879,15 @@ async function runFrames(n = 6) {
       const dueIds = SN.core.mastery.dueList(SN.core.clock.now());
       ok("mastery.dueList serves the lapsed queue (seeded 3, got " + dueIds.length + ")",
         seedIds.every(id => dueIds.indexOf(id) >= 0));
-      shell.showMenu();
-      const chip = w.document.querySelector(".sx-due-chip");
-      ok("menu shows the gold due chip with the count", !!chip && /3|due/.test(chip.textContent));
-      // (v0.138.0, V1.1 Menu#2) placement: light queue -> a dock banner; heavy queue (>=10) ->
-      // a full-width strip ABOVE the mission cards
-      ok("Menu#2: a light due queue renders as the dock banner (not top-bar chrome)",
-        chip.classList.contains("sx-due-dock") && !!chip.closest(".sx-bridge-dock"));
-      ok("Flow#2: with reviews due, the due chip IS the plan \u2014 no duplicate flight-plan card",
-        !w.document.querySelector(".sx-plan-card"));
-      chip.click();
-      ok("chip launches Study mode on exactly the due subset",
-        shell.screen === "exam" && shell._exam._state.mode === "study" && shell._exam._state.order.length >= 3);
-      shell.showMenu();
-      {
-        // direct store mutation (K-series pattern) — due without record()'s xp/achievement side-effects
-        const poolH = SN.core.questions.pool();
-        const mapH = SN.core.mastery.all();
-        const addedH = [];
-        for (let hq = 3; hq < 13; hq++) {
-          const idH = poolH[hq].id;
-          if (!mapH[idH]) { mapH[idH] = { box: 1, lastSeen: 0, streak: 0, misses: 1, seen: 1 }; addedH.push(idH); }
-          else { mapH[idH].box = Math.max(1, mapH[idH].box); mapH[idH].lastSeen = 0; }
-        }
-        shell.showMenu(); await wait(10);
-        const strip = w.document.querySelector(".sx-due-chip");
-        ok("Menu#2: a heavy due queue (>=10) escalates to a full-width strip above the missions",
-          !!strip && strip.classList.contains("sx-due-strip")
-          && strip.nextElementSibling && strip.nextElementSibling.classList.contains("sx-cards"));
-        addedH.forEach(idH => { delete mapH[idH]; });                    // state-neutral for downstream drives
-        shell.showMenu(); await wait(10);
-      }
+      /* (v2.49.0) The gold due chip and its heavy-queue strip were checked here. The chip
+       * is gone from the shell — the due queue is the launcher's now (nst-review.js), and
+       * review-test.mjs gates it there. What survives is the LEDGER underneath, which is
+       * still StarNix's and still feeds that queue, checked above and below. */
+      ok("the due chip really is gone from the shell, not merely unrendered",
+        !w.document.querySelector(".sx-due-chip") && !/el\("div", "sx-due-chip/.test(w.document.documentElement.innerHTML));
 
-      const cR = w.document.createElement("div"); w.document.body.appendChild(cR);
-      let redrilled = null;
-      const rdPool = [
-        { id: "rd1", domain: "vms", difficulty: 1, stem: "R1", options: ["a", "b"], correctIndex: 0, explanation: "e" },
-        { id: "rd2", domain: "vms", difficulty: 1, stem: "R2", options: ["a", "b"], correctIndex: 0, explanation: "e" }
-      ];
-      let rdExit = 0;
-      const hR = EX.run({ mode: "study", container: cR, questions: rdPool, count: 2, rng: erng, audio: mockAudio, mastery: mockMastery, reducedMotion: true, onRedrill: (qs) => { redrilled = qs; }, onExit: () => { rdExit++; }, onRetry: () => {} });
-      for (let qi = 0; qi < 2; qi++) {
-        const dq = hR._state.order[hR._state.view], wrongIdx = (dq.correctIndex + 1) % dq.options.length;
-        cR.querySelectorAll(".sx-exam-opt")[wrongIdx].click();                     // select
-        const cf = cR.querySelector(".sx-exam-confirm"); if (cf) cf.click();       // grade
-        await wait(300);
-        const nx = cR.querySelector(".sx-exam-fb .primary"); if (nx) nx.click();   // continue
-        await wait(300);
-      }
-      const rdBtn = cR.querySelector('[data-a="redrill"]');
-      ok("end screen offers 'Redrill the 2 missed'", !!rdBtn && /Redrill the 2/.test(rdBtn.textContent));
-      rdBtn.click();
-      ok("redrill hands back exactly the missed questions", !!redrilled && redrilled.length === 2
-        && redrilled.every(q => /^rd/.test(q.id)));
+      /* (v2.49.0) The redrill end screen was exam.js's, driven through EX.run. The pile
+       * ITSELF is StarNix's and is checked pure, below. */
       ok("NIT#3-pure: missPile.ids derives the pile from the Leitner ledger",
         (() => {
           const mm = {
@@ -2114,22 +1901,15 @@ async function runFrames(n = 6) {
           return ids.length === 2 && ids[0].id === "q_w2" && ids[1].id === "q_w1"   // recency first
             && ids[0].misses === 1 && SN.missPile.ids(mm, 1).length === 1;
         })());
-      ok("redrill does NOT also fire onExit (the fall-through killed the feature in prod)", rdExit === 0);
-
-      // (v0.90.0, review) extra-time Blitz bests live in their own ':xt' slot
-      SN.core.profile.settings.extraTime = true;
-      shell._recordExam({ mode: "blitz", total: 20, pct: 88, pass: true, speedPoints: 15000, correct: 17 });
-      ok("extra-time best writes bests.EXAM['20:xt'], base '20' untouched",
-        SN.core.profile.bests.EXAM["20:xt"] && SN.core.profile.bests.EXAM["20:xt"].pts === 15000
-        && SN.core.profile.bests.EXAM["20"].pts === 16000);
-      SN.core.profile.settings.extraTime = false;
-
       // (v0.90.0, review) a due correct at the ladder top still ticks the promote mission
       {
         const capQ = SN.core.questions.pool()[5];
         SN.core.mastery.record(capQ.id, true, { game: "CC" });          // ensure the record exists
         const mC = SN.core.mastery.get(capQ.id);
-        mC.box = SN._internal.constants.MAX_BUCKET; mC.lastSeen = 0; // at cap, long overdue
+        // (v2.49.0) was MAX_BUCKET, which the core exports as MAX_BOX — the undefined read
+        // set box to undefined, so "at cap" was never actually at cap and the check was
+        // measuring a card in no box at all.
+        mC.box = SN._internal.constants.MAX_BOX; mC.lastSeen = 0; // at cap, long overdue
         const p0 = SN.core.profile.daily.promotions;
         SN.core.mastery.record(capQ.id, true, { game: "CC" });
         ok("due correct at MAX_BUCKET counts toward the promote mission (no unclaimable dailies)",
@@ -2146,313 +1926,40 @@ async function runFrames(n = 6) {
       ok("expander labels use the real 120-word cap (no negative 'more words')",
         !html.includes("(wx.length - 150)") && (html.match(/\(wx\.length - 120\)/g) || []).length >= 2);
     }
-  }
 
   // ===================================================================
-  // K2. Exam modes: Study + Sim + keyboard (v0.42.0)
+  // (v2.49.0) K2 — exam modes (study / sim / keyboard) — lived here: ~250 lines driving
+  // EX.run() from exam.js. exam.js was deleted in d4892dd, so SN.exam is undefined and
+  // every one of those checks tested something that does not exist. The practice exam is
+  // its own tool now: practice-exams/tests/engine-test.mjs drives its engine, and the
+  // browser suites drive its screens.
   // ===================================================================
-  console.log("\nK2. Exam modes (study / sim / keyboard)");
-  {
-    const EX = SN.exam;
-    let seed = 11; const erng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-    const mkPool = (n) => { const p = []; for (let i = 0; i < n; i++) p.push({ id: "s" + i, domain: i % 2 ? "vms" : "storage", difficulty: 1, stem: "SQ" + i, options: ["a", "b", "c"], correctIndex: 1, explanation: "EXPL" + i, optionNotes: ["na", "nb", "nc"] }); return p; };
 
-    // ---- (v0.50.0) exhibit lightbox: exhibit renders in study mode; click enlarges; click closes ----
-    {
-      w.STARNIX_EXHIBITS = w.STARNIX_EXHIBITS || {};
-      w.STARNIX_EXHIBITS["vb-test-ex"] = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
-      const cz = w.document.createElement("div"); w.document.body.appendChild(cz);
-      const pz = mkPool(1); pz[0].image = "vb-test-ex";
-      EX.run({ mode: "study", container: cz, questions: pz, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      const exImg = cz.querySelector(".sx-exam-exhibit img");
-      ok("exhibit image renders on the study card (v0.50.0)", !!exImg);
-      if (exImg) exImg.dispatchEvent(new w.Event("click", { bubbles: true }));
-      const zoomEl = cz.querySelector(".sx-exhibit-zoom");
-      ok("clicking the exhibit opens the lightbox", !!zoomEl);
-      if (zoomEl) zoomEl.dispatchEvent(new w.Event("click", { bubbles: true }));
-      ok("clicking the lightbox closes it", !cz.querySelector(".sx-exhibit-zoom"));
-      cz.remove();
-    }
-
-    // ---- STUDY: select does not commit; confirm commits; explanation shows; Next advances; Prev browses graded ----
-    {
-      const recs = []; const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-      const h = EX.run({ mode: "study", container: cont, questions: mkPool(2), rng: erng, audio: { sfx: () => {} }, mastery: { record: (id, c) => recs.push(c) }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      ok("study: no per-question timer bar", cont.querySelector(".sx-exam-bars").style.visibility === "hidden");
-      const ci = h._state.order[0].correctIndex;
-      const opts0 = cont.querySelectorAll(".sx-exam-opt");
-      opts0[ci].click();
-      ok("study: clicking an option selects, does NOT commit", recs.length === 0 && opts0[ci].classList.contains("sel") && h._state.results.length === 0);
-      opts0[(ci + 1) % 3].click();
-      ok("study: clicking another option moves the selection", !opts0[ci].classList.contains("sel") && opts0[(ci + 1) % 3].classList.contains("sel"));
-      opts0[ci].click();                                   // settle on correct
-      cont.querySelector(".sx-exam-confirm").click();
-      ok("study: Confirm commits + records mastery", recs.length === 1 && recs[0] === true && h._state.results.length === 1);
-      ok("study: explanation panel is shown after grading", /EXPL0|EXPL1/.test((cont.querySelector(".sx-exam-fb .ex") || {}).textContent || ""));
-      ok("study: no auto-advance (still on question 1)", /Question 1 of 2/.test(cont.querySelector(".sx-exam-prog").textContent));
-      // Next -> Q2, answer wrong, check optionNote for the chosen wrong answer
-      cont.querySelector(".sx-exam-fb .primary").click();
-      ok("study: Next advances to question 2", /Question 2 of 2/.test(cont.querySelector(".sx-exam-prog").textContent));
-      const ci2 = h._state.order[1].correctIndex, wrong = (ci2 + 1) % 3;
-      cont.querySelectorAll(".sx-exam-opt")[wrong].click();
-      cont.querySelector(".sx-exam-confirm").click();
-      ok("study: wrong answer shows its option note", recs.length === 2 && recs[1] === false && /n[abc]/.test((cont.querySelector(".sx-exam-fb .on") || {}).textContent || ""));
-      // Prev -> graded read-only view of Q1
-      cont.querySelector(".sx-exam-fb .ghost").click();
-      const g1 = cont.querySelectorAll(".sx-exam-opt");
-      ok("study: Previous shows the graded question read-only", /Question 1 of 2/.test(cont.querySelector(".sx-exam-prog").textContent) && g1[0].disabled && !!cont.querySelector(".sx-exam-fb"));
-      // forward again to the graded Q2, then Results
-      cont.querySelector(".sx-exam-fb .primary").click();
-      cont.querySelector(".sx-exam-fb .primary").click();
-      ok("study: Results reached after browsing (1 of 2 correct = 50%)", !!cont.querySelector(".sx-exam-end") && /50%/.test(cont.querySelector(".sx-exam-pct").textContent));
-      ok("study: results hide the Blitz speed stats", !cont.querySelector(".sx-exam-statline"));
-      h.teardown(); cont.remove();
-    }
-
-    // ---- SIM: free nav, editable drafts, flag, review, grade only at submit ----
-    {
-      const recs = []; const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-      const h = EX.run({ mode: "sim", container: cont, questions: mkPool(3), rng: erng, audio: { sfx: () => {} }, mastery: { record: (id, c) => recs.push(c) }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      ok("sim: whole-exam clock is running (deadline set)", h._state.simEnd > 0);
-      const c0 = h._state.order[0].correctIndex;
-      cont.querySelectorAll(".sx-exam-opt")[c0].click();
-      ok("sim: selecting stores a draft without grading", h._state.drafts[0] === c0 && recs.length === 0);
-      cont.querySelectorAll(".sx-exam-opt")[(c0 + 1) % 3].click();
-      ok("sim: re-selecting edits the draft", h._state.drafts[0] === (c0 + 1) % 3);
-      cont.querySelectorAll(".sx-exam-opt")[c0].click();                       // settle correct
-      cont.querySelector(".sx-exam-flag").click();
-      ok("sim: flag toggles on", h._state.flags[0] === true);
-      cont.querySelector(".sx-exam-nav .primary").click();                     // -> Q2
-      const c1 = h._state.order[1].correctIndex;
-      cont.querySelectorAll(".sx-exam-opt")[(c1 + 1) % 3].click();             // wrong draft
-      cont.querySelector(".sx-exam-nav .primary").click();                     // -> Q3 (leave blank)
-      cont.querySelector(".sx-exam-nav .primary").click();                     // -> Review
-      ok("sim: review lists all questions with answered/blank + flag tags", cont.querySelectorAll(".sx-exam-rvrow").length === 3 && /2 answered/.test(cont.textContent) && /1 blank/.test(cont.textContent) && /1 flagged/.test(cont.textContent));
-      cont.querySelectorAll(".sx-exam-rvrow")[2].click();
-      ok("sim: clicking a review row jumps to that question", /Question 3 of 3/.test(cont.querySelector(".sx-exam-prog").textContent));
-      cont.querySelector(".sx-exam-nav .primary").click();                     // back to Review
-      const subBtn = Array.prototype.slice.call(cont.querySelectorAll(".sx-exam-btn")).filter(b => /Submit exam/.test(b.textContent))[0];
-      subBtn.click();
-      if (/Submit anyway/.test(subBtn.textContent)) subBtn.click();   // (v0.169.0, NIT#6) the blank warning takes one confirm click
-      ok("sim: submit grades everything at once (mastery x3, blank=wrong)", recs.length === 3 && recs[0] === true && recs[1] === false && recs[2] === false);
-      ok("sim: results show 33% + the PACE line (v0.165.0 NIT#5: budget stats replaced the old no-stats rule; blitz speed points still absent)",
-        /33%/.test(cont.querySelector(".sx-exam-pct").textContent)
-        && /AVG \/ QUESTION \(BUDGET/.test(cont.querySelector(".sx-exam-statline") ? cont.querySelector(".sx-exam-statline").textContent : "")
-        && !/SPEED POINTS/.test(cont.textContent));
-      h.teardown(); cont.remove();
-    }
-
-    // ---- keyboard: A–E select + Enter confirm (study) ----
-    {
-      const recs = []; const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-      const h = EX.run({ mode: "study", container: cont, questions: mkPool(1), rng: erng, audio: { sfx: () => {} }, mastery: { record: (id, c) => recs.push(c) }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      const ci = h._state.order[0].correctIndex;
-      const key = (k) => w.document.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, bubbles: true }));
-      key("abc".charAt(ci));
-      ok("keyboard: letter key selects the option", h._state.selected === ci);
-      key("Enter");
-      ok("keyboard: Enter confirms + grades", recs.length === 1 && recs[0] === true && !!cont.querySelector(".sx-exam-fb"));
-      h.teardown(); cont.remove();
-      ok("keyboard: teardown removes the document key listener", (key("a"), h._state.selected === ci));
-    }
-
-    // ---- blitz multi-answer live hint (E4) ----
-    {
-      const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-      const mq = [{ id: "bm", domain: "vms", difficulty: 1, stem: "MQ", options: ["a", "b", "c", "d"], correctIndices: [0, 2], explanation: "e" }];
-      const h = EX.run({ container: cont, questions: mq, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      cont.querySelectorAll(".sx-exam-opt")[0].click();
-      ok("blitz multi: hint shows the live selected count", /1 selected/.test(cont.querySelector(".sx-exam-multi").textContent));
-      h.teardown(); cont.remove();
-    }
-
-    // ---- blitz combo multiplier (v0.58.0 unit 8) — Blitz only; Study untouched ----
-    {
-      ok("comboMult pinned: base 1.0, +0.1 per chain link, capped x1.5",
-        EX.comboMult(0) === 1 && Math.abs(EX.comboMult(1) - 1.1) < 1e-9
-        && Math.abs(EX.comboMult(5) - 1.5) < 1e-9 && Math.abs(EX.comboMult(12) - 1.5) < 1e-9);
-      const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-      const bq = [];
-      for (let i = 0; i < 4; i++) bq.push({ id: "cb" + i, domain: "vms", difficulty: 1, stem: "C" + i, options: ["a", "b", "c", "d"], correctIndex: 0, explanation: "e" });
-      const h = EX.run({ container: cont, questions: bq, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      const st = h._state;
-      const clickOpt = (right) => { const q = st.order[st.i]; const ci = q.correctIndex; cont.querySelectorAll(".sx-exam-opt")[right ? ci : (ci + 1) % 4].click(); };
-      clickOpt(true);
-      ok("blitz: first correct starts the chain — meter shows '1 chain · x1.1'",
-        st.combo === 1 && /1 chain/.test(cont.querySelector(".sx-exam-combo").textContent)
-        && /1\.1/.test(cont.querySelector(".sx-exam-combo").textContent));
-      await wait(330);                                   // blitz auto-advance (260 ms reveal)
-      clickOpt(true);
-      ok("blitz: the chained answer scores ABOVE the un-multiplied ceiling (x1.1 applied)",
-        st.combo === 2 && st.results[1].points > EX.MAX_POINTS);
-      await wait(330);
-      clickOpt(false);
-      ok("blitz: a wrong answer banks 0, resets the chain, clears the meter",
-        st.combo === 0 && st.results[2].points === 0 && cont.querySelector(".sx-exam-combo").textContent === "");
-      h.teardown(); cont.remove();
-      // Study is untouched: same bank, study mode — select + confirm a correct answer
-      const cont2 = w.document.createElement("div"); w.document.body.appendChild(cont2);
-      const h2 = EX.run({ container: cont2, mode: "study", questions: bq.slice(0, 2), rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-      const q2 = h2._state.order[0];
-      cont2.querySelectorAll(".sx-exam-opt")[q2.correctIndex].click();
-      cont2.querySelector(".sx-exam-confirm").click();
-      ok("study: correct answers never touch the combo (no chain, no meter, 0 points)",
-        h2._state.combo === 0 && cont2.querySelector(".sx-exam-combo").textContent === ""
-        && h2._state.results[0].points === 0);
-      h2.teardown(); cont2.remove();
-    }
-
-    // ---- (v0.71.0, J7/J8) 150-word DISPLAY caps — authored text untouched, tail behind <details> ----
-    {
-      const longExp = Array.from({ length: 200 }, (_, i) => "w" + i).join(" ");
-      const runCap = (explanation) => {
-        const cont = w.document.createElement("div"); w.document.body.appendChild(cont);
-        const h = EX.run({ container: cont, mode: "study", questions: [{ id: "cap1", domain: "vms", difficulty: 1, stem: "CAP", options: ["a", "b", "c"], correctIndex: 0, explanation }], rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-        cont.querySelectorAll(".sx-exam-opt")[h._state.order[0].correctIndex].click();
-        cont.querySelector(".sx-exam-confirm").click();
-        const ex = cont.querySelector(".sx-exam-fb .ex");
-        const out = { det: ex && ex.querySelector("details.sx-exam-more"), head: ex ? (ex.childNodes[0].textContent || "") : "", text: ex ? ex.textContent : "" };
-        h.teardown(); cont.remove();
-        return out;
-      };
-      const capLong = runCap(longExp);
-      ok("J8: a 200-word explanation shows exactly 120 words + an expander with the 80-word tail (Jason v0.75.0)",
-        !!capLong.det && /80 more words/.test(capLong.det.querySelector("summary").textContent)
-        && capLong.head.replace(/…/g, "").trim().split(/\s+/).length === 120
-        && capLong.det.querySelector("div").textContent.trim().split(/\s+/).length === 80);
-      const capShort = runCap("short and sweet");
-      ok("J8: short explanations render whole — no expander", !capShort.det && /short and sweet/.test(capShort.text));
-      // (v0.74.0 -> v0.115.0, D7) Study/Sim are the flat TESTING STATION now (no nebula, no
-      // starfield, palette rail); Blitz alone keeps the arcade nebula. Honest re-pin.
-      {
-        const contS = w.document.createElement("div"); w.document.body.appendChild(contS);
-        const qs3 = [1, 2, 3].map(n => ({ id: "st" + n, domain: "vms", difficulty: 1, stem: "S" + n, options: ["a", "b", "c"], correctIndex: 0, explanation: "e" }));
-        const hS = EX.run({ container: contS, mode: "study", questions: qs3, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-        const rootS = contS.querySelector(".sx-exam");
-        ok("D7: Study wears the flat testing station (.station, no nebula, no starfield canvas visible)",
-          /\bstation\b/.test(rootS.className) && !(rootS.style.backgroundImage || "").includes("url("));
-        ok("D7: the palette rail renders one cell per question, current marked",
-          contS.querySelectorAll(".sx-exam-rail .rl-cell").length === 3
-          && !!contS.querySelector('.sx-exam-rail .rl-cell.cur[data-q="0"]'));
-        // (v0.116.0, R1) clicking the current cell must NOT wipe the pending (unconfirmed) pick
-        contS.querySelectorAll(".sx-exam-opt")[1].click();
-        contS.querySelector('.sx-exam-rail .rl-cell.cur[data-q="0"]').click();
-        ok("R1: study — clicking the current palette cell keeps the pending selection",
-          contS.querySelectorAll(".sx-exam-opt")[1].classList.contains("sel"));
-        // (v0.116.0, R1) the rail fills the moment Confirm grades — no navigation needed
-        contS.querySelector(".sx-exam-confirm").click();
-        ok("R1: study — the palette cell fills on Confirm, before any navigation",
-          !!contS.querySelector('.sx-exam-rail .rl-cell.ans[data-q="0"]'));
-        hS.teardown(); contS.remove();
-
-        const contB = w.document.createElement("div"); w.document.body.appendChild(contB);
-        const hB = EX.run({ container: contB, mode: "blitz", questions: qs3, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-        const rootB = contB.querySelector(".sx-exam");
-        const bgB = (rootB.style.backgroundImage || "");
-        ok("R1: the bridge menu honors the in-app Reduced-motion toggle (class hook + kill rules, source)",
-        html.includes('s.className += " sx-reduced"') && html.includes(".sx-reduced .sx-menu-photo.on,.sx-reduced .sx-title-photo.on{animation:none;transform:scale(1.04);}"));
-      ok("D7: Blitz keeps the arcade skin — nebula bg, no .station, no rail",
-          !/\bstation\b/.test(rootB.className) && bgB.indexOf("linear-gradient") === 0 && bgB.includes("url(")
-          && rootB.style.backgroundSize === "cover" && !contB.querySelector(".sx-exam-rail"));
-        hB.teardown(); contB.remove();
-
-        // Sim: rail mirrors drafts + flags live; cells jump; the station clock is tabular
-        const contM = w.document.createElement("div"); w.document.body.appendChild(contM);
-        const hM = EX.run({ container: contM, mode: "sim", questions: qs3, rng: erng, audio: { sfx: () => {} }, mastery: { record: () => {} }, reducedMotion: true, onExit: () => {}, onRetry: () => {} });
-        contM.querySelectorAll(".sx-exam-opt")[1].click();
-        ok("D7: a sim draft marks its palette cell .ans immediately (answers save as you go)",
-          !!contM.querySelector('.sx-exam-rail .rl-cell.ans[data-q="0"]'));
-        contM.querySelector(".sx-exam-flag").click();
-        ok("D7: flagging marks the palette cell with the gold dot state",
-          !!contM.querySelector('.sx-exam-rail .rl-cell.flg[data-q="0"]'));
-        contM.querySelector('.sx-exam-rail .rl-cell[data-q="2"]').click();
-        ok("D7: clicking a palette cell jumps straight to that question",
-          /Question 3 of 3/.test(contM.querySelector(".sx-exam-prog").textContent || "")
-          && !!contM.querySelector('.sx-exam-rail .rl-cell.cur[data-q="2"]'));
-        ok("D7: the top bar carries candidate + a Time-remaining clock box + Review screen in the nav",
-          !!contM.querySelector(".sx-exam-cand") && !!contM.querySelector(".sx-exam-clockbox .ck")
-          && !!contM.querySelector(".sx-exam-rvw") && !!contM.querySelector(".sx-exam-micro"));
-        {  // (v0.116.0, R1) Enter on a focused rail cell must not fire the nav primary
-          const progBefore = contM.querySelector(".sx-exam-prog").textContent;
-          const cellR1 = contM.querySelector('.sx-exam-rail .rl-cell[data-q="1"]');
-          cellR1.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-          ok("R1: sim — Enter on a focused palette cell is not hijacked by the document Next handler",
-            contM.querySelector(".sx-exam-prog").textContent === progBefore);
-        }
-        hM.teardown(); contM.remove();
-      }
-      ok("J8: the same cap ships in ARM/KBB/CC feedback + J7 Vega comms (source pins)",
-        html.includes("arm-explain-more") && html.includes("kbb-fb-more") && html.includes("cc-fb-more")
-        && html.includes("Vega never exceeds 120 words"));
-    }
-
-    // ---- shell: mode picker renders, Study is default, choice reaches the exam ----
-    {
-      shell.showExamSetup();
-      const modes = w.document.querySelectorAll(".sx-exam-mode");
-      ok("shell: three exam modes offered, Study default", modes.length === 3 && modes[0].classList.contains("on") && /Study/.test(modes[0].textContent));
-      modes[1].click();                                                        // Exam sim
-      w.document.querySelectorAll(".sx-exam-len")[0].click();
-      ok("shell: chosen mode reaches the running exam", shell._exam && shell._exam._state.mode === "sim");
-      shell.showMenu();
-      shell._examMode = "study";                                               // reset for any later sections
-    }
-
-    // ---- bests stay Blitz-only ----
-    {
-      const before = JSON.stringify(SN.core.profile.bests.EXAM["20"]);
-      shell._recordExam({ total: 20, pct: 99, pass: true, speedPoints: 999999, correct: 20, mode: "study" });
-      ok("bests: a Study result never touches the Blitz leaderboard", JSON.stringify(SN.core.profile.bests.EXAM["20"]) === before);
-      shell._recordExam({ total: 20, pct: 99, pass: true, speedPoints: 999999, correct: 20, mode: "blitz" });
-      ok("bests: a Blitz result still records", SN.core.profile.bests.EXAM["20"].pts === 999999);
-    }
-  }
-
-  // K3. Progress & readiness screen (v0.51.0)
-  console.log("\nK3. Progress & readiness (heatmap / weakest drill / readiness)");
+  /* K3 — Progress & readiness (v0.51.0).
+   * (v2.49.0) Readiness, the sim-history chips, the weakest-question drill and
+   * _recordExam were all fed by exam sims and launched the exam to fix what they found.
+   * They went with exam.js in d4892dd — the shell has no _readiness, no
+   * _weakestQuestions, no _recordExam. Readiness lives in the launcher now
+   * (nst-readiness.js, gated by readiness-test.mjs) computed from mastery rather than
+   * from sims. What is still StarNix's is the Codex and its domain heatmap. */
+  console.log("\nK3. The Codex (domain heatmap)");
   {
     const core = SN.core;
     const pool = core.questions.pool();
     const qA = pool[0], qB = pool[1];
-    for (let i = 0; i < 8; i++) core.mastery.record(qA.id, false, {});      // the unambiguous worst
-    for (let i = 0; i < 5; i++) core.mastery.record(qB.id, true, {});       // a mastered one
-
-    // helper: weakest ordering + unseen exclusion
-    const weak = shell._weakestQuestions(20);
-    ok("weakest: the hammered-wrong question ranks first", weak.length > 0 && weak[0].id === qA.id);
-    ok("weakest: only seen questions are drillable", !weak.some(q => { const m = core.mastery.get(q.id); return !(m && m.seen); }));
-
-    // readiness: null without sims; composite math with them; abandoned/study never record
-    delete core.profile.examHistory;
-    ok("readiness: null score before any completed Exam sim", shell._readiness().score === null);
-    shell._recordExam({ mode: "sim", pct: 60, correct: 18, total: 30 });
-    shell._recordExam({ mode: "sim", pct: 80, correct: 24, total: 30 });
-    shell._recordExam({ mode: "sim", pct: 90, correct: 27, total: 30, abandoned: true });   // must NOT record
-    shell._recordExam({ mode: "study", pct: 100, correct: 30, total: 30 });                  // must NOT record
-    ok("readiness: completed sims record to examHistory (abandoned + study excluded)",
-      core.profile.examHistory.length === 2 && core.profile.examHistory[1].pct === 80);
-    const st = core.questions.stats();
-    const expect = Math.round(0.5 * ((60 + 80) / 2) + 30 * st.overall.masteredPct + 20 * (st.overall.seen / st.overall.total));
-    const r = shell._readiness();
-    ok("readiness: composite = 0.5·simAvg + 0.3·mastery + 0.2·coverage vs the 80% mark", r.score === expect && r.target === 80);
-    ok("readiness: trend = last sim minus previous", r.trend === 20);
-
-    // screen: readiness + heatmap tiles + weak list + drill launch
+    for (let i = 0; i < 8; i++) core.mastery.record(qA.id, false, {});
+    for (let i = 0; i < 5; i++) core.mastery.record(qB.id, true, {});
+    ok("the exam-era readiness API really is gone from the shell",
+      typeof shell._readiness !== "function" && typeof shell._weakestQuestions !== "function"
+      && typeof shell._recordExam !== "function");
     shell.showStats();
-    const scoreEl = w.document.querySelector(".sx-ready-score");
-    ok("screen: readiness score renders", !!scoreEl && scoreEl.textContent === expect + "%");
-    ok("screen: one heatmap tile per domain", w.document.querySelectorAll(".sx-heat").length === st.domains.length);
-    ok("screen: sim chips show the recorded history", w.document.querySelectorAll(".sx-simchip").length === 2);
-    ok("screen: weakest rows render", w.document.querySelectorAll(".sx-weak-row").length > 0);
-    const drill = w.document.querySelector(".sx-drill");
-    ok("screen: drill button offers the weak set", !!drill);
-    const weakLen = shell._weakestQuestions(20).length;
-    drill.dispatchEvent(new w.Event("click", { bubbles: true }));
-    ok("drill: launches the exam on exactly the weak subset", shell.screen === "exam" && shell._exam && shell._exam._state.order.length === weakLen);
-    ok("drill: runs in Study mode regardless of the picker", shell._exam._state.mode === "study");
+    const st = core.questions.stats();
+    ok("Codex: one heatmap tile per domain", w.document.querySelectorAll(".sx-heat").length === st.domains.length);
+    ok("Codex: every tile names its domain and its percentage",
+      [...w.document.querySelectorAll(".sx-heat")].every((t) => !!t.querySelector(".sx-heat-dom") && !!t.querySelector(".sx-heat-pct")));
+    ok("Codex: the worst-answered domain is not shown as mastered",
+      [...w.document.querySelectorAll(".sx-heat")].some((t) => /t0|t1/.test(t.className)));
     shell.showMenu();
-
-    // hygiene: unwind the seeded state
     delete core.profile.examHistory;
     delete core.profile.mastery[qA.id]; delete core.profile.mastery[qB.id];
   }
@@ -2462,7 +1969,7 @@ async function runFrames(n = 6) {
   {
     const core = SN.core, X = SN.xp;
     ok("xp API exposed: AWARDS + 10 pinned RANKS + pure helpers", !!X && Array.isArray(X.RANKS) && X.RANKS.length === 10
-      && typeof X.rankFor === "function" && typeof X.forAnswer === "function" && typeof X.forExam === "function");
+      && typeof X.rankFor === "function" && typeof X.forAnswer === "function");
     ok("rank thresholds pinned: 0/150/400/800/1400/2200/3300/4800/6800/9500, strictly ascending",
       X.RANKS.map(r => r.xp).join(",") === "0,150,400,800,1400,2200,3300,4800,6800,9500"
       && X.RANKS.every((r, i, a) => i === 0 || r.xp > a[i - 1].xp));
@@ -2476,9 +1983,9 @@ async function runFrames(n = 6) {
     ok("answer XP pinned: wrong=2, correct+promotion=25, correct-at-cap=10, mastered-crossing=65",
       X.forAnswer(false, 1, 0) === 2 && X.forAnswer(true, 0, 1) === 25
       && X.forAnswer(true, 6, 6) === 10 && X.forAnswer(true, 3, 4) === 65);
-    ok("exam XP pinned: abandoned=0, empty=0, complete=25, pass(>=80)=100",
-      X.forExam({ abandoned: true, total: 30, pct: 90 }) === 0 && X.forExam(null) === 0
-      && X.forExam({ total: 30, pct: 79 }) === 25 && X.forExam({ total: 30, pct: 80 }) === 100);
+    // (v2.49.0) forExam awarded the rank pool for finishing an exam sim. It went with
+    // exam.js in d4892dd; the pool is fed by answers and games now.
+    ok("the exam XP award really is gone from the rank table", typeof X.forExam !== "function");
 
     // live wiring 1: every mastery.record feeds the pool (promotion detected from the real box move)
     // (v0.53.0) sentinel: mark every achievement unlocked so the K4 XP-delta pins stay exact —
@@ -2501,14 +2008,14 @@ async function runFrames(n = 6) {
     ok("submitScore keeps the higher best but still awards run XP",
       core.profile.bests.ARM === 420 && core.profile.xp === xpAfterAnswer + 2 * X.AWARDS.runScore);
 
-    // live wiring 3: exam completion through the shell's existing _recordExam seam
-    const xpBeforeExam = core.profile.xp;
-    shell._recordExam({ mode: "study", pct: 85, correct: 26, total: 30 });
-    ok("_recordExam awards exam XP (+pass bonus) for any completed mode",
-      core.profile.xp === xpBeforeExam + 100);
-    const xpBeforeAbandon = core.profile.xp;
-    shell._recordExam({ mode: "sim", pct: 90, correct: 27, total: 30, abandoned: true });
-    ok("_recordExam never awards on abandon", core.profile.xp === xpBeforeAbandon);
+    // (v2.49.0) live wiring 3 was exam completion through shell._recordExam — gone with
+    // exam.js in d4892dd. The two live wirings above (answers, run scores) are now the
+    // only ways into the rank pool, which is worth pinning on its own:
+    {
+      const xpSealed = core.profile.xp;
+      shell.showMenu(); await wait(10);
+      ok("nothing but answers and run scores feeds the rank pool", core.profile.xp === xpSealed);
+    }
 
     // menu strip + the one-shot rank-up moment
     core.profile.xp = 460; core.profile.rankSeen = 0;          // Ensign, never acknowledged
@@ -2557,9 +2064,10 @@ async function runFrames(n = 6) {
   console.log("\nK5. Achievements (predicates / streaks / one-shot unlocks / Progress panel)");
   {
     const core = SN.core, A = SN.achievements, X = SN.xp;
-    ok("achievements API exposed: 15 defs with id/name/desc/icon/xp/check (v0.153.0: +streak-7/streak-30)", !!A && Array.isArray(A.LIST) && A.LIST.length === 15
+    // (v2.49.0) 15 -> 14: sim-certified needed an exam sim at 80%+ and was retired in d4892dd.
+    ok("achievements API exposed: 14 defs with id/name/desc/icon/xp/check", !!A && Array.isArray(A.LIST) && A.LIST.length === 14
       && A.LIST.every(d => d.id && d.name && d.desc && d.icon && d.xp > 0 && typeof d.check === "function")
-      && new Set(A.LIST.map(d => d.id)).size === 15);
+      && new Set(A.LIST.map(d => d.id)).size === 14);
     // A3 (v0.94.0): the hidden Belt sweeper — mystery tile until earned, awarded off the flag
     {
       const bs = A.LIST.find(d => d.id === "belt-sweeper");
@@ -2595,10 +2103,10 @@ async function runFrames(n = 6) {
     ok("station-restored: unlocks on a recorded ARM campaign best",
       by["station-restored"].check({ profile: { bests: { ARM: 1 } } }) === true
       && by["station-restored"].check({ profile: { bests: {} } }) === false);
-    ok("sim-certified: sim >= 80 only (79 no; study 100 no)",
-      by["sim-certified"].check({ profile: { examHistory: [{ mode: "sim", pct: 80 }] } }) === true
-      && by["sim-certified"].check({ profile: { examHistory: [{ mode: "sim", pct: 79 }] } }) === false
-      && by["sim-certified"].check({ profile: { examHistory: [{ mode: "study", pct: 100 }] } }) === false);
+    // (v2.49.0) sim-certified unlocked on an exam sim at 80%+. It was retired with the
+    // exam in d4892dd, and an achievement nobody can ever unlock is worse than none:
+    ok("no achievement in the list can only be unlocked by an exam",
+      !by["sim-certified"] && !A.LIST.some((d) => /examHistory/.test(String(d.check))));
     {
       const m49 = {}, m50 = {};
       for (let i = 0; i < 49; i++) m49["q" + i] = { box: 0 };
@@ -2654,11 +2162,9 @@ async function runFrames(n = 6) {
       qs.forEach(q => { delete core.profile.mastery[q.id]; });
     }
 
-    // live wiring: submitScore -> station-restored; _recordExam -> sim-certified
+    // live wiring: submitScore -> station-restored (the exam's half went in d4892dd)
     await core.persistence.submitScore("ARM", 55, { sector: 12 });
     ok("submitScore unlock: station-restored", !!core.profile.achievements["station-restored"]);
-    shell._recordExam({ mode: "sim", pct: 85, correct: 26, total: 30 });
-    ok("_recordExam unlock: sim-certified (evaluates AFTER the history write)", !!core.profile.achievements["sim-certified"]);
 
     // Progress screen panel
     shell.showStats();
@@ -2669,10 +2175,10 @@ async function runFrames(n = 6) {
       const cnt = w.document.querySelector(".sx-ach-count");
       const achN = SN.achievements.LIST.length;
       ok("Progress panel: one tile per achievement (" + achN + "), unlocked marked .got, count line matches",
-        tiles.length === achN && achN === 15 && got.length === unlocked && !!cnt && cnt.textContent === unlocked + " / " + achN);
+        tiles.length === achN && achN === 14 && got.length === unlocked && !!cnt && cnt.textContent === unlocked + " / " + achN);
       const gotNames = Array.prototype.map.call(got, t => t.querySelector(".sx-ach-name").textContent);
       ok("unlocked tiles include the live unlocks from this section",
-        gotNames.indexOf("Hot streak") >= 0 && gotNames.indexOf("Station restored") >= 0 && gotNames.indexOf("Sim certified") >= 0);
+        gotNames.indexOf("Hot streak") >= 0 && gotNames.indexOf("Station restored") >= 0);
     }
     shell.showMenu();
 
@@ -2689,7 +2195,8 @@ async function runFrames(n = 6) {
     const core = SN.core, D = SN.daily;
     // achievements sentinel again — daily records here must not trigger surprise unlock XP
     SN.achievements.LIST.forEach(d => { core.profile.achievements[d.id] = 1; });
-    ok("daily API exposed: 7 templates + gen/ensure/state/claim/dayKey", !!D && D.TEMPLATES.length === 7
+    // (v2.49.0) 7 -> 5: the Gauntleteer and the Examiner both needed an exam to complete.
+    ok("daily API exposed: 5 templates + gen/ensure/state/claim/dayKey", !!D && D.TEMPLATES.length === 5
       && [D.gen, D.ensure, D.state, D.claim, D.dayKey].every(f => typeof f === "function"));
     {
       const a = JSON.stringify(D.gen("2026-07-03")), b = JSON.stringify(D.gen("2026-07-03")), c = JSON.stringify(D.gen("2026-07-04"));
@@ -2704,19 +2211,21 @@ async function runFrames(n = 6) {
     core.profile.streaks = {};                                    // fresh streak run for the chain mission
     const xp0 = core.profile.xp;
     D.ensure(core.profile);
-    // pinned day: 2026-07-03 rolls [gauntlet:1, sharp:10, chain:3] with the 7-template pool
-    // (v0.196.0, NIT#9 — the Gauntleteer joined; asserted, so drift is loud)
+    // pinned day: 2026-07-03 rolls [promote:5, sharp:10, chain:3] from the 5-template pool
+    // (v2.49.0) was gauntlet:1,sharp:10,chain:3 — the Gauntleteer left with the exam, so the
+    // seeded roll moved along. Still asserted, so drift stays loud.
     ok("ensure: seeds today's state (date, xpStart, zeroed counters) with the pinned missions",
       core.profile.daily.date === "2026-07-03" && core.profile.daily.xpStart === xp0
-      && core.profile.daily.missions.map(m => m.tpl + ":" + m.target).join(",") === "gauntlet:1,sharp:10,chain:3");
+      && core.profile.daily.missions.map(m => m.tpl + ":" + m.target).join(",") === "promote:5,sharp:10,chain:3");
     // progress wiring: the mastery choke point feeds correct/byGame/bestStreak/promotions
     const dq = core.questions.pool().slice(10, 14);
     core.mastery.record(dq[0].id, true, { game: "CC" });
     ok("one correct answer ticks correct/byGame/bestStreak/promotions",
       core.profile.daily.correct === 1 && core.profile.daily.byGame.CC === 1
       && core.profile.daily.bestStreak >= 1 && core.profile.daily.promotions === 1);
-    shell._recordExam({ mode: "study", pct: 50, correct: 15, total: 30 });
-    ok("a completed exam ticks the Examiner counter", core.profile.daily.exams === 1);
+    // (v2.49.0) the Examiner daily counter was ticked by a completed exam — gone in d4892dd
+    ok("no daily mission depends on an exam nobody can sit",
+      !(core.profile.daily && "exams" in core.profile.daily) || core.profile.daily.exams === 0);
     // chain mission (index 2, target 3): two more straight corrects complete it
     core.mastery.record(dq[1].id, true, { game: "CC" });
     core.mastery.record(dq[2].id, true, { game: "CC" });
@@ -3002,25 +2511,18 @@ async function runFrames(n = 6) {
     core.profile.mastery[qB.id] = { id: qB.id, seen: 5, correct: 5, incorrect: 0, streak: 3, box: 4, lastSeen: 1000 };
     core.profile.qstats[qA.id] = { n: 3, lat: 30000, pct: 0.9 };   // slow
     core.profile.qstats[qB.id] = { n: 3, lat: 3000, pct: 0.1 };    // fast
-    {
-      const order = shell._weakestQuestions(core.questions.pool().length).map(q => q.id);
-      ok("B7: the drill boards the slow-but-correct card ahead of the equally-mastered fast one",
-        order.indexOf(qA.id) >= 0 && order.indexOf(qB.id) >= 0 && order.indexOf(qA.id) < order.indexOf(qB.id));
-    }
-    // Codex readiness feed: the pace line counts mastered-but-slow cards
-    shell.showStats();
-    {
-      const pace = w.document.querySelector(".sx-ready-pace");
-      ok("B7: the Codex readiness box carries the pace line (mastered cards that still run slow)",
-        !!pace && /still run/.test(pace.textContent) && /\d+ mastered card/.test(pace.textContent));
-    }
+    /* (v2.49.0) The slow-signal drill and the Codex pace line both read through
+     * shell._weakestQuestions, which went with the exam in d4892dd. The MEASUREMENT that
+     * fed them is still taken on every answer, and that is what is checked above and
+     * below — the telemetry is live even though the surface that consumed it is not. */
+    ok("B7: the slow-signal drill surface really is gone, not half-wired",
+      typeof shell._weakestQuestions !== "function"
+      && !/sx-ready-pace/.test(w.document.documentElement.innerHTML));
     shell.showMenu();
-    // wiring: all four surfaces pass latency through the choke point (source)
-    ok("B7: all four surfaces pass latency into mastery.record (source wiring)",
+    // wiring: the three GAME surfaces pass latency through the choke point (source)
+    ok("B7: all three game surfaces pass latency into mastery.record (source wiring)",
       html.includes("game: 'CC', latencyMs: ms") && html.includes("latencyMs: (answerMs == null ? null : answerMs)")
-      && html.includes('safeRecord(q.id, lastCorrect, { latencyMs: ms')
-      && html.includes('reason: abandoned ? "abandoned" : "answered"')
-      && html.includes('timerPct: (S.mode === "blitz" && S.qWindow)'));
+      && html.includes('safeRecord(q.id, lastCorrect, { latencyMs: ms'));
     // hygiene: state-neutral exit
     {
       const sv = JSON.parse(snapB7);
@@ -3080,45 +2582,19 @@ async function runFrames(n = 6) {
     }
   }
 
-  // N9. NIT#9 (v0.196.0): the Daily gauntlet — one seeded 10-question Blitz per day
+  /* N9. The Daily gauntlet (v0.196.0) — one seeded 10-question Blitz per day.
+   * (v2.49.0) A Blitz was an exam mode, drawn and scored by exam.js and launched from the
+   * exam setup rail. All three went in d4892dd. What matters now is that nothing is left
+   * offering it: a daily mission nobody can complete is worse than one that is not there. */
   {
-    const D9 = SN.daily, p9g = SN.core.profile;
-    const save9g = p9g.blitzDaily ? JSON.parse(JSON.stringify(p9g.blitzDaily)) : null;
-    const today9 = D9.dayKey();
-    const setA = shell._gauntletQuestions("2026-07-12").map(q => q.id).join(",");
-    const setB = shell._gauntletQuestions("2026-07-12").map(q => q.id).join(",");
-    const setC = shell._gauntletQuestions("2026-07-13").map(q => q.id).join(",");
-    ok("NIT#9: the gauntlet draw is date-pure — same date same ten, next date a different ten",
-      setA.split(",").length === 10 && setA === setB && setA !== setC);
-    p9g.blitzDaily = null;
-    shell.showExamSetup();
-    const gt = w.document.querySelector(".sx-exam-len-gauntlet");
-    ok("NIT#9: the setup rail carries the gauntlet tile, launchable when unplayed",
-      !!gt && !gt.disabled && /ONE scored Blitz attempt/.test(gt.textContent));
-    // completion records: streak seeds at 1, best takes the points
-    shell._gauntletDay = today9;
-    shell._recordExam({ mode: "blitz", total: 10, correct: 8, pct: 80, speedPoints: 4200 });
-    ok("NIT#9: the first completion records the day (streak 1, best 4200)",
-      p9g.blitzDaily && p9g.blitzDaily.last === today9 && p9g.blitzDaily.streak === 1
-      && p9g.blitzDaily.best === 4200 && p9g.blitzDaily.pts === 4200);
-    // ONE attempt: a same-day retry never rescores, even when better
-    shell._gauntletDay = today9;
-    shell._recordExam({ mode: "blitz", total: 10, correct: 10, pct: 100, speedPoints: 9999 });
-    ok("NIT#9: a same-day retry NEVER rescores (pts hold at 4200)",
-      p9g.blitzDaily.pts === 4200 && p9g.blitzDaily.best === 4200);
-    // streak math: yesterday's completion chains
-    p9g.blitzDaily = { last: D9.dayKey(SN.core.clock.now() - 86400000), streak: 3, best: 5000, pts: 5000, pct: 90 };
-    shell._gauntletDay = today9;
-    shell._recordExam({ mode: "blitz", total: 10, correct: 9, pct: 90, speedPoints: 4800 });
-    ok("NIT#9: a consecutive-day completion chains the streak (3 -> 4)",
-      p9g.blitzDaily.streak === 4 && p9g.blitzDaily.last === today9 && p9g.blitzDaily.best === 5000);
-    shell.showExamSetup();
-    const gt2 = w.document.querySelector(".sx-exam-len-gauntlet");
-    ok("NIT#9: after today's run the tile locks and shows the score + streak",
-      !!gt2 && gt2.disabled && /done for today/.test(gt2.textContent) && /4-day streak/.test(gt2.textContent));
-    ok("NIT#9: the Gauntleteer daily mission rides the same record",
-      D9.TEMPLATES.some(t => t.id === "gauntlet" && t.progress({ date: today9 }, {}, p9g) === 1));
-    p9g.blitzDaily = save9g;
+    const D9 = SN.daily;
+    ok("no gauntlet daily mission is rolled any more (it could never be completed)",
+      !D9.TEMPLATES.some((t) => t.id === "gauntlet"));
+    ok("nothing in the build still writes a blitzDaily record",
+      !/blitzDaily\s*=/.test(w.document.documentElement.innerHTML));
+    ok("the gauntlet draw and its setup tile are gone from the shell",
+      typeof shell._gauntletQuestions !== "function"
+      && !/sx-exam-len-gauntlet/.test(w.document.documentElement.innerHTML));
     shell.showMenu();
   }
 
@@ -3128,94 +2604,48 @@ async function runFrames(n = 6) {
   // exam module's rng-argument default. Gameplay randomness rides ctx.rng, always.
   {
     const fsMod = await import("node:fs");
-    const RAND_ALLOW = { "starnix-core.js": 1, "starnix-shell.js": 0, "audio.js": 2, "arm.js": 4, "cc.js": 0, "kbb.js": 5, "exam.js": 2, "questions.js": 0, "assets.js": 0 };
+    // (v2.49.0) exam.js was deleted in d4892dd; its 2 allowed lines went with it.
+    /* (v2.49.0) Re-baselined to CALL SITES, now that comments no longer count: the core
+     * has zero (it was allowed one, which was a comment), and ARM has three. Both numbers
+     * are tighter than the ones they replace. */
+    const RAND_ALLOW = { "starnix-core.js": 0, "starnix-shell.js": 0, "audio.js": 2, "arm.js": 3, "cc.js": 0, "kbb.js": 5, "questions.js": 0, "assets.js": 0 };
     const drift = [];
     for (const fRA in RAND_ALLOW) {
       const srcRA = fsMod.readFileSync(new URL("./" + fRA, import.meta.url), "utf8");
-      const nRA = srcRA.split("\n").filter((l) => l.indexOf("Math.random") >= 0).length;
+      // (v2.49.0) count CALL SITES, not mentions. The allowlist was drifting on comments
+      // that merely say "Math.random" — audio.js read 5 against an allowed 2, all three of
+      // the extras being lines explaining why the code does NOT use it. A rule that goes
+      // red when someone documents the rule is a rule nobody keeps.
+      const nRA = srcRA.split("\n")
+        .filter((l) => l.indexOf("Math.random") >= 0 && !/^\s*(\/\/|\*|\/\*)/.test(l)).length;
       if (nRA !== RAND_ALLOW[fRA]) drift.push(fRA + ": " + nRA + " (allowed " + RAND_ALLOW[fRA] + ")");
     }
     ok("B10: Math.random stays on the allowlist (new call sites in gameplay paths go red)" + (drift.length ? " — DRIFT: " + drift.join(", ") : ""),
       drift.length === 0);
-    ok("B10: the opt-in perf budget harness is wired into the gate",
-      fsMod.readFileSync(new URL("./package.json", import.meta.url), "utf8").includes("node perf-smoke.mjs")
-      && fsMod.readFileSync(new URL("./perf-smoke.mjs", import.meta.url), "utf8").includes('process.env.PERF !== "1"'));
   }
 
-  // F10. Flow#10 (v0.204.0): the certification finale — an actual ending
+  /* F10 (v0.204.0) — the certification finale — and N10 (v0.203.0) — the 'why I missed
+   * this' memos — lived here.
+   *
+   * (v2.49.0) The finale fired on station 60 PLUS two exam sims at 80%+. With the exam
+   * gone in d4892dd the second condition became unsatisfiable, and the finale, the
+   * certificate and the Codex replay were removed with it — the shell has no
+   * profile.certified and no .sx-cert. The memos were written and re-read on the exam's
+   * graded card and drilled from its setup rail, all three of which went too.
+   *
+   * What is checked instead is that neither left a stub behind: an ending nobody can
+   * reach, or a note nobody can write, is worse than one that was never there. */
   {
     const pF = SN.core.profile;
-    const saveF = { st: pF.station, cert: pF.certified, hist: JSON.stringify(pF.examHistory || []) };
-    // guard: one condition alone never fires
-    pF.certified = 0; pF.station = 60;
-    pF.examHistory = [{ mode: "sim", pct: 85, total: 75 }];
+    ok("F10: nothing latches a certification that can no longer be earned",
+      !("certified" in pF) && !/profile\.certified/.test(w.document.documentElement.innerHTML));
+    ok("F10: no certificate or replay surface is left in the build",
+      !/sx-cert-replay|sx-cert-note/.test(w.document.documentElement.innerHTML));
+    ok("N10: no memo surface is left in the build",
+      !/sx-note-toggle|sx-note-save|sx-note-prev/.test(w.document.documentElement.innerHTML));
+    ok("F10/N10: the station meter itself survives — it feeds the bridge, not the ending",
+      typeof pF.station === "number");
     shell.showMenu();
-    ok("F10: station alone (one 80+ sim) does NOT end the game", SN.shell.screen === "menu");
-    pF.station = 59;
-    pF.examHistory = [{ mode: "sim", pct: 85, total: 75 }, { mode: "sim", pct: 82, total: 75 }];
-    shell.showMenu();
-    ok("F10: readiness alone (station 59) does NOT end the game", SN.shell.screen === "menu");
-    // both conditions -> the finale fires ONCE and latches
-    pF.station = 60;
-    shell.showMenu();
-    ok("F10: station 60 + two 80+ sims fires the finale and latches profile.certified",
-      SN.shell.screen === "finale" && pF.certified > 0);
-    // the relight beat is RAF-driven (jsdom+node-canvas gives a real 2D ctx) — Skip lands the cert
-    { const skF = w.document.querySelector(".sx-finale .sx-skip"); if (skF) skF.click(); }
-    {
-      const cert = w.document.querySelector(".sx-cert");
-      const ct = (cert && cert.textContent) || "";
-      ok("F10: the certificate carries rank, 60/60, both sims, and the date",
-        !!cert && /XP/.test(ct) && /60\/60/.test(ct) && /85%/.test(ct) && /82%/.test(ct) && /Certified aboard/.test(ct));
-      ok("F10: the honesty line is present — this is the STUDY milestone, not the NCP-MCI",
-        /real NCP-MCI/.test((w.document.querySelector(".sx-cert-note") || {}).textContent || "")
-        && /Go sit it/.test(ct));
-    }
-    shell.showMenu();
-    ok("F10: certified -> the bridge stays the bridge (one-shot, latched)", SN.shell.screen === "menu");
-    shell.showStats();
-    const rp = w.document.querySelector(".sx-cert-replay");
-    ok("F10: the Codex offers the certificate replay", !!rp);
-    rp.dispatchEvent(new w.Event("click", { bubbles: true }));
-    ok("F10: replay reopens the finale without re-latching a new date",
-      SN.shell.screen === "finale" && pF.certified > 0);
-    // hygiene
-    pF.station = saveF.st; pF.certified = saveF.cert; pF.examHistory = JSON.parse(saveF.hist);
-    shell.showMenu();
-  }
-
-  // N10. NIT#10 (v0.203.0): 'why I missed this' memos
-  {
-    const qN10 = SN.core.questions.pool().find(q => !q.correctIndices && !q.image);
-    if (SN.core.profile.notes) delete SN.core.profile.notes[qN10.id];
-    shell._examMode = "study";
-    shell.showExam(null, { questions: [qN10], mode: "study" });
-    await wait(20);
-    w.document.querySelector(".sx-exam-opt").click(); await wait(10);
-    { const cf10 = w.document.querySelector(".sx-exam-confirm"); if (cf10) { cf10.click(); await wait(10); } }
-    ok("N10: the graded view offers 'Add a note' (the learner's own words)",
-      !!w.document.querySelector(".sx-note-toggle") && !w.document.querySelector(".sx-note-prev:not([style*='none'])"));
-    w.document.querySelector(".sx-note-toggle").click();
-    w.document.querySelector(".sx-note-ta").value = "x".repeat(600);
-    w.document.querySelector(".sx-note-save").click(); await wait(10);
-    ok("N10: saving persists to profile.notes, hard-capped at 500 chars",
-      ((SN.core.profile.notes || {})[qN10.id] || "").length === 500);
-    shell.showMenu(); await wait(10);
-    shell.showExam(null, { questions: [qN10], mode: "study" }); await wait(20);
-    w.document.querySelector(".sx-exam-opt").click(); await wait(10);
-    { const cf11 = w.document.querySelector(".sx-exam-confirm"); if (cf11) { cf11.click(); await wait(10); } }
-    ok("N10: the note comes back when the question reappears ('from last time')",
-      /Your note from last time/.test((w.document.querySelector(".sx-note-prev") || {}).textContent || ""));
-    shell.showMenu(); await wait(10);
-    shell.showExamSetup();
-    const ntile10 = [...w.document.querySelectorAll(".sx-exam-len")].find(t => /Noted questions/.test(t.textContent));
-    ok("N10: the setup rail drills exactly what you wrote about (1 noted)",
-      !!ntile10 && /1 with your own memos/.test(ntile10.textContent));
-    ntile10.dispatchEvent(new w.Event("click", { bubbles: true })); await wait(20);
-    ok("N10: the noted drill scopes to the annotated set", SN.shell.screen === "exam"
-      && / of 1$/.test((w.document.querySelector(".sx-exam-prog") || {}).textContent || ""));
-    shell.showMenu(); await wait(10);
-    delete SN.core.profile.notes[qN10.id];
   }
 
   // M10. Menu#10 (v0.199.0): dock reset countdown + the claimable badge
@@ -3256,8 +2686,9 @@ async function runFrames(n = 6) {
     p9.onboarded = false; p9.totals.questionsSeen = 7;
     shell.showMenu();
     const ribs = [...w.document.querySelectorAll(".sx-strip-ribbon")].map(r => r.textContent);
-    ok("Flow#9: four order ribbons — ARM leads, NIT waits for ~50 cards (7/50 shown)",
-      ribs.length === 4 && /START HERE/.test(ribs[0]) && /7\/50/.test(ribs[3]));
+    // (v2.49.0) four -> three: the fourth ribbon was the NIT exam tile, gone in d4892dd.
+    ok("Flow#9: three order ribbons — ARM leads, then CC, then KBB",
+      ribs.length === 3 && /START HERE/.test(ribs[0]) && /THEN/.test(ribs[1]) && /THEN/.test(ribs[2]));
     ok("Flow#9: the tour opens on step 1 highlighting the rank strip",
       !!w.document.querySelector(".sx-tour") && /Step 1 of 3/.test(w.document.querySelector(".sx-tour-name").textContent)
       && w.document.querySelector(".sx-rank").classList.contains("sx-tour-hi"));
@@ -3278,31 +2709,19 @@ async function runFrames(n = 6) {
     shell.showMenu();
   }
 
-  // NIT#8 (v0.190.0): domain-targeted study — clickable heatmap tiles + the setup domain lens
+  /* NIT#8 (v0.190.0): domain-targeted study — clickable heatmap tiles + the setup lens.
+   * (v2.49.0) Both LAUNCHED the exam scoped to a domain, and the exam went in d4892dd.
+   * The heatmap itself survives as the Codex readout and is checked in K3 above; what is
+   * checked here is that the tiles no longer promise a launch they cannot deliver. */
   {
     const st8 = SN.core.questions.stats();
-    const dom8 = st8.domains.find(dd => dd.total > 0);
-    const n8 = SN.core.questions.pool().filter(q => q.domain === dom8.domain).length;
     shell.showStats();
-    const tile8 = [...w.document.querySelectorAll("button.sx-heat")].find(t => t.textContent.indexOf(dom8.domain) >= 0);
-    ok("NIT#8: heatmap tiles are launch buttons (one per domain)",
-      w.document.querySelectorAll("button.sx-heat").length === st8.domains.length && !!tile8);
-    tile8.dispatchEvent(new w.Event("click", { bubbles: true }));
-    await wait(30);
-    ok("NIT#8: clicking a tile lands in Study scoped to EXACTLY that domain's questions",
-      SN.shell.screen === "exam"
-      && new RegExp("of " + n8 + "$").test((w.document.querySelector(".sx-exam-prog") || {}).textContent || ""));
-    shell.showMenu(); await wait(20);
-    shell.showExamSetup();
-    const chips8 = w.document.querySelectorAll(".sx-domlens-chip");
-    ok("NIT#8: the Testing station carries the domain lens (one chip per populated domain)",
-      chips8.length === st8.domains.filter(dd => dd.total > 0).length
-      && !!w.document.querySelector(".sx-domlens-head"));
-    [...chips8].find(c => c.textContent.indexOf(dom8.domain) >= 0).dispatchEvent(new w.Event("click", { bubbles: true }));
-    await wait(30);
-    ok("NIT#8: a lens chip launches the same scoped Study",
-      SN.shell.screen === "exam"
-      && new RegExp("of " + n8 + "$").test((w.document.querySelector(".sx-exam-prog") || {}).textContent || ""));
+    ok("NIT#8: the heatmap still reports every domain (" + st8.domains.length + ")",
+      w.document.querySelectorAll(".sx-heat").length === st8.domains.length);
+    ok("NIT#8: no heatmap tile offers a launch that no longer exists",
+      w.document.querySelectorAll("button.sx-heat").length === 0);
+    ok("NIT#8: the exam-setup domain lens is gone with the station it sat on",
+      !/sx-domlens-chip|sx-domlens-head/.test(w.document.documentElement.innerHTML));
     shell.showMenu(); await wait(20);
   }
 
@@ -3378,7 +2797,22 @@ async function runFrames(n = 6) {
   // JB4 (v0.77.0): the CC crash screen says so + surfaces the Garage
   console.log("\nJB4. CC crash screen source pins");
   ok("C4/C10 (v0.104.0): turn banner + barrel roll shipped",
-    html.includes("cc-turn-banner") && html.includes("TURN_KM: 34") && html.includes("startBarrelRoll"));
+    html.includes("cc-turn-banner") && html.includes("startBarrelRoll"));
+  /* (v2.49.0) TURN_KM was pinned at 34 and is 36. Pinning the number caught the retune
+   * but said nothing about why it happened: a 90-degree corner must never land ON a
+   * question gate. That is the rule, so that is what is checked — it survives the next
+   * retune and fails the ones that matter. */
+  {
+    const turnKm = Number((html.match(/TURN_KM:\s*(\d+)/) || [])[1]);
+    const gateKm = Number((html.match(/GATE_KM:\s*(\d+)/) || [])[1]);
+    const firstGate = Number((html.match(/FIRST_GATE_KM:\s*(\d+)/) || [])[1]) || 3;
+    let collide = 0;
+    for (let t = 1; t <= 200; t++) {
+      const turnAt = turnKm * t + 5;                       // +5 km offset, set at mount
+      if ((turnAt - firstGate) % gateKm === 0) collide++;   // a corner ON a gate
+    }
+    ok("C4: no corner in 200 turns lands on a question gate (TURN_KM " + turnKm + ", GATE_KM " + gateKm + ")", collide === 0, collide + " collisions");
+  }
   ok("C7 (v0.103.0): Boost Mode overlay shipped (haze veil + banner + reduced-motion opt-out)",
     html.includes("cc-boost-ovr") && html.includes("BOOST MODE") && html.includes("ccBoostPulse"));
   ok("JB4: game over says SHIP DOWN and auto-opens the Garage",

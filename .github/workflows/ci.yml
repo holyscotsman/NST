@@ -65,6 +65,12 @@ jobs:
           test -d "$GITHUB_WORKSPACE/starnix/node_modules/jsdom" \
             || { echo "jsdom is not at starnix/node_modules, where cc-death-paths.cjs requires it by absolute path"; exit 1; }
       - run: node build.mjs
+      # (v2.49.0) The end-to-end verifier of the ASSEMBLED index.html: it boots the real
+      # built shell in jsdom with the real question bank, flies all three games, and
+      # checks 557 things about the thing that actually ships. It had been dark since
+      # d4892dd removed the in-game exam -- it crashed 23 checks in, and nobody noticed
+      # because nothing ran it. Repaired and wired in here; runs in ~22s.
+      - run: node verify-build.mjs
       - run: node bank-lint.mjs
       - run: node scheduler-test.mjs
       - run: node multi-answer-test.mjs
