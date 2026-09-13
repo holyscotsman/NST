@@ -274,5 +274,80 @@ const BANK = [
     index.indexOf('nst-dashboard.js') > index.indexOf('nst-mastery.js'));
 }
 
+/* ---- an unfinished exam, as the launcher describes it --------------------
+ * v2.29.0 taught Exam Mode to survive the tab being discarded and offers the
+ * sitting back on the Practice Exams entry screen. The launcher is where people
+ * actually land, and it said nothing -- so the feature only worked for somebody
+ * who walked back in through the door they left by.
+ *
+ * This decides only what can be decided WITHOUT a question bank, because the
+ * launcher has no engine to rebuild questions with. It therefore must not claim
+ * the exam is restorable; the wording it feeds says "unfinished", not "resume".
+ */
+{
+  const { D } = fresh();
+  const NOW = 1_700_000_000_000;
+  const rec = (over) => JSON.stringify(Object.assign({
+    bank: 'ncp-mci', endTime: NOW + 10 * 60_000,
+    q: [{ id: 'a', perm: [0, 1] }, { id: 'b', perm: [1, 0] }, { id: 'c', perm: [0, 1] }],
+    answers: [0, null, [1, 2]], flags: [false, false, false],
+  }, over || {}));
+
+  const p = D.pendingExam(rec(), 'ncp-mci', NOW);
+  ok('an exam in progress is described', !!p);
+  ok('it counts the questions', p && p.total === 3, p && p.total);
+  ok('a multi-answer selection counts as answered', p && p.answered === 2, p && p.answered);
+  ok('an unanswered question does not', p && p.answered !== 3);
+  ok('it reports the time left', p && p.remainingMs === 10 * 60_000, p && p.remainingMs);
+  ok('and does not call it expired', p && p.expired === false);
+
+  const gone = D.pendingExam(rec({ endTime: NOW - 1 }), 'ncp-mci', NOW);
+  ok('an exam whose clock ran out is still described', !!gone);
+  ok('it is marked expired', gone && gone.expired === true);
+  ok('and reports no time left rather than a negative number',
+    gone && gone.remainingMs === 0, gone && gone.remainingMs);
+
+  ok('a record for another certification is not ours to talk about',
+    D.pendingExam(rec(), 'some-other-cert', NOW) === null);
+  ok('but with no bank named, it is described', !!D.pendingExam(rec(), '', NOW));
+
+  ok('a record that will not parse is not a record', D.pendingExam('{nope', '', NOW) === null);
+  ok('nor is null', D.pendingExam(null, '', NOW) === null);
+  ok('nor an empty string', D.pendingExam('', '', NOW) === null);
+  ok('nor a bare number', D.pendingExam('42', '', NOW) === null);
+  ok('a record with no questions is nothing to offer',
+    D.pendingExam(rec({ q: [] }), '', NOW) === null);
+  ok('a record with no answers array is refused',
+    D.pendingExam(rec({ answers: 'nope' }), '', NOW) === null);
+  ok('a record with no deadline is refused',
+    D.pendingExam(rec({ endTime: 'soon' }), '', NOW) === null);
+  ok('an infinite deadline is refused, not treated as forever',
+    D.pendingExam(rec({ endTime: Infinity }), '', NOW) === null);
+
+  // It is a read, not a write: nothing it is handed may be mutated.
+  const obj = JSON.parse(rec());
+  const before = JSON.stringify(obj);
+  D.pendingExam(obj, 'ncp-mci', NOW);
+  ok('it does not modify the record it is given', JSON.stringify(obj) === before);
+}
+
+/* ---- and the launcher actually draws it ---- */
+{
+  const home = read('scripts', 'nst-home.js');
+  const css = read('styles', 'nst-home.css');
+  ok('the launcher asks about an unfinished exam', /Dash\.pendingExam/.test(home));
+  ok('it reads the key Exam Mode writes', /nst\.practice-exams\.exam\.v1/.test(home));
+  ok('it draws something', /nst-dash-exam/.test(home) && /\.nst-dash-exam/.test(css));
+  ok('it links to Practice Exams, the only place that can resume it',
+    /note\.href = "\.\/practice-exams\/"/.test(home));
+  ok('it says "unfinished" rather than promising a resume it cannot verify',
+    /unfinished exam/.test(home) && !/Resume your exam/.test(home));
+  ok('it says the clock is still running', /clock is still running/.test(home));
+  ok('an expired one reads differently', /finished while you were away/.test(home));
+  ok('and is styled differently, not just worded differently', /\.nst-dash-exam\.expired/.test(css));
+  ok('storage being unavailable does not take the rest of the panel down',
+    /catch \(eX\) \{ \/\* storage unavailable/.test(home));
+}
+
 console.log('\n' + (fail ? `DASHBOARD: ${fail} FAILED (${pass} passed)` : `DASHBOARD: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

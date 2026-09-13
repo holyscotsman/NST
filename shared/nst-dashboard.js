@@ -147,8 +147,47 @@
     return base;
   }
 
+  /* An exam left unfinished, as the launcher needs to describe it.
+   *
+   * v2.29.0 taught Exam Mode to survive the tab being discarded, and offers the
+   * sitting back on the Practice Exams entry screen. But the launcher is where
+   * people actually land, and it said nothing -- so the feature only worked for
+   * someone who happened to walk back in through the door they left by.
+   *
+   * PURE, and deliberately shallow: it is handed the raw stored text and decides
+   * only what can be decided without a question bank. It must not claim the exam
+   * is restorable -- only Practice Exams can know that, since only it can rebuild
+   * the questions -- so the wording this feeds says "unfinished", not "resume".
+   *
+   * A record for a different certification is not ours to talk about; a record
+   * that will not parse is not a record.
+   */
+  function pendingExam(raw, bankId, now) {
+    var t = now == null ? Date.now() : now;
+    var s = null;
+    try { s = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (e) { return null; }
+    if (!s || typeof s !== "object") return null;
+    if (!Array.isArray(s.q) || !s.q.length) return null;
+    if (!Array.isArray(s.answers)) return null;
+    if (typeof s.endTime !== "number" || !isFinite(s.endTime)) return null;
+    if (bankId && s.bank && s.bank !== bankId) return null;
+    var answered = 0;
+    for (var i = 0; i < s.answers.length; i++) {
+      var a = s.answers[i];
+      if (a === null || a === undefined) continue;
+      if (Array.isArray(a) ? a.length : true) answered++;
+    }
+    return {
+      total: s.q.length,
+      answered: answered,
+      remainingMs: Math.max(0, s.endTime - t),
+      expired: s.endTime <= t,
+    };
+  }
+
   window.NSTDash = {
     model: model,
+    pendingExam: pendingExam,
     withFocus: withFocus,
     untilText: untilText,
     cleanAttempts: cleanAttempts,
