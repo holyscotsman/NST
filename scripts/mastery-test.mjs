@@ -250,5 +250,90 @@ const DAY_MS = 24 * 3600_000;   // fixed clock; the module takes an injectable n
     typeof M.untilText(at, T0) === 'string' && M.untilText(at, at) === null);
 }
 
+/* ---- the debounce must not outlive the page ------------------------------
+ * Writes are debounced 400ms so a long sitting does not stringify the whole
+ * store on every answer. The cost is a window in which an answer exists only in
+ * this page's memory -- and a page that is going away never gets to close it:
+ * the pending timeout simply never fires. Measured in a browser before the fix:
+ * three answers recorded, the tab hidden, and nothing written at all.
+ *
+ * These use a window that behaves like a browser in the two ways that matter --
+ * timers that actually defer, and listeners that can be fired -- because the
+ * shim the rest of this file uses runs setTimeout synchronously, which would
+ * hide the bug entirely. */
+{
+  const map = new Map();
+  const storage = {
+    get length() { return map.size; },
+    key: (i) => Array.from(map.keys())[i] ?? null,
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: (k) => { map.delete(k); },
+  };
+  const winL = {}, docL = {};
+  const doc = {
+    visibilityState: 'visible',
+    addEventListener: (t, f) => { (docL[t] = docL[t] || []).push(f); },
+  };
+  const win = {
+    localStorage: storage, document: doc,
+    addEventListener: (t, f) => { (winL[t] = winL[t] || []).push(f); },
+  };
+  win.window = win;
+  const timers = [];
+  new Function('window', 'setTimeout', 'clearTimeout', 'Date', SRC)(
+    win, (fn) => { timers.push(fn); return timers.length; },
+    (id) => { if (id) timers[id - 1] = null; }, Date);
+  const M = win.NSTMastery;
+  const KEY = 'nst.mastery.v1';
+
+  // Fire a bound handler, or report its absence rather than throwing: a missing
+  // listener must read as one clear failed check, not a stack trace that hides
+  // every check after it.
+  const fire = (bag, type) => {
+    const fns = bag[type] || [];
+    if (!fns.length) return false;
+    fns.forEach((f) => f());
+    return true;
+  };
+
+  ok('it binds a pagehide handler when the window has one', (winL.pagehide || []).length === 1);
+  ok('and a visibilitychange handler on the document', (docL.visibilitychange || []).length === 1);
+
+  M.record('a', { correct: true });
+  M.record('b', { correct: false });
+  ok('an answer is not written straight away -- the debounce is the point',
+    map.get(KEY) === undefined, map.get(KEY));
+  ok('and a timer is pending to do it later', timers.filter(Boolean).length === 1);
+
+  const firedHide = fire(winL, 'pagehide');
+  ok('the pagehide handler is callable', firedHide);
+  const written = map.get(KEY);
+  ok('but pagehide writes it before the page can go', !!written);
+  ok('and what it wrote contains the answers', !!written && /"a"/.test(written) && /"b"/.test(written));
+  ok('the pending timer is cancelled, not left to write again',
+    timers.filter(Boolean).length === 0, timers.filter(Boolean).length);
+
+  map.delete(KEY);
+  M.record('c', { correct: true });
+  doc.visibilityState = 'visible';
+  fire(docL, 'visibilitychange');
+  ok('becoming VISIBLE does not force a write', map.get(KEY) === undefined, map.get(KEY));
+  doc.visibilityState = 'hidden';
+  fire(docL, 'visibilitychange');
+  ok('becoming hidden does -- this is the phone-backgrounded case', !!map.get(KEY));
+  ok('and that write carries the answer made since the last one',
+    /"c"/.test(map.get(KEY) || ''));
+}
+
+/* A window with no addEventListener at all -- a test harness, an old embed --
+ * must still load the module rather than throwing on the way in. */
+{
+  const { M } = fresh();
+  ok('a window with no addEventListener still loads the module', !!M && typeof M.record === 'function');
+  M.record('x', { correct: true });
+  ok('and still records', M.get('x').seen === 1);
+}
+
 console.log('\n' + (fail ? `MASTERY: ${fail} FAILED of ${pass + fail}` : `MASTERY: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

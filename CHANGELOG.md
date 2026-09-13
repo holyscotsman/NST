@@ -5,6 +5,56 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.24.0 — The answers that never reached the disk (2026-09-13)
+
+Mastery writes are debounced by 400ms, and they should be: without it a
+255-question sitting would stringify the whole store on every single answer.
+The cost is a window in which an answer exists only in the page's memory — and a
+page that is going away never gets to close it. The pending timeout simply never
+fires.
+
+Measured in a real browser: **three answers recorded, the tab hidden, and
+nothing written at all.**
+
+### Fixed
+- **`NSTMastery` now flushes on `pagehide` and on the document going hidden.**
+  Nothing was doing it. `nst-sync.js` has both handlers, but it only registers
+  them once it has reached the app server — on GitHub Pages and `file://` it
+  stays dormant by design, so on those deployments the window never closed for
+  anybody. The debounce belongs to the mastery module, so the flush does too:
+  bound there, it works wherever the app is served from. `pagehide` covers a
+  close, a navigation and bfcache; `visibilitychange` covers a phone
+  backgrounding the tab, which is where the OS is most likely to kill it
+  outright. Both are paths on which a timer will not run again.
+  Measured after: the same three answers are on disk the moment the tab hides.
+- **The last-chance sync push was sending a stale snapshot.** `flushOnHide`
+  builds its envelope from `localStorage`, so the newest answers — the ones most
+  at risk, which is the entire reason that push exists — were exactly the ones
+  missing from it. It now forces the mastery write first, and does not assume
+  mastery's own handler ran first: listener order between modules is not
+  guaranteed.
+
+### Added
+- **10 checks in `mastery-test.mjs`, 5 in `sync-test.mjs`.** The mastery ones run
+  against a window that behaves like a browser in the two ways that matter —
+  timers that actually defer and listeners that can be fired — because the shim
+  the rest of that file uses runs `setTimeout` synchronously and would hide this
+  bug completely. They pin that an answer is *not* written immediately (the
+  debounce is the point), that hiding the page writes it, that the pending timer
+  is cancelled rather than left to write twice, that becoming *visible* does not
+  force a write, and that a window with no `addEventListener` still loads.
+
+### Verified
+Removing the fix fails seven checks by name and exits 1. The first version of
+the test crashed instead of reporting, which would still have gone red but hidden
+every check after it; it now reports a missing listener as one clear failure.
+
+### Not changed
+Scaling was measured at the same time, to 4080 questions — eight banks' worth,
+against the seven more that are planned. Everything stays linear and fast:
+recording all 4080 takes 3.3ms, the mastery rollup 0.3ms, readiness under
+0.1ms, the due queue 0.6ms. There is nothing to optimise here.
+
 ## v2.23.0 — The 109 checks nothing ran (2026-09-13)
 
 Every logic suite in this repo gates a pull request. Five did not, for one

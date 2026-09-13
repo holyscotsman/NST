@@ -271,5 +271,22 @@ function liveSync({ records = 3, progressHandler } = {}) {
   ok('the indicator is styled', /\.nst-syncwarn/.test(css));
 }
 
+/* ---- the last-chance push must not send a stale snapshot ----------------
+ * flushOnHide builds its envelope from localStorage, but mastery debounces its
+ * writes by 400ms -- so the newest answers, the ones most at risk of being lost,
+ * were exactly the ones missing from the push that exists to save them. */
+{
+  ok('flushOnHide forces the mastery write before reading storage',
+    /NSTMastery\.flush\(\)[\s\S]{0,200}var snap = snapshot\(\)/.test(SYNC_SRC));
+  const fo = SYNC_SRC.slice(SYNC_SRC.indexOf('function flushOnHide'), SYNC_SRC.indexOf('function start'));
+  ok('and it does so before building the body, not after',
+    fo.indexOf('NSTMastery.flush') >= 0 && fo.indexOf('NSTMastery.flush') < fo.indexOf('B.envelope()'));
+  ok('the flush cannot throw out of the hide path', /try \{ if \(window\.NSTMastery/.test(fo));
+  ok('mastery binds its own hide flush, so a static host is covered too',
+    /addEventListener\("pagehide", flush\)/.test(MASTERY_SRC));
+  ok('sync does not rely on that having run first -- it flushes anyway',
+    /NSTMastery\.flush/.test(fo));
+}
+
 console.log('\n' + (fail ? `SYNC: ${fail} FAILED (${pass} passed)` : `SYNC: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);
