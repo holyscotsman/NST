@@ -65,6 +65,14 @@ const EXCLUDED = {
   'wwtbane/tests/shots.mjs':        'manual — captures design screenshots',
   'wwtbane/tests/shots-gfx.mjs':    'manual — same, for the 3D backdrop',
 
+  // --- needs a dependency the everyday gate should not carry ---
+  'starnix/kbb-draw.cjs':
+    'needs the native canvas backend (starnix/package.json declares canvas@^3). ' +
+    'Measured: with canvas removed, arm-run, cc-run, kbb-run, cc-death-paths and ' +
+    'both fuzzers still pass, and kbb-draw fails 6 of its 16 checks -- it really ' +
+    'does exercise real rendering. A native build in CI to buy one suite is a bad ' +
+    'trade; run it locally with `cd starnix && npm install && node kbb-draw.cjs`.',
+
   // --- opt-in, because running them everywhere would be wrong ---
   'starnix/perf-smoke.mjs':
     'opt-in — needs PERF=1 AND a Chromium. It was a CI step without either, so it ' +
@@ -157,9 +165,16 @@ ok('no exclusion contradicts ci.yml by naming something it runs',
 /* The specific regressions this release fixed, named so they cannot come back
  * quietly as a line deleted from ci.yml. */
 for (const suite of ['arm-run.cjs', 'cc-run.cjs', 'kbb-run.cjs',
-                     'cc-death-paths.cjs', 'kbb-draw.cjs', 'kbb-fuzz.cjs', 'arm-fuzz.cjs']) {
+                     'cc-death-paths.cjs', 'kbb-fuzz.cjs', 'arm-fuzz.cjs']) {
   ok(`CI runs ${suite}`, invoked.has(suite));
 }
+/* The suites need jsdom, and the job that runs them installs nothing by default.
+ * That is why they were dark, and leaving the install out is how they go dark
+ * again -- with a MODULE_NOT_FOUND rather than silence, but dark all the same. */
+ok('the StarNix job installs jsdom, without which none of those six can start',
+  /npm install[^\n]*\bjsdom@/.test(ci));
+ok('and does not pull in canvas, which only kbb-draw needs',
+  !/npm install[^\n]*\bcanvas@/.test(ci));
 ok('perf-smoke.mjs is NOT a CI step -- it cannot pass without PERF=1 and a browser',
   !invoked.has('perf-smoke.mjs'));
 
@@ -193,11 +208,11 @@ ok('perf-smoke.mjs is NOT a CI step -- it cannot pass without PERF=1 and a brows
     rule(without, ['starnix/kbb-fuzz.cjs'], EXCLUDED).join() === 'starnix/kbb-fuzz.cjs');
 
   /* And against the real ci.yml as it was before this release. */
-  const before = ci.replace(/^\s*- run: (ARM_FUZZ_RUNS=6 )?node (arm-run|cc-run|kbb-run|cc-death-paths|kbb-draw|kbb-fuzz|arm-fuzz)\.cjs\s*$/gm, '');
+  const before = ci.replace(/^\s*- run: (ARM_FUZZ_RUNS=6 )?node (arm-run|cc-run|kbb-run|cc-death-paths|kbb-fuzz|arm-fuzz)\.cjs\s*$/gm, '');
   const beforeInvoked = invocations(before);
   const wouldReport = rule(beforeInvoked, candidates, EXCLUDED);
-  ok('self-check: the pre-v2.40.0 workflow reports all seven dark suites',
-    wouldReport.length === 7, wouldReport.join(', '));
+  ok('self-check: the pre-v2.40.0 workflow reports all six dark suites',
+    wouldReport.length === 6, wouldReport.join(', '));
 }
 
 console.log('\n' + (fail

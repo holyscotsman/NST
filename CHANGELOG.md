@@ -5,7 +5,7 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
-## v2.40.0 — 464 checks that had never run once (2026-09-13)
+## v2.40.0 — 448 checks that had never run once (2026-09-13)
 
 StarNix is the largest app in this repo — 2.9 MB, three games. **The primary
 test suite for every one of those games had never been executed by CI.** Not
@@ -17,13 +17,32 @@ once. They were written, they passed, and nothing invoked them.
 | `cc-run.cjs` | Chasm Chase | **124** |
 | `kbb-run.cjs` | Kuiper Belt Battle | **156** |
 | `cc-death-paths.cjs` | every way a CC run can end | 5 |
-| `kbb-draw.cjs` | KBB's draw layer | 16 |
 | `kbb-fuzz.cjs` | KBB invariants under randomised input | — |
 | `arm-fuzz.cjs` | the ARM flight engine under random **frame times** | — |
 
-All seven pass. Nothing is fixed here — this is 464 checks of existing,
-working coverage being connected to the thing that was supposed to be running
-it.
+All six pass. Nothing is fixed here — this is 448 checks of existing, working
+coverage being connected to the thing that was supposed to be running it.
+
+### They were not forgotten — they needed a dependency
+The first attempt at this release wired them and CI went red:
+`Cannot find module 'jsdom'`. These harnesses eval the game sources inside a
+jsdom window, and the StarNix job installs nothing.
+
+`starnix/package.json`'s own `npm run check` script has listed most of them all
+along. `ci.yml` hand-duplicated part of that list and dropped **exactly the ones
+with a dependency** — which is a much better explanation than an oversight, and
+the one this release now records.
+
+So the job installs `jsdom@29.1.1`, the same dev-tooling pattern the browser job
+already uses for Playwright. The app itself stays dependency-free.
+
+**Not `canvas`.** `starnix/package.json` also declares `canvas@^3` — jsdom's
+native rendering backend — but measurement says only one suite needs it: with
+canvas removed, `arm-run`, `cc-run`, `kbb-run`, `cc-death-paths` and both
+fuzzers still pass, and **`kbb-draw.cjs` fails 6 of its 16 checks**. It really
+does exercise real rendering. A native build in the everyday gate to buy one
+suite is a bad trade, so `kbb-draw` is excluded and named, with the measurement
+in its reason.
 
 `arm-fuzz.cjs` is worth singling out: it is the only harness anywhere in this
 repo that feeds an engine **random frame times**, which is what a throttled or
@@ -71,7 +90,7 @@ each needs a real reason, must name a file that exists, and must not contradict
 
 ### Verified
 The decisive check replays the **pre-v2.40.0 workflow** through the same rule
-and requires it to report exactly the seven dark suites. It does. Removing any
+and requires it to report exactly the six dark suites. It does. Removing any
 one suite from `ci.yml` brings it back as unclassified.
 
 Two bugs in this suite were caught by its own checks before it shipped. The

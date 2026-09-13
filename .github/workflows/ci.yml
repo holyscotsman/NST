@@ -39,6 +39,21 @@ jobs:
         with:
           node-version: '22'
       # Build the single-file app (zero-dependency) and run the pure harnesses.
+      # (v2.40.0) jsdom, and only jsdom. The six game suites below eval the game
+      # sources inside a jsdom window; without it they cannot start, which is the
+      # real reason they were never wired rather than an oversight. The app
+      # itself stays dependency-free -- this is dev tooling, like the browser
+      # job's playwright, and nothing here ships to a user.
+      #
+      # NOT canvas. starnix/package.json also declares canvas@^3 (jsdom's native
+      # rendering backend), but only kbb-draw.cjs actually needs it -- measured:
+      # with canvas removed, five suites and both fuzzers still pass and kbb-draw
+      # fails 6 of its 16 checks. A native build in the everyday gate to buy one
+      # suite is a bad trade, so kbb-draw stays excluded and named.
+      - name: Install jsdom for the game harnesses
+        run: |
+          npm install --no-save --prefix "$GITHUB_WORKSPACE" jsdom@29.1.1
+          node -e "require.resolve('jsdom')" || { echo "jsdom did not install where the harnesses will look"; exit 1; }
       - run: node build.mjs
       - run: node bank-lint.mjs
       - run: node scheduler-test.mjs
@@ -59,12 +74,11 @@ jobs:
       #
       # (v2.40.0) The six suites below existed, passed, and had never been run
       # by CI once. Between them they are the primary coverage for all three
-      # StarNix games -- 464 checks, on the largest app in the repo.
+      # StarNix games -- 448 checks, on the largest app in the repo.
       - run: node arm-run.cjs
       - run: node cc-run.cjs
       - run: node kbb-run.cjs
       - run: node cc-death-paths.cjs
-      - run: node kbb-draw.cjs
       - run: node kbb-fuzz.cjs
       # The only fuzz coverage of the ARM flight engine, and the only harness
       # anywhere that feeds an engine random FRAME TIMES -- what a throttled or
