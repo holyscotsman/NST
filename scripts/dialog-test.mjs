@@ -146,6 +146,15 @@ const MEASURE = `(() => {
     return (s.overflowY === 'auto' || s.overflowY === 'scroll') && overflowing(e);
   };
   const unreachable = overflowing(m) && !scrolls(m) && ![...m.querySelectorAll('*')].some(scrolls);
+  /* Reachable by WHEEL is not reachable. A scrolling container with no focusable
+   * content cannot be given focus in Chrome, so it can never receive an arrow
+   * key -- the text past the fold is mouse-only. */
+  const FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]), " +
+    "select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+  const scrollers = [...m.querySelectorAll('*')].filter(scrolls);
+  const keyboardDead = scrollers.filter((e) =>
+    e.querySelectorAll(FOCUSABLE).length === 0 && !e.matches(FOCUSABLE))
+    .map((e) => e.className || e.tagName);
   const actions = m.querySelector('.nst-modal-actions');
   const btns = actions ? [...actions.querySelectorAll('button')] : [];
   const mb = m.getBoundingClientRect();
@@ -153,6 +162,8 @@ const MEASURE = `(() => {
     title: (m.querySelector('.nst-modal-title') || {}).textContent || '',
     hidden: Math.max(0, m.scrollHeight - m.clientHeight),
     unreachable,
+    keyboardDead,
+    bodyIsTabStop: !!m.querySelector('.nst-modal-body[tabindex="0"]'),
     squashed: btns.filter((b) => b.getBoundingClientRect().height < 24).length,
     outside: btns.filter((b) => {
       const r = b.getBoundingClientRect();
@@ -192,9 +203,75 @@ for (const d of DIALOGS) {
     if (h <= 320) measuredShort.set(d.name, measuredShort.get(d.name) + 1);
     ok(`${where}: nothing is clipped out of reach`, !r.unreachable,
       `${r.hidden}px of "${r.title}" is past the cap with no scroller`);
+    ok(`${where}: anything that scrolls can be scrolled from the keyboard`,
+      r.keyboardDead.length === 0,
+      r.keyboardDead.join(', ') + ' -- scrolls, but has nothing focusable in it and is not ' +
+      'focusable itself, so a keyboard user cannot reach what is past the fold');
     ok(`${where}: the buttons are not squashed under 24px`, r.squashed === 0, r.squashed + ' squashed');
     ok(`${where}: the buttons stay inside the panel`, r.outside === 0, r.outside + ' outside');
   }
+}
+
+/* Pressing Tab for real, rather than reading attributes. :focus-visible and the
+ * tab order are both modality-dependent, and a probe that calls focus() instead
+ * of tabbing has been wrong about this repo before. */
+{
+  const ctx = await browser.newContext({ viewport: { width: 320, height: 240 } });
+  const page = await ctx.newPage();
+  await page.goto(B + '/index.html', { waitUntil: 'load' });
+  await page.evaluate(() => localStorage.setItem('nst.prefs', JSON.stringify({ largerText: true })));
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(250);
+  await DIALOGS[2].open(page);
+  await page.waitForTimeout(250);
+  const seen = [];
+  for (let i = 0; i < 10; i++) {
+    await page.keyboard.press('Tab');
+    seen.push(await page.evaluate(() => {
+      const a = document.activeElement;
+      return a ? String(a.className || a.tagName).split(' ')[0] : 'none';
+    }));
+  }
+  ok('Tab really lands on the reset confirm\'s scrolling body at 320x240',
+    seen.includes('nst-modal-body'), seen.join(' > '));
+
+  const ring = await page.evaluate(() => {
+    const b = document.querySelector('.nst-modal-body[tabindex="0"]');
+    if (!b) return null;
+    b.focus();
+    const s = getComputedStyle(b);
+    return { w: s.outlineWidth, style: s.outlineStyle };
+  });
+  ok('and that landing spot has a visible focus ring, so it is not a silent stop',
+    !!ring && ring.style !== 'none' && parseFloat(ring.w) >= 2, JSON.stringify(ring));
+
+  /* An arrow key on the focused body must actually move it. */
+  const moved = await page.evaluate(async () => {
+    const b = document.querySelector('.nst-modal-body[tabindex="0"]');
+    if (!b) return null;
+    b.focus(); b.scrollTop = 0;
+    return { before: b.scrollTop, max: b.scrollHeight - b.clientHeight };
+  });
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(120);
+  const after = await page.evaluate(() => {
+    const b = document.querySelector('.nst-modal-body[tabindex="0"]');
+    return b ? b.scrollTop : -1;
+  });
+  ok('and an arrow key on it actually scrolls the text into view',
+    moved && moved.max > 0 && after > moved.before, JSON.stringify({ ...moved, after }));
+  await ctx.close();
+}
+
+/* The tab stop must not appear where it is not needed: Settings has fourteen
+ * controls, and tabbing to those scrolls its body for free. An unconditional
+ * stop would be a dead landing spot on every dialog, for every keyboard user,
+ * to serve the case where there is nothing else to tab to. */
+{
+  const r = await look(DIALOGS[0], [900, 300, false]);
+  ok('Settings gains no extra tab stop -- its own controls already scroll it',
+    r.skipped !== true && r.keyboardDead.length === 0 && r.bodyIsTabStop !== true,
+    JSON.stringify(r));
 }
 
 /* A dialog whose trigger vanished at every short size would pass this whole
