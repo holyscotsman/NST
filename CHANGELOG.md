@@ -5,6 +5,44 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.21.0 — Can a request kill the server? (2026-09-13)
+
+The app server is one Node process on a VM, often started by hand in a terminal
+rather than as a service. A crash there is not a blip: the tool is gone for
+everybody until someone notices and logs in to restart it. `server-test.mjs`
+asks whether each route does the right thing; nothing asked whether the process
+survives the wrong thing.
+
+### Added
+- **`scripts/robustness-test.mjs` (CI-gated, 57 checks).** Everything hostile or
+  merely malformed that a browser, a scanner or a broken client can send, with
+  one absolute bar: a request may be refused, may 400, may 413, may 500 — **none
+  of them may end the process.**
+
+  Malformed bodies (truncated JSON, a bare number, 2000-deep nesting, lone
+  surrogates, NUL bytes, a 100 KB key name, `__proto__` and `constructor`
+  payloads, a 9 MB body past the cap). Hostile paths (a 60 KB URL, 200 levels of
+  traversal raw and percent-encoded, malformed escapes, an encoded NUL,
+  backslashes, a drive letter, an alternate data stream, a UNC path, fullwidth
+  unicode dots, overlong UTF-8). Hostile headers (a 60 KB cookie, 500 cookies,
+  non-UTF8 cookie bytes, a 2000-entry Accept-Encoding, a negative Content-Length
+  claim). Raw framing a client library will not produce (no HTTP version, an
+  unknown method, a Content-Length that lies, two Content-Lengths, a bad chunk
+  size, binary garbage). Then 120 concurrent requests and 40 abandoned half-open
+  connections.
+
+### The result: nothing was broken
+Every one survives, prototype pollution never takes hold, and no traversal
+returns a file. **This suite found no bugs** — it converts "the error handling
+looks right" into "it has been checked", and stops a future change from
+quietly removing that.
+
+### The detector proves itself
+A suite that finds nothing looks identical to a suite that cannot find anything.
+So it ends by killing the server and requiring its own liveness check to notice.
+Without that, an `alive()` stuck at `true` would report a perfect score against a
+process that died on the first request.
+
 ## v2.20.0 — The question banks are checked now (2026-09-13)
 
 Seven more certification banks are planned, and nothing checked the ones that

@@ -116,6 +116,11 @@ jobs:
       # other's schedule. Nothing enforced unique ids and six more banks are
       # planned, so this does.
       - run: node ../scripts/bank-test.mjs
+      # (v2.21.0) can a request kill the server? It runs as one Node process on a
+      # VM, often started by hand rather than as a service, so a crash is not a
+      # blip -- the tool is gone for everybody until someone logs in to restart
+      # it. Every request may be refused; none may end the process.
+      - run: node ../scripts/robustness-test.mjs
       # (v2.8.2) the one-click updater downloads code from the internet and runs
       # it as the service account. The gate asserts the source stays a constant
       # (unreachable from a request), that the staged copy is verified before the
