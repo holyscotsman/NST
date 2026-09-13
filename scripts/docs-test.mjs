@@ -225,7 +225,15 @@ const README = readFileSync(join(ROOT, 'README.md'), 'utf8');
   const free = jobs.length - installs.length;
 
   const saysJobs = kb.match(/runs \*\*(\w+) jobs?\*\*/);
-  const WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  /* Spelled-out counts the READMEs use. It stopped at ten and the browser job
+   * reached eleven, so the rule failed on its own vocabulary rather than on any
+   * drift -- "README says Eleven, the job runs 11". Carried well past the
+   * current numbers so the next suite does not do the same. */
+  const WORDS = {
+    two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
+    seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  };
   ok('the knowledge base states how many CI jobs there are', !!saysJobs, saysJobs && saysJobs[1]);
   ok('and the number is right', !!saysJobs && WORDS[saysJobs[1]] === jobs.length,
     `doc says ${saysJobs && saysJobs[1]}, ci.yml has ${jobs.length}`);

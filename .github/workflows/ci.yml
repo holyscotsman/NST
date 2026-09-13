@@ -335,6 +335,12 @@ jobs:
       # every other suite still green.
       - run: node scripts/promise-test.mjs
       - run: node scripts/resume-test.mjs
+      # (v2.59.0) the question strip has to know where you are. ui.centerPalette
+      # was only ever called from buildPalette, which runs once, when the current
+      # question is #1 and the strip is already at 0 -- a no-op every time it ran.
+      # On a phone everything past question nine was off-screen, in both modes,
+      # with no way to see it but to scroll the map by hand mid-exam.
+      - run: node scripts/palette-test.mjs
       - run: node scripts/mobile-audit.mjs
       # The rendered half of the security gate: a malicious bank and poisoned
       # storage loaded into all four real pages, where security-test.mjs only

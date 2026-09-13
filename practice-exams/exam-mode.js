@@ -255,6 +255,21 @@
     // 75 chips on every selection/navigation/flag threw an activating keyboard
     // user's focus to <body>.
     var palChips = null;
+    /* (v2.59.0) Which chip the strip is currently scrolled to.
+     *
+     * `centerPalette` used to be called only from `buildPalette`, which runs
+     * ONCE -- at which point the current question is #1 and the strip is
+     * already at scrollLeft 0. It was a no-op every time it ran, and never ran
+     * when it would have done something. On question 75 of 75 the palette still
+     * showed 1-21 on a 1280px desktop and 1-9 on a phone: the map of where you
+     * are, parked at the beginning, during a timed exam.
+     *
+     * Re-centering on every update is what C3-01 removed, and rightly -- it
+     * yanks the strip back to the current chip while you are scrolling it to
+     * find a flagged one. So centre exactly when the current question CHANGES,
+     * which is the only moment the window can be wrong. Answering and flagging
+     * leave the scroll position alone. */
+    var palCentered = -1;
     function buildPalette() {
       paletteEl.innerHTML = "";
       palChips = questions.map(function (q, i) {
@@ -265,7 +280,6 @@
         return b;
       });
       updatePalette();
-      ui.centerPalette(paletteEl);
     }
     function updatePalette() {
       if (!palChips) return;
@@ -279,6 +293,7 @@
         b.setAttribute("aria-label", "Question " + (i + 1)
           + (engine.isAnswered(answers[i]) ? ", answered" : ", not answered") + (flags[i] ? ", flagged" : ""));
       });
+      if (palCentered !== idx) { ui.centerPalette(paletteEl); palCentered = idx; }
     }
 
     /* Every answer, flag and navigation already ends here, so this is the one
