@@ -51,7 +51,27 @@ jobs:
       - run: node cc-view-smoke.mjs
       - run: node cc-fairness-check.mjs
       - run: node exhibit-check.mjs
-      - run: node perf-smoke.mjs
+      # (v2.40.0) perf-smoke.mjs was run here without PERF=1. It exits 0 having
+      # done nothing -- and this job has no browser for it anyway, so it could
+      # never have run. A step that prints "skipped" while the job reports
+      # success is worse than no step. It stays an opt-in pre-release tool:
+      # cd starnix && PERF=1 node perf-smoke.mjs, with a Chromium installed.
+      #
+      # (v2.40.0) The six suites below existed, passed, and had never been run
+      # by CI once. Between them they are the primary coverage for all three
+      # StarNix games -- 464 checks, on the largest app in the repo.
+      - run: node arm-run.cjs
+      - run: node cc-run.cjs
+      - run: node kbb-run.cjs
+      - run: node cc-death-paths.cjs
+      - run: node kbb-draw.cjs
+      - run: node kbb-fuzz.cjs
+      # The only fuzz coverage of the ARM flight engine, and the only harness
+      # anywhere that feeds an engine random FRAME TIMES -- what a throttled or
+      # backgrounded phone actually produces. Its own header calls it a harness
+      # rather than a gate because the default 20 runs take ~90s; six runs is
+      # ~50s and still exercises deaths, extracts and sector advances.
+      - run: ARM_FUZZ_RUNS=6 node arm-fuzz.cjs
       - run: node import-questions.mjs --check
       - run: KBB_ASSERT=1 node kbb-balance.cjs
       # (v2.5.3) property fuzz: the provider must never throw, return junk, or leak
@@ -177,6 +197,13 @@ jobs:
       # and each is one line from silently not happening, with the admin page and
       # the audit log both still claiming it did.
       - run: node ../scripts/session-test.mjs
+
+      # (v2.40.0) the reason the six StarNix suites above went unrun for so long:
+      # nothing compared what exists on disk against what CI invokes. Every
+      # harness must now be either run here or on a documented exclusion list
+      # with a reason -- stale, a library, a manual tool -- so the next one
+      # cannot go dark silently.
+      - run: node ../scripts/harness-coverage.mjs
 
   # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-

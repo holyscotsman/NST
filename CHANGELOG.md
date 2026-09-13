@@ -5,6 +5,83 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.40.0 — 464 checks that had never run once (2026-09-13)
+
+StarNix is the largest app in this repo — 2.9 MB, three games. **The primary
+test suite for every one of those games had never been executed by CI.** Not
+once. They were written, they passed, and nothing invoked them.
+
+| harness | what it covers | checks |
+|---|---|---|
+| `arm-run.cjs` | a scripted ARM flight run | **163** |
+| `cc-run.cjs` | Chasm Chase | **124** |
+| `kbb-run.cjs` | Kuiper Belt Battle | **156** |
+| `cc-death-paths.cjs` | every way a CC run can end | 5 |
+| `kbb-draw.cjs` | KBB's draw layer | 16 |
+| `kbb-fuzz.cjs` | KBB invariants under randomised input | — |
+| `arm-fuzz.cjs` | the ARM flight engine under random **frame times** | — |
+
+All seven pass. Nothing is fixed here — this is 464 checks of existing,
+working coverage being connected to the thing that was supposed to be running
+it.
+
+`arm-fuzz.cjs` is worth singling out: it is the only harness anywhere in this
+repo that feeds an engine **random frame times**, which is what a throttled or
+backgrounded phone actually produces, and ARM is the one engine that had never
+been fuzzed. Its own header calls it "a harness rather than a CI gate" because
+the default 20 runs take ~90s. Six runs take ~50s and still exercise deaths,
+extracts and sector advances, so it is wired at `ARM_FUZZ_RUNS=6`.
+
+### A CI step that tested air
+`node perf-smoke.mjs` **was** a step in the StarNix job. It exits 0 without
+running anything unless `PERF=1` is set — which CI never set — in a job with no
+browser for it to use, so it could not have run even if the flag were there.
+Every build reported that step green.
+
+It is removed rather than fixed. Making it real would put frame-timing
+assertions in the everyday gate, which is a flake source; it stays what its
+author intended, an opt-in pre-release tool (`cd starnix && PERF=1 node
+perf-smoke.mjs`). A step that prints "skipped" while the job reports success is
+worse than no step.
+
+### A verifier that has been wrong for months
+`starnix/verify-build.mjs` is a ~400-line build verifier. Nothing runs it, and
+it has been stale since commit `d4892dd` removed the NIT in-game exam entirely.
+It asserts four mission lines (`ARM,CC,KBB,NIT`) where the shell renders three,
+fails that check and the finale-reveal check, then **crashes** dereferencing the
+NIT button that no longer exists.
+
+It is **not** wired and **not** deleted. Its NIT assumptions run through several
+blocks between lines ~154 and ~410, and quietly deleting a verifier — or
+guess-editing one — is how coverage disappears. It is named in the exclusion
+list with exactly what is wrong with it, so it is now dark *on purpose* rather
+than by accident, and the next person to open it knows what they are looking at.
+
+### Added — `scripts/harness-coverage.mjs` (22 checks)
+The common cause was not any of those files. It is that **nothing compared what
+exists on disk with what CI invokes.**
+
+Exhaustive classification, deliberately not a heuristic: every `.mjs`/`.cjs`
+under `starnix/`, `scripts/`, `practice-exams/` and `wwtbane/tests/` must be
+either invoked by `ci.yml` or listed in `EXCLUDED` with a reason. A file that is
+neither fails the build and has to be classified by a person — there is no
+"looks like a library" guess to be wrong about. Exclusions are checked back:
+each needs a real reason, must name a file that exists, and must not contradict
+`ci.yml` by naming something it runs.
+
+### Verified
+The decisive check replays the **pre-v2.40.0 workflow** through the same rule
+and requires it to report exactly the seven dark suites. It does. Removing any
+one suite from `ci.yml` brings it back as unclassified.
+
+Two bugs in this suite were caught by its own checks before it shipped. The
+workflow comments name commands in prose — "run it before a release: `PERF=1
+node perf-smoke.mjs`" — and the first parse read those as invocations, so it
+concluded CI runs a step that had just been removed. Comments are stripped
+first now, and a check asserts it. The second: the self-check's copy of the rule
+omitted the `node --test tests/*.test.mjs` glob exemption and reported all 25
+WWTBANE test files as dark, which they never were.
+
 ## v2.39.0 — The guard that turned out not to be the guard (2026-09-13)
 
 **No defect. The interesting part is what breaking it on purpose showed.**
