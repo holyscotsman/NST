@@ -5,6 +5,56 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.25.0 — When the browser refuses to store anything (2026-09-13)
+
+`NSTMastery.saveError()` has always existed. It was exported, and it was read by
+**nobody** — not one call site anywhere in the app.
+
+So when a browser stops accepting writes — a full quota, a private window, an
+enterprise policy that disables site data — the tool went on showing progress,
+promoting boxes and scheduling reviews for a session that would be gone the
+moment the tab closed. In silence. StarNix already toasts this for its own
+store; the shared store, which is where every tool's answers actually live, said
+nothing at all.
+
+Measured in a real browser before the fix: `setItem` throwing,
+`saveError() === "quota"`, and **not one word on the page.**
+
+### Fixed
+- **The store now announces a refused write** as an `nst-storage-status` event,
+  on *change* only — once when writes start failing, once when they recover, not
+  once per write.
+- **The launcher shows a red "Not saved" chip**, `role="alert"`, distinct from
+  the amber sync chip. It had to be distinct in words as well as colour: the sync
+  warning promises the work is *"still safe in this browser"*, and that is
+  precisely what is untrue here. Nothing is being kept anywhere — including the
+  copy sync would push, because sync builds its envelope from the same storage
+  that is refusing the writes.
+- **Practice Exams shows a full banner**, because that is the page where answers
+  are actually given, and someone forty minutes into an exam should not have to
+  notice a small badge to learn the sitting will not survive the tab closing. It
+  renders *outside* `#pe-root`, so changing screens — every mode replaces that
+  element's contents — does not wipe it.
+- Both name what actually failed (a full quota reads differently from a refused
+  write) and both point at **Settings → Save backup file**, which writes a file
+  and does not need storage — the one thing that still works.
+
+### Added
+- **25 checks in `mastery-test.mjs`.** The announcement is exercised against a
+  storage that can be made to refuse writes on demand: that the error is
+  recorded, that the answer *still counts in-session* (a save must never throw),
+  that it announces once rather than per-write, that recovery announces too so
+  the warning can be taken down, that everything recorded while broken is in the
+  write that finally lands, and that a window with no `CustomEvent` still records
+  without throwing. Plus the wiring on both surfaces, including that neither
+  borrows the sync chip's "still safe in this browser".
+
+### Verified
+Removing the announcement fails six checks; removing the Practice Exams listener
+fails its own. In a browser, the warning appears on failure with `role="alert"`,
+exactly one element and one event however many writes fail, and disappears on
+recovery.
+
 ## v2.24.0 — The answers that never reached the disk (2026-09-13)
 
 Mastery writes are debounced by 400ms, and they should be: without it a

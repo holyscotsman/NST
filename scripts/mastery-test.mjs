@@ -335,5 +335,111 @@ const DAY_MS = 24 * 3600_000;   // fixed clock; the module takes an injectable n
   ok('and still records', M.get('x').seen === 1);
 }
 
+/* ---- a browser refusing to store must not fail silently ------------------
+ * saveError() existed and was read by NOBODY -- exported, never called from
+ * anywhere in the app. So a full quota, a private window, or an enterprise
+ * policy that disables site data meant the tool kept showing progress,
+ * promoting boxes and scheduling reviews for a session that would be gone the
+ * moment the tab closed, without a word. StarNix toasts this for its own store;
+ * the shared store, where every tool's answers actually live, said nothing.
+ *
+ * Verified in a browser before the fix: setItem throwing, saveError() = "quota",
+ * and not one word on the page. */
+{
+  const map = new Map();
+  let refuse = false;
+  const storage = {
+    get length() { return map.size; },
+    key: (i) => Array.from(map.keys())[i] ?? null,
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => {
+      if (refuse) { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; }
+      map.set(k, String(v));
+    },
+    removeItem: (k) => { map.delete(k); },
+  };
+  const fired = [];
+  const win = {
+    localStorage: storage,
+    CustomEvent: class { constructor(type, init) { this.type = type; this.detail = (init || {}).detail; } },
+    dispatchEvent: (ev) => { fired.push(ev); return true; },
+    addEventListener: () => {},
+  };
+  win.window = win;
+  new Function('window', 'setTimeout', 'clearTimeout', 'Date', SRC)(
+    win, (fn) => { fn(); return 0; }, () => {}, Date);
+  const M = win.NSTMastery;
+
+  M.record('ok1', { correct: true });
+  ok('a healthy write reports no error', M.saveError() === null);
+  ok('and says nothing, because there is nothing to say',
+    fired.filter((e) => e.type === 'nst-storage-status').length === 0);
+
+  refuse = true;
+  M.record('lost1', { correct: true });
+  ok('a refused write is recorded as an error', M.saveError() === 'quota', M.saveError());
+  ok('the answer still counts in this session -- never throw from a save',
+    M.get('lost1') && M.get('lost1').seen === 1);
+  const bad = fired.filter((e) => e.type === 'nst-storage-status');
+  ok('and it is announced', bad.length === 1, bad.length);
+  ok('the announcement says it is not ok', bad[0] && bad[0].detail.ok === false);
+  ok('and names the reason, so the message can be specific', bad[0] && bad[0].detail.reason === 'quota');
+
+  M.record('lost2', { correct: false });
+  M.record('lost3', { correct: true });
+  ok('it announces once, not once per write',
+    fired.filter((e) => e.type === 'nst-storage-status').length === 1,
+    fired.filter((e) => e.type === 'nst-storage-status').length);
+
+  refuse = false;
+  M.record('ok2', { correct: true });
+  ok('recovery clears the error', M.saveError() === null);
+  const all = fired.filter((e) => e.type === 'nst-storage-status');
+  ok('and is announced too, so a warning can be taken down', all.length === 2, all.length);
+  ok('the all-clear says ok', all[1] && all[1].detail.ok === true);
+  ok('and everything recorded while broken is in the write that finally lands',
+    /"lost1"/.test(map.get('nst.mastery.v1') || '') && /"lost3"/.test(map.get('nst.mastery.v1') || ''));
+
+  // A window with no CustomEvent must not throw on the way through.
+  const win2 = { localStorage: { getItem: () => null, setItem: () => { throw new Error('no'); }, removeItem: () => {} } };
+  win2.window = win2;
+  new Function('window', 'setTimeout', 'clearTimeout', 'Date', SRC)(
+    win2, (fn) => { fn(); return 0; }, () => {}, Date);
+  let threw = null;
+  try { win2.NSTMastery.record('x', { correct: true }); } catch (e) { threw = e.message; }
+  ok('a window with no CustomEvent still records without throwing', threw === null, threw);
+}
+
+/* ---- the two surfaces actually show it ---- */
+{
+  const home = readFileSync(join(HERE, '..', 'scripts', 'nst-home.js'), 'utf8');
+  const pe = readFileSync(join(HERE, '..', 'practice-exams', 'app.js'), 'utf8');
+  const homeCss = readFileSync(join(HERE, '..', 'styles', 'nst-home.css'), 'utf8');
+  const peCss = readFileSync(join(HERE, '..', 'practice-exams', 'styles.css'), 'utf8');
+
+  ok('the launcher listens for it', /nst-storage-status/.test(home));
+  ok('and renders something', /nst-storewarn/.test(home) && /\.nst-storewarn/.test(homeCss));
+  ok('it is an alert, not a quiet status -- nothing is being kept',
+    /chip\.setAttribute\("role", "alert"\)/.test(home));
+  ok('and it takes the warning down when storage recovers',
+    /if \(d\.ok\) \{ if \(existing\) existing\.remove\(\); return; \}/.test(home));
+
+  ok('practice exams listens too -- it is where answers are given', /nst-storage-status/.test(pe));
+  ok('and shows a banner, not a badge', /pe-storewarn/.test(pe) && /\.pe-storewarn/.test(peCss));
+  ok('outside #pe-root, so changing screens does not wipe it',
+    /root\.parentNode\.insertBefore\(bar, root\)/.test(pe));
+
+  // The words matter: the sync chip promises the work is safe locally. Here it
+  // is not, and borrowing that sentence would be a lie.
+  ok('neither surface claims the work is still safe in this browser',
+    !/still safe in this browser[\s\S]{0,400}storage-status/.test(home));
+  ok('the launcher says it will be lost', /lost when you close this tab/.test(home));
+  ok('practice exams says so too', /lost when you close this tab/.test(pe));
+  ok('both point at the backup file, which does not need storage',
+    /Save backup file/.test(home) && /Save backup file/.test(pe));
+  ok('a full quota and a refused write read differently',
+    /storage is full/.test(home) && /refusing to store data/.test(home));
+}
+
 console.log('\n' + (fail ? `MASTERY: ${fail} FAILED of ${pass + fail}` : `MASTERY: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);
