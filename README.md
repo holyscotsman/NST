@@ -12,9 +12,14 @@ including on your phone. Bookmark it.
 NST is one dark-mode home for Nutanix certification prep, built around a simple idea: **the same
 question bank, studied three different ways.** Load a certification's questions once, then pick
 whichever format fits how you actually want to study that day — a game show, an arcade run, or a
-straight practice exam. Progress and mastery are tracked per-question and follow you across visits
-(everything saves to your browser's local storage — nothing is sent to a server, there's no
-account to make).
+straight practice exam. Progress and mastery are tracked per-question and follow you across visits.
+
+On the public site above, that is **entirely local**: everything saves to your browser's own
+storage, nothing leaves the machine, and there is no account to make. If you instead run the
+[small server](#host-it-for-a-team-accounts--login) — because your network blocks the GitHub URL,
+or because several people want their own progress — the same work is also mirrored to an account on
+**that** server, so it follows you between browsers and devices. Nothing is sent anywhere else
+either way.
 
 | | | |
 |---|---|---|
@@ -101,14 +106,20 @@ no dependency or CSS collisions between them.
 ```
 NST/
 ├── index.html          # launcher / home page
+├── styles/             # the launcher's stylesheet
 ├── banks/              # Markdown question banks + manifest.json
-├── shared/             # bank parser + loader + per-tool adapters + Nutanix wordmark asset
+├── shared/             # everything the tools agree on: the bank parser and loader,
+│                       #   the mastery store (nst-mastery.js) and its dashboard,
+│                       #   readiness and review views, preferences, backup, account
+│                       #   sync, the version stamp, and the Nutanix wordmark
 ├── wwtbane/            # WWTBANE (vanilla-JS ES modules)
 ├── starnix/            # StarNix (built single-file app)
 ├── practice-exams/     # Practice Exams
+├── server/             # optional login + accounts server (see below)
+├── scripts/            # the shared test suites and audits
 ├── docs/               # BANK_FORMAT.md, knowledge base
 ├── .nojekyll           # serve files as-is
-└── .github/workflows/  # CI (tests only)
+└── .github/workflows/  # CI (tests only — it never deploys)
 ```
 
 Design language: dark-only theme, purple accent (`#7C4DFF`), Space Grotesk + Manrope type, answer
@@ -152,6 +163,31 @@ Each tool keeps its own tooling:
 - **StarNix** — edit the module `.js` files, then rebuild the single file: `cd starnix && node build.mjs`.
   Never edit `starnix/index.html` by hand — it is generated. Harnesses: `node bank-lint.mjs`, `node scheduler-test.mjs`, etc.
 - **Practice Exams** — plain static files; edit and reload. Exam parameters live in `practice-exams/config.js`.
+
+Everything the tools share is tested from `scripts/`, and all of it gates a pull request:
+
+```bash
+node scripts/mastery-test.mjs      # the mastery store: scheduling, merging, storage failure
+node scripts/bank-test.mjs         # every bank, with the parser the app uses
+node scripts/server-test.mjs       # the login server, end to end on a scratch database
+node scripts/auth-test.mjs         # passwords, sessions, throttling, cookie parsing
+```
+
+…and a dozen more beside them (sync, backup, readiness, review, dashboard, compression,
+path safety, robustness). These need nothing installed.
+
+Six further suites need a real browser and are the fourth CI job:
+
+```bash
+npm install --no-save playwright axe-core && npx playwright install chromium
+python3 -m http.server 8124 &                    # they read the site over HTTP
+node scripts/a11y-audit.mjs                      # accessibility, incl. keyboard and focus
+node scripts/prefs-test.mjs                      # one preference, all four front-ends
+node scripts/smoke-test.mjs                      # a real server and login, end to end
+```
+
+They skip cleanly without a browser. CI sets `NST_REQUIRE_BROWSER=1`, which turns that skip
+into a failure — a suite that runs nothing must not report success.
 
 ## Deploy
 
