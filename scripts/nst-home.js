@@ -540,7 +540,15 @@
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-modal", "true");
     modal.appendChild(el("h3", "nst-modal-title", "Reset all saved data?"));
-    modal.appendChild(el("p", "nst-modal-body-text", "This permanently clears your NST preferences, Practice Exams attempt history, and WWTBANE/StarNix game progress stored in this browser. This cannot be undone."));
+    // (v2.37.0) the warning goes in a .nst-modal-body, which is the element the
+    // stylesheet makes scrollable. Appended straight to .nst-modal it was inside
+    // an `overflow: hidden` box with a viewport-height cap and no scroller, so on
+    // a short window the sentence saying what is about to be destroyed was simply
+    // cut off. Measured at 320x240 with larger text on: 342px of content in a
+    // 190px box, 152px of it unreachable.
+    var rbody = el("div", "nst-modal-body");
+    rbody.appendChild(el("p", "nst-modal-body-text", "This permanently clears your NST preferences, Practice Exams attempt history, and WWTBANE/StarNix game progress stored in this browser. This cannot be undone."));
+    modal.appendChild(rbody);
     var row = el("div", "nst-modal-actions");
     var cancel = el("button", "nst-btn nst-btn-ghost", "Cancel");
     cancel.type = "button";
@@ -597,12 +605,16 @@
     modal.setAttribute("aria-modal", "true");
     modal.appendChild(el("h3", "nst-modal-title", "Restore this backup?"));
     var what = chk.summary.tools.length ? chk.summary.tools.join(", ") : "saved data";
-    modal.appendChild(el("p", "nst-modal-body-text",
+    // Same scroller as the reset confirm, and this one needs it more: two
+    // paragraphs, one of them a variable-length list of what the file contains.
+    var sbody = el("div", "nst-modal-body");
+    sbody.appendChild(el("p", "nst-modal-body-text",
       "That file was saved on " + esc(when) + " and contains " + chk.summary.keys +
       " item(s): " + esc(what) + "." +
       (chk.rejected ? " (" + chk.rejected + " entr" + (chk.rejected === 1 ? "y" : "ies") + " outside NST will be ignored.)" : "")));
-    modal.appendChild(el("p", "nst-modal-body-text",
+    sbody.appendChild(el("p", "nst-modal-body-text",
       "Replace swaps your current progress for the backup. Merge keeps anything the backup doesn\u2019t mention."));
+    modal.appendChild(sbody);
     var row = el("div", "nst-modal-actions");
     var cancel = el("button", "nst-btn nst-btn-ghost", "Cancel");
     cancel.type = "button";
