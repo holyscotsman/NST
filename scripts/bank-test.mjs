@@ -23,7 +23,7 @@
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, resolve, basename } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..');
@@ -47,9 +47,35 @@ function loadParser() {
 }
 const Parser = loadParser();
 
+/* ---- (v2.46.0) draft mode: check ONE file, before it is wired up ----
+ *
+ * Seven more banks are planned, and the workflow for adding one had a hole in
+ * the middle of it. This suite reads banks/manifest.json and checks every bank
+ * listed there -- so to validate a bank you are still writing, you first had to
+ * add it to the manifest, which is the file that decides what the live app
+ * offers people. An unfinished bank had to be published to be checked.
+ *
+ * Worse, it was not optional. One of the checks below is "every bank file on
+ * disk is listed in the manifest" -- correct, because an unlisted bank is
+ * invisible to the app and that is nearly always a mistake. But it means the
+ * moment you create banks/ncp-ai/ncp-ai.md, CI goes red until you publish it.
+ * Measured: `FAIL every bank file on disk is listed in the manifest`.
+ *
+ * Two answers, both small:
+ *   - banks/drafts/ is exempt from the orphan rule. A file there is not in the
+ *     manifest because it is not finished, which is a state, not an error.
+ *   - `node scripts/bank-test.mjs <file.md>` runs the CONTENT rules against one
+ *     file and skips the manifest entirely.
+ *
+ * Draft mode reuses the same loop as the real run rather than a copy of it, so
+ * a draft cannot pass checks the real banks would fail. */
+const DRAFT_DIR = 'drafts';
+const argFile = process.argv[2];
+const DRAFT_MODE = !!argFile;
+
 /* ---- the manifest ---- */
 const manifestPath = join(BANKS, 'manifest.json');
-ok('the manifest exists', existsSync(manifestPath));
+if (!DRAFT_MODE) ok('the manifest exists', existsSync(manifestPath));
 let manifest = null;
 try { manifest = JSON.parse(readFileSync(manifestPath, 'utf8')); }
 catch (e) { ok('the manifest is valid JSON', false, e.message); }
@@ -57,26 +83,44 @@ if (!manifest) {
   console.log('\nBANKS: cannot continue without a readable manifest');
   process.exit(1);
 }
-ok('the manifest lists banks', Array.isArray(manifest.banks), typeof manifest.banks);
-ok('and certs', Array.isArray(manifest.certs), typeof manifest.certs);
+if (!DRAFT_MODE) {
+  ok('the manifest lists banks', Array.isArray(manifest.banks), typeof manifest.banks);
+  ok('and certs', Array.isArray(manifest.certs), typeof manifest.certs);
+}
 
-const banks = manifest.banks || [];
-const certs = manifest.certs || [];
+/* In draft mode the "bank list" is the one file named on the command line,
+ * given the same shape a manifest entry has so the content loop below does not
+ * need to know the difference. */
+const banks = DRAFT_MODE
+  ? [{ id: basename(argFile), cert: '(draft)', title: argFile,
+       file: relative(BANKS, resolve(argFile)) }]
+  : (manifest.banks || []);
+const certs = DRAFT_MODE ? [] : (manifest.certs || []);
+
+if (DRAFT_MODE) {
+  const abs = resolve(argFile);
+  ok(`the draft file exists: ${argFile}`, existsSync(abs), abs);
+  if (!existsSync(abs)) {
+    console.log('\nBANKS: nothing to check');
+    process.exit(1);
+  }
+  console.log(`checking one draft, manifest rules skipped: ${argFile}\n`);
+}
 
 /* Every bank entry is complete and its file is really there. */
-for (const b of banks) {
+for (const b of DRAFT_MODE ? [] : banks) {
   ok(`bank "${b.id}" declares an id, cert, title and file`,
     !!(b.id && b.cert && b.title && b.file), JSON.stringify(b));
   const file = join(BANKS, String(b.file || ''));
   ok(`bank "${b.id}" points at a file that exists`, existsSync(file), b.file);
 }
-{
+if (!DRAFT_MODE) {
   const ids = banks.map((b) => b.id);
   ok('no two banks share an id', new Set(ids).size === ids.length, ids.join(','));
 }
 
 /* Every cert's banks resolve, and every bank belongs to a declared cert. */
-{
+if (!DRAFT_MODE) {
   const byId = new Set(banks.map((b) => b.id));
   const certCodes = new Set(certs.map((c) => c.code));
   for (const c of certs) {
@@ -95,7 +139,7 @@ for (const b of banks) {
 
 /* No orphans: a .md under /banks/ that the manifest never mentions is invisible
  * to the app, which is almost always a mistake rather than a choice. */
-{
+if (!DRAFT_MODE) {
   const listed = new Set(banks.map((b) => String(b.file).split('/').join('/')));
   const found = [];
   const walk = (dir, rel = '') => {
@@ -107,8 +151,18 @@ for (const b of banks) {
     }
   };
   walk(BANKS);
-  const orphans = found.filter((f) => !listed.has(f));
-  ok('every bank file on disk is listed in the manifest', orphans.length === 0, orphans.join(', '));
+  /* banks/drafts/ is where a bank lives while it is being written. Not being in
+   * the manifest is the whole point of it: the app must not offer an unfinished
+   * bank, and the author must not have to publish one to check it. Everywhere
+   * else, an unlisted bank is still invisible to the app and still a mistake. */
+  const orphans = found.filter((f) => !listed.has(f) && !f.startsWith(DRAFT_DIR + '/'));
+  ok('every bank file on disk is listed in the manifest (drafts/ excepted)',
+    orphans.length === 0, orphans.join(', '));
+  const drafts = found.filter((f) => f.startsWith(DRAFT_DIR + '/'));
+  if (drafts.length) {
+    note(`${drafts.length} draft bank(s) in banks/${DRAFT_DIR}/, not offered by the app: ` +
+      drafts.join(', ') + ' — check one with: node scripts/bank-test.mjs banks/' + drafts[0]);
+  }
 }
 
 /* ---- each bank's content ---- */
@@ -218,8 +272,10 @@ for (const b of banks) {
   if (noExplain) note(`${label}: ${noExplain} question(s) have no explanation — the tool teaches through these`);
 }
 
-ok('every question id in every bank is globally unique', true,
-  `${allIds.size} ids across ${banks.length} bank(s)`);
+if (!DRAFT_MODE) {
+  ok('every question id in every bank is globally unique', true,
+    `${allIds.size} ids across ${banks.length} bank(s)`);
+}
 
 /* ---- the linter is not vacuous ----
  *
@@ -227,7 +283,7 @@ ok('every question id in every bank is globally unique', true,
  * in it passes everything. These run the SAME functions over deliberately broken
  * banks, parsed by the same parser, and require them to complain.
  */
-{
+if (!DRAFT_MODE) {
   const head = 'cert: X\ntitle: T\npass: 0.80\ndomains: storage, networking\n\n';
   const q = (id, domain, explain, opts) => `### ${id}\ndomain: ${domain}\ndifficulty: 2\n\n` +
     `Q: A question about ${id}?\n` +
@@ -261,6 +317,9 @@ ok('every question id in every bank is globally unique', true,
     JSON.stringify(strayDomainsIn(stray.questions, new Set(stray.meta.domains))));
 }
 
+/* Skipped in draft mode: this section is about the PARSER, not about the file
+ * named on the command line, and counting it there would inflate a draft's
+ * result with checks that have nothing to do with the draft. */
 /* ---- (v2.43.0) line endings, because the next banks will be written on Windows ----
  *
  * bank-parser.js normalises CRLF and lone CR to LF before it splits lines:
@@ -286,7 +345,7 @@ ok('every question id in every bank is globally unique', true,
  * Seven more banks are planned. This is the check that makes the normalisation
  * survive until they arrive.
  */
-{
+if (!DRAFT_MODE) {
   const head = 'cert: X\ntitle: T\npass: 0.80\ndomains: storage, networking\n\n';
   const body = '### w1\ndomain: storage\ndifficulty: 2\n\n' +
     'Q: Which node holds the Curator leader?\n' +
