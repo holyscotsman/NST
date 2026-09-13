@@ -5,6 +5,93 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.53.0 — 160 questions nobody could answer (2026-09-13)
+
+`wwtbane/src/content/questions.js` was a 309 KB compiled bank exported as
+`QUESTIONS` and imported by **no application file** — only two tests. The app
+loads `banks/*.md` at runtime. Matching its 233 questions against both published
+banks:
+
+```
+duplicate  (Jaccard >= 0.80) :  66
+borderline (0.55 - 0.80)     :   7   — same question, reworded
+orphan     (< 0.55)          : 160
+```
+
+**160 questions, all `reviewStatus: verified`, all with references, spread across
+twelve domains.** A finished set that no player has ever been able to reach —
+including **13 at the extreme tier**, which the served bank has none of.
+
+### The first count was wrong, and the metric is why
+This started at 132. The first pass scored overlap as
+`intersection / min(|a|, |b|)`, which saturates whenever one stem is much shorter
+than the other — so a short bank question matched almost anything:
+
+```
+[0.60] DP-E-003
+  wwt : which nutanix data protection feature delivers a zero rpo by synchronously…
+  bank: which service controls all i o in the nutanix cluster
+```
+
+Twenty-eight questions were filed as "near matches" on pairings like that and
+left behind. Proper Jaccard — over the **union** — puts them where they belong.
+The seven that really are borderline were then read rather than thresholded, and
+every one is the same question reworded.
+
+### Rescued, not published
+`banks/drafts/wwtbane-legacy.md` — the interchange format, in the one place banks
+live. `drafts/` is deliberately absent from `banks/manifest.json`, so the launcher
+offers nothing new; the content simply stops being stranded in a fixture.
+
+```
+node scripts/bank-test.mjs banks/drafts/wwtbane-legacy.md
+BANKS: ALL GREEN (16 checks, 1 warning)
+```
+
+The warning is real and worth keeping in view: *the correct option is the longest
+in 72% of single-answer items* — a craft tell in the rescued content, reported
+because publishing it would ship that tell to players.
+
+**61 carry a Steve clue, 48 of those on hard questions** — which is what v2.52.0's
+format change was for. Publishing this bank is what would actually make Steve
+talk, and what would give the ladder a real extreme final.
+
+### The two tests were pointed at the wrong bank
+`docs.test.mjs` asserted the README's "N-question bank" against the fixture, so it
+enforced **233** into player-facing copy while players got **255** — a docs-drift
+gate, green throughout, guarding the wrong number. `schema.test.mjs` validated the
+fixture's structure, not the bank anyone receives. Both now read the served bank
+through the real parser and adapter; the README says 255 questions across 9
+domains.
+
+### A near-miss worth recording
+Re-pointed, `validateBank` rejected **all 255** — `bad id: "mci-security-q3p5"`,
+`bad domain: architecture`. That is not a broken bank. `validateBank(qs, { runtime:
+true })` is how `main.js` calls it: strict mode enforces WWTBANE's *own* authored
+taxonomy — its id pattern, its twelve domain names — and a launcher bank is
+authored to the NST schema instead. The test was asking the wrong question of a
+healthy bank.
+
+### What the right question found
+The served bank has **no extreme tier**. Its questions are difficulty 2, 3 and 4;
+`toWWTBANE` maps those to easy, medium and hard, and nothing to extreme. So the
+"nearly impossible final" on rung 30 is an ordinary hard question, and
+`q.impossible` — the first-time-you-reach-the-final special — can never fire,
+because no bank field expresses it.
+
+That is a property of the content, not a fault in the code: `pickExtremeFinal`
+falls back through `|| pick(buckets.hard) || pick(bank)` on purpose. So the
+assertion is the fallback itself, driven on the real bank — a full 30-rung run is
+built and the final rung is a real, playable question. Asserting a tier the bank
+does not have would fail for the wrong reason; asserting nothing would leave the
+fallback untested.
+
+### Still open
+`wwtbane/scripts/import-questions.mjs` compiles to `src/content/questions.js`,
+which no longer exists and nothing read. Its test drives it into a temp directory,
+so it still passes. It, and the three parsers under `src/content/` that only it
+uses, are the next cycle's question.
+
 ## v2.52.0 — Steve had nothing to sell (2026-09-13)
 
 Who Wants to be a Nutanix Engineer has a green room. Steve is on the line, and for

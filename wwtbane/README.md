@@ -106,7 +106,7 @@ src/core/             # pure game logic (no browser deps) — fully unit-tested
 src/shell/            # browser layer
   main.js, studio.js (WebGL), director.js + takes.js (camera), music.js,
   backdrop.js (CSS studio), audio.js, hostLines.js, persistence.js, ui/*
-src/content/          # the question bank (questions.js), parsers, images/
+src/content/          # bank parsers and images/ (the questions live in /banks/)
 scripts/              # import-questions.mjs (Markdown/interchange → bank)
 styles/               # main.css (the whole DOM look)
 vendor/               # Three.js r160 + addons, self-hosted Montserrat
@@ -117,14 +117,14 @@ docs/                 # cinematic spec (+ event contract), authoring guide,
 
 ## A note on answer quality
 
-The 233-question bank covers 12 exam domains. It combines owner-supplied
+The 255-question bank covers 9 exam domains. It combines owner-supplied
 practice-exam sets (used verbatim, keys and all) with a drafted pool that was
 **independently double-checked** for factual accuracy against Nutanix
 documentation — with a final human review still recommended before you rely on
 it for exam prep (tracked in
 [`FLAGS.md`](FLAGS.md) and [`docs/CONTENT_QA_REPORT.md`](docs/CONTENT_QA_REPORT.md)).
 Found a question you'd word differently? That's exactly the kind of fix this is
-set up for — the answer keys live in `src/content/questions.js`.
+set up for — the answer keys live in the bank itself, `banks/ncp-mci/ncp-mci.md`.
 
 > Not affiliated with or endorsed by Nutanix. "NCP-MCI" and "Nutanix" are
 > trademarks of Nutanix, Inc., used here only to describe what the quiz covers.

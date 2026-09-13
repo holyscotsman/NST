@@ -7,7 +7,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { QUESTIONS } from '../src/content/questions.js';
+/* (v2.53.0) was src/content/questions.js, a compiled fixture the app never loaded.
+ * The README's "N-question bank" was therefore checked against 233 questions nobody
+ * could play, while the app served 255 from banks/ncp-mci — so the gate enforced a
+ * wrong number into player-facing copy and stayed green doing it. */
+import { shippedBank } from './fixtures.mjs';
+const QUESTIONS = shippedBank().questions;
 import { BANK_BOUNDARIES } from '../src/core/config.js';
 
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
@@ -33,7 +38,7 @@ export function forbiddenHits(text) {
 
 test('README states the real bank size', () => {
   assert.equal(bankCountClaim(readme), QUESTIONS.length,
-    `README's "N-question bank" must match src/content/questions.js (${QUESTIONS.length})`);
+    `README's "N-question bank" must match the bank the app serves (${QUESTIONS.length})`);
 });
 
 test('README states the real safe havens', () => {
