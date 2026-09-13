@@ -63,6 +63,23 @@ scrolls the container for free.
   arrow key on it actually moves `scrollTop`, and a check that Settings gains
   **no** extra tab stop.
 
+### Nowhere else has it
+- **18 checks in `a11y-browser.mjs` (14 → 32)** sweep the main screen of all
+  four apps at four window sizes for the same thing: a container that scrolls
+  with nothing focusable inside it. **All sixteen are clean.**
+
+Sixteen clean results prove nothing on their own — a selector with a typo in it
+is clean everywhere — so the sweep plants a text-only scroller and requires the
+same code to find it, then adds a button to it and requires the report to clear.
+The rule is about keyboard reach, not about scrolling.
+
+The one near-miss worth recording: `.nst-diag-json`, the dev-mode diagnostics
+`<pre>`, has `max-height: 180px` and `overflow-x: auto`, which makes
+`overflow-y` compute to `auto` as well — a text-only scroller by construction.
+Measured with dev mode on, it does not overflow: the prefs object is about nine
+lines against a 180px cap. Not a defect today; it would become one if prefs grew,
+and the sweep now watches it.
+
 ### Verified
 Disabling `syncScrollFocus` fails 8 checks: five per-size keyboard-reach checks
 across Help and the reset confirm, the Tab walk (which reports the tab order it
