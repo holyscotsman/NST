@@ -23,5 +23,8 @@ parse, and nothing will tell you so except an empty bank.
   accounted for in the live banks: 23 in `banks/ncp-mci/ncp-mci.md` and 2 in
   `banks/drafts/wwtbane-legacy.md`. The file is kept as provenance for the
   answer keys, which are owner-authored.
-- `docs/interchange/e1.md`, `e1-review.md` — the verbatim source the earlier
-  bank was built from, kept for the same reason.
+- `banks/provenance/` (repository root) — the interchange export the bank was
+  built from, and its review pass. There were two copies of each, in this
+  directory and in `starnix/banks/`, and they had diverged; v2.63.0 kept the one
+  the shipped bank agrees with and recorded the differences in
+  [`banks/provenance/README.md`](../../banks/provenance/README.md).

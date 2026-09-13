@@ -4,10 +4,10 @@ Things the autonomous loop **cannot** decide. Nothing here blocks a playable
 ship, but each wants a human before it's "done" per `the project design rules`.
 
 ## 0. Exam2 interchange bank — 9 quarantined questions need owner decisions
-- **Imported:** 51 questions from `docs/interchange/e1.md` (owner-supplied,
+- **Imported:** 51 questions from `banks/provenance/ncp-mci-e1.md` (owner-supplied,
   transcribed verbatim from the source exam) are live in the bank, with 6
   exhibit images. Keys are the exam's own — no decision needed there.
-- **Waiting on the owner** (`docs/interchange/e1-review.md`; the parser refuses
+- **Waiting on the owner** (`banks/provenance/ncp-mci-e1-review.md`; the parser refuses
   these until the flags are removed):
   - **8 choose-two questions** (q13, q17, q27, q48, q50, q54, q57, q60): the
     review file was written for a single-answer schema, but **WWTBANE supports

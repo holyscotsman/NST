@@ -70,6 +70,7 @@ const Parser = loadParser();
  * Draft mode reuses the same loop as the real run rather than a copy of it, so
  * a draft cannot pass checks the real banks would fail. */
 const DRAFT_DIR = 'drafts';
+const PROVENANCE_DIR = 'provenance';
 const argFile = process.argv[2];
 const DRAFT_MODE = !!argFile;
 
@@ -153,11 +154,21 @@ if (!DRAFT_MODE) {
   walk(BANKS);
   /* banks/drafts/ is where a bank lives while it is being written. Not being in
    * the manifest is the whole point of it: the app must not offer an unfinished
-   * bank, and the author must not have to publish one to check it. Everywhere
-   * else, an unlisted bank is still invisible to the app and still a mistake. */
-  const orphans = found.filter((f) => !listed.has(f) && !f.startsWith(DRAFT_DIR + '/'));
-  ok('every bank file on disk is listed in the manifest (drafts/ excepted)',
+   * bank, and the author must not have to publish one to check it.
+   *
+   * banks/provenance/ (v2.63.0) is where the bank CAME FROM -- the interchange
+   * export and its review pass, kept so the answer keys can be checked against
+   * their source. They are not banks and must never be offered as one; they live
+   * beside the bank rather than inside a game because that is what they document.
+   *
+   * Everywhere else, an unlisted bank is still invisible to the app and still a
+   * mistake. */
+  const NOT_BANKS = [DRAFT_DIR, PROVENANCE_DIR];
+  const orphans = found.filter((f) => !listed.has(f) && !NOT_BANKS.some((d) => f.startsWith(d + '/')));
+  ok('every bank file on disk is listed in the manifest (drafts/ and provenance/ excepted)',
     orphans.length === 0, orphans.join(', '));
+  ok('and the provenance files really are there to be excepted, not an empty excuse',
+    found.some((f) => f.startsWith(PROVENANCE_DIR + '/')), found.join(', '));
   const drafts = found.filter((f) => f.startsWith(DRAFT_DIR + '/'));
   if (drafts.length) {
     note(`${drafts.length} draft bank(s) in banks/${DRAFT_DIR}/, not offered by the app: ` +
@@ -509,6 +520,134 @@ if (!DRAFT_MODE) {
     naive.some((l) => l.endsWith('\r')),
     'if this is false the whole section proves nothing');
 }
+
+/* ---- two copies that disagree ---------------------------------------------
+ *
+ * THE DEFECT THIS EXISTS FOR
+ * The interchange export the NCP-MCI bank was built from existed twice, in
+ * `starnix/banks/` and `wwtbane/docs/interchange/`, and had drifted apart. Five
+ * differences, and the shipped bank agreed with the copy nobody referenced on
+ * every one of them:
+ *
+ *     "the minimum is four"      vs  "the minimum is five"
+ *     "a host that has GPUs"     vs  "a host that has CPUs"   <- contradicts its stem
+ *     explanations that describe vs  "Options A and B", "Option C"
+ *     a plain space              vs  U+2028 LINE SEPARATOR, five of them
+ *
+ * v2.61.0 then labelled the WRONG one as the provenance to keep, which is how a
+ * near-duplicate goes from untidy to harmful: it becomes the copy an author is
+ * pointed at. The U+2028 is the sharpest part -- verify-build.mjs still carries
+ * the check from when that exact character silently emptied three questions'
+ * explanations, so the blessed file held five instances of a character this
+ * project had already been broken by.
+ *
+ * The v2.51.0 rule below covers a second copy of a BANK. This covers a second
+ * copy of anything: measured across 138 tracked text files, it found exactly
+ * those two pairs and nothing else. */
+{
+  const { execSync } = await import('node:child_process');
+  let tracked = [];
+  try {
+    tracked = execSync('git ls-files', { cwd: ROOT }).toString().split('\n');
+  } catch { /* not a checkout; the check below reports it */ }
+
+  /* Tracked files only. An uncommitted duplicate is invisible here, which is the
+   * right trade: CI always runs on a full checkout, so nothing reaches main
+   * unseen, and a scan of the working tree would flag every scratch copy someone
+   * made while editing. */
+  const candidates = tracked
+    .filter((f) => f && /\.(md|js|mjs|cjs|json|css)$/.test(f))
+    // Third-party code legitimately repeats itself, and a build output is a
+    // copy of its inputs by definition.
+    .filter((f) => !/node_modules|vendor\/|\/dist\/|package-lock\.json/.test(f))
+    .filter((f) => { try { return statSync(join(ROOT, f)).size >= 4096; } catch { return false; } });
+
+  ok('there are tracked text files to compare', candidates.length >= 20, candidates.length + ' found');
+
+  const sets = new Map();
+  for (const f of candidates) {
+    const set = new Set(readFileSync(join(ROOT, f), 'utf8').replace(/\r\n/g, '\n')
+      .split('\n').map((l) => l.trim()).filter((l) => l.length > 12));
+    if (set.size >= 20) sets.set(f, set);
+  }
+
+  const NEAR = 0.60;
+  const names = [...sets.keys()];
+  const pairs = [];
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const A = sets.get(names[i]), Bv = sets.get(names[j]);
+      const [small, big] = A.size <= Bv.size ? [A, Bv] : [Bv, A];
+      let inter = 0;
+      for (const l of small) if (big.has(l)) inter++;
+      const jac = inter / (A.size + Bv.size - inter);
+      if (jac >= NEAR) pairs.push(`${names[i]} ~ ${names[j]} (${jac.toFixed(2)})`);
+    }
+  }
+  ok('no tracked text file is a near-duplicate of another', pairs.length === 0, pairs.join(' | '));
+
+  /* [neg] the comparison is real: plant a copy and require it to be named. */
+  {
+    const probeDir = join(ROOT, 'bank-dupe-probe-tmp');
+    // NOT a dotted name: a leading dot is skipped by the walk in the rule above.
+    try {
+      mkdirSync(probeDir, { recursive: true });
+      const source = candidates.find((f) => f.endsWith('.md')) || candidates[0];
+      const copy = join(probeDir, 'copy.md');
+      writeFileSync(copy, readFileSync(join(ROOT, source), 'utf8'));
+      const A = sets.get(source) || new Set();
+      const Bv = new Set(readFileSync(copy, 'utf8').replace(/\r\n/g, '\n')
+        .split('\n').map((l) => l.trim()).filter((l) => l.length > 12));
+      let inter = 0;
+      for (const l of A) if (Bv.has(l)) inter++;
+      const jac = A.size ? inter / (A.size + Bv.size - inter) : 0;
+      ok('[neg] a planted copy scores as a near-duplicate', jac >= NEAR, jac.toFixed(2) + ' vs ' + source);
+    } finally {
+      try { rmSync(probeDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    }
+  }
+}
+
+/* ---- invisible line separators --------------------------------------------
+ *
+ * U+2028 and U+2029 are line terminators to a JavaScript parser and to some
+ * line-based readers, and nothing at all to a human reading the file. This
+ * project has already lost three questions to one: `starnix/verify-build.mjs`
+ * still carries the check from when a U+2028 in an @explain line made their
+ * explanations come back empty. Five more were sitting in the interchange source
+ * the repository pointed authors at until v2.63.0.
+ *
+ * Nothing in a question bank needs either character, so neither is allowed. */
+{
+  const INVISIBLE = { ' ': 'U+2028 LINE SEPARATOR', ' ': 'U+2029 PARAGRAPH SEPARATOR' };
+  const scanned = [];
+  const offenders = [];
+  const walk = (dir, rel) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue;
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) { walk(abs, rel + e.name + '/'); continue; }
+      if (!e.name.endsWith('.md')) continue;
+      const text = readFileSync(abs, 'utf8');
+      scanned.push(rel + e.name);
+      for (const ch of Object.keys(INVISIBLE)) {
+        const n = text.split(ch).length - 1;
+        if (n) offenders.push(`${rel}${e.name}: ${n}x ${INVISIBLE[ch]}`);
+      }
+    }
+  };
+  walk(join(ROOT, 'banks'), 'banks/');
+  ok('the separator scan reached the bank files', scanned.length >= 3, scanned.join(', '));
+  ok('no bank or provenance file carries an invisible line separator',
+    offenders.length === 0, offenders.join(' | '));
+
+  /* [neg] the scan would see one. */
+  {
+    const probe = 'a line with a separator in it';
+    ok('[neg] the scan detects a planted U+2028', probe.split(' ').length - 1 === 1);
+  }
+}
+
 
 console.log('\n' + (fail
   ? `BANKS: ${fail} FAILED (${pass} passed${warn ? `, ${warn} warning${warn > 1 ? 's' : ''}` : ''})`
