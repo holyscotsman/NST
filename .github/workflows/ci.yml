@@ -144,6 +144,12 @@ jobs:
       # credentials and keeps one account's progress away from another's. It spawns
       # its own instance on a scratch port with a throwaway database.
       - run: node ../scripts/server-test.mjs
+      # (v2.58.0) what the server may believe about who is calling. X-Forwarded-For
+      # is written left to right BY THE CLIENT FIRST, so reading its left-hand entry
+      # hands the client every decision keyed on it -- both login rate limits, and
+      # the Secure flag on the session cookie. That only shows up through something
+      # that appends, so this suite stands up its own reverse proxy chain.
+      - run: node ../scripts/proxy-trust-test.mjs
       # (v2.8.1) the static-file guards under BOTH Linux and Windows path
       # semantics. path.win32 implements Windows rules on any platform, so this
       # catches Windows-only path bugs from a Linux runner -- the original

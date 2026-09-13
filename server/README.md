@@ -132,6 +132,8 @@ All optional, all environment variables:
 | `NST_ROOT_PASSWORD` | `nutanix` | Root's password, read **only** when the account is first created |
 | `NST_ALLOW_SIGNUP` | on | Set to `0` to close self-registration; root then creates accounts |
 | `NST_TRUST_PROXY` | off | Set to `1` **only** behind a reverse proxy, to read `X-Forwarded-For` / `-Proto` |
+| `NST_TRUST_PROXY_HOPS` | `1` | How many proxies are in front. Decides how far from the **right** of `X-Forwarded-For` the real client is |
+| `NST_TRUST_PROXY_FROM` | empty | Comma-separated proxy addresses allowed to forward. Empty trusts any peer |
 
 ## Running it on Windows
 
@@ -296,6 +298,28 @@ What it deliberately does **not** do:
   travel in the clear. Put it behind a reverse proxy (nginx, Caddy) with TLS if
   it leaves a trusted LAN, and set `NST_TRUST_PROXY=1` so rate limiting sees real
   client addresses.
+
+### If you set `NST_TRUST_PROXY`
+
+`X-Forwarded-For: a, b, c` is built left to right, and the **client writes the
+first entry** — each proxy appends the address it received the connection from.
+So the leftmost value is not an address the server learned; it is a string the
+caller chose. The entry this server uses is the one the trusted proxy appended,
+at the right-hand end, counting back `NST_TRUST_PROXY_HOPS` places. Leave that at
+`1` for a single reverse proxy; set it to `2` if a CDN sits in front of that, and
+so on. A header with fewer entries than the hop count is ignored and the socket
+address is used instead.
+
+Two rules make this safe, and both are yours to enforce:
+
+- **Only turn it on when a proxy is actually in front of every request.** If the
+  app is also reachable directly — a second binding, a LAN shortcut past the
+  proxy — a client connecting that way writes the whole header itself.
+  `NST_HOST=127.0.0.1` is the simplest way to guarantee it cannot be.
+- **Name the proxy** in `NST_TRUST_PROXY_FROM` (for example
+  `NST_TRUST_PROXY_FROM=127.0.0.1,::1`). Forwarded headers are then read only
+  from that peer, which is the one thing a client cannot forge. Left empty, any
+  peer may forward.
 - No email, password reset by email, or 2FA. Root resets passwords by hand.
 
 ## Tests

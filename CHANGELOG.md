@@ -5,6 +5,98 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.58.0 — the address the client wrote (2026-09-13)
+
+**A vulnerability. With the reverse-proxy setting this project's own README
+recommends, both login rate limits were fully bypassable by a header the caller
+sets, and a client could strip `Secure` off the session cookie.**
+
+### What `X-Forwarded-For` actually contains
+`X-Forwarded-For: a, b, c` is built left to right, and **the client writes the
+first entry**. Each proxy appends the address it received the connection from. So
+the leftmost value is not an address the server learned — it is a string the
+caller chose.
+
+`clientIp()` read that leftmost value, and both login gates key on it.
+
+### Measured, through a real reverse proxy, with `NST_TRUST_PROXY=1`
+| | before | after |
+| --- | --- | --- |
+| per-account gate, honest client | locked after 9 | locked after 9 |
+| per-account gate, rotating `X-Forwarded-For` | **never locked in 14** | locked after 9 |
+| per-address gate, 70 usernames, rotating header | **never locked in 70** | locked after 45 |
+| `Secure` on the session cookie, client prepends `http` | **SECURE MISSING** | present |
+
+Unlimited password guesses at any account — `root`'s default password is
+documented — and unlimited account enumeration, both from a single socket. The
+per-address gate exists specifically to catch enumeration, which the per-account
+key "cannot see at all because it never repeats"; the spoof turned off the only
+gate that could.
+
+The fourth row is a separate defect with the same cause: `isHttps()` read the
+leftmost `X-Forwarded-Proto`, so a client prepending `http` to a genuinely-HTTPS
+deployment's header made the server drop `Secure` from the session cookie, which
+then travels in clear on any plain-HTTP request to the same host.
+
+`server/README.md` line 297 tells the operator to set `NST_TRUST_PROXY=1` for
+anything leaving a trusted LAN, so this was the recommended configuration, not an
+exotic one.
+
+### The fix
+Read from the **right**. The only entry this server did not take on the caller's
+word is the one the trusted proxy appended itself. With N proxies in front, the
+last N were written by them and everything left of that is the client's, so the
+address that reached the first trusted proxy is the Nth from the right.
+`NST_TRUST_PROXY_HOPS` says what N is and defaults to 1 — the single-reverse-proxy
+case the README describes. A header with fewer entries than that is not what the
+declared topology would have produced, so it is ignored entirely and the socket
+address is used: that is always a true statement about who connected, and falling
+back to it can only ever tighten a limit.
+
+There is no configuration in which reading the left-hand entry is correct, so
+none is offered.
+
+**The residual, and the new lever for it.** Reading the right-hand entry is right
+only when a proxy actually wrote it. If the app is *also* reachable directly — a
+second binding, a LAN shortcut past the proxy — a client connecting that way owns
+the whole header again. `NST_TRUST_PROXY_FROM` takes a list of proxy addresses
+and reads forwarded headers only from those peers, which is the one thing a
+client cannot forge. Empty by default, so no existing deployment changes
+behaviour; the README now says to set it, and why.
+
+### The gate
+`scripts/proxy-trust-test.mjs`, new, 14 checks, wired into CI after
+`server-test`.
+
+**It has to bring a proxy.** A header-reading bug cannot be tested by sending
+that header directly: with nothing in front, leftmost and rightmost are the same
+entry and every implementation looks correct — the first version of this probe
+reported the fix had changed nothing for exactly that reason. So the suite stands
+up its own chain of reverse proxies, each appending `X-Forwarded-For` and setting
+`X-Forwarded-Proto` as nginx, IIS and Caddy do, and drives the app through them.
+
+It covers both gates under a rotating header, the `Secure` flag against a
+prepended `http`, a two-hop chain, a header too short for the declared hop count,
+and the peer allowlist in both directions. Two `[neg]` controls confirm the
+forwarded address is genuinely in play and that a value the client invents never
+becomes a throttle bucket of its own.
+
+Against the original code it goes red on 8 of 14, naming each one:
+
+```
+FAIL and a rotating X-Forwarded-For does not reopen it  -- NEVER LOCKED
+FAIL the per-address gate closes on account enumeration despite a rotating header
+FAIL and a client prepending "http" cannot strip Secure off it
+```
+
+### A flake this suite shipped with for ten minutes
+It stood up eight servers on ports picked at random from a 900-wide range, and
+two runs close together collided on `EADDRINUSE` and took the whole suite down.
+A suite that fails for a reason unrelated to what it measures teaches you to
+re-run it instead of read it. Ports now come from the OS, a failed start is
+retried on fresh ones, and a stack that throws part-way takes its own server and
+proxies down instead of leaving them holding ports.
+
 ## v2.57.0 — the word has to mean the measurement (2026-09-13)
 
 **A defect. The home page told you your best subject was your worst, and printed
