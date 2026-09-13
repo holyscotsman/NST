@@ -325,5 +325,14 @@ jobs:
       # text -- an accessibility preference -- is what moved the threshold from a
       # window under 264px tall to one under about 340px.
       - run: node scripts/dialog-test.mjs
+      # (v2.48.0) telling "the server didn't answer" from "you haven't picked a
+      # bank". Every tool here loads its questions over the network at runtime --
+      # a manifest fetch, then a bank markdown fetch -- and either can fail on a
+      # host someone copies files onto. All three tools showed the same screen
+      # they show when nobody has chosen a bank, so a player whose bank WAS
+      # chosen was sent to a launcher that showed it chosen. This suite runs its
+      # own server so it can 404 one resource at a time, and repairs it mid-page
+      # to prove the retry retries. Starts and stops that server itself.
+      - run: node scripts/bankfail-test.mjs
       # smoke-test starts its own server and its own throwaway database.
       - run: node scripts/smoke-test.mjs

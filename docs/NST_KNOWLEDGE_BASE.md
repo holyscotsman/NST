@@ -309,14 +309,17 @@ IDs are stable so mastery records survive re-imports.
   `ARM_FUZZ_RUNS=6`. Those six eval the game sources inside a jsdom window, which is why
   the install exists. `kbb-draw.cjs` is deliberately **not** wired: it needs the native
   `canvas` backend, and a native build in the everyday gate to buy one suite is a bad trade.
-- **The browser job** installs Playwright + axe-core and Chromium, and runs the **nine**
+- **The browser job** installs Playwright + axe-core and Chromium, and runs the **ten**
   suites that need a browser: `a11y-audit` (launcher, Practice Exams and both games),
   `a11y-browser` (painted-background contrast, keyboard-reachable scroll regions, and the
   sync/storage warning banners), `prefs-test` (one preference reaching all four front-ends,
   each in its own idiom), `promise-test` (one mastery store across three codebases),
   `resume-test` (an exam surviving a discarded tab), `mobile-audit`, `attack-browser` (the
-  rendered half of the security gate), `dialog-test` (every dialog at seven window sizes)
-  and `smoke-test` (end to end through a real server and login).
+  rendered half of the security gate), `dialog-test` (every dialog at seven window sizes),
+  `bankfail-test` (a 404'd manifest or bank file, named plainly rather than mistaken for a
+  bank nobody chose — it runs its own server so it can break one resource at a time, and
+  repairs it while the page is open to prove the retry retries) and `smoke-test` (end to
+  end through a real server and login).
   These suites self-skip without a browser, so the job sets `NST_REQUIRE_BROWSER=1` — an
   exit 0 that ran nothing looks exactly like a full pass.
 - **Neither install ships to a user.** Both are dev tooling; the app itself has no runtime

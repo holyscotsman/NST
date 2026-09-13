@@ -145,8 +145,12 @@ const boot = `<!-- ===== boot ===== -->
         window.NSTBank.load().then(function (bank) {
           if (bank && bank.questions && bank.questions.length) {
             try { window.STARNIX_QUESTIONS = window.NSTBank.toStarNix(bank); } catch (eB) {}
+            return;
           }
-        }).catch(function () {}).then(launch);
+          // (v2.48.0) load() resolves-with-nothing when the MANIFEST is what failed, so
+          // the resolved path has to ask the loader whether that is why.
+          if (window.NSTBank.manifestError && window.NSTBank.manifestError()) window.STARNIX_BANK_ERROR = "manifest";
+        }).catch(function () { window.STARNIX_BANK_ERROR = "bank"; }).then(launch);
       } else { launch(); }
     } catch (e) { fail((e && e.message) || String(e)); }
   }

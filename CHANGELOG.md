@@ -5,6 +5,81 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.48.0 — "the server didn't answer" is not "you haven't picked a bank" (2026-09-13)
+
+Every tool here loads its questions over the network at runtime: a manifest fetch,
+then a bank markdown fetch. This app is hosted off a machine somebody copies files
+onto, so either of those can fail for ordinary reasons — a renamed directory, a
+half-finished copy, a bank the manifest lists whose file never made it.
+
+The loader recorded one of the two failures (`manifestError`) and **the launcher was
+the only screen that read it.** Nothing recorded a failed bank *file* at all. So all
+three tools showed the screen they show when nobody has chosen a bank yet. Measured,
+with the bank selected and its file returning 404:
+
+```
+practice exams   "Choose a question bank to begin."
+                 "Select a question bank above, then start a practice test or exam."
+wwtbane          "No question bank is loaded yet. Choose one in the Nutanix Study
+                  Tool launcher (Settings -> Question bank), then come back to play."
+starnix          (nothing — the title screen, with a Start button)
+```
+
+The launcher, meanwhile, said `Couldn't load this bank — check your connection and
+re-select it.` So the advice was not just unhelpful. **It sent the player to a screen
+that contradicted it**, and gave them nothing to press when they got there.
+
+StarNix was the worst of the three, because it looked fine. It offered Start, played
+the full intro cinematic, and only mentioned a missing bank if you then tried to
+launch a mission — where it told you to go and pick the bank you had picked.
+
+### Fixed — the loader keeps both failures
+`loadError()` joins `manifestError()`: a failed bank-file fetch is recorded before it
+is rethrown, and cleared on success. `load()` still rejects exactly as before, so
+every existing caller is untouched; what is new is that a caller re-rendering *later*
+can still find out why it has nothing.
+
+### Fixed — all three tools say which it is, and offer a retry
+```
+Couldn't load this question bank — the file is missing, or the server didn't
+answer. Check your connection, then try again.          [ Try again ]
+```
+Practice Exams renders it in the one place every path already ends (`showEntry`), so
+boot, bank-switching and post-retry re-renders are all covered by one branch. WWTBANE
+and StarNix reload. **StarNix now says it at boot**, before the cinematic: being told
+after the intro that the questions never arrived is the wrong order.
+
+### Verified, both directions
+`scripts/bankfail-test.mjs` — 44 checks, and it owns its server so it can 404 one
+resource at a time. Reverting the five source files and rebuilding StarNix turns
+**26** of them red, quoting the old text back:
+
+```
+FAIL bankfile: wwtbane names the failure
+  -- No question bank is loaded yet. Choose one in the Nutanix Study Tool
+     launcher (Settings -> Question bank), then come back to play.
+```
+
+A retry that does not retry is the obvious way to pass this suite while fixing
+nothing, so it is not taken on trust: the server is repaired **while the broken page
+is still open**, the control is pressed, and the page has to come back with real
+questions in it. Six checks, two failure modes x three tools.
+
+The negative control is the other half. With nothing broken and no bank chosen, the
+plain "pick a bank" state has to survive untouched — no failure claimed, no retry
+offered, the launcher instruction still there. A fix that shouts "couldn't load the
+question bank" at someone who simply has not chosen one has traded one wrong message
+for another.
+
+One page is covered differently and the suite says so: StarNix shows its "pick a
+bank" screen only when you try to launch a mission, so the browser half can only
+check that it does not cry failure, and the instruction that screen carries is
+checked by reading the shell. A failed *fetch* is said at boot, and that the browser
+half does see.
+
+StarNix rebuilt at 2870.0 KB, well under the 4600 KB gate. CI browser job: nine
+suites -> ten, with README and the knowledge base updated to match.
+
 ## v2.47.0 — Does the queue actually teach? (2026-09-13)
 
 **No defect. It teaches, and now there is a number for it: 100.8x.**

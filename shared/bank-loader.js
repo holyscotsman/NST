@@ -18,6 +18,12 @@
   var _manifest = null;      // cached manifest (array of bank entries)
   var _certs = null;         // cached cert list (array of { code, name, banks?, comingSoon? })
   var _manifestError = null; // Error from the last failed manifest fetch (null = ok)
+  /* (v2.48.0) The same, one level down. A manifest that loads fine still names bank
+   * FILES, and one of those can 404 on its own -- a rename, a half-finished copy onto
+   * the host. That failure had no record anywhere: load() rejected, every caller
+   * caught it and showed its "no bank selected" empty state, and the player was told
+   * to go and select the bank they had already selected. */
+  var _loadError = null;     // Error from the last failed bank-file fetch (null = ok)
   var _cache = {};           // id -> parsed+adapted bank
 
   // (C6-05) short-lived session cache: every hop between the launcher and a
@@ -62,6 +68,9 @@
     }).catch(function (e) { _manifestError = e || new Error("manifest fetch failed"); _manifest = []; _certs = []; return _manifest; });
   }
   function manifestError() { return _manifestError; }
+  // Why the active bank has no questions, when the reason is a failed fetch rather than
+  // a bank nobody has chosen. null means "nothing went wrong", not "nothing is loaded".
+  function loadError() { return _loadError; }
 
   // The cert catalogue — the exams the launcher offers. Each entry:
   //   { code, name, banks?: {"25": id, "full": id}, comingSoon?: true }
@@ -75,8 +84,8 @@
   // Load a bank by id (default: the active bank). Resolves null when there is none.
   function load(id) {
     id = id || active();
-    if (!id) return Promise.resolve(null);
-    if (_cache[id]) return Promise.resolve(_cache[id]);
+    if (!id) { _loadError = null; return Promise.resolve(null); }
+    if (_cache[id]) { _loadError = null; return Promise.resolve(_cache[id]); }
     return manifest().then(function (banks) {
       var entry = banks.filter(function (b) { return b.id === id; })[0];
       if (!entry) return null;
@@ -100,7 +109,14 @@
           count: parsed.questions.length,
         };
         _cache[id] = bank;
+        _loadError = null;
         return bank;
+      }).catch(function (e) {
+        // Recorded, then rethrown: the existing contract is that load() rejects, and
+        // callers that already handle the rejection keep working unchanged. What is new
+        // is that a caller re-rendering later can still find out WHY it has no bank.
+        _loadError = e || new Error("bank fetch failed");
+        throw e;
       });
     });
   }
@@ -161,6 +177,7 @@
     list: manifest,
     certs: certs,
     manifestError: manifestError,
+    loadError: loadError,
     active: active,
     setActive: setActive,
     load: load,

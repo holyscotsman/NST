@@ -1838,7 +1838,12 @@ window.STARNIX_ASSETS = {
           }
         });
       }
-      self.showTitle();
+      // (v2.48.0) A bank that FAILED to fetch is said at boot, not after the intro.
+      // The title screen offers Start, and playing the whole cinematic only to be told
+      // the questions never arrived is the wrong order. A bank nobody has chosen is
+      // untouched: that is not a fault, and the bridge is still worth looking around.
+      if (typeof window !== "undefined" && window.STARNIX_BANK_ERROR) self.showNoBank();
+      else self.showTitle();
       return self;
     });
   };
@@ -3190,18 +3195,36 @@ window.STARNIX_ASSETS = {
     this._clearScreen();
     this.screen = "nobank";
     var self = this;
+    // (v2.48.0) Two different situations shared one screen, and the one it described was
+    // the one you could fix. "Pick a bank in the launcher" is sound advice to a player
+    // who has not picked one; to a player whose bank is picked and whose file 404'd it
+    // is a round trip to a launcher that will show that bank selected.
+    var why = (typeof window !== "undefined" && window.STARNIX_BANK_ERROR) || null;
     var s = el("div", "sx-screen sx-panelwrap");
     var p = el("div", "sx-panel");
-    p.appendChild(el("div", "sx-eyebrow", "No question bank"));
-    p.appendChild(el("h2", "sx-h2", "No question bank loaded"));
-    p.appendChild(el("div", "sx-note",
-      "StarNix is the game engine — the questions come from a bank you choose in the Nutanix Study Tool launcher (Settings → Question bank). Pick a bank, then come back and launch a mission."));
+    p.appendChild(el("div", "sx-eyebrow", why ? "Question bank" : "No question bank"));
+    p.appendChild(el("h2", "sx-h2", why ? "Couldn't load the question bank" : "No question bank loaded"));
+    p.appendChild(el("div", "sx-note", why
+      ? ((why === "manifest"
+          ? "Couldn't load the list of question banks — the server didn't answer."
+          : "Couldn't load the question bank — the file is missing, or the server didn't answer.")
+         + " Check your connection, then try again.")
+      : "StarNix is the game engine — the questions come from a bank you choose in the Nutanix Study Tool launcher (Settings → Question bank). Pick a bank, then come back and launch a mission."));
     var row = el("div", "sx-row");
-    var bMenu = el("button", "sx-btn sx-btn-ghost", "← Bridge menu");
-    this._on(bMenu, "click", function () { self.showMenu(); });
-    var bHome = el("button", "sx-btn sx-btn-iris", "Choose a bank →");
-    this._on(bHome, "click", function () { window.location.href = "../"; });
-    row.appendChild(bMenu); row.appendChild(bHome);
+    if (why) {
+      var bRetry = el("button", "sx-btn sx-btn-iris", "Try again");
+      this._on(bRetry, "click", function () { window.location.reload(); });
+      row.appendChild(bRetry);
+      var bHome2 = el("button", "sx-btn sx-btn-ghost", "← Main menu");
+      this._on(bHome2, "click", function () { window.location.href = "../"; });
+      row.appendChild(bHome2);
+    } else {
+      var bMenu = el("button", "sx-btn sx-btn-ghost", "← Bridge menu");
+      this._on(bMenu, "click", function () { self.showMenu(); });
+      var bHome = el("button", "sx-btn sx-btn-iris", "Choose a bank →");
+      this._on(bHome, "click", function () { window.location.href = "../"; });
+      row.appendChild(bMenu); row.appendChild(bHome);
+    }
     p.appendChild(row);
     s.appendChild(p);
     this.stage.appendChild(s);
@@ -15763,8 +15786,12 @@ buildHand(s);   // (v0.113.0, D5) fanned move cards + gem + piles live in the ha
         window.NSTBank.load().then(function (bank) {
           if (bank && bank.questions && bank.questions.length) {
             try { window.STARNIX_QUESTIONS = window.NSTBank.toStarNix(bank); } catch (eB) {}
+            return;
           }
-        }).catch(function () {}).then(launch);
+          // (v2.48.0) load() resolves-with-nothing when the MANIFEST is what failed, so
+          // the resolved path has to ask the loader whether that is why.
+          if (window.NSTBank.manifestError && window.NSTBank.manifestError()) window.STARNIX_BANK_ERROR = "manifest";
+        }).catch(function () { window.STARNIX_BANK_ERROR = "bank"; }).then(launch);
       } else { launch(); }
     } catch (e) { fail((e && e.message) || String(e)); }
   }
