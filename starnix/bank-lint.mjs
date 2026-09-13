@@ -5,11 +5,11 @@
  * ("all of the above", "both A and B") that breaks under shuffling.
  * WARNS on: craft tells (correct option is the longest in a large majority of items;
  * duplicate stems) — reported, not fatal, so authoring style can improve over time. */
-import fs from "fs";
+import { loadRealBank } from "./real-bank.mjs";
 
-globalThis.window = globalThis;
-(0, eval)(fs.readFileSync(new URL("./questions.js", import.meta.url), "utf8"));
-const BANKOBJ = globalThis.window.STARNIX_QUESTIONS || {};
+/* (v2.51.0) was the compiled copy in questions.js, which had already drifted from the
+ * bank the app serves. Same rules, the real text. */
+const BANKOBJ = loadRealBank();
 const BANK = BANKOBJ.questions || [];
 
 let fails = 0, warns = 0;

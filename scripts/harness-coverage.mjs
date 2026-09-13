@@ -127,15 +127,38 @@ for (const dir of DIRS) {
 }
 ok('found harness files to classify', candidates.length >= 30, candidates.length);
 
+/* (v2.51.0) A module IMPORTED by a harness CI runs is not dark: it executes every
+ * time that harness does, and its failures are that harness's failures. Before this,
+ * factoring shared setup out of three harnesses into one module made the new module
+ * look like an unrun suite, and the only way to quiet it was an exclusion — which says
+ * "not run" about a file that runs constantly. So the rule follows the imports one hop:
+ * a file imported by something CI invokes counts as covered, by the thing importing it. */
+const importedBy = new Map();
+for (const rel of candidates) {
+  const base = rel.split('/').pop();
+  if (!invoked.has(base)) continue;
+  const src = readFileSync(join(ROOT, rel), 'utf8');
+  for (const m of src.matchAll(/from\s+["'](\.[^"']+\.(?:mjs|cjs))["']/g)) {
+    const dep = m[1].split('/').pop();
+    if (!importedBy.has(dep)) importedBy.set(dep, rel);
+  }
+}
+
 /* The rule. */
 const unclassified = [];
 for (const rel of candidates) {
   const base = rel.split('/').pop();
   if (invoked.has(base)) continue;
+  if (importedBy.has(base)) continue;
   if (globbed && rel.startsWith('wwtbane/tests/') && /\.test\.mjs$/.test(base)) continue;
   if (Object.prototype.hasOwnProperty.call(EXCLUDED, rel)) continue;
   unclassified.push(rel);
 }
+ok('the import hop found real dependencies -- a parse that found none would excuse nothing',
+  importedBy.size > 0, [...importedBy.entries()].map(([d, by]) => `${d} <- ${by}`).join(', '));
+ok('real-bank.mjs is covered by the harnesses that import it, not by an exclusion',
+  importedBy.has('real-bank.mjs') && !Object.prototype.hasOwnProperty.call(EXCLUDED, 'starnix/real-bank.mjs'),
+  importedBy.get('real-bank.mjs'));
 ok('every harness is either run by CI or documented as not run',
   unclassified.length === 0,
   unclassified.join(', ') + ' -- add it to ci.yml, or to EXCLUDED with a reason');
@@ -190,6 +213,15 @@ ok('perf-smoke.mjs is NOT a CI step -- it cannot pass without PERF=1 and a brows
   const rule = (invokedSet, files, excluded, glob = globbed) => files.filter((rel) => {
     const base = rel.split('/').pop();
     if (invokedSet.has(base)) return false;
+    // (v2.51.0) the import hop, mirrored: a module is covered by whichever invoked
+    // harness imports it. Computed against the set being tested, so the historical
+    // replay below asks what THAT workflow covered, not what today's does.
+    for (const cand of files) {
+      if (!invokedSet.has(cand.split('/').pop())) continue;
+      if (!existsSync(join(ROOT, cand))) continue;
+      const src = readFileSync(join(ROOT, cand), 'utf8');
+      if (new RegExp(`from\\s+["'][^"']*/${base.replace('.', '\\.')}["']`).test(src)) return false;
+    }
     if (glob && rel.startsWith('wwtbane/tests/') && /\.test\.mjs$/.test(base)) return false;
     if (Object.prototype.hasOwnProperty.call(excluded, rel)) return false;
     return true;
@@ -210,6 +242,9 @@ ok('perf-smoke.mjs is NOT a CI step -- it cannot pass without PERF=1 and a brows
   const before = ci.replace(/^\s*- run: (ARM_FUZZ_RUNS=6 )?node (arm-run|cc-run|kbb-run|cc-death-paths|kbb-fuzz|arm-fuzz)\.cjs\s*$/gm, '');
   const beforeInvoked = invocations(before);
   const wouldReport = rule(beforeInvoked, candidates, EXCLUDED);
+  /* Still six. The replay strips the six game suites and nothing else, so bank-lint
+   * survives it — and bank-lint imports real-bank.mjs, which is exactly what the import
+   * hop is for: a module is dark only when nothing that runs reaches it. */
   ok('self-check: the pre-v2.40.0 workflow reports all six dark suites',
     wouldReport.length === 6, wouldReport.join(', '));
 }

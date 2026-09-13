@@ -21,7 +21,7 @@
  *
  * Pure Node, no browser — runs in CI. Run: node scripts/bank-test.mjs
  */
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, basename } from 'node:path';
 
@@ -301,6 +301,71 @@ for (const b of banks) {
 if (!DRAFT_MODE) {
   ok('every question id in every bank is globally unique', true,
     `${allIds.size} ids across ${banks.length} bank(s)`);
+}
+
+/* ---- one bank, one copy (v2.51.0) ----
+ *
+ * StarNix used to carry its own compiled copy of these questions: starnix_questions.md
+ * compiled by import-questions.mjs into a 391 KB questions.js, which bank-lint and
+ * multi-answer-test linted while the app served banks/ncp-mci/ncp-mci.md. The two were
+ * identical in every stem, option and explanation — right up until v2.50.0 wrote
+ * twenty-one exhibit descriptions into the bank. The copy kept the old ones, and
+ * StarNix's harnesses went on linting text no player would ever see.
+ *
+ * That is what a duplicate does: not a loud divergence, a quiet one, on exactly the
+ * part somebody just took the trouble to fix. So the rule is that there is one copy.
+ * A file anywhere in the repo carrying several live question ids is a second one.
+ */
+function secondCopies(probe, rootDir) {
+  const SKIP = new Set(['node_modules', '.git', 'banks']);
+  const hits = [];
+  const walk = (dir) => {
+    let entries = [];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name.startsWith('.') || SKIP.has(e.name)) continue;
+      const abs = join(dir, e.name);
+      if (e.isDirectory()) { walk(abs); continue; }
+      let st; try { st = statSync(abs); } catch { continue; }
+      if (st.size > 8 * 1024 * 1024) continue;          // binaries and vendored blobs
+      let txt; try { txt = readFileSync(abs, 'utf8'); } catch { continue; }
+      const n = probe.filter((id) => txt.includes(id)).length;
+      if (n >= 3) hits.push(`${relative(rootDir, abs)} (${n} of ${probe.length} ids)`);
+    }
+  };
+  walk(rootDir);
+  return hits;
+}
+
+if (!DRAFT_MODE) {
+  const probeBank = banks[0];
+  const probeIds = [];
+  if (probeBank) {
+    const md = readFileSync(join(BANKS, probeBank.file), 'utf8');
+    for (const m of md.matchAll(/^### (\S+)\s*$/gm)) { if (probeIds.length < 12) probeIds.push(m[1]); }
+  }
+  ok('the id probe found ids to look for -- an empty probe would clear everything',
+    probeIds.length >= 6, probeIds.length);
+  const copies = secondCopies(probeIds, ROOT);
+  ok('the questions live in banks/ and nowhere else', copies.length === 0,
+    copies.slice(0, 4).join(', ') + ' -- a second copy drifts the moment either is edited');
+
+  /* The rule has a failing case, and this is it: the deleted file, reconstructed. */
+  // Not a dotted name: the walk skips those, and a control the rule cannot see is a
+  // control that proves nothing. (It reported ALL CLEAR on the first run for exactly
+  // that reason.)
+  const fakeDir = join(ROOT, 'bank-copy-probe-tmp');
+  try {
+    mkdirSync(fakeDir, { recursive: true });
+    writeFileSync(join(fakeDir, 'questions.js'),
+      'window.STARNIX_QUESTIONS = {questions:[' + probeIds.map((i) => `{"id":"${i}"}`).join(',') + ']};');
+    const caught = secondCopies(probeIds, ROOT);
+    ok('[neg] a reconstructed second copy IS caught',
+      caught.some((c) => c.includes('questions.js')), caught.join(', '));
+  } finally {
+    try { rmSync(fakeDir, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+  ok('[neg] and the probe cleans up after itself', !existsSync(fakeDir));
 }
 
 /* ---- the linter is not vacuous ----

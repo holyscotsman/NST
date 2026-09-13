@@ -225,9 +225,9 @@ debounced writes, `update(fn)` for concurrent writers). Reduced motion is a
 `data-motion=reduced` attribute driving CSS twins; high contrast is `data-contrast=high`.
 
 ### 4.6 Key files
-`starnix-core.js` (engine + meta + contract), `questions.js` (compiled bank),
-`starnix_questions.md` + `banks/*.md` (question sources), `import-questions.mjs` (compiler +
-`--check`), `arm.js` / `kbb.js` / `cc.js`, `starnix-shell.js` (menu/screens/Codex), `audio.js`
+`starnix-core.js` (engine + meta + contract), `banks/*.md` (the question source — StarNix
+carries no copy of it since v2.51.0), `real-bank.mjs` (loads that source through the real
+parser and adapter, for the harnesses), `arm.js` / `kbb.js` / `cc.js`, `starnix-shell.js` (menu/screens/Codex), `audio.js`
 (synth), `assets.js` (inlined art), `build.mjs`, and the harnesses (`bank-lint.mjs`,
 `scheduler-test.mjs`, `multi-answer-test.mjs`, `shuffle-test.mjs`, `timer-test.mjs`, the
 `*-run.cjs` game engines, `verify-build.mjs`).
@@ -257,16 +257,27 @@ in the NST design system.
 
 ## 6. The question banks & content pipeline
 
-Both apps use a human-authorable Markdown authoring format compiled to a runtime `questions.js`,
-with a `*-review.md` quarantine convention and a `--check` drift guard. Each question carries a
-`cert` field, so scaling to more certs just means more banks.
+Both apps read a human-authorable Markdown bank. WWTBANE still compiles its own to a runtime
+`questions.js`; StarNix and Practice Exams read `banks/*.md` directly at load through
+`shared/bank-parser.js`. Each question carries a `cert` field, so scaling to more certs just
+means more banks.
+
+**One bank, one copy (v2.51.0).** StarNix used to keep its own compiled copy —
+`starnix_questions.md` compiled by `import-questions.mjs` into a 391 KB `questions.js` — and
+its harnesses linted that while the app served `banks/ncp-mci/ncp-mci.md`. The two were
+identical in every stem, option and explanation until v2.50.0 wrote twenty-one exhibit
+descriptions into the bank; the copy kept the old ones. The copy, its source, its compiler
+and `starnix/exhibit-images/` (34 files, 3.2 MB, read on every build and inlined never) are
+all gone; `starnix/real-bank.mjs` loads the real thing for `bank-lint` and
+`multi-answer-test`.
 
 - **WWTBANE bank:** 233 questions across 12 domains (157 AI-drafted + verified, 25 owner
   "priority" set, 51 owner "Exam 1" interchange set), 6 exhibit images. Two formats (native
   `## Q` blocks; interchange `### id` blocks) auto-detected by `scripts/import-questions.mjs`.
 - **StarNix / Practice Exams bank:** 255 questions across 9 domains (32 multi-answer, 27
-  exhibits, 25 priority "a6"). Interchange format in `banks/*.md`; `import-questions.mjs`
-  compiles `questions.js`. This bank is the source for **Nutanix Practice Exams**.
+  exhibits, all 27 with authored alt text since v2.50.0, 25 priority "a6"). Interchange
+  format in `banks/ncp-mci/ncp-mci.md`, read at runtime — nothing compiles it. This bank is
+  the source for **Nutanix Practice Exams**.
 
 **Content integrity (§2) is paramount:** keys come only from authored data; ambiguous items are
 quarantined; AI is never authoritative; blueprint (domain) weights ship inert `null` because the
@@ -300,14 +311,14 @@ IDs are stable so mastery records survive re-imports.
     `scripts/*-test.mjs` battery (22 runs): version, security, backup, mastery, server,
     path-guard, compress, backup-db, sync, banks, robustness, update, dashboard, readiness,
     review, auth, docs, pages, load, session, harness-coverage.
-- **StarNix build + logic harnesses** (20 runs) installs **jsdom** and nothing else. The
+- **StarNix build + logic harnesses** (19 runs) installs **jsdom** and nothing else. The
   build, then — since v2.49.0 — **`verify-build`** (557 checks, ~22s): the end-to-end
   verifier of the assembled `index.html`, booting the real built shell in jsdom with the
   real question bank and flying all three games. It had been dark since d4892dd removed
   the in-game exam, crashing 23 checks in with 534 never reached. Then the pure harnesses
   (`bank-lint`, `scheduler-test`, `multi-answer-test`, `shuffle-test`, `timer-test`,
   `audio-smoke`, `cc-view-smoke`, `cc-fairness-check`, `exhibit-check`,
-  `import-questions --check`, `kbb-balance`, `core-fuzz`) and — since
+  `kbb-balance`, `core-fuzz`) and — since
   v2.40.0 — the per-game suites that had never been run by CI at all: `arm-run` (163),
   `cc-run` (124), `kbb-run` (156), `cc-death-paths` (5), `kbb-fuzz`, and `arm-fuzz` at
   `ARM_FUZZ_RUNS=6`. Those six eval the game sources inside a jsdom window, which is why

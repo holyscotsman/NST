@@ -77,38 +77,19 @@ const blocks = modules.map(([file, name]) => {
   return `<script>window.__sxBoot && __sxBoot(${JSON.stringify(msg)});</script>\n<!-- ===== ${name} (${file}) ===== -->\n<script>\n${src}\n</script>`;
 }).join("\n\n");
 
-// ---- exhibits: inline present exhibit-images/* as data URIs (window.STARNIX_EXHIBITS).
 // Exam questions render their exhibit from this map; absent keys fall back to a pending note.
-const EXHIBIT_MIME = { png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif", webp:"image/webp", svg:"image/svg+xml" };
-function exhibitBlock() {
-  const map = {};
-  // (v0.143.0, V1.1 NIT#2) reference-driven: inline ONLY images a live question cites. Orphan
-  // files (a4q50.png shipped ~50 KB of dead base64 while its question block sat commented out)
-  // stay on disk for later revival but never enter the deploy. Fails open if the bank is absent.
-  // Since the bank is no longer inlined (runtime banks carry their own images via imageSrc), the
-  // reference set is empty and NO exhibits are baked in — unless questions.js is re-added above.
-  let refs = new Set();
-  if (modules.some((m) => m[1] === "questions")) {
-    try {
-      const qsrc = readFileSync(new URL("./questions.js", import.meta.url), "utf8");
-      refs = new Set([...qsrc.matchAll(/"image":\s*"([^"]+)"/g)].map((m) => m[1]));
-    } catch (e) { refs = null; }
-  }
-  try {
-    for (const f of readdirSync(new URL("./exhibit-images/", import.meta.url))) {
-      const ext = (f.split(".").pop() || "").toLowerCase();
-      const mime = EXHIBIT_MIME[ext];
-      if (!mime) continue;
-      const key = f.replace(/\.[^.]+$/, "");
-      if (refs && !refs.has(key)) continue;
-      const b64 = readFileSync(new URL("./exhibit-images/" + f, import.meta.url)).toString("base64");
-      map[key] = "data:" + mime + ";base64," + b64;
-    }
-  } catch (e) { /* no dir -> empty map */ }
-  const n = Object.keys(map).length;
-  return { n, html: `<!-- ===== exhibits (${n} inlined) ===== -->\n<script>\nwindow.STARNIX_EXHIBITS = ${JSON.stringify(map)};\n</script>` };
-}
-const exhibits = exhibitBlock();
+/* (v2.51.0) The exhibit-inlining block lived here. It read every file in
+ * exhibit-images/ (34 files, 3.2 MB) on every build and inlined none of them: the
+ * reference set it filtered against came from questions.js, the compiled bank that
+ * stopped being built into the page when StarNix became bank-agnostic. It emitted an
+ * empty window.STARNIX_EXHIBITS that nothing read.
+ *
+ * Exhibits belong to the bank now — banks/<id>/images/, resolved at runtime by
+ * shared/bank-loader.js into q.imageSrc — and StarNix's games filter exhibit questions
+ * out entirely, so it has nothing to inline even in principle. exhibit-check.mjs holds
+ * the invariant from the other side. */
+const exhibits = { n: 0, html: "" };
+
 
 const boot = `<!-- ===== boot ===== -->
 <script>
@@ -239,7 +220,6 @@ window.addEventListener("error", function (ev) {
 });
 </script>
 
-<script>window.__sxBoot && __sxBoot("Inlining exhibits\u2026");</script>
 ${exhibits.html}
 
 ${blocks}

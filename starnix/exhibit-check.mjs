@@ -55,13 +55,32 @@ ok("every bank `image:` reference resolves to a real file (no runtime 404 exhibi
 ok("[neg] a fabricated reference would be caught",
   !fs.existsSync(path.join(BANKS, banks[0] ? path.dirname(banks[0].file) : ".", "images/__nope__.png")));
 
-// ---- (C) the built page ships no dead exhibit base64 (exam mode left StarNix) ----
+/* ---- (C) StarNix inlines no exhibits, and has nothing left to inline with ----
+ *
+ * (v2.51.0) This used to read window.STARNIX_EXHIBITS out of the build and assert
+ *   Object.keys(EXH).length === 0 || Object.values(EXH).every(isDataUri)
+ * which passes whether the map is empty or full: a check with no failing case. The
+ * machinery behind it was just as hollow — build.mjs read all 34 files in
+ * exhibit-images/ on every build, filtered them against a reference set taken from a
+ * compiled bank that was no longer built in, and inlined none of them into a global
+ * nothing read. Directory, global and filter are all gone; what is left is the rule
+ * they were supposed to serve, stated so it can fail.
+ */
 const html = fs.readFileSync(new URL("./index.html", import.meta.url), "utf8");
-const mx = html.match(/window\.STARNIX_EXHIBITS\s*=\s*(\{[\s\S]*?\})\s*;/);
-const EXH = mx ? JSON.parse(mx[1]) : {};
-ok("STARNIX_EXHIBITS map exists in the build (shape intact)", !!mx);
-ok("no dead exhibit base64 ships (games filter @image; exhibits render in Practice Exams)",
-  Object.keys(EXH).length === 0 || Object.values(EXH).every(v => /^data:image\//.test(v)));
+ok("the build declares no exhibit map (exhibits belong to the bank, not the engine)",
+  !/window\.STARNIX_EXHIBITS/.test(html));
+ok("no exhibit-images directory is left in starnix/",
+  !fs.existsSync(new URL("./exhibit-images/", import.meta.url)));
+/* Call sites, not mentions — the same trap the Math.random allowlist fell into in
+ * v2.49.0, where a comment explaining the rule turned the rule red. The comment in
+ * build.mjs saying why the directory went must not count as reading it. */
+const buildSrc = fs.readFileSync(new URL("./build.mjs", import.meta.url), "utf8")
+  .split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n");
+ok("and the build has no code that reads one",
+  !/exhibit-images/.test(buildSrc));
+/* The negative control for (C): the rule has a failing case, and here it is. */
+ok("[neg] a build that DID declare an exhibit map would be caught",
+  /window\.STARNIX_EXHIBITS/.test('<script>window.STARNIX_EXHIBITS = {};</script>'));
 
 console.log(fails ? ("EXHIBIT CHECK: " + fails + " FAILED") : "EXHIBIT CHECK: ALL GREEN");
 process.exit(fails ? 1 : 0);

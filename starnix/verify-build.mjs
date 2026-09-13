@@ -402,8 +402,9 @@ async function runFrames(n = 6) {
         const over = Object.keys(BUDGETS).filter((k) => (ledger[k] || 0) > BUDGETS[k]);
         ok("Backend#6: every module inside its declared byte budget" + (over.length ? " — OVER: " + over.map((k) => k + " " + ledger[k] + ">" + BUDGETS[k]).join(", ") : ""),
           over.length === 0);
-        ok("Backend#6: the bank stays COMPACT (no pretty-print indentation in questions.js)",
-          !/\n  "id":/.test(fsMod.readFileSync(new URL("./questions.js", import.meta.url), "utf8")));
+        // (v2.51.0) was a compactness check on questions.js, StarNix's compiled copy of
+        // the bank. The copy is gone; the bank is markdown now and is not shipped in the
+        // build at all, so there is nothing here to keep compact.
         ok("Backend#6: the report persisted (per-module + gzip) for humans and this gate",
           typeof ledger.gzip === "number" && ledger.gzip > 0 && typeof ledger.assets === "number");
       }
@@ -557,9 +558,11 @@ async function runFrames(n = 6) {
       html.includes("c2d.moveTo(-13, -7.5); c2d.lineTo(-13 - (13.5 + (reducedMotion ? 6 : runRng.next() * 15)), 0); c2d.lineTo(-13, 7.5);"));
     ok("FE#9: the ship power-on splash — stepper, 10 real progress steps, fault trap, reduced-motion static, boot removal",
       html.includes('<div id="sx-boot"') && html.includes("window.__sxBoot = (function ()")
-      // (v2.49.0) 10 -> 8: exam.js left the module list in d4892dd and the exhibits step
-      // went with the baked-in bank. One __sxBoot call per build step, still pinned.
-      && (html.match(/__sxBoot\(/g) || []).length === 8
+      // (v2.49.0) 10 -> 8: exam.js left the module list in d4892dd.
+      // (v2.51.0) 8 -> 7: the "Inlining exhibits" step went with the inlining, which had
+      // been reading 3.2 MB of images per build and shipping none of them.
+      // One __sxBoot call per build step, still pinned.
+      && (html.match(/__sxBoot\(/g) || []).length === 7
       // (v2.49.0) "Loading the question bank" was a step that baked the bank into the
       // build. The bank is fetched at runtime now and that step is gone.
       && html.includes("Powering up the bridge") && html.includes("Charting the Kuiper Belt")
@@ -2608,7 +2611,7 @@ async function runFrames(n = 6) {
     /* (v2.49.0) Re-baselined to CALL SITES, now that comments no longer count: the core
      * has zero (it was allowed one, which was a comment), and ARM has three. Both numbers
      * are tighter than the ones they replace. */
-    const RAND_ALLOW = { "starnix-core.js": 0, "starnix-shell.js": 0, "audio.js": 2, "arm.js": 3, "cc.js": 0, "kbb.js": 5, "questions.js": 0, "assets.js": 0 };
+    const RAND_ALLOW = { "starnix-core.js": 0, "starnix-shell.js": 0, "audio.js": 2, "arm.js": 3, "cc.js": 0, "kbb.js": 5, "assets.js": 0 };
     const drift = [];
     for (const fRA in RAND_ALLOW) {
       const srcRA = fsMod.readFileSync(new URL("./" + fRA, import.meta.url), "utf8");
