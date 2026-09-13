@@ -5,6 +5,70 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.52.0 — Steve had nothing to sell (2026-09-13)
+
+Who Wants to be a Nutanix Engineer has a green room. Steve is on the line, and for
+4,000 coins he will teach you a hard question he knows is coming. `selection.js`
+picks who he talks about:
+
+```js
+const withClue = hards.filter((q) => q.steveClue && !alreadyTaught.has(q.id));
+return withClue[0] || null;
+```
+
+The comment above it explains why: *"Steve never sells a question he has nothing to
+say about (the old fallback charged 4,000 coins and rendered an empty tip)."* Somebody
+found that bug and fixed it properly — a clue has to be **authored**, or Steve stays
+quiet.
+
+Then the runtime bank engine landed, and the fix outlived its data. `shared/bank-parser.js`
+had no notion of a clue; `toWWTBANE` carried none. Measured on the shipped bank:
+
+```
+toWWTBANE questions: 255
+with steveClue     : 0
+```
+
+Zero. Not "few" — **none, and none possible**: no bank could express a clue, so the
+filter emptied every set it was handed and the green room said "nothing new" forever.
+
+### Fixed — the format can say it
+`Clue:` joins `Explain:` and `Teach:` as a per-question field: a couple of sentences
+that teach toward the answer without naming it, wrapping across lines like the others.
+`toWWTBANE` carries it to `steveClue`. StarNix and Practice Exams ignore it — they have
+no green room — and a question without one gets no `steveClue` at all rather than an
+empty string, because an empty string is exactly what the 4,000-coin bug was made of.
+
+### Verified — through the pipeline, not around it
+`selection.test.mjs` already had a Steve test. It passed throughout, because it built
+its questions with `makeBank()` and set `steveClue` by hand: **the fixture could express
+something the pipeline could not.**
+
+The new tests build a bank as markdown, run it through the real parser and the real
+adapter, and hand the result to the real `SetManager`:
+
+```
+✓ Steve is reachable through the REAL bank pipeline, not just the fixture
+✓ a bank with no authored clues leaves Steve with nothing — the state the app shipped in
+```
+
+Deleting the one line that carries the clue turns the first red and leaves the old
+fixture test green — which is the whole point of adding it.
+
+`adapter-test.mjs`, +6 checks (56 → 62): the clue parses, survives wrapping, does not
+leak into the options, reaches WWTBANE, and does **not** reach StarNix.
+
+### Not fixed here
+The shipped NCP-MCI bank still carries no clues, so Steve is still quiet — the format
+can now say it, and nobody has said it yet. Sixty-one authored clues do exist, in
+`wwtbane/src/content/questions.js`: a 309 KB compiled bank the app never reads, holding
+132 verified questions that appear in no bank at all. That is the next cycle's work.
+
+`phoneHint` got no such field, deliberately. All 233 are authored, parsed by WWTBANE's
+own markdown parser and validated by its schema — and **never rendered**: `phoneFriend`
+picks an option algorithmically and the UI shows the pick. Giving a dead field a home in
+the live format would just have made it dead in two places.
+
 ## v2.51.0 — one bank, one copy (2026-09-13)
 
 StarNix carried its own copy of the question bank. `starnix_questions.md` (354 KB)

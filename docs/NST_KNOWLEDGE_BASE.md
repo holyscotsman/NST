@@ -271,6 +271,16 @@ and `starnix/exhibit-images/` (34 files, 3.2 MB, read on every build and inlined
 all gone; `starnix/real-bank.mjs` loads the real thing for `bank-lint` and
 `multi-answer-test`.
 
+**Steve's clue (v2.52.0).** WWTBANE's green room sells a hint about a hard question it
+knows is coming, and `selection.js` only offers a question carrying an **authored**
+`steveClue` — a rule added after an earlier build charged 4,000 coins and rendered an
+empty tip. The bank format had no way to express one and `toWWTBANE` carried none, so
+across all 255 served questions the answer was always "nothing new". `Clue:` is now a
+per-question field in `banks/*.md`, carried through to `steveClue`; StarNix and Practice
+Exams ignore it. `wwtbane/tests/selection.test.mjs` drives the real
+markdown → parser → adapter path, so a clue the pipeline stops carrying goes red there —
+the older test could not see it, because its fixture set `steveClue` by hand.
+
 - **WWTBANE bank:** 233 questions across 12 domains (157 AI-drafted + verified, 25 owner
   "priority" set, 51 owner "Exam 1" interchange set), 6 exhibit images. Two formats (native
   `## Q` blocks; interchange `### id` blocks) auto-detected by `scripts/import-questions.mjs`.

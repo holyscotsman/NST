@@ -280,6 +280,40 @@ bank.id = 'ncp-xx';
   }
 }
 
+/* ---- Steve's clue reaches WWTBANE and nowhere else (v2.52.0) ---- */
+{
+  const withClue = win.NSTBankParser.parse([
+    'cert: X', 'title: T', 'pass: 0.80', 'domains: storage', '',
+    '### c1', 'domain: storage', 'difficulty: 4', '',
+    'Q: What is it?', '- [x] Right', '- [ ] Wrong', '',
+    'Explain: Because.',
+    'Clue: Think about what the platform protects first, and why it would rather',
+    'refuse than guess — the documented threshold is not a round number.', '',
+  ].join('\n'));
+  ok('a bank question can carry a Clue:', (withClue.errors || []).length === 0
+    && typeof withClue.questions[0].clue === 'string' && withClue.questions[0].clue.length > 60,
+    JSON.stringify(withClue.errors) + ' ' + JSON.stringify(withClue.questions[0] && withClue.questions[0].clue));
+  ok('a wrapped clue keeps both lines', /refuse than guess/.test(withClue.questions[0].clue));
+  ok('and the clue does not leak into the options', withClue.questions[0].options.length === 2);
+
+  const ww = win.NSTBank.toWWTBANE(withClue)[0];
+  const sx = win.NSTBank.toStarNix(withClue).questions[0];
+  /* The whole point of the field: WWTBANE's green room filters on q.steveClue, so a
+   * clue the adapter drops is a clue Steve can never sell. */
+  ok('WWTBANE gets it as steveClue', ww.steveClue === withClue.questions[0].clue, JSON.stringify(ww.steveClue));
+  ok('StarNix ignores it — no clue, no steveClue, nothing extra',
+    sx.clue === undefined && sx.steveClue === undefined);
+
+  const noClue = win.NSTBankParser.parse([
+    'cert: X', 'title: T', 'pass: 0.80', 'domains: storage', '',
+    '### c2', 'domain: storage', 'difficulty: 4', '',
+    'Q: What is it?', '- [x] Right', '- [ ] Wrong', '', 'Explain: Because.', '',
+  ].join('\n'));
+  ok('a question with no Clue: gets no steveClue at all — not an empty string',
+    win.NSTBank.toWWTBANE(noClue)[0].steveClue === undefined,
+    JSON.stringify(win.NSTBank.toWWTBANE(noClue)[0].steveClue));
+}
+
 /* ---- neither adapter hands the app a reference into the bank ----
  *
  * Both use .slice() on every array. If one stopped, a game shuffling its own
