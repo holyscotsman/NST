@@ -161,6 +161,15 @@ jobs:
       # what keeps a forgotten esc() from making it happen.
       - run: node ../scripts/pages-test.mjs
 
+      # (v2.36.0) how the pages load their scripts. Every <script src> on the
+      # launcher and Practice Exams was a plain blocking tag, so the browser
+      # fetched them one at a time -- ten round trips end to end, and the
+      # launcher painted nothing at all until the last one had run. Measured on
+      # a 60ms link: 1022ms to DOMContentLoaded with no first paint before it.
+      # `defer` fixed it (586ms, first paint at 316ms) and is one word that can
+      # be deleted without breaking a single other test, so this gate exists.
+      - run: node ../scripts/load-test.mjs
+
   # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-
   # background contrast, phone and landscape layout, the DOM half of the security

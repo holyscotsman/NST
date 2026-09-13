@@ -5,6 +5,73 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.36.0 — Ten scripts, one at a time (2026-09-13)
+
+Every `<script src>` on the launcher and Practice Exams was a plain blocking
+tag. A classic script with no `defer` stops the parser dead: nothing after it is
+parsed, nothing paints, and **the next script is not even requested** until this
+one has arrived and run. Ten tags is ten round trips, end to end.
+
+Measured over HTTP on a throttled 60ms link, median of five runs:
+
+| page | DOMContentLoaded | first paint | script concurrency |
+|---|---|---|---|
+| launcher | 1004ms → **586ms** (−42%) | never → **316ms** | 1.08x → 4.38x |
+| Practice Exams | 1399ms → **595ms** (−57%) | n/a | 0.90x → 5.38x |
+| WWTBANE | 923ms → **844ms** (−9%) | n/a | 6.47x → 7.57x |
+
+A concurrency of 1.08x means one file at a time. The launcher's waterfall was a
+perfect staircase — each tag started within 2ms of its predecessor finishing —
+and 938ms of its 1004ms was spent in it.
+
+**The launcher painted nothing at all until the whole chain had run.** The tags
+sit in `<head>`, and a blocking script there holds back first paint as surely as
+a stylesheet does. On that link a visitor watched a blank page for a full second,
+then got the whole thing at once.
+
+### Changed
+- **`defer` on every classic script tag** in `index.html`,
+  `practice-exams/index.html` and `wwtbane/index.html` — 29 tags.
+
+`defer` is the right tool rather than `async` because deferred scripts still
+execute in **document order**. Every contract these files depend on — the parser
+defining `NSTBankParser` before the loader runs, the mastery store existing
+before sync flushes it, `engine.js` before `app.js` — holds unchanged. Only the
+fetching became parallel. `async` would have broken all of them, intermittently,
+on somebody else's connection.
+
+WWTBANE gains least because most of its 29 scripts are ES modules, which the
+spec already defers; only five classic tags were blocking there.
+
+### One script still blocks, on purpose
+`shared/nst-prefs.js` sets the accessibility classes on `<html>` synchronously at
+load — reduced motion, high contrast, larger text. Deferred, it would run after
+the parser is done, and somebody who needs high contrast could watch the page
+paint in the ordinary palette and then jump. A flash of the wrong contrast is a
+worse bug than a 60ms round trip. It is 1,981 bytes.
+
+### Added
+- **`scripts/load-test.mjs` (26 checks)**, wired into CI. Every classic script
+  tag must carry `defer`; nothing may be `async`; the tag order must satisfy the
+  dependency pairs; a module entry must come after the classic globals it needs;
+  and the one blocking script has to earn the exception — the suite reads
+  `nst-prefs.js` and requires it to actually touch `document.documentElement` at
+  load, so `MAY_BLOCK` cannot become a place to park a tag nobody wanted to think
+  about.
+
+This is a gate rather than a note because `defer` is one word. Deleting it breaks
+no test, changes no output, produces no error, and the page still works — just
+slowly, on a link nobody developing locally has. The staircase would come back
+silently.
+
+### Verified
+Stripping `defer` from the real launcher and re-running the real rule reports 8
+blocking scripts. The self-checks feed the same functions a page with a bare
+tag, one with `async`, one loading `bank-loader.js` before `bank-parser.js`, and
+a module placed before the classics — each is caught, and the correct forms are
+not. Full gate green: 18 logic suites, the engine harness and all 8 browser
+suites, including the 15-step end-to-end journey through a real server and login.
+
 ## v2.35.0 — The two apps nobody had ever audited (2026-09-13)
 
 The accessibility audit covered the launcher and Practice Exams. **StarNix and

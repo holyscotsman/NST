@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="./styles.css" />
 
   <!-- Shared NST preferences: applies accessibility root classes before paint -->
-  <script src="../shared/nst-version.js"></script>
+  <script src="../shared/nst-version.js" defer></script>
   <script src="../shared/nst-prefs.js"></script>
 </head>
 <body>
@@ -41,24 +41,24 @@
   <noscript><div class="pe-fatal">Nutanix Practice Exams needs JavaScript enabled.</div></noscript>
 
   <!-- Config -->
-  <script src="./config.js"></script>
+  <script src="./config.js" defer></script>
   <!-- Question-bank framework: questions load at runtime from the active bank -->
-  <script src="../shared/bank-parser.js"></script>
-  <script src="../shared/bank-loader.js"></script>
+  <script src="../shared/bank-parser.js" defer></script>
+  <script src="../shared/bank-loader.js" defer></script>
 <!-- (v2.7.0) the shared per-question mastery store, fed by every tool. -->
-<script src="../shared/nst-mastery.js"></script>
+<script src="../shared/nst-mastery.js" defer></script>
 <!-- (v2.12.0) the due-review queue: which questions a review session should
      actually contain, and in what order. Pure, and tested without a browser. -->
-<script src="../shared/nst-review.js"></script>
+<script src="../shared/nst-review.js" defer></script>
 <!-- Account sync: active only when served from the app server; dormant on a static host. -->
-<script src="../shared/nst-sync.js"></script>
+<script src="../shared/nst-sync.js" defer></script>
   <!-- Engine + UI + modes -->
-  <script src="./engine.js"></script>
-  <script src="./sfx.js"></script>
-  <script src="./ui.js"></script>
-  <script src="./results.js"></script>
-  <script src="./practice-mode.js"></script>
-  <script src="./exam-mode.js"></script>
-  <script src="./app.js"></script>
+  <script src="./engine.js" defer></script>
+  <script src="./sfx.js" defer></script>
+  <script src="./ui.js" defer></script>
+  <script src="./results.js" defer></script>
+  <script src="./practice-mode.js" defer></script>
+  <script src="./exam-mode.js" defer></script>
+  <script src="./app.js" defer></script>
 </body>
 </html>
