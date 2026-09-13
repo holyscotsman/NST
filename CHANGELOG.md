@@ -5,6 +5,54 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.54.0 — the final nobody could meet (2026-09-13)
+
+Rung 30 of Who Wants to be a Nutanix Engineer has a special case. The first time
+a player ever reaches the final, `pickExtremeFinal` reaches for a question the
+bank has marked **impossible**:
+
+```js
+if (!reachedFinalBefore) {
+  const imp = pick(bank.filter((q) => q.impossible));
+  if (imp) return imp;
+}
+```
+
+Nothing in the bank format could set that flag, and `toWWTBANE` carried none. So
+`bank.filter(...)` was empty for every question the app has ever served, and that
+branch had never run for anybody. **The same shape as the Steve clue in v2.52.0,
+one level down** — a feature guarded on authored data, kept alive in code, cut off
+from its only supply when the runtime bank engine landed.
+
+### Fixed
+`impossible: true` joins `priority: true` as a per-question field, carried through
+to WWTBANE. StarNix and Practice Exams ignore it. An unmarked question carries no
+flag at all rather than `false`, so `filter((q) => q.impossible)` stays honest.
+
+### Verified
+Three tests drive the real markdown → parser → adapter path into the real
+`buildSet`:
+
+```
+✓ the first-ever final serves an impossible question when the bank marks one
+✓ a returning finalist gets an ordinary extreme, not the impossible one again
+✓ a bank marking nothing impossible still builds a final — the state the app ships in
+```
+
+Deleting the one line that carries the flag turns the first red. `adapter-test.mjs`,
++4 checks (62 → 66).
+
+### And a correction to v2.53.0
+The rescue converted 160 questions out of the old WWTBANE fixture and **silently
+dropped the `impossible` flag on four of them** — there was no field to put it in,
+and the converter said nothing about what it could not carry. `STOR-X-002`,
+`AHV-X-001`, `NET-X-001` and `PERF-X-001` carry it again in
+`banks/drafts/wwtbane-legacy.md`.
+
+That draft now holds everything the fixture did that the format can express: 160
+questions, 13 at the extreme tier, 61 Steve clues, 4 marked impossible. Publishing
+it would give the ladder its first-timer final back.
+
 ## v2.53.0 — 160 questions nobody could answer (2026-09-13)
 
 `wwtbane/src/content/questions.js` was a 309 KB compiled bank exported as

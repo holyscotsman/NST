@@ -281,6 +281,13 @@ Exams ignore it. `wwtbane/tests/selection.test.mjs` drives the real
 markdown → parser → adapter path, so a clue the pipeline stops carrying goes red there —
 the older test could not see it, because its fixture set `steveClue` by hand.
 
+**The rung-30 special (v2.54.0).** `pickExtremeFinal` serves an `impossible` question the
+first time a player ever reaches the final. Nothing in the bank format could set that
+flag and `toWWTBANE` carried none, so the branch had never run for anybody — the same
+shape as the clue, one level down. `impossible: true` is now a per-question field, and
+the four rescued questions that carried it in the old WWTBANE fixture carry it again in
+`banks/drafts/wwtbane-legacy.md`.
+
 - **WWTBANE bank:** 233 questions across 12 domains (157 AI-drafted + verified, 25 owner
   "priority" set, 51 owner "Exam 1" interchange set), 6 exhibit images. Two formats (native
   `## Q` blocks; interchange `### id` blocks) auto-detected by `scripts/import-questions.mjs`.

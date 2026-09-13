@@ -81,7 +81,7 @@ export function adaptMarkdownBank(md, afterParse) {
 
 /* Markdown for a bank of the given shape, in the interchange format banks/ uses.
  * `clueEvery` writes an authored Steve clue onto every Nth hard question. */
-export function markdownBank({ easy = 12, medium = 12, hard = 12, extreme = 4, clueOnHard = true } = {}) {
+export function markdownBank({ easy = 12, medium = 12, hard = 12, extreme = 4, clueOnHard = true, impossibleExtreme = 0 } = {}) {
   const DIFF = { easy: 1, medium: 3, hard: 4, extreme: 5 };
   const out = ['cert: FIX', 'title: Fixture bank', 'pass: 0.80', 'domains: ahv, storage', ''];
   const add = (tier, n) => {
@@ -99,6 +99,14 @@ export function markdownBank({ easy = 12, medium = 12, hard = 12, extreme = 4, c
     }
   };
   add('easy', easy); add('medium', medium); add('hard', hard); add('extreme', extreme);
+  /* (v2.54.0) The rung-30 special: a bank may mark a question impossible, and the first
+   * time a player ever reaches the final, that is what they get. */
+  for (let i = 1; i <= impossibleExtreme; i++) {
+    out.push(`### fx-imp-${i}`, 'domain: ahv', 'difficulty: 5', 'impossible: true', '',
+      `Q: Synthetic impossible question ${i}?`,
+      '- [x] Alpha', '- [ ] Bravo', '- [ ] Charlie', '- [ ] Delta', '',
+      'Explain: Because Alpha is the documented behaviour.', '');
+  }
   return out.join('\n');
 }
 

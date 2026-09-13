@@ -312,6 +312,21 @@ bank.id = 'ncp-xx';
   ok('a question with no Clue: gets no steveClue at all — not an empty string',
     win.NSTBank.toWWTBANE(noClue)[0].steveClue === undefined,
     JSON.stringify(win.NSTBank.toWWTBANE(noClue)[0].steveClue));
+
+  /* (v2.54.0) The rung-30 special, same shape one level down: pickExtremeFinal reaches
+   * for an impossible question the first time a player ever reaches the final, and no
+   * bank could mark one. */
+  const imp = win.NSTBankParser.parse([
+    'cert: X', 'title: T', 'pass: 0.80', 'domains: storage', '',
+    '### x1', 'domain: storage', 'difficulty: 5', 'impossible: true', '',
+    'Q: What is it?', '- [x] Right', '- [ ] Wrong', '', 'Explain: Because.', '',
+  ].join('\n'));
+  ok('a bank question can be marked impossible', imp.questions[0].impossible === true);
+  ok('WWTBANE gets the flag', win.NSTBank.toWWTBANE(imp)[0].impossible === true);
+  ok('StarNix ignores it', win.NSTBank.toStarNix(imp).questions[0].impossible === undefined);
+  ok('an unmarked question carries no flag at all — not false',
+    win.NSTBank.toWWTBANE(noClue)[0].impossible === undefined,
+    JSON.stringify(win.NSTBank.toWWTBANE(noClue)[0].impossible));
 }
 
 /* ---- neither adapter hands the app a reference into the bank ----

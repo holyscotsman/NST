@@ -174,6 +174,11 @@
        * landed the green room had nothing to sell about any question the app serves:
        * zero of 255. Carrying it is the other half of the parser learning it. */
       if (q.clue) o.steveClue = q.clue;
+      /* (v2.54.0) The rung-30 special. pickExtremeFinal reaches for an impossible
+       * question the first time a player ever gets to the final; with nothing in the
+       * bank able to carry the flag, that branch had never run. Same shape as the Steve
+       * clue in v2.52.0, one level down. */
+      if (q.impossible) o.impossible = true;
       return o;
     });
   }

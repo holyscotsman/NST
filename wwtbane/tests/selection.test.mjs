@@ -232,3 +232,39 @@ test('a bank with no authored clues leaves Steve with nothing — the state the 
   assert.equal(sm.peekUpcomingHard(new Set()), null,
     'nothing to teach means nothing for sale — and this is exactly what every served question produced');
 });
+
+/* (v2.54.0) Rung 30's other half. pickExtremeFinal reaches for an `impossible` question
+ * the first time a player ever gets to the final:
+ *
+ *   if (!reachedFinalBefore) { const imp = pick(bank.filter((q) => q.impossible)); ... }
+ *
+ * Nothing in the bank format could set that flag and toWWTBANE carried none, so across
+ * every question the app serves the filter was empty and the branch had never run for
+ * anybody — the same shape as the Steve clue in v2.52.0, one level down.
+ */
+test('the first-ever final serves an impossible question when the bank marks one', () => {
+  const { questions } = adaptMarkdownBank(markdownBank({ impossibleExtreme: 2 }));
+  assert.equal(questions.filter((q) => q.impossible).length, 2,
+    'markdown -> parser -> adapter carries the flag');
+
+  const set = buildSet({ bank: questions, mastery: emptyMastery(), mode: 'seeded', seed: 'IMP', reachedFinalBefore: false });
+  assert.equal(set.length, 30, 'a full run is built');
+  assert.equal(set[set.length - 1].impossible, true,
+    'and the last rung is the impossible one, because this player has never been here');
+});
+
+test('a returning finalist gets an ordinary extreme, not the impossible one again', () => {
+  const { questions } = adaptMarkdownBank(markdownBank({ impossibleExtreme: 2 }));
+  const set = buildSet({ bank: questions, mastery: emptyMastery(), mode: 'seeded', seed: 'IMP2', reachedFinalBefore: true });
+  const final = set[set.length - 1];
+  assert.ok(final && final.id, 'there is still a final rung');
+  assert.notEqual(final.impossible, true, 'and it is not the first-timer special');
+});
+
+test('a bank marking nothing impossible still builds a final — the state the app ships in', () => {
+  const { questions } = adaptMarkdownBank(markdownBank({ impossibleExtreme: 0 }));
+  assert.equal(questions.filter((q) => q.impossible).length, 0);
+  const set = buildSet({ bank: questions, mastery: emptyMastery(), mode: 'seeded', seed: 'IMP3', reachedFinalBefore: false });
+  assert.equal(set.length, 30);
+  assert.ok(set[set.length - 1].id, 'the fallback still yields a real question');
+});
