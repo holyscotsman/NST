@@ -7,17 +7,117 @@
   var PE = (window.PE = window.PE || {});
   var ui = PE.ui, engine = PE.engine;
 
+  /* ---- surviving an interruption ------------------------------------------
+   *
+   * Practice Mode has always remembered where you were. Exam Mode -- the long
+   * one, the timed one, the one worth ninety minutes -- remembered nothing, so a
+   * phone deciding to reclaim a backgrounded tab took the whole sitting with it.
+   * The beforeunload guard does not help there: a discarded tab never fires it.
+   *
+   * Resuming cannot become a way to stop the clock. `endTime` is an absolute
+   * timestamp, so it is saved as one: the time away is spent whether the page
+   * was open or not, and an exam whose time ran out while you were gone comes
+   * back finished rather than fresh.
+   *
+   * What is stored is the ids and each question's OPTION PERMUTATION, not the
+   * questions themselves -- about 2 KB for a 75-question sitting, and the only
+   * thing that makes the restored answers mean what they meant. See
+   * engine.applyPerm.
+   */
+  var EXAM_KEY = "nst.practice-exams.exam.v1";
+
+  function readSaved() {
+    try {
+      var raw = window.NSTSafeParse(localStorage.getItem(EXAM_KEY));
+      if (!raw || typeof raw !== "object" || !Array.isArray(raw.q)) return null;
+      if (typeof raw.endTime !== "number" || !isFinite(raw.endTime)) return null;
+      return raw;
+    } catch (e) { return null; }
+  }
+  function clearSaved() { try { localStorage.removeItem(EXAM_KEY); } catch (e) {} }
+
+  /* Something is under the key but it is not a record we can read -- corrupt
+   * JSON, a shape from a future version. Remove it rather than leaving bytes
+   * that will never be usable and never be offered. */
+  function clearUnreadable() {
+    try { if (localStorage.getItem(EXAM_KEY) !== null) localStorage.removeItem(EXAM_KEY); } catch (e) {}
+  }
+
+  /* Rebuild the sitting a saved record describes, or null if the bank can no
+   * longer supply it (a bank swapped or edited under the exam). Partial
+   * restoration is not offered: half an exam is not the exam. */
+  function rebuild(saved) {
+    var out = [];
+    for (var i = 0; i < saved.q.length; i++) {
+      var rec = saved.q[i];
+      if (!rec || !Array.isArray(rec.perm)) return null;
+      var base = engine.questionById(rec.id);
+      if (!base || base.options.length !== rec.perm.length) return null;
+      out.push(engine.applyPerm(base, rec.perm));
+    }
+    return out.length ? out : null;
+  }
+
+  PE.examResume = {
+    KEY: EXAM_KEY,
+    read: readSaved,
+    clear: clearSaved,
+    rebuild: rebuild,
+    /* What the entry screen needs to offer it, or null when there is nothing to
+     * offer. `expired` means the clock ran out while the page was away. */
+    pending: function (bankId) {
+      var s = readSaved();
+      if (!s) { clearUnreadable(); return null; }
+      // A record for another certification is not offered, but it is not junk
+      // either -- switching back should still find it. Only a record this bank
+      // genuinely cannot rebuild is thrown away, so nothing dead is left sitting
+      // in storage that will never be offered again.
+      if (bankId && s.bank && s.bank !== bankId) return null;
+      var qs = rebuild(s);
+      if (!qs) { clearSaved(); return null; }
+      var answered = 0;
+      for (var i = 0; i < s.answers.length; i++) if (engine.isAnswered(s.answers[i])) answered++;
+      return {
+        total: qs.length, answered: answered,
+        remainingMs: Math.max(0, s.endTime - Date.now()),
+        expired: s.endTime <= Date.now(),
+        startedAt: s.startedAt || 0,
+      };
+    },
+  };
+
   function start(container, opts) {
     opts = opts || {};
     var el = ui.el, esc = ui.esc, cfg = window.PE_CONFIG;
-    var questions = engine.buildExam(opts.count);
+    var resumed = opts.resume ? readSaved() : null;
+    var questions = resumed ? rebuild(resumed) : null;
+    if (resumed && !questions) { clearSaved(); resumed = null; }   // the bank can no longer supply it
+    if (!questions) { questions = engine.buildExam(opts.count); resumed = null; }
     var N = questions.length;
-    var idx = 0;
-    var answers = questions.map(function () { return null; });
-    var flags = questions.map(function () { return false; });
+    var idx = resumed ? Math.min(Math.max(0, resumed.idx | 0), N - 1) : 0;
+    var answers = resumed ? resumed.answers.slice(0, N) : questions.map(function () { return null; });
+    var flags = resumed ? resumed.flags.slice(0, N) : questions.map(function () { return false; });
+    while (answers.length < N) answers.push(null);
+    while (flags.length < N) flags.push(false);
     // Scale the time limit to the number of questions (constant per-question budget).
-    var limitMin = Math.round(cfg.EXAM_TIME_LIMIT_MIN * N / cfg.EXAM_QUESTION_COUNT);
-    var endTime = Date.now() + limitMin * 60 * 1000;
+    var limitMin = resumed && resumed.limitMin
+      ? resumed.limitMin
+      : Math.round(cfg.EXAM_TIME_LIMIT_MIN * N / cfg.EXAM_QUESTION_COUNT);
+    // Absolute, and kept across the interruption: the clock does not pause.
+    var endTime = resumed ? resumed.endTime : Date.now() + limitMin * 60 * 1000;
+    var startedAt = (resumed && resumed.startedAt) || Date.now();
+    var activeBank = (window.NSTBank && window.NSTBank.active && window.NSTBank.active()) || "";
+
+    function saveState() {
+      if (finished) return;
+      try {
+        localStorage.setItem(EXAM_KEY, JSON.stringify({
+          bank: activeBank, endTime: endTime, limitMin: limitMin,
+          startedAt: startedAt, idx: idx, answers: answers, flags: flags,
+          q: questions.map(function (q) { return { id: q.id, perm: q.perm }; }),
+        }));
+      } catch (e) { /* storage refused: the sitting still runs, it just cannot be resumed */ }
+    }
     var timerId = null;
     var finished = false;
 
@@ -172,7 +272,11 @@
       });
     }
 
+    /* Every answer, flag and navigation already ends here, so this is the one
+     * place the sitting needs saving from. Seven call sites would each have to
+     * remember; this cannot be forgotten by a later change. */
     function renderCard() {
+      saveState();
       var q = questions[idx];
       var chosen = Array.isArray(answers[idx]) ? answers[idx] : (answers[idx] == null ? [] : [answers[idx]]);
       var multi = engine.isMulti(q);
@@ -237,6 +341,7 @@
       finished = true;
       stopTimer();
       dropGuard();
+      clearSaved();      // a graded sitting is over; nothing left to resume
       // (C4-04) how long the sitting actually took (clamped to the limit)
       var usedMs = Math.min(totalMs, totalMs - Math.max(0, endTime - Date.now()));
       var results = questions.map(function (q, i) {

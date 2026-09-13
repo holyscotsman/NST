@@ -131,6 +131,54 @@
      * Spaced repetition only works if the due cards actually get answered, and
      * "17 due" on the home page was a number with nowhere to go. Rendered only
      * when something IS due, so it never sits there as an empty promise. */
+    /* An exam interrupted by the phone reclaiming the tab comes back here first.
+     * It goes above everything else, because starting a fresh exam would throw
+     * the interrupted one away and nothing would have said so. */
+    if (PE.examResume && hasQ) {
+      var bankId = (window.NSTBank && window.NSTBank.active && window.NSTBank.active()) || "";
+      var pend = PE.examResume.pending(bankId);
+      if (pend) {
+        var mmss = function (ms) {
+          var t = Math.max(0, Math.round(ms / 1000));
+          return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2);
+        };
+        var ecard = el("button", "pe-modecard pe-modecard-resume");
+        ecard.type = "button";
+        ecard.innerHTML = pend.expired
+          ? '<div class="pe-modecard-tag">UNFINISHED EXAM</div>' +
+            '<h2 class="pe-modecard-title">Time ran out while you were away</h2>' +
+            '<p class="pe-modecard-desc">The clock on a timed exam keeps running whether the page is open or not, ' +
+              'so this one has finished. Open it to see how the ' + pend.answered + ' you answered scored.</p>' +
+            '<ul class="pe-modecard-facts"><li>' + pend.answered + ' of ' + pend.total + ' answered</li></ul>' +
+            '<span class="pe-modecard-cta">See the result ' + ui.ICONS.arrowRight + '</span>'
+          : '<div class="pe-modecard-tag">EXAM IN PROGRESS</div>' +
+            '<h2 class="pe-modecard-title">Resume your exam — ' + mmss(pend.remainingMs) + ' left</h2>' +
+            '<p class="pe-modecard-desc">Picked up exactly where you left off, same questions in the same order. ' +
+              'The clock kept running while you were away, so resuming does not buy you time.</p>' +
+            '<ul class="pe-modecard-facts"><li>' + pend.answered + ' of ' + pend.total + ' answered</li></ul>' +
+            '<span class="pe-modecard-cta">Resume ' + ui.ICONS.arrowRight + '</span>';
+        ecard.addEventListener("click", function () {
+          PE.exam.start(container, {
+            resume: true,
+            onExit: function () { showEntry(container); },
+            onHome: function () { window.location.href = HOME; },
+          });
+        });
+        root.appendChild(ecard);
+
+        var discard = el("button", "pe-btn pe-btn-ghost pe-resume-discard",
+          pend.expired ? "Discard it" : "Discard and start fresh");
+        discard.type = "button";
+        discard.addEventListener("click", function () {
+          ui.confirm("Discard the unfinished exam?",
+            "Its " + pend.answered + " answered question" + (pend.answered === 1 ? "" : "s") +
+            " will be thrown away. This cannot be undone.",
+            "Discard", function () { PE.examResume.clear(); showEntry(container); });
+        });
+        root.appendChild(discard);
+      }
+    }
+
     var Review = window.NSTReview, Mast = window.NSTMastery;
     if (Review && Mast && hasQ) {
       var dq = Review.dueQueue({ questions: engine.buildPractice(), mastery: Mast });
