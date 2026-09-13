@@ -263,6 +263,21 @@ bank.id = 'ncp-xx';
     sx.imageSrc === ww.image.src, `${sx.imageSrc} vs ${ww.image.src}`);
   ok('WWTBANE falls back to a usable alt rather than an empty one',
     typeof ww.image.alt === 'string' && ww.image.alt.length > 0, JSON.stringify(ww.image.alt));
+  /* (v2.50.0) The authored description has to SURVIVE the adapter, on both sides. It is
+   * the fallback that makes this worth pinning: both adapters substitute a generic
+   * string when imageAlt is missing, so an adapter that dropped the real alt would look
+   * exactly like a bank that never carried one — present, plausible, and useless. */
+  ok('StarNix carries the AUTHORED alt through, not a generated one',
+    sx.imageAlt === 'a diagram', JSON.stringify(sx.imageAlt));
+  ok('WWTBANE carries the AUTHORED alt through, not its fallback',
+    ww.image.alt === 'a diagram', JSON.stringify(ww.image.alt));
+  {
+    const noAlt = JSON.parse(JSON.stringify(withImage));
+    delete noAlt.questions[0].imageAlt;
+    const wwN = win.NSTBank.toWWTBANE(noAlt)[0];
+    ok('and the fallback is what appears only when nothing was authored',
+      wwN.image.alt !== 'a diagram' && wwN.image.alt.length > 0, JSON.stringify(wwN.image.alt));
+  }
 }
 
 /* ---- neither adapter hands the app a reference into the bank ----

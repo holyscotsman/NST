@@ -5,6 +5,79 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.50.0 — alt text that says nothing is not alt text (2026-09-13)
+
+The shipped NCP-MCI bank carries **27 exhibit questions**. Six of them had
+authored alt text. The other twenty-one rendered this:
+
+```html
+<img alt="Exhibit for question mci-networking-5gfy">
+```
+
+That is Practice Exams' fallback — `q.imageAlt || ("Exhibit for question " + q.id)`
+— and it is a fallback doing exactly what a fallback should: never shipping an
+empty `alt`. Which is why nothing ever reported it. **axe is satisfied**: the
+attribute is present and non-empty. The a11y audit is green. The rule it enforces
+— *images have alt text* — was being met to the letter.
+
+To someone using a screen reader, twenty-one questions asked about a picture and
+then described it as "Exhibit for question mci-networking-5gfy". The questions are
+not hard for them. They are **unanswerable**.
+
+### Fixed — twenty-one descriptions, written from the images
+
+Each one read, then described to carry what its question turns on. Not "a
+screenshot of Prism" — the values:
+
+> Terminal output of `manage_ovs show_uplinks` run on a CVM. Bridge: br0. Bond:
+> br0-up. bond_mode: balance-tcp. interfaces: eth3 eth2 eth1 eth0. lacp: active.
+> lacp-fallback: false. lacp_speed: fast.
+
+> A Prism Charts view over a 3-hour range, 09:08 AM to 03:08 PM… Hypervisor CPU
+> Ready Time stays between roughly 80% and 100% across the whole window, spiking
+> to 100%, and currently reads 96%. Memory Usage currently reads 21.5%… Storage
+> Controller IOPS currently reads 0 IOPS with three isolated one-IOPS spikes.
+
+The bank now carries 27 `image:` lines and **27** `image-alt:` lines. Shortest
+description 162 characters, median 372.
+
+### Fixed — the rule that stops it coming back
+
+`bank-test.mjs`, +7 checks (78 → 85). An exhibit whose alt is under sixty
+characters fails, and so does one that merely names the question id or the file —
+the two ways of writing alt text that technically has content.
+
+Sixty characters will not stop someone determined to write "a screenshot", and it
+is not meant to. It stops the three things that actually happened: the empty
+string, the filename, and the generated fallback.
+
+Five self-checks run the same rule over deliberately broken banks — no alt, a
+one-word alt, a long alt that only names the question — and require each to be
+caught, plus a real description that must pass and a question with no exhibit that
+must not be asked for one. Stripping two real alt lines from the bank fails the
+real run by name:
+
+```
+FAIL bank "ncp-mci" every exhibit carries alt text that describes it
+  -- mci-security-q3p5 (0 chars), mci-performance-i0w8 (0 chars)
+```
+
+### Fixed — and it has to survive the trip
+
+`adapter-test.mjs`, +3 checks (53 → 56). **Both** adapters substitute a generic
+string when `imageAlt` is missing, so an adapter that silently dropped the authored
+description would look exactly like a bank that never had one: present, plausible,
+useless. The authored text is now pinned through both, with a control proving the
+fallback appears only when nothing was written.
+
+### Note on StarNix
+
+StarNix never shows these. Its question provider filters every exhibit out of the
+games — an arcade round cannot stop for a full-screen screenshot — and all three
+games carry a guard for one that leaks anyway (checked in `verify-build` since
+v2.49.0). This is Practice Exams' surface, and WWTBANE's if an exhibit ever
+reaches it.
+
 ## v2.49.0 — the biggest dark suite in the repo (2026-09-13)
 
 `starnix/verify-build.mjs` boots the **assembled `index.html`** in jsdom — the real

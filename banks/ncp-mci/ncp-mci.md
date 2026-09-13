@@ -1308,6 +1308,7 @@ Explain: To enable secure access to Volumes using a password, you should configu
 domain: networking
 difficulty: 4
 image: images/a2q18.webp
+image-alt: Prism Element Network Visualization view. The left pane lists Virtual Networks: one network on VLAN 0 (ticked) and 'Other — VLAN Unassigned'. The topology is filtered by 'Group by Power State', 'One Host' and 'One Switch'. Under 'Power State: On' a box reading '1 VM' connects to a Host box, which connects by a dotted line to a panel labelled 'Unknown Switch' and 'Data Unavailable'. A tooltip on one of the host's four ports reads: Port eth1, speed 10G, Link Status Not Connected.
 
 Q: An administrator logs in to Prism Element, goes to the Network Visualization view, and sees the output shown in the exhibit. Which three steps must the administrator take to increase throughput to the host?
 - [ ] Change the VLAN ID to a higher priority ID
@@ -1615,6 +1616,7 @@ Explain: To configure NTP on a Prism Central instance running on a Hyper-V clust
 domain: performance
 difficulty: 3
 image: images/a2q37.webp
+image-alt: Prism Central capacity-planning 'New Scenario' screen for the existing cluster LAB-CLUSTER-01, target 1 months, with Capacity configuration ticked. The runway bars read Overall Runway 58 days, CPU 58 days, Memory 58 days and Storage 365 days — the storage bar is several times longer than the other three. The workload list holds an Existing entry (56.11 GHz, 302.18 GiB, 6374 GiB) and a newly added CPScenarioSubview.vm entry (259.97 GHz, 400 GiB, 4.69 TiB) dated 23/06/2024. Resources shows Existing hardware: 3 nodes, 124.78 GHz CPU, 754.83 GiB memory, 11.08 TiB physical storage.
 
 Q: After adding new workloads, why is Overall Runway below 365 days and the scenario still shows the cluster is in good shape?
 - [ ] Because Storage Runway is still good
@@ -1744,6 +1746,7 @@ Explain: download.nutanix.com and release-api.nutanix.com are the two URLs that 
 domain: lifecycle
 difficulty: 3
 image: images/a2q45.webp
+image-alt: The LCM page in Prism Central, with tabs Best Practices, Inventory (carrying a warning badge), Updates and Settings. A yellow banner reads: 'A newer version 2.7.1 of the framework is available. Perform an inventory to automatically update the LCM framework before performing any updates.'
 
 Q: Refer to the exhibit. An administrator notices the Message shown in the exhibit when navigating to LCM from Prism Central. Which action should they take to update LCM to the latest version?
 - [ ] Run an AOS upgrade.
@@ -1825,6 +1828,7 @@ Explain: The correct approach is to use the "Stop Update" feature within LCM. Th
 domain: data-protection
 difficulty: 4
 image: images/a2q50.webp
+image-alt: The Remote Sites step of the Protection Domain (Metro Availability) wizard, with steps Name, Storage Containers, Remote Sites, Failure Handling, Schedule and Review. Under 'Target Sites — Compatible Remote Sites' exactly one entry is listed: remote site auto_cluster_prod_divya_sharma_1ac48b18ab2e at IP address 10.46.200.167:2020. Below it an 'Incompatible Remote Sites' table is drawn with the columns Remote Site, IP Address, Metro Ready and Has Storage Container, and no rows under any of them.
 
 Q: An administrator is trying to configure Metro Availability between Nutanix ESXi-based clusters. However, the Compatible Remote Sites screen does not list all required storage containers. Which two reasons could be a cause for this issue? (Choose two.)
 - [ ] Source and destination hardware are from different vendors.
@@ -1890,6 +1894,7 @@ Explain: Application-consistent snapshots are enabled at the consistency group l
 domain: lifecycle
 difficulty: 3
 image: images/a2q54.png
+image-alt: An LCM 'Updates failed' result. A red progress bar ends in the word 'failed' with an error icon. The detail reads: 'Operation failed. Reason: Lcm prechecks detected 1 issue that would cause upgrade failures.' and below it 'Check test_cluster_config failed: Failure reason: The following VMs need to be power cycled as these VMs are running on higher feature CPUs thus limiting their migration to lower feature CPU nodes in cluster:'
 
 Q: An administrator is attempting to upgrade the NIC firmware on a Nutanix cluster and sees the error displayed in the exhibit. Which log is the most appropriate to analyze the LCM precheck failure?
 - [ ] genesis.out
@@ -2467,6 +2472,7 @@ Explain: The AOS process responsible for determining whether an I/O operation fr
 domain: lifecycle
 difficulty: 4
 image: images/a4q3.png
+image-alt: Three cluster alerts, each naming a component still on its shipped credentials: 'IPMI 10.7.133.33 is using default password', 'Host 10.7.133.25 is using default password' and 'CVM 10.7.133.31 is using default password'.
 
 Q: After initial configuration and an NCC upgrade, an administrator sees critical alerts. Which two initial cluster configuration tasks were missed?
 - [ ] Password Policy change
@@ -2644,6 +2650,7 @@ Explain: Curator scans and ensures data resiliency after disk failures.
 domain: monitoring
 difficulty: 4
 image: images/a4q14.png
+image-alt: The Prism Central 'Alert Email Configuration' dialog, Settings tab. Under Email Preference both boxes are ticked: 'Every Single Alert — Receive an email each for every single alert', and 'Daily Digest — A summary email sent every day with all alerts', the digest scheduled for 2:00 AM EET with its sub-option 'Skip the daily digest email if there are no alerts generated on a given day' also ticked. Email Recipients is empty. Tunnel Connection mode is SMTP Server.
 
 Q: Refer Exhibit: An administrator wants to reduce the largest amount of alert emails received from PC. Which two settings should the administrator customize to meet the requirement.( choose Two)
 - [x] Skip empty digest email
@@ -2933,6 +2940,7 @@ Explain: No, the administrator will not be able to accomplish the task. A Nutani
 domain: vms
 difficulty: 3
 image: images/a4q32.webp
+image-alt: A 'Host Maintenance' dialog for host ncpmci65-1, hypervisor AHV. The text reads 'VMs listed below will be powered-off once host is put under maintenance:' and the table below holds a single row — NAME: LinuxVM1, REASON: 'VM is not live migratable'.
 
 Q: An administrator is trying to put a node into maintenance mode but receives the message shown in the exhibit. What is the potential reason for this dialog?
 - [x] Linux VM1 uses a vDisk stored in an RF1 DataStore
@@ -2966,6 +2974,7 @@ Explain: The most relevant VM metric to investigate slow response times in a CAD
 domain: architecture
 difficulty: 3
 image: images/a4q34.png
+image-alt: A row of host action links in Prism Element. The actions offered are, in order: 'Turn On LED', 'Turn Off LED', 'Enter Maintenance Mode' and 'Repair Host Boot Device'. No other action appears in the row.
 
 Q: An administrator wants to replace an old node with a node of newer generation in a 3-node cluster. The administrator has already chosen the appropriate node, but is unable to remove it from Nutanix cluster. Why is remove HOST option is not shown in exhibit.
 - [ ] The node needs to be placed into maintenance mode first
@@ -3063,6 +3072,7 @@ Explain: The missing step is setting the cluster time zone via the CVM using the
 domain: vms
 difficulty: 3
 image: images/a4q43.webp
+image-alt: The VM Performance tab of a VM in Prism Element. VM details: hypervisor ESXi, guest OS 'Other 3.x or later Linux (64-bit)', memory 16 GiB with 0 GiB reserved, 4 cores with 0 Hz reserved CPU, disk capacity 269.74 GiB, 1 network adapter, 12 virtual disks, NGT Enabled No, NGT Mounted No, VMware Guest Tools Mounted No, VMware Guest Tools Running Status GuestToolsRunning. Six charts cover roughly 10 PM to midnight: CPU Usage peak 30.3% current 16%; Memory Usage peak 12.99% current 6.99%; Controller IOPS peak 13 current 4; Controller I/O Bandwidth peak 303 KBps current 126 KBps; Controller Avg I/O Latency peak 2.77 ms current 1.31 ms; and CPU Ready Time peak 21% current 20%.
 
 Q: Refer Exhibit: A User is complaining about slowness of a mission-critical MSSQL server. The administrator logs into Prism Element to investigate the VM performance and observes what is shown in the diagram. Which action would best improve VM performance?
 - [ ] Add additional RAM to the user VM
@@ -3144,6 +3154,7 @@ Explain: On a Nutanix cluster, Network Segmentation (NS) allows you to isolate n
 domain: monitoring
 difficulty: 4
 image: images/a4q48.webp
+image-alt: A Prism health summary of 28 watched entities, each row giving totals then counts by status as critical / warning / good. VMs 6 total — 0 / 0 / 6. Host 4 total — 3 / 0 / 1. Disks 12 total — 0 / 0 / 12. Storage Pools 1 total — 0 / 0 / 1. Storage Containers 4 total — 0 / 0 / 4. Cluster Services 1 total — 1 / 0 / 0. The Host bar is mostly red and the Cluster Services bar is entirely red; every other bar is entirely green.
 
 Q: An administrator manages a cluster and notices several failed components shown in the exhibit. What two options does the administrator have to run all NCC checks manually? (Choose Two)
 - [ ] Running ncc health_checks run_all on the PC VM
@@ -3161,6 +3172,7 @@ Explain: Running ncc health_checks run_all on a Controller VM (CVM) initiates al
 domain: performance
 difficulty: 3
 image: images/a4q49.webp
+image-alt: A Prism Charts view over a 3-hour range, 09:08 AM to 03:08 PM, with four series selected and Show Alerts ticked. Hypervisor CPU Ready Time stays between roughly 80% and 100% across the whole window, spiking to 100%, and currently reads 96%. Memory Usage currently reads 21.5% and plots near the bottom of a 0 to 20 scale. Storage Controller IOPS currently reads 0 IOPS with three isolated one-IOPS spikes. Storage Controller Bandwidth currently reads 0 KBps.
 
 Q: An administrator receives complaints of poor performance in a particular VM. Based on the VM performance metrics, what is the most likely cause of this behavior?
 - [ ] The VM needs more vCPUs
@@ -3258,6 +3270,7 @@ Explain: The most useful VM metric for isolating the cause of users being discon
 domain: networking
 difficulty: 3
 image: images/a5q5.webp
+image-alt: Terminal output of 'manage_ovs show_uplinks' run on a CVM. Bridge: br0. Bond: br0-up. bond_mode: balance-tcp. interfaces: eth3 eth2 eth1 eth0. lacp: active. lacp-fallback: false. lacp_speed: fast.
 
 Q: An administrator is adding a new node to a cluster. The node has been imaged to the same versions of AHV and AOS that the cluster is running, configured with appropriate IP addresses, and bonding has been configured the same as the existing uplink bonds. When attempting to add the node to the cluster with the Expand Cluster function in Prism, the cluster is unable to find the new node. Based on the above output from the new node, what is most likely the cause of this issue?
 - [ ] The ports on the upstream switch are not configured for LACP.
@@ -3275,6 +3288,7 @@ Explain: If the cluster and the new node are on different VLANs, they will not b
 domain: data-protection
 difficulty: 3
 image: images/a5q6.webp
+image-alt: A Metro Availability topology diagram. At the top, Site C holds a Witness, linked down to an HA Cluster that spans two sites — two VMs drawn on the left side and one on the right. Beneath it, Cluster Site A (Remote Site B) and Cluster Site B (Remote Site A) each show two Nutanix nodes, joined by a network cloud labelled '25ms RTT'. Two Protection Domains are drawn below: in the first, an Active Container at Site B replicates synchronously to a Standby Container at Site A; in the second, an Active Container at Site A replicates synchronously to a Standby Container at Site B.
 
 Q: An administrator is trying to implement the solution that is shown in the exhibit but has been unsuccessful. Based on the diagram, what is causing the issue?
 - [ ] A remote Witness VM
@@ -3308,6 +3322,7 @@ Explain: To prevent all the virtual machines (VMs) that make up the SQL cluster 
 domain: lifecycle
 difficulty: 3
 image: images/a5q8.png
+image-alt: The LCM Settings tab, Update Source section. The text reads 'LCM enables you to select your update source based on your requirements. Currently, it fetches updates from the following source:'. Source is set to 'Nutanix Portal'. The URL field beside it is empty, showing only its placeholder 'Nutanix Portal URL'. 'Enable HTTPS' is ticked, described as 'Allow LCM to access Nutanix Portal over HTTPS.'
 
 Q: The Update Source for LCM has been configured as shown in the exhibit, but the inventory is failing consistently. What is the likely cause of this issue?
 - [x] Port 443 is blocked by a firewall.
@@ -3453,6 +3468,7 @@ Explain: Prism Central storage policies support Volume Groups (VGs). They allow 
 domain: monitoring
 difficulty: 3
 image: images/a5q17.webp
+image-alt: ncli output for 'rsyslog-config list-modules server-name=nutanix'. One module is listed — Module Name: STARGATE, Log Level: EMERGENCY, Include Monitor Logs: true.
 
 Q: After configuring modules for a Remote Syslog Server, the settings are as shown. The administrator notices that even though the level parameter is set to EMERGENCY, all monitor logs are being sent. What is the likely cause of this issue?
 - [ ] A second rsyslog server is configured to send all monitor logs.
@@ -3518,6 +3534,7 @@ Explain: When a VM connects to a Nutanix-managed network, the IP address is assi
 domain: networking
 difficulty: 3
 image: images/a5q21.webp
+image-alt: A virtual-switch creation screen on a 4-host AHV cluster. The left column lists hosts phx-poc216-1, phx-poc216-2 and phx-poc216-3, each drawn with four ports. The uplink table shows phx-poc216-1 with '4 ports' expanded to eth0, eth1, eth2 and eth3 — all four greyed out and unselectable, each with a question-mark icon. The table is outlined in red and carries the message: 'Under Active-Backup bond type, at least TWO uplink ports need to be selected per host for all selected hosts.'
 
 Q: Refer Exhibit: An administrator is attempting to create an additional virtual switch on a newly deployed AHV cluster, using the two currently disconnected interfaces. The administrator is unable to select the interfaces when creating the virtual switch. What is the likely cause of this issue?
 - [ ] Only one interface is available on the selected hosts.
@@ -3583,6 +3600,7 @@ Explain: To prevent virtual servers supporting the new application from communic
 domain: vms
 difficulty: 3
 image: images/a5q25.webp
+image-alt: The Prism Element 'Image Configuration' dialog: 'Manage the images to be used for creating virtual disks.', with an 'Upload Image' button above the table. Two images are listed, both Type DISK and Status ACTIVE, sized 1 GiB and 10 GiB. Each row offers only two controls — a pencil (edit) icon and an X (delete) icon. The names and annotations are redacted.
 
 Q: Refer Exhibit: An administrator needs to update some images that were previously uploaded to their Nutanix cluster. While logged into Prism Element, when trying to update the images, the update icon is not enabled. What could be the cause for this behavior?
 - [ ] The files were ISO but were uploaded as disk images, hence cannot be used or edited.
@@ -3728,6 +3746,7 @@ Explain: In Nutanix AHV networking, the Controller VM (CVM) and the AHV host com
 domain: monitoring
 difficulty: 3
 image: images/a5q34.webp
+image-alt: The Prism Central 'Create Alert Policy' form. Entity Type: VM. Entity: All VMs. Metric: CPU Usage. Policy Name: 'VM CPU Usage'. Impact Type: Performance. 'Auto resolve alerts' and 'Enable Policy' are both ticked. Under Behavioral Anomaly, 'Every time there is an anomaly, alert' is ticked with severity Warning, and 'Ignore all anomalies between' is unticked. Under Static Threshold, 'Alert Critical if' is ticked with a '>= 95 %' condition, while the whole 'Alert Warning if' row — highlighted with a red outline — is unticked, greyed out and uneditable. 'Trigger alert if conditions persist for' is set to 240 minutes.
 
 Q: An administrator is trying to create a custom alert policy for all VMs. Why is the "Alert Warning If" field greyed out?
 - [ ] The "Alert Critical If" threshold is set.
@@ -3761,6 +3780,7 @@ Explain: Enabling HA Reservation in Prism Element is the correct action. HA Rese
 domain: networking
 difficulty: 3
 image: images/a5q36.webp
+image-alt: An AHV host networking diagram. A Controller VM (interfaces eth1 and eth0) and two User VMs (each eth0) sit above the host. Inside the host, a Linux Bridge holds virbr0 and vnet1; an Open vSwitch (OVS) region holds vnet0, tap0 and tap1 attached to bridge br0 (also labelled br0 / vs0), with br0-up as its uplink bond. AHV is drawn as its own box, and IPMI sits to the side on a separate link. Four physical interfaces eth0 to eth3 are shown along the bottom: eth3 connects to Physical Switch 1 as a 10 GbE Active link and eth2 to Physical Switch 2 as a 10 GbE Backup link, the two switches interconnected. A legend distinguishes 10 GbE Active, 10 GbE Backup and 40 GbE or More.
 
 Q: Refer to the exhibit: Which virtual network technology does Nutanix AHV use?
 - [ ] NSX-V
@@ -3794,6 +3814,7 @@ Explain: To minimize delays during LCM updates, disable any VM affinity rules. T
 domain: storage
 difficulty: 3
 image: images/a5q38.webp
+image-alt: The STORAGE CONTAINER DETAILS panel in Prism Element. Replication factor: 1. Reserved: 0 GiB. Data Reduction Ratio: 1:1. Data Reduction Savings: 0 GiB. Overall Efficiency: 4.79:1. Compression: Off. Capacity Deduplication: Off. Cache Deduplication: Off. Erasure Coding: Off. The container name and the free-space, used, max-capacity and effective-free figures are redacted.
 
 Q: Refer Exhibit: An Administrator needs to enable inline deduplication for a pre-existing storage container. When trying to enable deduplication on the storage container, this feature is greyed OUT. What is the reason for this behaviour.
 - [ ] Capacity reservation is not enabled
