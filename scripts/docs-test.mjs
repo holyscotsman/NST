@@ -191,5 +191,102 @@ const README = readFileSync(join(ROOT, 'README.md'), 'utf8');
   }
 }
 
+/* ---- (v2.42.0) the CI section, against the workflow it describes ----
+ *
+ * The knowledge base's "Testing & CI" section had drifted into fiction. It said
+ * CI runs four jobs of which THREE are dependency-free (two are), that the
+ * browser job is "the repo's only npm install" (there are two), that the browser
+ * job runs six suites (nine), and it listed six StarNix harnesses where the job
+ * runs nineteen. Some of that rot was months old and some of it was a day old --
+ * v2.40.0 added the jsdom install and six game suites and did not come back to
+ * this file.
+ *
+ * That is the same failure as the architecture tree above: a document describing
+ * a repository it no longer has. The tree is checked against the filesystem, so
+ * this is checked against ci.yml.
+ *
+ * The checkable claims only. The prose is not required to enumerate every suite
+ * -- forcing that would make the document a worse read and the check a nuisance
+ * -- but every suite it DOES name has to be real, and the counts it states have
+ * to be right.
+ */
+{
+  const kb = readFileSync(join(ROOT, 'docs', 'NST_KNOWLEDGE_BASE.md'), 'utf8');
+  const ciRaw = readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
+  const ci = ciRaw.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+
+  /* Jobs are the keys under `jobs:` at four-space indent that carry a name. */
+  const jobBlocks = ci.split(/\n  [a-z][a-z0-9-]*:\n/).filter((b) => /^\s+name: /m.test(b));
+  const jobs = jobBlocks.filter((b) => /runs-on:/.test(b));
+  ok('ci.yml parses into jobs at all -- a parse finding none would pass everything',
+    jobs.length >= 3, jobs.length + ' jobs');
+
+  const installs = jobs.filter((b) => /npm install/.test(b));
+  const free = jobs.length - installs.length;
+
+  const saysJobs = kb.match(/runs \*\*(\w+) jobs?\*\*/);
+  const WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+  ok('the knowledge base states how many CI jobs there are', !!saysJobs, saysJobs && saysJobs[1]);
+  ok('and the number is right', !!saysJobs && WORDS[saysJobs[1]] === jobs.length,
+    `doc says ${saysJobs && saysJobs[1]}, ci.yml has ${jobs.length}`);
+
+  const saysFree = kb.match(/\*\*(\w+) are\s*\n?\s*dependency-free\*\*/);
+  ok('the knowledge base states how many jobs are dependency-free', !!saysFree,
+    saysFree && saysFree[1]);
+  ok('and that number is right too', !!saysFree && WORDS[saysFree[1]] === free,
+    `doc says ${saysFree && saysFree[1]}, ci.yml has ${free} job(s) with no npm install`);
+
+  /* "the only npm install" was true once and is not now. */
+  ok('the knowledge base no longer calls any job the repo\'s ONLY npm install',
+    !/only\s+\n?\s*`?npm install`?/i.test(kb),
+    `there are ${installs.length} jobs that install something`);
+
+  /* Every suite the document names must be one CI actually runs. A phantom suite
+   * is how a reader goes looking for coverage that is not there. */
+  const invoked = new Set();
+  for (const m of ci.matchAll(/node\s+(?:--\S+\s+)*([^\s|;&]+\.(?:mjs|cjs))/g)) {
+    invoked.add(m[1].replace(/^\.\.\//, '').split('/').pop().replace(/\.(mjs|cjs)$/, ''));
+  }
+  /* Named in backticks in the CI section, in the shape of a suite. */
+  const sectionStart = kb.indexOf('## 8. Testing & CI');
+  const sectionEnd = kb.indexOf('\n---', sectionStart);
+  const section = kb.slice(sectionStart, sectionEnd > 0 ? sectionEnd : undefined);
+  const named = [...section.matchAll(/`([a-z][a-z0-9-]*(?:-test|-run|-fuzz|-check|-smoke|-audit|-browser|-lint|-balance|-paths|-draw|-coverage))(?:\.(?:mjs|cjs))?`/g)]
+    .map((m) => m[1]);
+  ok('the CI section names some suites -- a regex matching none would pass everything',
+    named.length >= 10, named.length + ' named');
+
+  /* kbb-draw and perf-smoke are named as deliberately NOT wired, so they are
+   * expected to be absent from ci.yml; naming them is the point. */
+  const EXPECTED_ABSENT = new Set(['kbb-draw', 'perf-smoke']);
+  const phantom = [...new Set(named)].filter((n) => !invoked.has(n) && !EXPECTED_ABSENT.has(n));
+  ok('every suite the CI section names is one CI actually runs', phantom.length === 0,
+    phantom.join(', ') + ' -- named in the document, absent from ci.yml');
+
+  ok('and the two it names as deliberately unwired really are unwired',
+    [...EXPECTED_ABSENT].every((n) => !invoked.has(n) && section.includes(n)),
+    [...EXPECTED_ABSENT].filter((n) => invoked.has(n)).join(', '));
+
+  /* The README states the browser-suite count in prose too, and drifted the same
+   * way -- it said six when the job runs nine. Two documents, one workflow. */
+  const browserJob = jobs.find((b) => /playwright/i.test(b)) || '';
+  const browserSuites = [...browserJob.matchAll(/node\s+scripts\/([a-z0-9-]+)\.mjs/g)]
+    .map((m) => m[1]);
+  ok('the browser job runs a countable set of suites', browserSuites.length >= 5,
+    browserSuites.join(', '));
+  const saysBrowser = README.match(/(\w+) further suites need a real browser/);
+  ok('the README states how many suites need a browser', !!saysBrowser,
+    saysBrowser && saysBrowser[1]);
+  ok('and that number matches the job',
+    !!saysBrowser && WORDS[saysBrowser[1].toLowerCase()] === browserSuites.length,
+    `README says ${saysBrowser && saysBrowser[1]}, the job runs ${browserSuites.length}`);
+
+  /* Not vacuous. */
+  ok('self-check: a phantom suite would be caught',
+    !invoked.has('no-such-suite-test'));
+  ok('self-check: the job counter tracks ci.yml rather than a constant',
+    jobs.length === [...ci.matchAll(/runs-on:/g)].length, jobs.length);
+}
+
 console.log('\n' + (fail ? `DOCS: ${fail} FAILED (${pass} passed)` : `DOCS: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

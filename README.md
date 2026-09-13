@@ -176,13 +176,15 @@ node scripts/auth-test.mjs         # passwords, sessions, throttling, cookie par
 …and a dozen more beside them (sync, backup, readiness, review, dashboard, compression,
 path safety, robustness). These need nothing installed.
 
-Six further suites need a real browser and are the fourth CI job:
+Nine further suites need a real browser and are the fourth CI job:
 
 ```bash
 npm install --no-save playwright axe-core && npx playwright install chromium
 python3 -m http.server 8124 &                    # they read the site over HTTP
 node scripts/a11y-audit.mjs                      # accessibility, incl. keyboard and focus
 node scripts/prefs-test.mjs                      # one preference, all four front-ends
+node scripts/dialog-test.mjs                     # every dialog, at seven window sizes
+node scripts/resume-test.mjs                     # an exam surviving a discarded tab
 node scripts/smoke-test.mjs                      # a real server and login, end to end
 ```
 

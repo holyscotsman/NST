@@ -5,6 +5,65 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.42.0 — The CI section described a workflow that no longer exists (2026-09-13)
+
+`docs/NST_KNOWLEDGE_BASE.md` §8 "Testing & CI" had drifted into fiction, and the
+README with it. Found by checking my own work from earlier the same day.
+
+| the document said | the workflow does |
+|---|---|
+| four jobs, **three** dependency-free | four jobs, **two** |
+| the browser job is "the repo's **only** `npm install`" | there are **two** |
+| the browser job runs **six** suites | **nine** |
+| the StarNix job runs **six** harnesses | **nineteen** |
+| the Practice Exams job runs ~12 named suites | **22** |
+| `a11y-browser` is "14, painted-background contrast" | 62 checks, and far more than contrast |
+| README: "**Six** further suites need a real browser" | **nine** |
+
+Some of that rot was months old. Some of it was **hours** old: v2.40.0 added the
+jsdom install and six StarNix game suites and never came back to this file, and
+v2.41.0 added `dialog-test` and `resume-test` coverage without updating the
+counts. A document that is wrong about the thing it exists to explain is worse
+than no document — a reader goes looking for coverage that is not there, or
+trusts a guarantee that was withdrawn.
+
+### Fixed
+Both documents rewritten from `ci.yml` rather than edited by eye: the real job
+count, which jobs install what and why, the full suite lists, and the two
+harnesses (`kbb-draw`, `perf-smoke`) that are deliberately **not** wired, named
+with their reasons so their absence reads as a decision.
+
+### Added — 14 checks in `docs-test.mjs` (24 → 38)
+This is the same failure the suite already existed for — "documentation that
+describes a repository it no longer has" — so it is checked the same way. The
+architecture tree is checked against the filesystem; the CI section is now
+checked against `ci.yml`:
+
+- the stated job count matches;
+- the stated dependency-free count matches;
+- no document calls any job the repo's *only* `npm install`;
+- **every suite either document names is one CI actually runs** — a phantom suite
+  is how a reader goes looking for coverage that does not exist;
+- the two named as deliberately unwired really are unwired;
+- the README's browser-suite count matches the browser job.
+
+The prose is *not* required to enumerate every suite — forcing that would make
+the document a worse read and the check a nuisance. Only what it does say has to
+be true.
+
+### Verified
+Four controls on the knowledge base and two on the README, each naming the exact
+discrepancy: claiming three dependency-free jobs fails with "doc says three,
+ci.yml has 2"; claiming five jobs fails with the count; renaming a real suite to
+a phantom one fails naming it; and the README saying "Six" fails with "README
+says Six, the job runs 9".
+
+The control that matters most runs the other way round. **Removing the jsdom
+install from `ci.yml`** — the workflow changing under a correct document — fails
+with "doc says two, ci.yml has 3". **Removing `dialog-test` from the browser
+job** fails twice, once as a phantom suite and once on the count. These checks
+catch drift from either side, which is the only way they are worth having.
+
 ## v2.41.0 — The sync warning lived on the page you are not on (2026-09-13)
 
 `NSTSync` fires `nst-sync-status` once a push has failed three times running.
