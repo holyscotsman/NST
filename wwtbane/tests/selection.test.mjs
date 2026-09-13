@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSet, SetManager, tierOfQuestion } from '../src/core/selection.js';
 import { emptyMastery, record } from '../src/core/mastery.js';
-import { makeBank } from './fixtures.mjs';
+import { makeBank, adaptMarkdownBank, markdownBank } from './fixtures.mjs';
 
 function countByAuthored(set) {
   const c = { easy: 0, medium: 0, hard: 0, extreme: 0 };
@@ -189,4 +189,46 @@ test('SetManager keeps a disjoint current/next and Steve reads the upcoming run'
   assert.ok(steveQ, 'Steve has a question');
   assert.ok(current.some((q) => q.id === steveQ.id), 'from the upcoming (current) run');
   assert.ok(steveQ.steveClue, 'and it carries a teaching clue');
+});
+
+/* (v2.52.0) The test above proves Steve works when a question carries an authored
+ * clue. It hands him synthetic questions with `steveClue` set by hand.
+ *
+ * Every question the app actually serves comes from a markdown bank, through
+ * shared/bank-parser.js and the toWWTBANE adapter — and until v2.52.0 neither had any
+ * notion of a clue. So for all 255 questions in the shipped bank, `q.steveClue` was
+ * undefined, `peekUpcomingHard` filtered every one of them out, and the green room
+ * said "nothing new" forever. The suite stayed green throughout, because the fixture
+ * could express something the pipeline could not.
+ *
+ * These drive the REAL pipeline. If the parser or the adapter stops carrying a clue,
+ * Steve goes quiet again and this goes red — which is what the older test could not do.
+ */
+test('Steve is reachable through the REAL bank pipeline, not just the fixture', () => {
+  const { questions } = adaptMarkdownBank(markdownBank({ hard: 12 }));
+  const carriers = questions.filter((q) => q.steveClue);
+  assert.ok(carriers.length > 0, 'the markdown -> parser -> adapter path carries an authored clue');
+  assert.ok(carriers.every((q) => typeof q.steveClue === 'string' && q.steveClue.length > 40),
+    'and carries the whole clue, not a truncated or boolean stand-in');
+
+  const sm = new SetManager({
+    bank: questions, getMastery: () => emptyMastery(),
+    mode: 'seeded', seed: 'REALSTEVE', reachedFinalBefore: true,
+  });
+  sm.init();
+  const q = sm.peekUpcomingHard(new Set());
+  assert.ok(q, 'Steve has a question to sell from a bank-derived set');
+  assert.ok(q.steveClue && q.steveClue.length > 40, 'and it carries the authored clue');
+});
+
+test('a bank with no authored clues leaves Steve with nothing — the state the app shipped in', () => {
+  const { questions } = adaptMarkdownBank(markdownBank({ hard: 12, clueOnHard: false }));
+  assert.equal(questions.filter((q) => q.steveClue).length, 0, 'no clue anywhere in the set');
+  const sm = new SetManager({
+    bank: questions, getMastery: () => emptyMastery(),
+    mode: 'seeded', seed: 'NOCLUE', reachedFinalBefore: true,
+  });
+  sm.init();
+  assert.equal(sm.peekUpcomingHard(new Set()), null,
+    'nothing to teach means nothing for sale — and this is exactly what every served question produced');
 });

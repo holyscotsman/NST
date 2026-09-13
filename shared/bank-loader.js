@@ -167,6 +167,13 @@
       if (q.tags && q.tags.length) o.tags = q.tags.slice();
       if (q.priority) o.priority = true;
       if (q.reference) o.reference = q.reference;
+      /* (v2.52.0) Steve's clue. WWTBANE's green room only offers a hard question that
+       * carries an AUTHORED clue -- selection.js filters on q.steveClue, a rule added
+       * after an earlier build charged 4,000 coins and rendered an empty tip. Nothing
+       * in the bank format could express one, so from the day the runtime bank engine
+       * landed the green room had nothing to sell about any question the app serves:
+       * zero of 255. Carrying it is the other half of the parser learning it. */
+      if (q.clue) o.steveClue = q.clue;
       return o;
     });
   }

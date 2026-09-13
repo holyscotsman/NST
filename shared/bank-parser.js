@@ -7,7 +7,7 @@
  *   { meta: { cert, title, version, pass, domains[] },
  *     questions: [ { id, domain, difficulty(1-5), tags[], image, imageAlt, priority,
  *                    reference, stem, options[], correct(number|number[]), optionNotes[],
- *                    explanation, teach } ],
+ *                    explanation, teach, clue } ],
  *     errors: [ { id?, line?, message } ] }
  */
 (function (root, factory) {
@@ -114,11 +114,11 @@
     var q = {
       id: blk.id, domain: "", difficulty: 3, tags: [], image: null, imageAlt: "",
       priority: false, reference: "", stem: "", options: [], correct: null,
-      optionNotes: [], explanation: "", teach: "",
+      optionNotes: [], explanation: "", teach: "", clue: "",
     };
     var correctIdx = [];
-    var state = "meta";        // meta -> stem -> options -> explain -> teach
-    var stemBuf = [], expBuf = [], teachBuf = [];
+    var state = "meta";        // meta -> stem -> options -> explain -> teach -> clue
+    var stemBuf = [], expBuf = [], teachBuf = [], clueBuf = [];
     var lastOpt = -1;
 
     function flushStem() { q.stem = stemBuf.join("\n").trim(); }
@@ -131,7 +131,7 @@
       // Only BEFORE the prose sections: a Markdown checklist inside an Explain:
       // or Teach: block used to be swallowed as a real option (and an `[x]` one
       // silently turned the question multi-answer with a bogus answer key).
-      var opt = (state === "explain" || state === "teach")
+      var opt = (state === "explain" || state === "teach" || state === "clue")
         ? null
         : line.match(/^[-*]\s*\[([ xX])\]\s*(.*)$/);
       if (opt) {
@@ -165,14 +165,21 @@
           case "q": case "question": case "stem": state = "stem"; if (p[1]) stemBuf.push(p[1]); break;
           case "explain": case "explanation": state = "explain"; if (p[1]) expBuf.push(p[1]); break;
           case "teach": case "briefing": state = "teach"; if (p[1]) teachBuf.push(p[1]); break;
+          /* (v2.52.0) Steve's clue. WWTBANE's green room sells a hint about a hard
+           * question it knows is coming, and its selector only offers a question that
+           * carries an AUTHORED one -- a rule added after an earlier version charged
+           * 4,000 coins for an empty tip. No bank could express one, so the green room
+           * had nothing to sell for every question the app serves. Now it can. */
+          case "clue": case "steve": state = "clue"; if (p[1]) clueBuf.push(p[1]); break;
           default: /* unknown meta key — ignore */ break;
         }
         continue;
       }
       // labels that switch state from later positions (e.g. Explain after options)
-      if (p && (state === "stem" || state === "options" || state === "explain" || state === "teach")) {
+      if (p && (state === "stem" || state === "options" || state === "explain" || state === "teach" || state === "clue")) {
         if (p[0] === "explain" || p[0] === "explanation") { if (state === "stem") flushStem(); state = "explain"; if (p[1]) expBuf.push(p[1]); continue; }
         if (p[0] === "teach" || p[0] === "briefing") { state = "teach"; if (p[1]) teachBuf.push(p[1]); continue; }
+        if (p[0] === "clue" || p[0] === "steve") { state = "clue"; if (p[1]) clueBuf.push(p[1]); continue; }
         if ((p[0] === "q" || p[0] === "question" || p[0] === "stem")) { state = "stem"; if (p[1]) stemBuf.push(p[1]); continue; }
       }
 
@@ -180,11 +187,13 @@
       if (state === "stem") { if (line) stemBuf.push(line); }
       else if (state === "explain") { if (line) expBuf.push(line); }
       else if (state === "teach") { if (line) teachBuf.push(line); }
+      else if (state === "clue") { if (line) clueBuf.push(line); }
       // (meta free text before Q: is ignored)
     }
     if (state === "stem" || (!q.stem && stemBuf.length)) flushStem();
     q.explanation = expBuf.join("\n").trim();
     q.teach = teachBuf.join("\n").trim();
+    q.clue = clueBuf.join("\n").trim();
 
     // finalize correct
     if (correctIdx.length === 1) q.correct = correctIdx[0];
