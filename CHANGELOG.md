@@ -5,7 +5,57 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
-## v2.43.0 — The audit log nobody checked was written (2026-09-13)
+## v2.43.0 — Two guarantees nobody checked (2026-09-13)
+
+Neither is a defect. Both are load-bearing lines that every existing test would
+survive the deletion of.
+
+## Part two — the line endings the next seven banks will have
+
+`bank-parser.js` normalises CRLF and lone CR to LF before it splits lines:
+
+```js
+var text = String(md == null ? "" : md).replace(/\r\n?/g, "\n");
+```
+
+Every bank in this repository uses LF, so that line is load-bearing for exactly
+**zero** of them today, and nothing checked it existed. It reads like a redundant
+normalisation of the kind somebody tidies away.
+
+**Seven more banks are planned, and they will be authored on Windows.** Measured
+with the normalisation removed:
+
+```
+CRLF  ->  questions: []      the whole bank parses to NOTHING
+CR    ->  questions: [], and empty metadata as well
+```
+
+`### w1\r` does not match the heading pattern, so no question is ever opened. The
+file is not mangled — it is **invisible**: a bank that loads, reports no error,
+and contains zero questions. Nothing about that looks like a line-ending problem,
+which is why the new checks name the ending rather than the symptom.
+
+I had predicted stray trailing characters in option text and domain names. The
+control showed total silent failure instead, and the suite's header now says
+what was measured rather than what I guessed.
+
+### Added — 23 checks in `bank-test.mjs` (55 → 78)
+CRLF, lone CR, and a mixed file must each parse **identically to the LF
+control** — same questions, same metadata — and no carriage return may survive
+into an id, a stem, a domain, an option, an explanation, or the declared domain
+list. Each of those is named separately because a stray `\r` in a domain makes it
+miss the declared list, and in an id makes it miss the mastery store.
+
+### Verified
+Removing the normalisation from the real parser fails 3 checks, reporting the
+empty question list. The self-check confirms that splitting CRLF on `\n` alone
+really does leave `\r` behind — without which the whole section would prove
+nothing.
+
+---
+
+## Part one — the audit log nobody checked was written
+
 
 **No defect.** The audit log is complete: 17 action types covering every
 privileged operation on this server. This is the gate.
