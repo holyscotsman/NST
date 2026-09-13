@@ -5,6 +5,91 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.61.0 — one way to write a question (2026-09-13)
+
+**A documentation defect with real cost ahead of it. The repository told you to
+author questions in a format nothing parses, using an importer that wrote to a
+file deleted ten versions ago.**
+
+### What was still standing
+v2.51.0 retired WWTBANE's compiled question file when the runtime bank engine
+took over. It left behind the whole machine that produced it:
+
+- `scripts/import-questions.mjs`, whose default output was
+  `src/content/questions.js` — **a path that no longer exists**
+- `src/content/parseMarkdownBank.js` and `parseInterchangeBank.js`, two more
+  question formats, used by nothing but that importer
+- `src/content/quarantine.js`, imported by nothing at all
+- three test files exercising the above (174 → 143 WWTBANE checks)
+- `npm run import:questions`
+- `docs/QUESTION_AUTHORING.md`, describing the dead format in full
+- the same command repeated in `FLAGS.md`, `docs/priority-question-bank.md` and
+  `docs/CONTENT_QA_REPORT.md`
+
+And a source comment in `src/shell/main.js` asserting that
+`src/content/questions.js` *"remains on disk as the schema/docs test fixture
+only"* — it does not.
+
+### Why it mattered rather than just being untidy
+The two formats are not compatible:
+
+| | live (`docs/BANK_FORMAT.md`) | dead (`QUESTION_AUTHORING.md`) |
+| --- | --- | --- |
+| question header | `### <stable-id>` | `## Q1` |
+| domain | `domain: storage` | `- **Domain:** storage` |
+| stem | `Q:` | `**Question:**` |
+| difficulty | `difficulty: 2` (1–5) | `- **Difficulty:** easy` |
+| how it reaches the app | dropped in `/banks/`, parsed at runtime | an importer, into a deleted file |
+
+The next thing this repository is for is adding certification banks. Following
+the wrong page meant authoring in a shape nothing parses, running a command that
+appeared to work, and getting an empty bank, with nothing anywhere explaining
+why.
+
+### The owner's own 25 questions are all accounted for
+`docs/priority-question-bank.md` holds 25 questions FLAGS.md describes as
+owner-authored, and they are not in the live bank under their `NPX-*` ids — which
+looked alarming. Measured per question, Jaccard over the union of stem words
+against the best match in each bank: **23 are in `banks/ncp-mci/ncp-mci.md` and 2
+in `banks/drafts/wwtbane-legacy.md`.** The two that first scored below the
+threshold (0.53, 0.48) are the same questions reworded — checked by hand against
+`mci-security-wn75` and `mci-vms-tuqo`. Nothing is stranded, so the file is kept
+as provenance for the answer keys and no longer claims to be an input.
+
+A first pass used word-containment rather than Jaccard and reported "25 of 25
+already live", which is the same saturation mistake v2.53.0's rescue count made.
+
+### The gate
+`docs-test.mjs`, 38 → 45 checks: **every command a document presents as runnable
+must name something that exists** — the script in `node <path>`, and the name in
+`npm run <name>`. Two `[neg]` controls plant a missing file and a missing script
+and require the scan to name both.
+
+**The limit of the rule, stated in it.** The first version checked that a command
+would run *from where it is written*, and reported four good lines as broken:
+prose establishes a working directory a line earlier ("StarNix: `cd starnix &&
+node build.mjs`. Harnesses: `node bank-lint.mjs`"), and a backticked command in a
+sentence is sometimes a mention, not an instruction ("...which breaks `node
+build.mjs`"). It now checks the thing that actually went wrong — that the file
+exists in this repository at all — which a deleted script fails wherever it is
+written.
+
+Against the pre-deletion text:
+
+```
+FAIL every script a document says to run exists
+  -- docs/NST_KNOWLEDGE_BASE.md: node wwtbane/scripts/import-questions.mjs
+FAIL every npm script a document says to run is defined
+  -- docs/NST_KNOWLEDGE_BASE.md: npm run import:questions
+```
+
+### Kept, and said to be provenance
+`docs/priority-question-bank.md`, `docs/interchange/e1.md` and `e1-review.md` are
+where live questions came from and why their keys can be trusted. They stay, now
+labelled as history rather than as inputs. `docs/QUESTION_AUTHORING.md` is a
+pointer to `docs/BANK_FORMAT.md` rather than a deletion, because the formats
+differ and someone will look for it by name.
+
 ## v2.60.0 — whose progress is this? (2026-09-13)
 
 **A data-separation defect. On a machine two colleagues share, the first

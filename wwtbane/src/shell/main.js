@@ -27,8 +27,9 @@ import { TitleScreen, GreenRoom, ResultScreen, HelpScreen, SettingsScreen } from
 import { h, clear, money } from './ui/dom.js';
 
 // (NST) Questions are loaded at runtime from the bank chosen in the launcher (see
-// _loadRuntimeBank) — nothing is baked into the app. src/content/questions.js remains
-// on disk as the schema/docs test fixture only.
+// _loadRuntimeBank) — nothing is baked into the app, and there is no compiled
+// question file any more: src/content/questions.js went in v2.51.0 and the
+// importer that wrote it in v2.61.0. See docs/BANK_FORMAT.md at the repo root.
 
 export class Game {
   constructor(roots) {

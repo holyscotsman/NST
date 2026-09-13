@@ -8,8 +8,13 @@ player drills and graduates them ahead of the rest of the bank.
   authoritative; the game never uses AI to decide correctness (the project design rules).
 - `Domain` and `Difficulty` tags are an ingestion classification (they slot each
   question into a tier); they are flagged for owner confirmation in `FLAGS.md`.
-- Merge into the shipped bank with:
-  `node scripts/import-questions.mjs docs/priority-question-bank.md --merge`
+- **This file is provenance, not an input.** It was merged into the bank by an
+  importer that no longer exists (removed in v2.61.0 along with the compiled
+  question file it wrote). All 25 questions are in the live banks today: 23 in
+  `banks/ncp-mci/ncp-mci.md` and 2 in `banks/drafts/wwtbane-legacy.md`. It is
+  kept because the answer keys and explanations here are owner-authored.
+- To add questions now, write them in the format at `docs/BANK_FORMAT.md`
+  (repository root) and drop the file into `/banks/`.
 
 ---
 

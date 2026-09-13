@@ -106,13 +106,12 @@ src/core/             # pure game logic (no browser deps) — fully unit-tested
 src/shell/            # browser layer
   main.js, studio.js (WebGL), director.js + takes.js (camera), music.js,
   backdrop.js (CSS studio), audio.js, hostLines.js, persistence.js, ui/*
-src/content/          # bank parsers and images/ (the questions live in /banks/)
-scripts/              # import-questions.mjs (Markdown/interchange → bank)
+src/content/          # images/ only (the questions live in /banks/, parsed at runtime)
 styles/               # main.css (the whole DOM look)
 vendor/               # Three.js r160 + addons, self-hosted Montserrat
 tests/                # unit tests, smoke test, full e2e
-docs/                 # cinematic spec (+ event contract), authoring guide,
-                      # content QA report, interchange bank sources
+docs/                 # cinematic spec (+ event contract), content QA report,
+                      # bank provenance (priority set, interchange sources)
 ```
 
 ## A note on answer quality

@@ -27,8 +27,9 @@ ship, but each wants a human before it's "done" per `the project design rules`.
 - **Status:** the owner has supplied **25 of their own questions** (a Nutanix
   practice-exam set). These are merged into the bank as the **priority** set
   (`priority:true`, ids `NPX-*`, `reviewStatus:"human-reviewed"`), source of
-  record in `docs/priority-question-bank.md`, merged via
-  `node scripts/import-questions.mjs docs/priority-question-bank.md --merge`.
+  record in `docs/priority-question-bank.md`. They were merged by an importer
+  that no longer exists (removed in v2.61.0); all 25 are in the live banks
+  today — 23 in `banks/ncp-mci/ncp-mci.md`, 2 in `banks/drafts/wwtbane-legacy.md`.
   Mastery-driven runs surface them first until the player graduates them
   (see `docs/CONTENT_QA_REPORT.md` / CHANGELOG). The keys and explanations are
   **owner-authored**, so the §4/§7 key-review concern is satisfied for these 25.
