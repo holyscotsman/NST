@@ -19,6 +19,9 @@
  *    - the modal traps focus, Escape closes it, and focus returns to the opener
  *    - the first paint does NOT steal focus: moving it before anyone has
  *      interacted interrupts a screen reader's page-load announcement
+ *    - every tap target meets WCAG 2.2 SC 2.5.8 (AA), 24x24 CSS px
+ *    - a phone held sideways still works: the site is only ever measured in
+ *      portrait, and landscape is the shorter, more crowded viewport
  *
  * TWO NOTES ON MEASURING FOCUS, BOTH LEARNED THE HARD WAY
  *
@@ -267,6 +270,71 @@ await surface('exam mode', `${B}/practice-exams/`, async (p) => {
   ok('settings dialog — and the page comes back when it closes', after === before,
     `${after} vs ${before}`);
   await p.close();
+}
+
+/* ---- tap targets: WCAG 2.2 SC 2.5.8 (AA), 24x24 CSS px ----
+ *
+ * Measured at a LANDSCAPE phone size, which is the shorter and more crowded of
+ * the two orientations and the one nothing else here covers.
+ *
+ * A control's own box is not always its target: a 16x16 checkbox inside a 510x43
+ * <label> has the label's hit area, and failing it would be wrong. The rule below
+ * takes the larger of the two. (Measuring the element alone reported three
+ * perfectly good settings toggles as failures.)
+ */
+{
+  const TARGET_MIN = 24;
+  const land = await browser.newContext({
+    viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2,
+  });
+  const measure = () => {
+    const MIN = 24;
+    const sel = 'button, a[href], input, [role="radio"], [role="button"], [role="switch"]';
+    const small = [];
+    document.querySelectorAll(sel).forEach((e) => {
+      const q = e.getBoundingClientRect();
+      if (!q.width || !q.height) return;
+      // The real target: this element, or the label that wraps it.
+      const label = e.closest('label') || (e.id ? document.querySelector(`label[for="${e.id}"]`) : null);
+      const l = label ? label.getBoundingClientRect() : null;
+      const w = Math.max(q.width, l ? l.width : 0);
+      const h = Math.max(q.height, l ? l.height : 0);
+      if (w >= MIN && h >= MIN) return;
+      small.push(`${(e.className || e.tagName).toString().slice(0, 26)} ${Math.round(w)}x${Math.round(h)}`);
+    });
+    return {
+      small: [...new Set(small)],
+      hScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    };
+  };
+
+  async function landscape(label, url, prep) {
+    const p = await land.newPage();
+    await p.goto(url, { waitUntil: 'domcontentloaded' });
+    await p.evaluate(SEED);
+    await p.goto(url, { waitUntil: 'networkidle' });
+    await p.waitForTimeout(1500);
+    if (prep) await prep(p);
+    const r = await p.evaluate(measure);
+    ok(`${label} (landscape) — every tap target is at least ${TARGET_MIN}px`,
+      r.small.length === 0, r.small.slice(0, 4).join(', '));
+    ok(`${label} (landscape) — the page does not scroll sideways`, r.hScroll === false);
+    await p.close();
+  }
+
+  await landscape('launcher', `${B}/`);
+  await landscape('launcher settings', `${B}/`, async (p) => {
+    await p.click('#nst-settings-btn'); await p.waitForTimeout(600);
+  });
+  await landscape('practice exams entry', `${B}/practice-exams/`);
+  await landscape('practice mode', `${B}/practice-exams/`, async (p) => {
+    await p.click('.pe-modecard-practice'); await p.waitForTimeout(800);
+    await p.click('.pe-opt'); await p.click('.pe-check'); await p.waitForTimeout(400);
+  });
+  await landscape('exam mode', `${B}/practice-exams/`, async (p) => {
+    await p.click('.pe-modecard-exam'); await p.waitForTimeout(800);
+  });
+  await land.close();
 }
 
 /* ---- focus survives the whole round trip, not just the way in ---- */
