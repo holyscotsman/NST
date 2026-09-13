@@ -101,6 +101,90 @@ for (const [name, url] of [['launcher', '/index.html'], ['StarNix', '/starnix/in
   await ctx.close();
 }
 
+/* (v2.38.0) Scrolling regions a keyboard cannot reach.
+ *
+ * A container with overflow:auto and NO focusable content inside it cannot be
+ * scrolled from the keyboard: Chrome will not put it in the tab order, so it can
+ * never be given focus and never receive an arrow key. Whatever is past its fold
+ * is reachable with a mouse and by no other means. Firefox makes such regions
+ * focusable on its own; Chrome does not, and Chrome is what this is served to.
+ *
+ * The launcher's dialogs had exactly this, and dialog-test.mjs now covers them
+ * in detail. This is the wider sweep: the main screen of each of the four apps,
+ * at four window sizes, at the moment somebody arrives. All four are clean --
+ * which is only worth printing because the planted control below proves the
+ * check can see one.
+ */
+{
+  const FIND = `(() => {
+    const F = "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), " +
+              "textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+    const out = [];
+    for (const e of document.querySelectorAll('*')) {
+      if (e === document.body || e === document.documentElement || e === document.scrollingElement) continue;
+      const s = getComputedStyle(e);
+      const y = (s.overflowY === 'auto' || s.overflowY === 'scroll') && e.scrollHeight > e.clientHeight + 1;
+      const x = (s.overflowX === 'auto' || s.overflowX === 'scroll') && e.scrollWidth > e.clientWidth + 1;
+      if (!y && !x) continue;
+      if (e.querySelectorAll(F).length || e.matches(F)) continue;
+      out.push((e.tagName.toLowerCase() + '.' + String(e.className || '').split(' ')[0]) +
+               ' (' + (y ? e.scrollHeight - e.clientHeight : e.scrollWidth - e.clientWidth) + 'px past the fold)');
+    }
+    return out;
+  })()`;
+
+  const SIZES = [[1280, 900], [900, 520], [390, 600], [390, 300]];
+  const APPS = [['launcher', '/index.html'], ['Practice Exams', '/practice-exams/index.html'],
+                ['WWTBANE', '/wwtbane/index.html'], ['StarNix', '/starnix/index.html']];
+  for (const [name, url] of APPS) {
+    for (const [w, h] of SIZES) {
+      const ctx = await browser.newContext({ viewport: { width: w, height: h } });
+      const page = await ctx.newPage();
+      await page.goto(B + '/index.html', { waitUntil: 'load' });
+      await page.evaluate(() => {
+        localStorage.setItem('nst.activeBank', 'ncp-mci');
+        localStorage.setItem('nst.prefs', JSON.stringify({ largerText: true }));
+      });
+      await page.goto(B + url, { waitUntil: 'load' });
+      await page.waitForTimeout(700);
+      const bad = await page.evaluate(FIND);
+      ok(`${name} at ${w}x${h}: nothing scrolls that a keyboard cannot reach` +
+         (bad.length ? ' -- ' + bad.join(', ') : ''), bad.length === 0);
+      await ctx.close();
+    }
+  }
+
+  /* Sixteen clean results prove nothing on their own -- a selector with a typo
+   * in it is clean everywhere. Plant one and require the same code to find it. */
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await ctx.newPage();
+    await page.goto(B + '/index.html', { waitUntil: 'load' });
+    await page.evaluate(() => {
+      const d = document.createElement('div');
+      d.className = 'planted-scroller';
+      d.style.cssText = 'height:60px;overflow-y:auto;position:fixed;top:0;left:0;width:200px;z-index:9999';
+      d.innerHTML = '<p>' + 'long text '.repeat(200) + '</p>';
+      document.body.appendChild(d);
+    });
+    const bad = await page.evaluate(FIND);
+    ok('self-check: a planted text-only scroller IS found, so the sweep is not vacuous',
+      bad.length === 1 && /planted-scroller/.test(bad[0]));
+
+    /* And giving it something to tab to clears it, so the rule is about keyboard
+     * reach rather than about scrolling. */
+    await page.evaluate(() => {
+      const d = document.querySelector('.planted-scroller');
+      const b = document.createElement('button'); b.textContent = 'x';
+      d.appendChild(b);
+    });
+    const after = await page.evaluate(FIND);
+    ok('self-check: and clears once it contains something focusable',
+      after.length === 0, JSON.stringify(after));
+    await ctx.close();
+  }
+}
+
 console.log(`\n${fail === 0 ? 'A11Y: ALL GREEN' : 'A11Y: ' + fail + ' FAILED'} (${pass} checks)`);
 await browser.close();
 process.exit(fail ? 1 : 0);

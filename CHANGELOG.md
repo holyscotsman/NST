@@ -5,6 +5,88 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.38.0 — You could read the warning, but only with a mouse (2026-09-13)
+
+v2.37.0 made the clipped text in a confirm dialog reachable by giving it a
+scrolling body. It was reachable **by wheel**. It was not reachable at all from
+a keyboard.
+
+A scrolling container with no focusable content inside it cannot be scrolled
+with a keyboard. Chrome does not put such a container in the tab order, so
+there is no way to give it focus and therefore no way to send it an arrow key.
+The text past the fold is mouse-only. Firefox makes scrollable regions focusable
+on its own; Chrome does not, and Chrome is what this is served to.
+
+Measured on the real pages, after v2.37.0:
+
+| dialog | window | clipped | focusable children | Tab reaches the body |
+|---|---|---|---|---|
+| Reset confirm | 320x240 larger text | 152px | 0 | **no** |
+| Help | 900x520 | 232px | 0 | **no** |
+| Settings | 900x300 | 1190px | 14 | n/a — its controls scroll it |
+
+**Help fails at 900x520**, which is an ordinary window, not a contrived one.
+That one is not a v2.37.0 regression — Help has had a `.nst-modal-body` since it
+was written, and its content has always been nothing but text. Nothing looked
+for it.
+
+Settings escapes by accident: it has fourteen controls, and tabbing through them
+scrolls the container for free.
+
+### Fixed
+- **A scrolling body with nothing focusable in it becomes a tab stop** —
+  `tabindex="0"`, `role="group"`, and an `aria-label` built from the dialog's
+  title, applied in `openDialog` so every dialog is covered, including ones
+  added later.
+
+  Only when it overflows. An unconditional tab stop would be a dead landing spot
+  on every dialog that fits, for every keyboard user, to serve the case where it
+  does not. Re-checked on `resize`, because whether a dialog overflows is a
+  property of the window rather than of the dialog; the listener is released
+  when the last dialog closes.
+- **A focus ring on that landing spot** (`2px solid var(--purple-light)`, inset
+  because the body is flush with the panel edge). A tab stop with no visible
+  ring is a place the keyboard silently lands.
+- **The focus traps in the confirm and Help dialogs now use a real focusable
+  selector** instead of `querySelectorAll("button")`. That was right only while
+  those dialogs contained nothing but buttons — the moment the body became
+  focusable, Tab would have skipped it on the wrap. Settings already did this
+  correctly; now there is one definition of it.
+
+### Added
+- **21 more checks in `dialog-test.mjs` (62 → 83).** Every scrolling element in
+  every dialog, at every size, must either contain something focusable or be
+  focusable itself. Plus a real Tab walk on the worst case — ten actual `Tab`
+  presses, because `:focus-visible` and the tab order are both modality-
+  dependent and a probe that calls `focus()` has been wrong about this repo
+  before — a check that the landing spot has a visible ring, a check that an
+  arrow key on it actually moves `scrollTop`, and a check that Settings gains
+  **no** extra tab stop.
+
+### Nowhere else has it
+- **18 checks in `a11y-browser.mjs` (14 → 32)** sweep the main screen of all
+  four apps at four window sizes for the same thing: a container that scrolls
+  with nothing focusable inside it. **All sixteen are clean.**
+
+Sixteen clean results prove nothing on their own — a selector with a typo in it
+is clean everywhere — so the sweep plants a text-only scroller and requires the
+same code to find it, then adds a button to it and requires the report to clear.
+The rule is about keyboard reach, not about scrolling.
+
+The one near-miss worth recording: `.nst-diag-json`, the dev-mode diagnostics
+`<pre>`, has `max-height: 180px` and `overflow-x: auto`, which makes
+`overflow-y` compute to `auto` as well — a text-only scroller by construction.
+Measured with dev mode on, it does not overflow: the prefs object is about nine
+lines against a 180px cap. Not a defect today; it would become one if prefs grew,
+and the sweep now watches it.
+
+### Verified
+Disabling `syncScrollFocus` fails 8 checks: five per-size keyboard-reach checks
+across Help and the reset confirm, the Tab walk (which reports the tab order it
+actually saw — ten presses, all buttons), the ring, and the arrow key. The
+scroll checks stay green throughout, so the two halves are independent. Removing
+just the focus ring fails exactly one check.
+
 ## v2.37.0 — A confirm dialog that hid what it was confirming (2026-09-13)
 
 `.nst-modal` is capped at the viewport height and is `overflow: hidden`. That is

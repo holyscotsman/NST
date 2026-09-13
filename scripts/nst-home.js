@@ -28,9 +28,59 @@
    * Settings is still up.
    * ------------------------------------------------------------------ */
   var _dialogDepth = 0;
+  // (v2.38.0) One definition of "the tab order reaches this". The confirm and
+  // help dialogs each trapped focus over `querySelectorAll("button")`, which was
+  // right only while they contained nothing else.
+  var FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]), " +
+    "select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+  function focusables(root) {
+    return Array.prototype.filter.call(root.querySelectorAll(FOCUSABLE), function (n) {
+      return n.offsetParent !== null || n === document.activeElement;
+    });
+  }
   function backgroundParts() {
     return [document.querySelector(".nst-app"), document.querySelector(".nst-bg")].filter(Boolean);
   }
+
+  /* (v2.38.0) A scrolling region with no focusable content inside it cannot be
+     scrolled from the keyboard. Chrome does not put such a container in the tab
+     order, so there is no way to give it focus and no way to send it an arrow
+     key -- the content past the fold is reachable with a mouse and by no other
+     means.
+
+     That is not hypothetical here. At 320x240 with larger text the reset
+     confirm hides 152px of the sentence naming what it is about to destroy, and
+     Help hides 232px; neither body contains a single focusable element.
+     Settings escapes it only by accident: it has fourteen controls, and tabbing
+     to them scrolls the container for free.
+
+     So: when a body overflows and has nothing focusable in it, make the body
+     itself a tab stop. Only when it overflows -- an unconditional stop would be
+     a dead landing spot on every dialog that fits, for every keyboard user, to
+     serve the case where it does not. Re-checked on resize, because whether it
+     overflows is a property of the window rather than the dialog. */
+  function syncScrollFocus(root) {
+    Array.prototype.forEach.call(root.querySelectorAll(".nst-modal-body"), function (body) {
+      var overflows = body.scrollHeight > body.clientHeight + 1;
+      var needsIt = overflows && focusables(body).length === 0;
+      if (needsIt) {
+        if (body.getAttribute("tabindex") !== "0") {
+          body.setAttribute("tabindex", "0");
+          body.setAttribute("role", "group");
+          var modal = body.closest(".nst-modal");
+          var title = modal && modal.querySelector(".nst-modal-title");
+          body.setAttribute("aria-label",
+            (title && title.textContent ? title.textContent + " \u2014 " : "") + "scrollable details");
+        }
+      } else if (body.getAttribute("role") === "group") {
+        body.removeAttribute("tabindex");
+        body.removeAttribute("role");
+        body.removeAttribute("aria-label");
+      }
+    });
+  }
+  var _onDialogResize = null;
+
   function openDialog(el_) {
     if (_dialogDepth === 0) {
       backgroundParts().forEach(function (n) {
@@ -40,11 +90,19 @@
     }
     _dialogDepth++;
     document.body.appendChild(el_);
+    syncScrollFocus(el_);
+    if (!_onDialogResize) {
+      _onDialogResize = function () {
+        Array.prototype.forEach.call(document.querySelectorAll(".nst-modal-overlay"), syncScrollFocus);
+      };
+      window.addEventListener("resize", _onDialogResize);
+    }
   }
   function closeDialog(el_) {
     try { el_.remove(); } catch (e) { /* already gone */ }
     _dialogDepth = Math.max(0, _dialogDepth - 1);
     if (_dialogDepth === 0) {
+      if (_onDialogResize) { window.removeEventListener("resize", _onDialogResize); _onDialogResize = null; }
       backgroundParts().forEach(function (n) {
         n.inert = false;
         n.removeAttribute("inert");
@@ -565,7 +623,7 @@
     function onConfirmKey(e) {
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
       if (e.key !== "Tab") return;
-      var items = modal.querySelectorAll("button");
+      var items = focusables(modal);
       var first = items[0], last = items[items.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -633,7 +691,7 @@
     function onKeyR(e) {
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(true); return; }
       if (e.key !== "Tab") return;
-      var items = modal.querySelectorAll("button");
+      var items = focusables(modal);
       var first = items[0], last = items[items.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -689,7 +747,7 @@
     function onKey(e) {
       if (e.key === "Escape") { close(); return; }
       if (e.key !== "Tab" || !overlay.isConnected) return;
-      var items2 = modal.querySelectorAll("button");
+      var items2 = focusables(modal);
       var first = items2[0], last = items2[items2.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }

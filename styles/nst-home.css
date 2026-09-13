@@ -501,6 +501,16 @@ body {
   /* don't hand the wheel to the page behind once the body hits its end */
   overscroll-behavior: contain;
 }
+/* (v2.38.0) When a body overflows with nothing focusable inside it, the script
+   makes the body itself a tab stop so it can be scrolled from the keyboard --
+   Chrome will not do that on its own. A tab stop with no visible focus ring is
+   a place the keyboard silently lands, so it gets the same ring as a control,
+   inset because the element is flush with the panel edge. */
+.nst-modal-body[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--purple-light);
+  outline-offset: -3px;
+  border-radius: 8px;
+}
 .nst-modal-sm { max-width: 420px; padding: 24px; max-height: calc(100vh - 48px); }
 /* (v2.37.0) A small dialog pads itself, so its body must not pad again -- 24px
    of panel plus 24px of body is a 48px gutter on a 420px panel. */
