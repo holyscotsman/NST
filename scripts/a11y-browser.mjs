@@ -185,6 +185,109 @@ for (const [name, url] of [['launcher', '/index.html'], ['StarNix', '/starnix/in
   }
 }
 
+/* (v2.41.0) The sync warning, on every page that can produce one.
+ *
+ * sync-test.mjs owns the static half: any page that loads nst-sync.js must
+ * listen for nst-sync-status. That rule cannot see a banner wired to the wrong
+ * element id, or one that renders invisibly, or one that never goes away when
+ * the connection comes back -- each of which looks exactly like a working
+ * listener from the source.
+ *
+ * So: fire the real event, in the real page, and look. Then fire the recovery
+ * and look again, because a warning that will not clear is its own bug.
+ */
+{
+  /* Both status events, on every page that can produce them. Checking only the
+   * one that happened to be noticed is how the second gap survives the fix for
+   * the first -- WWTBANE was missing both listeners, and storage is the more
+   * serious of the two: there the work does not survive the tab closing. */
+  const PAGES = [
+    ['launcher', '/index.html', 'nst-sync-warn', 'nst-store-warn'],
+    ['Practice Exams', '/practice-exams/index.html', 'pe-sync-warn', 'pe-store-warn'],
+    ['WWTBANE', '/wwtbane/index.html', 'wwt-sync-warn', 'wwt-store-warn'],
+  ];
+  for (const [name, url, id, storeId] of PAGES) {
+    const ctx = await browser.newContext({ viewport: { width: 1100, height: 800 } });
+    const page = await ctx.newPage();
+    await page.goto(B + url, { waitUntil: 'load' });
+    await page.evaluate(() => {
+      localStorage.setItem('nst.activeBank', 'ncp-mci');
+      localStorage.setItem('wwtbane.nogl', '1');   // skip the GPU backdrop
+    });
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForTimeout(1800);
+
+    ok(`${name}: a healthy session shows no sync warning`,
+      !(await page.evaluate((i) => !!document.getElementById(i), id)));
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('nst-sync-status',
+      { detail: { ok: false, failures: 3, error: 'network error' } })));
+    await page.waitForTimeout(250);
+    const shown = await page.evaluate((i) => {
+      const e = document.getElementById(i);
+      if (!e) return null;
+      const cs = getComputedStyle(e), r = e.getBoundingClientRect();
+      return {
+        text: e.textContent, role: e.getAttribute('role'),
+        /* The reason may be in the visible text or in the accessible name. The
+         * launcher's is a nav chip reading "Not saving" with the detail in its
+         * title/aria-label -- a deliberate choice for a tight nav bar, and the
+         * accessible name still carries it. Practice Exams and WWTBANE have room
+         * for a full sentence and use it. The rule is that the reason is
+         * REACHABLE, not that it sits in one particular attribute. */
+        reason: [e.textContent, e.getAttribute('title'), e.getAttribute('aria-label')]
+          .filter(Boolean).join(' | '),
+        visible: r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden',
+        inViewport: r.top < window.innerHeight && r.bottom > 0,
+      };
+    }, id);
+    ok(`${name}: a failing push raises a VISIBLE warning`,
+      !!shown && shown.visible && shown.inViewport, JSON.stringify(shown));
+    ok(`${name}: it is role=status, not an alert -- nothing is lost when sync fails`,
+      !!shown && shown.role === 'status', shown && shown.role);
+    ok(`${name}: and the reason the push failed is reachable (text or accessible name)`,
+      !!shown && /network error/.test(shown.reason), shown && shown.reason.slice(0, 90));
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('nst-sync-status',
+      { detail: { ok: true, failures: 0, error: null } })));
+    await page.waitForTimeout(250);
+    ok(`${name}: and it goes away when sync recovers`,
+      !(await page.evaluate((i) => !!document.getElementById(i), id)));
+
+    /* Storage refusing writes is the louder failure, and must read as one. */
+    ok(`${name}: a healthy session shows no storage warning`,
+      !(await page.evaluate((i) => !!document.getElementById(i), storeId)));
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('nst-storage-status',
+      { detail: { ok: false, reason: 'quota' } })));
+    await page.waitForTimeout(250);
+    const stored = await page.evaluate((i) => {
+      const e = document.getElementById(i);
+      if (!e) return null;
+      const cs = getComputedStyle(e), r = e.getBoundingClientRect();
+      return {
+        role: e.getAttribute('role'),
+        visible: r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden',
+        inViewport: r.top < window.innerHeight && r.bottom > 0,
+        says: [e.textContent, e.getAttribute('title'), e.getAttribute('aria-label')]
+          .filter(Boolean).join(' | '),
+      };
+    }, storeId);
+    ok(`${name}: a storage failure raises a VISIBLE warning`,
+      !!stored && stored.visible && stored.inViewport, JSON.stringify(stored));
+    ok(`${name}: it INTERRUPTS (role=alert) -- unlike sync, this work dies with the tab`,
+      !!stored && stored.role === 'alert', stored && stored.role);
+    ok(`${name}: and it never claims the work is still safe in this browser`,
+      !!stored && !/still safe in this browser/i.test(stored.says) &&
+      /not being saved/i.test(stored.says), stored && stored.says.slice(0, 80));
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('nst-storage-status',
+      { detail: { ok: true, reason: null } })));
+    await page.waitForTimeout(250);
+    ok(`${name}: and it goes away when storage recovers`,
+      !(await page.evaluate((i) => !!document.getElementById(i), storeId)));
+    await ctx.close();
+  }
+}
+
 console.log(`\n${fail === 0 ? 'A11Y: ALL GREEN' : 'A11Y: ' + fail + ' FAILED'} (${pass} checks)`);
 await browser.close();
 process.exit(fail ? 1 : 0);

@@ -180,6 +180,53 @@ async function discardAndReturn(ctx, page) {
   ok('it says the time ran out', !!card && /[Tt]ime ran out/.test(card), card);
   ok('and explains why, rather than looking like a bug',
     !!card && /keeps running whether the page is open/.test(card));
+
+  /* (v2.41.0) And then OPEN it, which nothing did.
+   *
+   * The card's whole promise is one sentence: "Open it to see how the N you
+   * answered scored." Every check above reads the card's words and none of them
+   * clicks it, so a resume that threw, hung, or landed on a blank screen would
+   * leave all of them green -- the exam would be gone and the offer to see it
+   * would be a lie, with a suite reporting ALL GREEN.
+   *
+   * The path is subtle enough to be worth walking: resuming rebuilds the sitting
+   * and starts the timer, startTimer() calls tick() immediately rather than
+   * waiting a second, the deadline is already behind, and that first tick
+   * auto-submits. Four things in a row, none of them obvious from the card. */
+  const before = await back.evaluate(() => {
+    const c = document.querySelector('.pe-modecard-resume');
+    const m = c && c.innerText.match(/(\d+) of (\d+) answered/);
+    return m ? { answered: Number(m[1]), total: Number(m[2]) } : null;
+  });
+  ok('the card states how many were answered', !!before && before.answered === 4,
+    JSON.stringify(before));
+
+  const opened = [];
+  back.on('pageerror', (e) => opened.push(e.message));
+  await back.click('.pe-modecard-resume');
+  await back.waitForTimeout(1200);
+  const landed = await back.evaluate(() => {
+    const root = document.getElementById('pe-root');
+    const text = root ? root.innerText.replace(/\s+/g, ' ') : '';
+    return {
+      text: text.slice(0, 400),
+      hasScore: /%/.test(text),
+      stillOnCard: !!document.querySelector('.pe-modecard-resume'),
+      empty: text.trim().length < 20,
+    };
+  });
+  ok('opening an expired exam does not throw', opened.length === 0, opened.join(' | '));
+  ok('and does not leave you on the card or on a blank screen',
+    !landed.stillOnCard && !landed.empty, JSON.stringify(landed));
+  ok('it lands on a result with a score', landed.hasScore, landed.text);
+  ok('and says the time expired, so the score is not mistaken for a full sitting',
+    /[Tt]ime expired/.test(landed.text), landed.text);
+
+  /* The record must be gone afterwards, or the same finished exam is offered
+   * again on the next visit -- forever. */
+  const after = await back.evaluate((k) => localStorage.getItem(k), KEY);
+  ok('and the saved sitting is cleared, so it is not offered again', after === null,
+    String(after).slice(0, 60));
   await ctx.close();
 }
 

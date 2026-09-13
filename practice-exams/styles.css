@@ -465,6 +465,21 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
   border-radius: 10px; padding: 12px 16px;
 }
 
+/* (v2.41.0) Sync trouble is NOT the storage warning wearing a different hat, and
+   it must not borrow its colour. Storage failing means nothing is being written
+   anywhere and the work dies with the tab -- red, and it says so. Sync failing
+   means the work is safe here and simply is not reaching the account, which is a
+   thing to fix later rather than a thing to panic about now. Amber, and the
+   launcher draws exactly the same distinction in exactly the same words. */
+.pe-syncwarn {
+  margin: 0 auto 14px; max-width: 1100px;
+  font-family: var(--font-ui, system-ui); font-weight: 600; font-size: 14px; line-height: 1.5;
+  color: #FFE6B8;
+  background: rgba(255, 176, 32, 0.13);
+  border: 1px solid rgba(255, 176, 32, 0.46);
+  border-radius: 10px; padding: 12px 16px;
+}
+
 /* (v2.29.0) An interrupted exam, offered back. Amber rather than the review
    card's accent: this is unfinished business with a clock on it, not a
    suggestion, and it must not be mistaken for one of the ordinary mode cards. */
