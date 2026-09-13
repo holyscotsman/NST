@@ -127,17 +127,41 @@
     return _state;
   }
 
-  var _saveTimer = null, _saveErr = null;
+  var _saveTimer = null, _saveErr = null, _announced = false;
+
+  /* Not throwing from a save is right -- an answer must still count in-session
+   * even once the browser has stopped accepting writes. But the flag that
+   * recorded it was read by nobody: saveError() was exported and never called
+   * from anywhere. So a browser refusing to store data (a full quota, private
+   * browsing, an enterprise policy that disables site data) meant the tool went
+   * on showing progress, promoting boxes and scheduling reviews for a session
+   * that would be gone the moment the tab closed, in silence.
+   *
+   * StarNix already toasts this for its own store. The shared store, which is
+   * where every tool's answers actually live, said nothing at all.
+   *
+   * Announce it as an event, on CHANGE only, so a surface can show it without
+   * polling and without repeating itself on every write. */
+  function announceStorage() {
+    var bad = !!_saveErr;
+    if (bad === _announced) return;
+    _announced = bad;
+    try {
+      window.dispatchEvent(new window.CustomEvent("nst-storage-status", {
+        detail: { ok: !bad, reason: _saveErr },
+      }));
+    } catch (e) { /* no CustomEvent here: a test harness, not a browser */ }
+  }
+
   function writeNow() {
     var s = ls();
     if (!s || !_state) return;
     _state.updatedAt = now();
     try { s.setItem(KEY, JSON.stringify(_state)); _saveErr = null; }
     catch (e) {
-      // Never throw from a save: an answer must still count in-session even if
-      // the browser has stopped accepting writes. The flag is what surfaces it.
       _saveErr = (e && e.name === "QuotaExceededError") ? "quota" : "write";
     }
+    announceStorage();
   }
   function save(immediate) {
     if (immediate) { if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; } writeNow(); return; }

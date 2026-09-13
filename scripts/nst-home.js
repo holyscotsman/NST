@@ -1001,6 +1001,34 @@
       utils2.insertBefore(chip, utils2.firstChild);
     });
 
+    /* A storage failure is NOT the sync warning wearing a different hat, and it
+     * must not borrow its words. The sync chip says the work is "still safe in
+     * this browser" -- which is the one thing that is untrue here. Nothing is
+     * being written anywhere, including the copy sync would push, because sync
+     * builds its envelope from the same storage that is refusing writes.
+     *
+     * So: a louder chip, a different colour, and an offer of the one thing that
+     * still works -- Settings -> Save backup file writes to the filesystem, not
+     * to storage. */
+    window.addEventListener("nst-storage-status", function (ev) {
+      var d = (ev && ev.detail) || {};
+      var existing = document.getElementById("nst-store-warn");
+      if (d.ok) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      var utils3 = document.querySelector(".nst-nav-utils");
+      if (!utils3) return;
+      var chip = el("span", "nst-storewarn", "Not saved");
+      chip.id = "nst-store-warn";
+      chip.title = (d.reason === "quota"
+        ? "This browser's storage is full, so your answers are not being saved."
+        : "This browser is refusing to store data, so your answers are not being saved.")
+        + " They will be lost when you close this tab. Use Settings \u2192 Save backup file now"
+        + " \u2014 that writes a file and does not need storage.";
+      chip.setAttribute("role", "alert");
+      chip.setAttribute("aria-label", chip.title);
+      utils3.insertBefore(chip, utils3.firstChild);
+    });
+
     var help = document.getElementById("nst-help-btn");
     if (help) help.addEventListener("click", buildHelpModal);
     renderNavBadge();

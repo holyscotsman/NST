@@ -304,9 +304,38 @@
     container.appendChild(root);
   }
 
+  /* This is the page where answers are actually given, so it is the page that
+   * most needs to say when they are not being kept. A banner rather than a chip:
+   * someone mid-exam should not have to notice a small badge to learn that the
+   * last forty minutes will not survive closing the tab.
+   *
+   * It is rendered above the view and never inside it, so changing screens does
+   * not wipe it -- every mode replaces the contents of #pe-root. */
+  function watchStorage() {
+    window.addEventListener("nst-storage-status", function (ev) {
+      var d = (ev && ev.detail) || {};
+      var existing = document.getElementById("pe-store-warn");
+      if (d.ok) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      var root = document.getElementById("pe-root");
+      if (!root || !root.parentNode) return;
+      var bar = document.createElement("div");
+      bar.id = "pe-store-warn";
+      bar.className = "pe-storewarn";
+      bar.setAttribute("role", "alert");
+      bar.textContent = (d.reason === "quota"
+        ? "This browser's storage is full — your answers are not being saved."
+        : "This browser is refusing to store data — your answers are not being saved.")
+        + " They will be lost when you close this tab. Open the launcher and use"
+        + " Settings → Save backup file, which writes a file instead.";
+      root.parentNode.insertBefore(bar, root);
+    });
+  }
+
   function boot() {
     var container = document.getElementById("pe-root");
     if (!container) return;
+    watchStorage();
     container.innerHTML = '<div class="pe-loading">Loading…</div>';
     // If the manifest has any banks, always render the entry screen (it carries the bank
     // picker, so the player can switch banks here). Only a truly empty manifest is a dead end.
