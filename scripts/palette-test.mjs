@@ -189,6 +189,86 @@ try {
         /palCentered !== idx/.test(src));
     }
   }
+
+  /* ---- 4. a chip that cannot score must not look like one that can ----
+   *
+   * The strip is the map of the sitting, so what it colours in is what someone
+   * trusts. gradeAnswer() requires an exact-size match on a multi-answer
+   * question -- three choices on a "Choose two" is wrong, always -- but
+   * isAnswered() is true for any non-empty array, and the palette used that. A
+   * question certain to be marked wrong wore the answered colour and said
+   * "answered" to a screen reader, and the sitting gave no way to notice it
+   * before the score. */
+  {
+    const { ctx, page } = await openMode(390, 844, 'Start exam');
+    try {
+      let found = false;
+      for (let i = 0; i < 40 && !found; i++) {
+        found = await page.evaluate(() => !!document.querySelector('.pe-chip-multi'));
+        if (!found) {
+          await page.evaluate(() => {
+            const b = [...document.querySelectorAll('button')].find((x) => /^Next/.test(x.textContent.trim()));
+            if (b) b.click();
+          });
+          await page.waitForTimeout(140);
+        }
+      }
+      ok('the shipped bank has a multi-answer question to test', found);
+
+      const need = await page.evaluate(() => Number((document.querySelector('.pe-chip-multi').textContent.match(/\d+/) || [0])[0]));
+      ok('and it asks for more than one', need >= 2, need);
+
+      const pick = async (i) => {
+        await page.evaluate((n) => document.querySelectorAll('.pe-opt')[n].click(), i);
+        await page.waitForTimeout(140);
+      };
+      const state = () => page.evaluate(() => {
+        const cur = document.querySelector('.pe-pal.current');
+        return {
+          cls: cur.className,
+          aria: cur.getAttribute('aria-label'),
+          tally: (document.querySelector('.pe-chip-tally') || {}).textContent || null,
+          tallyCls: (document.querySelector('.pe-chip-tally') || {}).className || '',
+          meta: (document.querySelector('.pe-progress-meta') || { textContent: '' }).textContent,
+        };
+      });
+
+      await pick(0);
+      let st = await state();
+      ok('one of two: the chip is not marked answered', !/\banswered\b/.test(st.cls), st.cls);
+      ok('it is marked incomplete instead', /incomplete/.test(st.cls), st.cls);
+      ok('and a screen reader is told the numbers', /1 of 2 chosen/.test(st.aria), st.aria);
+      ok('the card shows a running tally', /1 of 2 chosen/.test(st.tally || ''), st.tally);
+
+      await pick(1);
+      st = await state();
+      ok('two of two: now it is answered', /\banswered\b/.test(st.cls) && !/incomplete/.test(st.cls), st.cls);
+      ok('the tally says so', /2 of 2 chosen/.test(st.tally || '') && /\bok\b/.test(st.tallyCls), st.tally);
+      ok('and the counter counts it', /1 answered/.test(st.meta), st.meta);
+
+      await pick(2);
+      st = await state();
+      ok('three of two: the chip stops claiming answered', !/\banswered\b/.test(st.cls), st.cls);
+      ok('it is marked incomplete', /incomplete/.test(st.cls), st.cls);
+      ok('the aria-label says what is wrong', /3 chosen, needs 2/.test(st.aria), st.aria);
+      ok('the tally is marked over, not merely different', /over/.test(st.tallyCls), st.tallyCls);
+      ok('and the counter stops counting it', /0 answered/.test(st.meta), st.meta);
+
+      // The thing a person actually loses: submitting without knowing.
+      await page.evaluate(() => document.querySelector('.pe-btn-submit').click());
+      await page.waitForTimeout(600);
+      const dlg = await page.evaluate(() => {
+        const d = document.querySelector('.nst-dialog, [role=dialog]');
+        return d ? d.textContent.replace(/\s+/g, ' ') : '';
+      });
+      ok('the submit dialog names the wrong-sized answers',
+        /1 with the wrong number of choices/.test(dlg), dlg.slice(0, 140));
+      ok('and does not fold them into "answered"', /0 of 75 answered/.test(dlg), dlg.slice(0, 140));
+      ok('the three counts still partition the exam',
+        /0 of 75 answered/.test(dlg) && /74 unanswered/.test(dlg), dlg.slice(0, 160));
+    } finally { await ctx.close(); }
+  }
+
 } catch (err) {
   console.log('FAIL unexpected error: ' + (err && err.stack ? err.stack : err));
   fail++;

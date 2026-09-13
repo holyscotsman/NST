@@ -502,3 +502,15 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.16); border-radius: 10px;
 }
+
+/* (v2.71.0) Multi-answer questions: how many are chosen against how many the
+ * question asks for, and a palette chip that cannot score marked apart from one
+ * that can. "Answered" and "will be graded as you meant it" are different
+ * claims; until v2.71.0 the palette made only the first one and made it for
+ * both. Colour is never the only carrier -- the tally spells the numbers out
+ * and the chip's aria-label says which state it is in. */
+.pe-chip-tally { color: var(--muted-2); }
+.pe-chip-tally.ok { border-color: rgba(53, 208, 127, 0.45); color: var(--ok-text); }
+.pe-chip-tally.over { border-color: rgba(229, 72, 77, 0.5); color: var(--bad-text); }
+.pe-pal.incomplete { border-color: rgba(229, 72, 77, 0.5); color: var(--bad-text); background: rgba(229, 72, 77, 0.1); }
+.nst-high-contrast .pe-pal.incomplete { border-color: #E5484D; }

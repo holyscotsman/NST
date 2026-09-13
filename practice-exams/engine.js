@@ -97,6 +97,39 @@
     return typeof chosen === "number" && chosen >= 0;
   }
 
+  /* (v2.71.0) How a stored answer stands against what the question ASKS for.
+   *
+   * isAnswered() answers "did they touch this", which is what a progress bar
+   * wants. gradeAnswer() requires an exact-size match for a multi-answer
+   * question: choose three on a "Choose two" and it is wrong, always. Nothing
+   * asked the question in between, so all four surfaces that summarise an exam
+   * -- the palette chip, its aria-label, the "N answered" counter and the submit
+   * dialog -- reported a guaranteed-wrong question as answered, and the sitting
+   * offered no way to notice before the score.
+   *
+   * Measured in a browser on the shipped bank: a question badged "SELECT 2" took
+   * all four options, marked itself answered, and said nothing anywhere.
+   *
+   * `state` is "empty" | "short" | "ready" | "over". Single-answer questions
+   * need one, so they are only ever empty or ready and every caller can use one
+   * vocabulary. */
+  function selectionState(q, chosen) {
+    var need = (q && Array.isArray(q.correct)) ? q.correct.length : 1;
+    var have = Array.isArray(chosen)
+      ? chosen.length
+      : (typeof chosen === "number" && isFinite(chosen) && chosen >= 0 ? 1 : 0);
+    return {
+      need: need,
+      have: have,
+      multi: need > 1,
+      state: have === 0 ? "empty" : (have < need ? "short" : (have > need ? "over" : "ready")),
+    };
+  }
+
+  /* Answered AND in a state that can score. The number a timed sitting should
+   * count, because the other kind cannot come out right. */
+  function isReady(q, chosen) { return selectionState(q, chosen).state === "ready"; }
+
   /* ---- option shuffle (remaps correct index(es) + parallel optionNotes) ---- */
   function shuffleOptions(q) {
     var n = q.options.length, perm = [];
@@ -268,6 +301,8 @@
     gradeAnswer: gradeAnswer,
     recordMastery: recordMastery,
     isAnswered: isAnswered,
+    selectionState: selectionState,
+    isReady: isReady,
     shuffleOptions: shuffleOptions,
     buildExam: buildExam,
     buildPractice: buildPractice,

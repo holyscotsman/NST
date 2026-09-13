@@ -213,6 +213,19 @@
     }
 
     function answeredCount() { var n = 0; answers.forEach(function (a) { if (engine.isAnswered(a)) n++; }); return n; }
+    /* (v2.71.0) Answered is not the same as scoreable. A "Choose two" holding
+     * three choices is answered and is certain to be marked wrong, so the
+     * figures a sitting is steered by count the ones that can actually score,
+     * and incompleteCount() is what the submit dialog has to name. */
+    function readyCount() { var n = 0; answers.forEach(function (a, i) { if (engine.isReady(questions[i], a)) n++; }); return n; }
+    function incompleteCount() {
+      var n = 0;
+      answers.forEach(function (a, i) {
+        var st = engine.selectionState(questions[i], a).state;
+        if (st === "short" || st === "over") n++;
+      });
+      return n;
+    }
     function flaggedCount() { var n = 0; flags.forEach(function (f) { if (f) n++; }); return n; }
 
     /* ---- timer ---- */
@@ -284,14 +297,20 @@
     function updatePalette() {
       if (!palChips) return;
       palChips.forEach(function (b, i) {
+        var sel = engine.selectionState(questions[i], answers[i]);
         var cls = "pe-pal";
         if (i === idx) cls += " current";
-        if (engine.isAnswered(answers[i])) cls += " answered";
+        if (sel.state === "ready") cls += " answered";
+        // (v2.71.0) A chip that cannot score must not look like one that can.
+        else if (sel.state !== "empty") cls += " incomplete";
         if (flags[i]) cls += " flagged";
         b.className = cls;
         if (i === idx) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");   // (C7-04)
-        b.setAttribute("aria-label", "Question " + (i + 1)
-          + (engine.isAnswered(answers[i]) ? ", answered" : ", not answered") + (flags[i] ? ", flagged" : ""));
+        var said = sel.state === "ready" ? ", answered"
+          : sel.state === "short" ? ", " + sel.have + " of " + sel.need + " chosen"
+            : sel.state === "over" ? ", " + sel.have + " chosen, needs " + sel.need
+              : ", not answered";
+        b.setAttribute("aria-label", "Question " + (i + 1) + said + (flags[i] ? ", flagged" : ""));
       });
       if (palCentered !== idx) { ui.centerPalette(paletteEl); palCentered = idx; }
     }
@@ -308,7 +327,17 @@
 
       var meta = el("div", "pe-q-meta");
       if (q.domain) meta.appendChild(el("span", "pe-chip", esc(q.domain)));
-      if (multi) meta.appendChild(el("span", "pe-chip pe-chip-multi", "Select " + q.correct.length));
+      if (multi) {
+        /* (v2.71.0) The chip states the rule; this says whether the rule is
+         * currently met, at the moment and place the choosing happens. Without
+         * it a fourth click on a "Select 2" looked exactly like a second one. */
+        var sel = engine.selectionState(q, answers[idx]);
+        meta.appendChild(el("span", "pe-chip pe-chip-multi", "Select " + sel.need));
+        var tally = el("span", "pe-chip pe-chip-tally" + (sel.state === "ready" ? " ok" : sel.state === "over" ? " over" : ""),
+          sel.have + " of " + sel.need + " chosen");
+        tally.setAttribute("role", "status");
+        meta.appendChild(tally);
+      }
       if (flags[idx]) meta.appendChild(el("span", "pe-chip pe-chip-flag", "Flagged"));
       cardEl.appendChild(meta);
 
@@ -333,10 +362,10 @@
       nextBtn.textContent = idx === N - 1 ? "Review & submit" : "Next";
       // (UI) the bar now shows real progress — answered share fills it, and a thin tick
       // marks where you're currently positioned in the set.
-      progFill.style.width = (answeredCount() / N * 100) + "%";
+      progFill.style.width = (readyCount() / N * 100) + "%";
       var posT = root.querySelector(".pe-progress-pos");
       if (posT) posT.style.left = (((idx + 1) / N) * 100) + "%";
-      progMeta.textContent = "Question " + (idx + 1) + " of " + N + " · " + answeredCount() + " answered";
+      progMeta.textContent = "Question " + (idx + 1) + " of " + N + " · " + readyCount() + " answered";
       updatePalette();   // (C3-02) chips update in place
       try { cardEl.scrollIntoView({ block: "nearest" }); } catch (e) {}
     }
@@ -350,10 +379,16 @@
     }
 
     function promptSubmit() {
-      var unanswered = N - answeredCount();
+      // (v2.71.0) Three kinds, not two: untouched, touched but not scoreable,
+      // and done. Rolling the middle one into "answered" is what let someone
+      // submit a "Choose two" holding three and find out at the score.
+      var ready = readyCount();
+      var incomplete = incompleteCount();
+      var unanswered = N - ready - incomplete;
       var flagged = flaggedCount();
-      var msg = answeredCount() + " of " + N + " answered"
+      var msg = ready + " of " + N + " answered"
         + (unanswered ? " · " + unanswered + " unanswered" : "")
+        + (incomplete ? " · " + incomplete + " with the wrong number of choices" : "")
         + (flagged ? " · " + flagged + " flagged" : "") + ".";
       confirmModal("Submit exam?", msg + " You can't change answers after submitting.", "Submit",
         function () { doSubmit(false); },
