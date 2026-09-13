@@ -5,6 +5,61 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.69.0 — "Review 255 due" on a bank nobody had opened (2026-09-13)
+
+**Practice Exams greeted every new user, and will greet every new bank, with a
+card that contradicted itself three lines down.**
+
+Screenshotted at 390px on a fresh install:
+
+```
+REVIEW
+Review 255 due
+The questions the scheduler wants back today, oldest first.
+Practice Mode rules: instant feedback, the explanation revealed, untimed.
+  255 new · this session covers 25
+[ Start review -> ]
+```
+
+Nothing had ever been answered. There was nothing to review, nothing the
+scheduler wanted back, and the only accurate line on the card was the facts
+line — the one `NSTReview.describe()` wrote.
+
+`dueQueue()` has always separated `overdue` from `fresh`, on the stated
+reasoning that they are "different kinds of work and a reader plans differently
+for each". That is as true of a heading as it is of a facts line, but the card
+composed its own tag, title, paragraph and button from `dq.total` and a
+hardcoded sentence, and three of the four then described work that did not
+exist.
+
+`NSTReview.headline(qd)` is new and returns all four together, from the module
+that knows which questions are revision and which are new:
+
+| queue | heading | button |
+|---|---|---|
+| nothing answered yet | `START` · "Start 255 new" | Start studying |
+| 4 overdue, 36 new | `REVIEW` · "Review 4 due" | Start review |
+| 4 overdue, none new | `REVIEW` · "Review 4 due" | Start review |
+
+The number in the heading is the one the heading's own word applies to.
+"Review 4 due" beside "4 due again · 36 new" agrees with itself; "Review 40
+due" quietly recounts new material as revision. Nothing is hidden — the new
+questions are still announced by `describe()` and still fill the session once
+the overdue run out, and the all-overdue case, which is what the original
+wording was written for, is unchanged.
+
+review-test gains 23 checks (75 → 98) covering all three states plus the empty
+and malformed ones. Two `[neg]` controls: the wording this replaced, applied to
+the same all-new fixture, must still call 40 never-answered questions a review;
+and the two fixtures must produce different tags, so a headline that always
+answered "START" cannot pass. Reverting the wording turns 10 of them red.
+
+One existing assertion had to change. review-test read the app source and
+required the literal `Review ' + dq.total + ' due` — it was guarding against a
+real thing (a heading numbered by the session length rather than the queue) and
+that guard is kept, now asked of `headline()` instead. Its number was right all
+along. Its word was not.
+
 ## v2.68.0 — the score that belonged to a different bank (2026-09-13)
 
 **Every figure on the launcher's progress card is scoped to one question bank.

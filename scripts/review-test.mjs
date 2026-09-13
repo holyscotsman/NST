@@ -209,12 +209,84 @@ function bank(n) {
   ok('the session is the capped slice', q.questions.length === 25, q.questions.length);
   ok('the two numbers are deliberately different here', q.total !== q.questions.length);
   // A card headed "Review 25 due" beside "300 new" contradicts itself, so the
-  // headline must come from total and the session length from describe().
-  const app = read('practice-exams', 'app.js');
-  ok('the card headline uses the total, not the session length',
-    /Review ' \+ dq\.total \+ ' due/.test(app));
+  // headline's number is never the session length. (Until v2.69.0 this was
+  // asserted against the app source, which hardcoded `dq.total`; the number is
+  // right but the WORD was not -- see the headline group below.)
+  const h = R.headline(q);
+  ok('the headline never prints the session length as its number',
+    h.title.indexOf('25') === -1, h.title);
   ok('and the session length is stated separately',
     /covers /.test(R.describe(q)), R.describe(q));
+  ok('the app composes its card from headline(), not its own wording',
+    /Review\.headline\(dq\)/.test(read('practice-exams', 'app.js')));
+}
+
+/* ---- the headline says which KIND of work this is ----
+ *
+ * dueQueue() has always separated overdue from new, "because those two are
+ * different kinds of work and a reader plans differently for each". The card
+ * headline did not: on a fresh install Practice Exams read
+ *
+ *   REVIEW | Review 255 due | "The questions the scheduler wants back today"
+ *          | 255 new · this session covers 25
+ *
+ * -- three claims of revision over a facts line saying every one was new. */
+{
+  const { M, R } = fresh();
+  const qs = bank(40);
+
+  // Nothing answered: this is a first pass, not revision.
+  const allNew = R.dueQueue({ questions: qs, mastery: M, limit: 25, now: T0 });
+  const hNew = R.headline(allNew);
+  ok('a queue of nothing but new questions is not headed "Review"', !/review/i.test(hNew.title), hNew.title);
+  ok('it is headed with what it is', /start 40 new/i.test(hNew.title), hNew.title);
+  ok('its tag stops saying REVIEW too', hNew.tag === 'START', hNew.tag);
+  ok('and the paragraph stops claiming the scheduler wants them back',
+    !/wants back/.test(hNew.blurb), hNew.blurb);
+  ok('the button matches the work', /studying/i.test(hNew.cta), hNew.cta);
+  ok('the headline never contradicts the facts line beside it',
+    /40 new/.test(R.describe(allNew)) && /40 new/i.test(hNew.title));
+
+  // [neg] the old wording on the same fixture: the control that shows this
+  // fixture can tell the two apart, rather than passing anything.
+  const oldTitle = 'Review ' + allNew.total + ' due';
+  ok('[neg] the wording this replaced calls 40 never-answered questions a review',
+    /review/i.test(oldTitle) && allNew.overdue === 0);
+
+  // Four answered and fallen due, thirty-six untouched.
+  ['q10', 'q11', 'q12', 'q13'].forEach((id) => M.record(id, { correct: true, gate: 'always', now: T0 }));
+  const mixed = R.dueQueue({ questions: qs, mastery: M, limit: 25, now: T0 + 30 * DAY });
+  const hMix = R.headline(mixed);
+  ok('a mixed queue is headed Review again', hMix.tag === 'REVIEW' && /review/i.test(hMix.title));
+  ok('the number in the heading is the one its own word applies to',
+    /review 4 due/i.test(hMix.title), hMix.title);
+  ok('it does not recount new material as revision', hMix.title.indexOf('40') === -1, hMix.title);
+  ok('and it agrees with the facts line', /4 due again/.test(R.describe(mixed)));
+  ok('the paragraph says new material fills the rest of the session',
+    /new material/.test(hMix.blurb), hMix.blurb);
+
+  // [neg] a headline that always said START would fail here.
+  ok('[neg] the same fixture answered differently produces a different tag',
+    hNew.tag !== hMix.tag, hNew.tag + '/' + hMix.tag);
+
+  // Everything overdue: the case the original wording was written for, unchanged.
+  const { M: M2, R: R2 } = fresh();
+  const small = bank(4);
+  ['q0', 'q1', 'q2', 'q3'].forEach((id) => M2.record(id, { correct: true, gate: 'always', now: T0 }));
+  const allOld = R2.dueQueue({ questions: small, mastery: M2, limit: 25, now: T0 + 30 * DAY });
+  const hOld = R2.headline(allOld);
+  ok('an all-overdue queue keeps the wording it always had',
+    hOld.tag === 'REVIEW' && /review 4 due/i.test(hOld.title), hOld.title);
+  ok('with no new material it does not promise any', !/new material/.test(hOld.blurb), hOld.blurb);
+  ok('the scheduler sentence survives where it is true', /wants back/.test(hOld.blurb));
+
+  // Empty and malformed.
+  const none = R.headline(R.dueQueue({ questions: [], mastery: M, now: T0 }));
+  ok('an empty queue says nothing is due', /nothing due/i.test(none.title), none.title);
+  ok('headline() survives being handed nothing', /nothing due/i.test(R.headline(null).title));
+  ['tag', 'title', 'blurb', 'cta'].forEach((k) => {
+    ok('every headline carries a ' + k, typeof hNew[k] === 'string' && hNew[k].length > 0);
+  });
 }
 
 /* ---- one question's own history ---- */

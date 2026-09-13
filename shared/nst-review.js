@@ -93,6 +93,55 @@
     return s;
   }
 
+  /* How the queue should be ANNOUNCED -- the tag, the heading, the paragraph and
+   * the button, as one object, because all four are claims about the same set
+   * and a surface that composes them itself will eventually get one wrong.
+   *
+   * It already had. Practice Exams headed the card "Review 255 due" over a facts
+   * line reading "255 new · this session covers 25", and a paragraph beginning
+   * "The questions the scheduler wants back today". On a fresh install -- every
+   * user's first visit, and every new bank's -- none of those 255 had ever been
+   * answered, so there was nothing to review, nothing the scheduler wanted back,
+   * and the only accurate line on the card was the one `describe()` wrote.
+   *
+   * dueQueue() has always separated `overdue` from `fresh`, on the reasoning
+   * that they are "different kinds of work and a reader plans differently for
+   * each". That is exactly as true of the heading as it is of the facts line.
+   *
+   * The number in the heading is the number the heading's own WORD applies to:
+   * "Review 6 due" beside "6 due again · 3 new" agrees with itself; "Review 9
+   * due" quietly recounts new material as revision. The new questions are not
+   * hidden -- describe() still announces them, and the session still includes
+   * them once the overdue run out. */
+  function headline(qd) {
+    if (!qd || !qd.total) {
+      return {
+        tag: "REVIEW",
+        title: "Nothing due right now",
+        blurb: "Every question you have answered is still inside its review interval.",
+        cta: "Start review",
+      };
+    }
+    if (!qd.overdue) {
+      // Nothing has come back yet, so this is not revision: it is the first pass.
+      return {
+        tag: "START",
+        title: "Start " + qd.fresh + " new",
+        blurb: "Questions you have not answered yet, in the bank's order. "
+          + "Practice Mode rules: instant feedback, the explanation revealed, untimed.",
+        cta: "Start studying",
+      };
+    }
+    return {
+      tag: "REVIEW",
+      title: "Review " + qd.overdue + " due",
+      blurb: "The questions the scheduler wants back today, oldest first"
+        + (qd.fresh ? ", then new material to fill the session. " : ". ")
+        + "Practice Mode rules: instant feedback, the explanation revealed, untimed.",
+      cta: "Start review",
+    };
+  }
+
   /* What the store knows about ONE question, as a sentence to show beside it.
    *
    * "Seen 4 times · 1 right, 3 wrong · back in 2 days"
@@ -132,6 +181,7 @@
     dueQueue: dueQueue,
     historyLine: historyLine,
     describe: describe,
+    headline: headline,
     DEFAULT_LIMIT: DEFAULT_LIMIT,
   };
 })();

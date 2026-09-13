@@ -212,16 +212,19 @@
       if (dq.total > 0) {
         var rcard = el("button", "pe-modecard pe-modecard-review");
         rcard.type = "button";
+        // (v2.69.0) The tag, heading, paragraph and button are four claims about
+        // one set, so NSTReview composes them together -- the module that knows
+        // which of them are revision and which are new material. The number in
+        // the heading is the one its own word applies to: "Review 6 due" beside
+        // "6 due again · 3 new" agrees with itself, and a queue of nothing but
+        // new questions is not headed "Review" at all.
+        var hl = Review.headline(dq);
         rcard.innerHTML =
-          '<div class="pe-modecard-tag">REVIEW</div>' +
-          // The TOTAL due, not the session length: a card headed "Review 25 due"
-          // beside a line reading "226 due again" contradicts itself, and the
-          // number someone acts on has to be the real one.
-          '<h2 class="pe-modecard-title">Review ' + dq.total + ' due</h2>' +
-          '<p class="pe-modecard-desc">The questions the scheduler wants back today, oldest first. ' +
-            'Practice Mode rules: instant feedback, the explanation revealed, untimed.</p>' +
+          '<div class="pe-modecard-tag">' + esc(hl.tag) + '</div>' +
+          '<h2 class="pe-modecard-title">' + esc(hl.title) + '</h2>' +
+          '<p class="pe-modecard-desc">' + esc(hl.blurb) + '</p>' +
           '<ul class="pe-modecard-facts"><li>' + esc(Review.describe(dq)) + '</li></ul>' +
-          '<span class="pe-modecard-cta">Start review ' + ui.ICONS.arrowRight + '</span>';
+          '<span class="pe-modecard-cta">' + esc(hl.cta) + ' ' + ui.ICONS.arrowRight + '</span>';
         rcard.addEventListener("click", function () {
           PE.practice.start(container, {
             questions: dq.questions,
