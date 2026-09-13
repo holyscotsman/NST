@@ -5,6 +5,80 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.35.0 — The two apps nobody had ever audited (2026-09-13)
+
+The accessibility audit covered the launcher and Practice Exams. **StarNix and
+WWTBANE had no accessibility gate of any kind** — the two surfaces that are the
+most animated, the most actively worked on, and the most likely to grow a control
+nobody can see the focus on.
+
+Both are clean: zero axe violations, every control Tab reaches has a name, and
+every one shows a 3px focus ring. **Nothing is fixed here.** This is the gate.
+
+### Added
+- **10 checks in `a11y-audit.mjs` (55 total)** covering both games: axe across
+  WCAG 2.0/2.1 A and AA, plus the keyboard walk — every control the tab order
+  reaches must have an accessible name and a visible focus indicator.
+
+### The games are tabbed, not focused, and that matters
+`:focus-visible` matches only in keyboard modality, and a programmatic `focus()`
+does not reliably establish it. A probe written that way **reported two WWTBANE
+controls as having no focus ring** — `seed-input` and `secondary`. Tabbing to
+them shows `focus-visible: true` and `outline: solid 3px rgb(255,200,87)` on
+every control, and `seed-input` is not even in the tab order until its
+`<details>` is opened.
+
+That trap is documented in this file's own header, and a fresh probe fell into it
+anyway. Pressing Tab is both what a keyboard user actually does and immune to it.
+The existing surfaces keep the `focus()` method, which is exercised and working
+there and reaches controls the tab order does not.
+
+### Verified
+Suppressing WWTBANE's focus ring fails the ring check, naming all four affected
+controls. Emptying a button's label fails **two** checks — the name walk and
+axe's own `button-name`. An image with no alt fails axe with
+`[CRITICAL] image-alt`.
+
+## Also in this release: does the readiness number mean anything?
+
+The readiness estimate is the highest-stakes *claim* the app makes — tell someone
+they are ready when they are not and they pay an exam fee to find out. It had 54
+checks. Every one of them tests the **machinery**: the guess floor, the
+smoothing, the decay, the coverage gate. Not one asks the question a reader of
+the number actually has: *if it says 90%, is this person answering about 90%?*
+A model can honour every rule in that module and still be a thermometer reading
+in the wrong units.
+
+**It is well calibrated.** Simulated learners studying the way people study — the
+whole bank, a pass every three days — are tracked closely, and the caution early
+on is real rather than decorative:
+
+```
+passes  days  score  band      verdict          (true ability 90%)
+1       3     87     80-94%    On the edge
+3       9     89     83-96%    Likely ready
+8       24    91     85-97%    Likely ready
+```
+
+Nothing is fixed. What the checks add is the ability to *notice*:
+
+### Added
+- **12 calibration checks in `readiness-test.mjs` (54 → 66).** Learners of known
+  ability — 90%, 80%, 55% — must each be estimated within a few points of what
+  they can actually do, the band must contain their true ability, a genuinely
+  unready one must never be told otherwise and must have the top of their band
+  below the pass mark, a stronger learner must always outscore a weaker one, and
+  a single pass must not open at "likely ready" while still landing in the right
+  neighbourhood. The generator is seeded, so a failure is a change in the model
+  rather than a bad afternoon.
+
+### Why it was worth adding
+**A model that inflated every estimate by 12 points passed 53 of the 54 existing
+checks.** Against the new ones it fails four, naming the numbers: a 90% learner
+reported as 100%, an 80% learner as 94%, a 55% learner as 65%. A model that
+ignores the evidence and tells everyone "75%" fails six, including the ordering
+check that no amount of conservatism can satisfy.
+
 ## v2.34.0 — The branches a sweep cannot reach (2026-09-13)
 
 v2.33.0 swept every page builder with hostile input. Feeding input only
