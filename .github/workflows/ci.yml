@@ -148,7 +148,7 @@ jobs:
       # had no throttle, so a loop created accounts and burned CPU without limit.
       - run: node ../scripts/auth-test.mjs
 
-  # (v2.23.0) The five suites that need a real browser — 109 checks covering
+  # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-
   # background contrast, phone and landscape layout, the DOM half of the security
   # gate, and a 15-step end-to-end journey through a real server and a real
@@ -203,6 +203,13 @@ jobs:
           curl -sf -o /dev/null http://127.0.0.1:8124/index.html || { echo "static server never came up"; cat /tmp/static.log; exit 1; }
       - run: node scripts/a11y-audit.mjs
       - run: node scripts/a11y-browser.mjs
+      # (v2.26.0) one preference, four front-ends, three different idioms for
+      # expressing it -- shared CSS classes, a StarNix profile object, a WWTBANE
+      # body class resolved through its own tri-state. Nothing checked they
+      # agree, and any one of them could stop reading the key with every other
+      # suite still green, while somebody who needs reduced motion gets a 3D
+      # camera flight. Reads the BUILT StarNix, so it runs after build.mjs.
+      - run: node scripts/prefs-test.mjs
       - run: node scripts/mobile-audit.mjs
       # The rendered half of the security gate: a malicious bank and poisoned
       # storage loaded into all four real pages, where security-test.mjs only

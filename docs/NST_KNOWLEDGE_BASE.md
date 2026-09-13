@@ -298,8 +298,9 @@ IDs are stable so mastery records survive re-imports.
   harnesses (`build.mjs`, `bank-lint`, `scheduler-test`, `multi-answer-test`, `shuffle-test`,
   `timer-test`), and the shared `scripts/*-test.mjs` battery (mastery, sync, banks, backup,
   server, auth, path guard, compression, robustness, dashboard, readiness, review).
-- **The fourth job (`browser`, v2.23.0)** installs Chromium and runs the five suites that need
-  one — 109 checks: `a11y-audit` (45), `a11y-browser` (14, painted-background contrast),
+- **The fourth job (`browser`, v2.23.0)** installs Chromium and runs the six suites that need
+  one — 137 checks: `a11y-audit` (45), `a11y-browser` (14, painted-background contrast),
+  `prefs-test` (28, one preference reaching all four front-ends, each in its own idiom),
   `mobile-audit` (11), `attack-browser` (24, the rendered half of the security gate) and
   `smoke-test` (15, end to end through a real server and login). It is the repo's only
   `npm install`, and it is dev tooling: the app itself ships no dependencies.
