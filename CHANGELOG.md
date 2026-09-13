@@ -5,6 +5,70 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.59.0 — the map that never moved (2026-09-13)
+
+**A defect. The question strip in both study modes was pinned to question one
+for the whole sitting. On a phone, everything past question nine was off-screen.**
+
+### What the strip is for
+Both modes draw a row of numbered chips above the card: where you are, what you
+have answered, what you flagged, and the only way to jump straight to one. With
+75 questions it is far wider than the screen — 21 chips fit on a 1280px desktop,
+9 on a 390px phone — so it scrolls.
+
+`ui.centerPalette()` exists to scroll the current chip into view. It was called
+from exactly one place: `buildPalette()`. That runs **once**, at which point the
+current question is #1 and the strip is already at `scrollLeft` 0.
+
+So it was a no-op every time it ran, and never ran when it would have done
+something. Measured, jumping through a real sitting:
+
+```
+                     q1        q10        q25   q50   q75
+exam desktop 1280    visible   visible    OFF   OFF   OFF
+exam phone 390       visible   OFF        OFF   OFF   OFF
+practice phone 390   visible   OFF        OFF   OFF   OFF
+```
+
+Question 75 of 75, ninety seconds left, and the map of the exam is showing
+questions 1 to 9.
+
+### How it got there
+Honestly, and that is the interesting part. **C3-01** stopped rebuilding all 75
+chips on every render — the rebuild threw an activating keyboard user's focus to
+`<body>` on every option click — and moved the build out of the render path. The
+centring call went with it. Its comment even records the reasoning: the old code
+"re-centered the strip needlessly". It did; centring on *navigation* was simply
+never put back.
+
+### The fix, and why it is not "centre every render"
+Centring on every update is exactly what C3-01 removed, and rightly: it yanks the
+strip back to the current chip while you are scrolling it to find a flagged one.
+Navigation must move the window; answering and flagging must not. So the strip
+now records which chip it is scrolled to and re-centres only when the current
+question **changes** — one line in each mode, gated on `palCentered !== idx`.
+
+### The gate
+`scripts/palette-test.mjs`, new, 14 checks, in the browser CI job after
+`resume-test`.
+
+It measures the thing itself: after jumping to questions 1, 10, 25, 50 and 75, is
+the current chip's rectangle inside the strip's visible box — in Exam Mode at
+1280px, Exam Mode at 390px, and Practice Mode at 390px. Then the other half:
+park the strip somewhere deliberately, answer and flag the current question, and
+require the scroll position not to move; then jump again and require that it
+does. A `[neg]` control scrolls a current chip out of view on purpose and
+requires the probe to report it, so the measurement cannot quietly stop seeing
+off-screen chips. Two source rules state the original bug directly: the centring
+must be reachable from `updatePalette`, not only from `buildPalette`.
+
+Against the original code it goes red on 8 of 14.
+
+### A rule that ran out of vocabulary
+Adding an eleventh browser suite turned `docs-test` red — not on drift, but on
+its own word list, which stopped at ten: *"README says Eleven, the job runs 11"*.
+Extended to twenty.
+
 ## v2.58.0 — the address the client wrote (2026-09-13)
 
 **A vulnerability. With the reverse-proxy setting this project's own README
