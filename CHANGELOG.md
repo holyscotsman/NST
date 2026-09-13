@@ -5,6 +5,72 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.22.0 — What the login page gave away (2026-09-13)
+
+This server sits on a company LAN with self-service sign-up, a root account and
+one SQLite file holding everyone's progress. The auth module was written
+carefully — scrypt, per-user salts, hashed session tokens, timing-safe
+comparison everywhere, one identical error message for a failed sign-in. So this
+cycle stopped reading it and probed a running instance instead. Four findings,
+each measured before and after.
+
+### Fixed
+- **One malformed cookie took the whole site down for that browser.**
+  `decodeURIComponent('%')` throws a `URIError`, `parseCookies` did not catch it,
+  and the session cookie is read *before* routing — so a single junk cookie
+  answered **500 to every page, the sign-in screen included**, with no way in to
+  clear it. The Cookie header is attacker-controlled on every request, which made
+  it a one-line denial of service against any visitor. A value that will not
+  decode is now kept verbatim: it matches no session and no CSRF token, which is
+  the correct outcome. Being unreadable is not grounds for taking the server
+  down. Measured: `Cookie: nst_session=%` → **500 before, 200 after.**
+
+- **The clock named every account on the server.** A failed sign-in deliberately
+  returns one message for both halves, so the text could not be used to
+  enumerate usernames. But an unknown username short-circuited before
+  `verifyPassword`, skipping the deliberately-slow scrypt entirely — so it
+  answered in **1.6 ms** where a real username took **31.6 ms**. A 20x tell, on
+  the exact question the error text refused to answer. A missing *or disabled*
+  account now burns the same scrypt against a fixed throwaway salt and discards
+  the result. Measured: **19.6x before, 1.0x after.**
+
+- **Sign-up had no throttle at all.** Every POST ran a deliberately costly hash
+  and wrote a row, so a loop against it pinned the CPU and grew the database
+  without limit — and *"That username is already taken"* answered the
+  enumeration question at full speed. Sign-up is now rate-limited per address
+  **before** the name lookup, the hash, or the insert, and every attempt counts
+  rather than only the failures: the thing being capped is how fast accounts can
+  be created. Measured: 20 rapid posts → **20 accounts before, 8 then 429 after.**
+
+- **The throttle was itself a way to exhaust the process.** Attempts are keyed
+  `ip|username`, and an unknown username costs nothing to reject, so a bot
+  posting a fresh random name every time minted a map entry that nothing ever
+  came back to expire. The map is now capped: expired records go first, then the
+  oldest records *not* serving a live lockout — so filling it cannot be used to
+  wash out a lockout someone has already earned.
+
+- **Closing the timing leak opened a CPU one, so that is closed too.** Making an
+  unknown username cost a full scrypt meant a bot could force 30 ms of work per
+  request — and the throttle is keyed `ip|username`, so a bot inventing a fresh
+  name every time never hits the same key twice and was never throttled at all.
+  Failed sign-ins are now *also* counted per address, on a much looser limit
+  (60 per 15 minutes, failures only) that a person cannot reach and a shared
+  office address has room for. A successful sign-in clears it. Measured: 80
+  logins under 80 different usernames from one address → **60 served, then 429**,
+  capping the burn at 1.9 s instead of leaving it open.
+
+### Added
+- **`scripts/auth-test.mjs` (CI-gated, 68 checks).** Each of the four above as
+  the assertion that the probe now fails, including a real timing measurement of
+  known-vs-unknown username, a lockout that has to survive a map flood, proof
+  that a many-username flood the fine gate cannot see is caught by the coarse
+  one, and the ordering proof that both gates run before any expensive work —
+  the scrypt, the name lookup, the insert. Plus the
+  guarantees that were already right, pinned so they stay: HttpOnly and
+  SameSite=Strict on the session cookie, Secure only over https, a sign-out that
+  actually expires it, CSRF rejection on every mismatch, unique salts, hashed
+  session tokens, and the username and password rules.
+
 ## v2.21.0 — Can a request kill the server? (2026-09-13)
 
 The app server is one Node process on a VM, often started by hand in a terminal
