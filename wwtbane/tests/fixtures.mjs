@@ -52,7 +52,7 @@ export function multiQuestion() {
  */
 import { readFileSync } from 'node:fs';
 
-export function adaptMarkdownBank(md) {
+export function adaptMarkdownBank(md, afterParse) {
   const root = new URL('../../shared/', import.meta.url);
   const parser = readFileSync(new URL('bank-parser.js', root), 'utf8');
   const loader = readFileSync(new URL('bank-loader.js', root), 'utf8');
@@ -69,6 +69,7 @@ export function adaptMarkdownBank(md) {
   if (parsed.errors && parsed.errors.length) {
     throw new Error('fixture bank does not parse: ' + JSON.stringify(parsed.errors));
   }
+  if (typeof afterParse === 'function') parsed.questions.forEach(afterParse);
   return {
     questions: shim.NSTBank.toWWTBANE({
       id: 'fixture', meta: parsed.meta, questions: parsed.questions,
@@ -99,4 +100,20 @@ export function markdownBank({ easy = 12, medium = 12, hard = 12, extreme = 4, c
   };
   add('easy', easy); add('medium', medium); add('hard', hard); add('extreme', extreme);
   return out.join('\n');
+}
+
+/* (v2.53.0) The bank the app actually serves: the manifest's full NCP-MCI bank, read
+ * the way the browser reads it. Two tests used to import src/content/questions.js — a
+ * 309 KB compiled fixture the app never loaded — and one of them enforced ITS size into
+ * the README, so player-facing copy advertised 233 questions while players got 255. */
+export function shippedBank(bankFile = '../../banks/ncp-mci/ncp-mci.md') {
+  const url = new URL(bankFile, import.meta.url);
+  const md = readFileSync(url, 'utf8');
+  /* load() resolves each exhibit's `imageSrc` against the bank file's own URL before the
+   * adapter runs; parse() alone never sets it. Mimic that, or every exhibit question
+   * arrives with image.src undefined and the schema rejects it for a reason that exists
+   * only in the fixture. */
+  return adaptMarkdownBank(md, (q) => {
+    q.imageSrc = q.image ? new URL(q.image, url).href : null;
+  });
 }
