@@ -309,5 +309,86 @@ function drill(M, qs, count, reps, correct, at = T0) {
   ok('the home page shows it', /NSTReadiness/.test(home));
 }
 
+/* ---- does the number track the truth? ------------------------------------
+ *
+ * Everything above checks the machinery: the guess floor, the smoothing, the
+ * decay, the coverage gate. None of it asks the question a reader of the number
+ * actually cares about -- **if it says 90%, is the person answering about 90%?**
+ * A model can honour every rule above and still be a thermometer that reads in
+ * the wrong units.
+ *
+ * So: simulate learners of known ability studying the way people study -- the
+ * whole bank, spaced a few days apart -- and require the estimate to converge on
+ * what they can actually do. The generator is seeded, so a failure here is a
+ * real change in the model rather than a bad afternoon.
+ */
+{
+  const DAY = 86400000;
+  const BANK = Array.from({ length: 255 }, (_, i) => ({
+    id: 'cal' + i, domain: 'd' + (i % 5), options: ['a', 'b', 'c', 'd'], correct: 0,
+  }));
+
+  /* Deterministic: the same learner every run. */
+  function learner(trueP, passes, seedStart) {
+    const { M, R } = fresh();
+    let seed = seedStart;
+    const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+    const t0 = 1_700_000_000_000;
+    let at = t0, est = null, seen = [];
+    for (let p = 1; p <= passes; p++) {
+      at = t0 + p * 3 * DAY;                      // a pass every three days
+      for (const q of BANK) M.record(q.id, { correct: rnd() < trueP, gate: 'due', step: 1, now: at });
+      est = R.estimate({ questions: BANK, mastery: M, pass: 0.8, examSize: 75, now: at });
+      seen.push(est.score);
+    }
+    return { est, trail: seen };
+  }
+
+  /* A strong candidate. The estimate must land near what they can do -- not
+   * flatter them, and not bury them either, or nobody will believe it twice. */
+  const strong = learner(0.90, 8, 7);
+  ok('a 90% learner is estimated near 90%',
+    Math.abs(strong.est.score - 90) <= 6, `says ${strong.est.score}%`);
+  ok('and the band contains their true ability',
+    strong.est.low <= 90 && strong.est.high >= 90, `${strong.est.low}–${strong.est.high}%`);
+  ok('and they are told they are likely ready',
+    strong.est.verdict === 'likely-ready', `${strong.est.verdict} (${strong.est.label})`);
+
+  /* Somebody who is genuinely not ready must be told so. Over-stating here is
+   * the failure that costs an exam fee. */
+  const weak = learner(0.55, 8, 11);
+  ok('a 55% learner is estimated near 55%',
+    Math.abs(weak.est.score - 55) <= 8, `says ${weak.est.score}%`);
+  ok('and is NOT told they are ready', weak.est.verdict !== 'likely-ready', `${weak.est.verdict} (${weak.est.label})`);
+  ok('and the top of their band stays below the pass mark',
+    weak.est.high < 80, `${weak.est.low}–${weak.est.high}%`);
+
+  /* Right at the bar is where a wrong answer does the most harm, so the model
+   * is allowed -- expected -- to withhold a verdict rather than pick a side. */
+  const edge = learner(0.80, 8, 13);
+  ok('an 80% learner is estimated near 80%',
+    Math.abs(edge.est.score - 80) <= 7, `says ${edge.est.score}%`);
+  ok('and at the bar the verdict is not a confident "ready"',
+    edge.est.verdict !== 'likely-ready' || edge.est.low >= 80,
+    `${edge.est.label} ${edge.est.low}–${edge.est.high}%`);
+
+  /* Ordering: better learners must score better. A model that is merely
+   * conservative could pass every check above by reporting the same number to
+   * everyone. */
+  ok('a stronger learner always scores above a weaker one',
+    strong.est.score > edge.est.score && edge.est.score > weak.est.score,
+    `${weak.est.score} < ${edge.est.score} < ${strong.est.score}`);
+
+  /* Early on, the honest answer is caution -- the first pass is thin evidence
+   * however well it went. It must not open at "ready". */
+  const firstPass = learner(0.90, 1, 7);
+  ok('one pass, however good, does not open at "likely ready"',
+    firstPass.est.verdict !== 'likely-ready', `${firstPass.est.label} ${firstPass.est.score}%`);
+  ok('but it is already in the right neighbourhood, not at zero',
+    firstPass.est.score > 60, `${firstPass.est.score}%`);
+  ok('and the estimate rises as the evidence accumulates',
+    strong.est.score >= firstPass.est.score, `${firstPass.est.score} -> ${strong.est.score}`);
+}
+
 console.log('\n' + (fail ? `READINESS: ${fail} FAILED (${pass} passed)` : `READINESS: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);
