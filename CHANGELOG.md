@@ -39,6 +39,24 @@ same path. Three more, none of them reported, all of them quiet by construction.
   every successful first push until the test insisted otherwise.)
 
 ### Added
+- **`scripts/smoke-test.mjs` — the whole app, once, the way a person uses it.**
+  Every other suite tests one module in isolation. This one starts a real server
+  with a throwaway database and drives a real browser through the actual journey:
+  a colleague creates an account, signs in, picks a bank, answers questions, and
+  their progress reaches the account and comes back on the dashboard; then root
+  signs in, sees both accounts, downloads a backup and checks for updates. 15
+  checks.
+
+  It exists because every unit suite passing is not the same as the app working.
+  Fourteen releases in one evening is exactly when something composes badly — a
+  CSP that blocks a new call, a route that moved, a module loaded in the wrong
+  order — and no focused test would notice.
+
+  It caught one thing immediately, which turned out not to be a bug: a check that
+  fetched an asset from `/admin` failed, because that page is `default-src 'none'`
+  with no `connect-src` — correct, since it has no script and needs no network of
+  its own. The test was measuring the CSP rather than the thing it meant to.
+
 - **`scripts/sync-test.mjs` (CI-gated, 25 checks)** against a scriptable fetch:
   the keepalive threshold, which transport each body size chooses, that a second
   page-hide flush still sends, that one failure is quiet and three are not, and
