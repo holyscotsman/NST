@@ -1670,7 +1670,7 @@
     // compact progress — guarded (the questions provider may not expose stats())
     try {
       if (core.questions && core.questions.stats) {
-        card.appendChild(el("div", "sx-seclabel", "Progress · weakest domains"));
+        card.appendChild(el("div", "sx-seclabel", "Progress · least mastered domains"));
         var grid = el("div", "sx-stat-grid"); card.appendChild(grid);
         var dlist = el("div", "sx-domain-list"); card.appendChild(dlist);
         this._buildStatsSummary(grid, dlist, { compact: true, maxDomains: 5 });

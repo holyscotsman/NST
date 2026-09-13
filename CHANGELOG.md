@@ -5,6 +5,92 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.57.0 — the word has to mean the measurement (2026-09-13)
+
+**A defect. The home page told you your best subject was your worst, and printed
+the claim as a bare percentage under a card that also reports accuracy.**
+
+### What it said, and what was true
+"Weakest areas" is ranked from `summary().score` — box progress across the WHOLE
+domain, never-seen questions included at box 0. That is a coverage measure. A
+domain you have opened four times out of twenty-six scores near zero however well
+those four went, so the ranking sorts by how much of each topic you have started,
+not by how well you answer it.
+
+Measured on the shipped 255-question bank, with every domain held at the same
+~73% accuracy and only coverage varied:
+
+```
+domain             shown%   true accuracy%   coverage%   seen/total
+architecture            4             75          15          4/26
+data-protection         6             71          24          7/29
+lifecycle               8             71          33          7/21
+...
+vms                    23             72          95         39/41
+
+"Weakest areas" picks: architecture, data-protection, lifecycle
+```
+
+`architecture` is the most accurate of the nine domains. The card named it the
+weakest and drew it at 4%.
+
+Three lines above, the same card reads **ACCURACY 73%**. Two percentages, no
+units, measuring different things — and the reading a person lands on ("I get 4%
+of architecture right") is both wrong and the most alarming one available. The
+accessible name already said "4% mastered"; only the visible text had lost the
+word.
+
+Then "Pick one to practise just that area" sends them to drill the topic they are
+best at.
+
+### The fix, in three parts
+**Rank on what the word claims.** `NSTDash.model` now orders by domain accuracy
+once a domain has at least 8 answers behind it — below that, one miss out of
+three is 67% and the list reorders on a single answer, which is not a diagnosis.
+`NSTMastery.summary()` gained the per-domain `correct`/`incorrect` counts this
+needs, and an `accuracy` that is **null**, not 0%, for a domain with no answers.
+
+**Say which question was answered.** The model reports `weakBasis`:
+`"accuracy"` when there is evidence, `"coverage"` before that. The launcher takes
+its heading from it — "Weakest areas · Ranked by how often you answer them right"
+versus "Least covered areas · Not enough answers yet to rank these by accuracy" —
+and in the coverage case it now ranks and prints the *same* number, instead of
+sorting by box score and labelling it coverage.
+
+**Put the unit on the number.** Every row reads `62% correct`, never `62%`. The
+column was 40px, sized for a bare percentage; it is 76px now.
+
+The same word had the same problem in StarNix, where the numbers do carry their
+units ("4% mastered", "12/26"), so nothing there could be misread — only the
+headings were asserting weakness over a mastery ranking. Two words changed:
+"Weakest domain:" is "Least mastered:", and "Progress · weakest domains" is
+"Progress · least mastered domains". The rankings are unchanged; for a drill
+prompt, least-mastered is a fair thing to suggest, and now it says so.
+
+### The gate
+`dashboard-test.mjs`, 106 → 116 checks. The rule is a discrimination test, which
+is the only kind that could have caught this: build nine domains at **identical
+accuracy** and varying coverage, and require that the ranking finds nothing to
+separate them on; then make one domain genuinely worse **and** the best covered,
+and require that it comes first. A fixture-validity control confirms the two
+rankings actually diverge on that data — sorting it by box score reproduces the
+coverage order exactly.
+
+Reverting the model and re-running says it plainly:
+
+```
+FAIL and the percentage shown IS that accuracy, not box progress -- ["25/75",...]
+```
+
+25% shown for a domain answered right 75% of the time.
+
+### A bug this cycle introduced and the measurement caught
+The new per-domain loop declared `var answered`, and `var` is function-scoped:
+that name already held the bank-wide answer count `accuracy` divides by. The card
+went to **100%**. It was caught on the next measurement run, one line after the
+fix that needed it, and is why the rename carries a comment rather than just a
+new name.
+
 ## v2.56.0 — closing the class (2026-09-13)
 
 **No defect. One rule that generalizes the last two cycles, and a sweep that says

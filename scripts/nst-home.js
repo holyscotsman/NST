@@ -838,9 +838,35 @@
     } catch (e) { /* storage unavailable -- the link still opens the tool */ }
   }
 
-  function dashWeak(weakest) {
+  /* Weakest areas.
+   *
+   * THE PERCENTAGE HAS TO CARRY ITS UNIT
+   * This row used to print a bare "7%" three lines under a stat labelled
+   * ACCURACY 73%, and the two numbers measured different things. A reader has
+   * no way to know that, and the reading they land on -- "I get 7% of
+   * architecture right" -- is both wrong and the most alarming one available.
+   * The accessible name already said "7% mastered"; only the visible text had
+   * lost the word. Every number here now carries it.
+   *
+   * AND THE HEADING HAS TO MATCH THE RANKING
+   * NSTDash ranks by accuracy once there are enough answers to mean it, and by
+   * coverage before that. Those are different claims, so the heading is taken
+   * from `basis` rather than always asserting weakness. */
+  var WEAK_WORDS = {
+    accuracy: {
+      title: "Weakest areas", unit: "correct",
+      hint: "Ranked by how often you answer them right. Pick one to practise just that area.",
+    },
+    coverage: {
+      title: "Least covered areas", unit: "seen",
+      hint: "Not enough answers yet to rank these by accuracy. Pick one to practise just that area.",
+    },
+  };
+
+  function dashWeak(weakest, basis) {
+    var words = WEAK_WORDS[basis] || WEAK_WORDS.coverage;
     var box = el("div", "nst-dash-weak");
-    box.appendChild(el("h3", "nst-dash-subtitle", "Weakest areas"));
+    box.appendChild(el("h3", "nst-dash-subtitle", words.title));
     var ul = el("ul", "nst-dash-weaklist");
     weakest.forEach(function (w) {
       var li = el("li", "nst-dash-weakrow");
@@ -854,17 +880,23 @@
       fill.style.width = w.pct + "%";
       bar.appendChild(fill);
       a.appendChild(bar);
-      a.appendChild(el("span", "nst-dash-weakpct", esc(w.pct + "%")));
+      a.appendChild(el("span", "nst-dash-weakpct", esc(w.pct + "% " + words.unit)));
       // The bar is decorative; the row already reads as name + percentage.
       bar.setAttribute("aria-hidden", "true");
-      a.setAttribute("aria-label",
-        "Practise " + w.domain + " — " + w.pct + "% mastered, " + w.seen + " of " + w.total + " seen");
-      a.title = "Practise " + w.domain + " in Practice Exams";
+      // Whichever way the list is ranked, the other number is the one that
+      // explains it -- "72% correct" means little without "18 of 24 seen", and
+      // a coverage ranking is only actionable once you know how it went.
+      var detail = basis === "accuracy"
+        ? w.pct + "% of " + w.answered + " answers correct, " + w.seen + " of " + w.total + " questions seen"
+        : w.pct + "% of its questions seen" +
+          (w.accuracy == null ? "" : ", " + w.accuracy + "% of those answers correct");
+      a.setAttribute("aria-label", "Practise " + w.domain + " — " + detail);
+      a.title = "Practise " + w.domain + " in Practice Exams · " + detail;
       a.addEventListener("click", function () { drillTo(w.domain); });
       li.appendChild(a);
       ul.appendChild(li);
     });
-    box.appendChild(el("p", "nst-dash-weakhint", "Pick one to practise just that area."));
+    box.appendChild(el("p", "nst-dash-weakhint", words.hint));
     box.appendChild(ul);
     return box;
   }
@@ -1017,7 +1049,7 @@
       if (r) host.appendChild(dashReadiness(r));
     }
 
-    if (m.weakest.length) host.appendChild(dashWeak(m.weakest));
+    if (m.weakest.length) host.appendChild(dashWeak(m.weakest, m.weakBasis));
   }
 
   // (C8-09) remember which tool was opened last and mark its card — a small

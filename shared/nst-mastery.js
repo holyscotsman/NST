@@ -465,12 +465,16 @@
     for (var i = 0; i < qs.length; i++) {
       var q = qs[i];
       var d = q.domain || "General";
-      var acc = byDomain[d] || (byDomain[d] = { domain: d, total: 0, seen: 0, mastered: 0, due: 0, boxSum: 0 });
+      var acc = byDomain[d] || (byDomain[d] = {
+        domain: d, total: 0, seen: 0, mastered: 0, due: 0, boxSum: 0,
+        correct: 0, incorrect: 0,
+      });
       acc.total++;
       var rec = get(q.id);
       if (rec && rec.seen) {
         out.seen++; acc.seen++;
         out.correct += rec.correct; out.incorrect += rec.incorrect;
+        acc.correct += rec.correct; acc.incorrect += rec.incorrect;
         out.boxSum += rec.box; acc.boxSum += rec.box;
         if (isMastered(rec)) { out.mastered++; acc.mastered++; }
         if (isGraduated(rec)) out.graduated++;
@@ -485,6 +489,15 @@
       if (!Object.prototype.hasOwnProperty.call(byDomain, k)) continue;
       var a = byDomain[k];
       a.score = a.total ? a.boxSum / (a.total * MAX_BOX) : 0;
+      /* Two different questions, two different numbers. `score` is progress
+       * through the boxes across the WHOLE domain, so an unopened domain scores
+       * near zero however well its few answered questions went. `accuracy` is
+       * how often the answers given were right, and is null until there are
+       * any -- a domain with no answers has no accuracy, and reporting 0% for
+       * one reads as "you get these all wrong". */
+      var answered = a.correct + a.incorrect;
+      a.answered = answered;
+      a.accuracy = answered ? a.correct / answered : null;
       out.domains.push(a);
     }
     // weakest first — that is the order a study surface wants to show

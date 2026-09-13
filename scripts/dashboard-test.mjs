@@ -91,10 +91,96 @@ const BANK = [
   const names = m.weakest.map((w) => w.domain);
   ok('weakest areas are reported once two domains are seen', m.weakest.length === 2, names.join(','));
   ok('an untouched domain is never called weak', names.indexOf('security') === -1, names.join(','));
-  ok('the worst answered domain comes first', names[0] === 'networking', names.join(','));
   ok('each weak area carries its own coverage', m.weakest[0].seen === 2 && m.weakest[0].total === 2);
   ok('weak-area percentages are whole numbers in range',
     m.weakest.every((w) => Number.isInteger(w.pct) && w.pct >= 0 && w.pct <= 100));
+  // Four answers is not a diagnosis, so this list is ranked on coverage and
+  // says so. What it must NOT do is call itself weakness.
+  ok('four answers is not enough to rank by skill', m.weakBasis === 'coverage', m.weakBasis);
+}
+
+/* ---- the ranking has to mean the word it uses -------------------------------
+ *
+ * THE DEFECT THIS EXISTS FOR
+ * `weakest` used to be ordered by summary().score -- box progress across the
+ * WHOLE domain, unseen questions included. That is a coverage measure wearing a
+ * skill label: with every domain held at the same accuracy, it ranked purely by
+ * how much of each had been opened, and the launcher printed the result under
+ * "Weakest areas" as a bare percentage, three lines below "ACCURACY 73%".
+ *
+ * Measured on the shipped 255-question bank at a uniform ~73%, it named the
+ * three LEAST-STUDIED domains -- one of them the single most accurate of the
+ * nine, shown as "4%" beside a card reading 73%.
+ *
+ * So: hold skill equal, vary coverage, and require that the ranking does not
+ * move. Then hold coverage equal, vary skill, and require that it does. */
+{
+  // Nine domains, four questions each. Every domain is answered with the SAME
+  // accuracy (3 right, 1 wrong = 75%); only how many of its questions have been
+  // opened differs.
+  const bank = [];
+  for (let d = 0; d < 9; d++) for (let i = 0; i < 4; i++) bank.push({ id: 'd' + d + 'q' + i, domain: 'dom' + d });
+  const { M, D } = fresh();
+  for (let d = 0; d < 9; d++) {
+    // dom0 has one question opened, dom8 has all four -- the real pattern, where
+    // you study by picking topics rather than sweeping the bank evenly.
+    const opened = 1 + (d % 4);
+    for (let i = 0; i < opened; i++) {
+      for (let r = 0; r < 4; r++) {
+        M.record('d' + d + 'q' + i, { correct: r < 3, gate: 'always', now: T0 });
+      }
+    }
+  }
+  const sum1 = M.summary(bank, T0 + 1);
+  const m = D.model({ summary: sum1, history: [], now: T0 + 1 });
+  const accs = m.weakest.map((w) => w.accuracy);
+  ok('with skill held equal, every ranked domain reports the same accuracy',
+    m.weakBasis === 'accuracy' && accs.length === 3 && accs.every((a) => a === accs[0]),
+    m.weakBasis + ' ' + JSON.stringify(m.weakest.map((w) => w.domain + ':' + w.accuracy)));
+  ok('and the percentage shown IS that accuracy, not box progress',
+    m.weakest.every((w) => w.pct === w.accuracy),
+    JSON.stringify(m.weakest.map((w) => w.pct + '/' + w.accuracy)));
+
+  /* [neg] The control, on the scenario where the two rankings actually diverge.
+   * Every domain here is equally accurate, so a ranking that carries any skill
+   * information has nothing to separate them on. Box score separates them
+   * anyway -- into exactly the coverage order -- which is the whole defect. */
+  const sameSkill = sum1.domains.every((d) => d.accuracy === sum1.domains[0].accuracy);
+  const leastCovered = sum1.domains.slice()
+    .sort((x, y) => (x.seen / x.total) - (y.seen / y.total)).slice(0, 3).map((d) => d.domain).sort();
+  const byScore = sum1.domains.slice().sort((x, y) => x.score - y.score).slice(0, 3).map((d) => d.domain).sort();
+  ok('[neg] ranking by box score instead sorts purely by coverage',
+    sameSkill && byScore.join(',') === leastCovered.join(','),
+    'same skill: ' + sameSkill + ' · byScore: ' + byScore.join(',') + ' · leastCovered: ' + leastCovered.join(','));
+
+  // Now the other direction: one domain is genuinely worse, and it is the most
+  // thoroughly studied -- the case the old ranking got backwards.
+  const { M: M2, D: D2 } = fresh();
+  for (let d = 0; d < 9; d++) {
+    const opened = d === 0 ? 4 : 1 + (d % 4);
+    for (let i = 0; i < opened; i++) {
+      for (let r = 0; r < 4; r++) {
+        // dom0: 1 of 4 right (25%). Everyone else: 3 of 4 (75%).
+        M2.record('d' + d + 'q' + i, { correct: d === 0 ? r < 1 : r < 3, gate: 'always', now: T0 });
+      }
+    }
+  }
+  const m2 = D2.model({ summary: M2.summary(bank, T0 + 1), history: [], now: T0 + 1 });
+  ok('the domain actually answered worst comes first, however well covered',
+    m2.weakest[0].domain === 'dom0' && m2.weakest[0].accuracy === 25,
+    m2.weakest.map((w) => w.domain + ':' + w.accuracy).join(','));
+}
+
+/* ---- a percentage without its unit is the other half of the defect ---- */
+{
+  const home = read('scripts', 'nst-home.js');
+  // The visible row used to print `w.pct + "%"`. The unit is not optional: the
+  // same card shows an accuracy stat, and two unlabelled percentages measuring
+  // different things is the misreading this cycle removed.
+  ok('the weak row prints a unit beside its percentage',
+    /nst-dash-weakpct[^]*?w\.pct \+ "% " \+ words\.unit/.test(home));
+  ok('and the heading is taken from the ranking basis, not asserted',
+    /WEAK_WORDS\[basis\]/.test(home) && /Least covered areas/.test(home));
 }
 
 /* ---- one answered domain is not a ranking ---- */
