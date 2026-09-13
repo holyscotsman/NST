@@ -39,7 +39,7 @@ Teach: Containers are logical — they don't reserve space until data lands.   �
 
 | Field | Required | Notes |
 |---|---|---|
-| `### id` | ✅ | Stable, unique. Progress and spaced-repetition key off it — don't renumber. |
+| `### id` | ✅ | Stable, and unique **across every bank**, not just this one — see below. Progress and spaced-repetition key off it, so don't renumber. |
 | `domain:` | ✅ | Lowercase; ideally listed in the header `domains:`. |
 | `Q:` | ✅ | The question stem. May span several lines (until the first option). |
 | options | ✅ | `- [ ]` / `- [x]` list, 2–6 options. **`[x]` marks correct.** |

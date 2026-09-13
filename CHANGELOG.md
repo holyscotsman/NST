@@ -34,6 +34,14 @@ edits by hand — had no check at all.
   shuffling; and every exhibit image resolves. Missing explanations and
   correct-answer-is-longest tells are reported as warnings, not failures.
 
+### Documented
+The rule the linter now enforces was not written down anywhere. `docs/BANK_FORMAT.md`
+said ids must be "stable, unique", which any reader takes to mean unique *in this
+file* — precisely the misreading that causes the collision. Both that spec and
+`banks/README.md` now say **across every bank**, explain why (mastery stores one
+record per id, with no bank scoping), point at the prefix convention the bundled
+banks already follow, and tell an author to run the linter before committing.
+
 ### The linter proves it is not vacuous
 Every check passing proves nothing on its own — a rule with a typo in it passes
 everything too. The suite ends by running **the same functions** over

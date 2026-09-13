@@ -24,6 +24,43 @@ Each bank lives in its own folder (e.g. `ncp-mci/`) with the Markdown file and a
 4. Reload the Study Tool — it appears in the **Certification** selector on the home page
    (also under Settings → Question bank). Pick it, then open any tool.
 
+## Question ids must be unique across ALL banks
+
+Not just within one file. Mastery is stored per question id with no bank
+scoping — `nst.mastery.v1` holds one record per id, full stop. Two banks using
+`q01` share a single record, so answering that question in one bank moves the
+other's box, its counters and its next review date. Nothing warns you at
+runtime; the schedule simply becomes wrong for both.
+
+**Prefix every id with the bank.** The bundled banks do this — `ncp25-q01` and
+`mci-security-q3p5` — which is why they have never collided.
+
+```
+### ncp-ai-storage-004
+```
+
+## Check a bank before you commit it
+
+```bash
+node scripts/bank-test.mjs
+```
+
+It parses every bank with the same parser the app uses and fails on: cross-bank
+id collisions, duplicate ids within a bank, a manifest entry whose file is
+missing, a bank file that no manifest entry mentions (so the app never sees it),
+a cert pointing at a bank that doesn't exist, questions with no stem, fewer than
+two options, no answer key or an answer key pointing past the end of the options,
+a domain that isn't in the bank's own `domains:` line, an exhibit image that
+doesn't resolve, and two things that break under the runtime's option shuffling:
+an explanation that names an option **by letter** ("Option B is wrong"), and an
+option that says "all of the above" or "both A and B".
+
+It also warns — without failing — about questions with no explanation, and about
+the correct answer being the longest option too often, which is a tell that makes
+questions guessable.
+
+It runs in CI, so a bad bank cannot reach `main`.
+
 ## Format (short version)
 
 ```markdown
