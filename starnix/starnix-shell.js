@@ -349,7 +349,14 @@
     var stationA = cineImg("armStation"), warshipA = cineImg("bcmShip"), diveA = cineImg("armEnemyDive");
     // (v0.193.0, V1.1 Menu#9) the belt beat flies the REAL KBB asteroids — the cinematic
     // foreshadows the game it hands you; flat polys stay as the asset-not-ready fallback.
-    var asteroidA = [cineImg("kbbAsteroid1"), cineImg("kbbAsteroid2"), cineImg("kbbAsteroid3"), cineImg("kbbAsteroid4"), cineImg("kbbAsteroid5")];
+    /* (v2.49.0) Only three of the five rock sprites were ever authored: kbbAsteroid4 and
+     * kbbAsteroid5 are not in assets.js, so cineImg returned null for them and two of
+     * every five rocks in the belt beat fell back to flat polygons. The fallback did its
+     * job — nothing crashed, nothing logged — which is exactly why it went unnoticed.
+     * Drop the empties and index modulo what exists, so every rock flies real art whether
+     * three sprites are authored or five. */
+    var asteroidA = [cineImg("kbbAsteroid1"), cineImg("kbbAsteroid2"), cineImg("kbbAsteroid3")]
+                      .filter(function (a) { return !!a; });
 
     // -------- beat timeline (seconds): station | beam | shatter | belt | planet | mission --------
     var B = reduced
@@ -494,7 +501,7 @@
       } else {
         var bk = k - warpDur;
         for (var rr = 0; rr < ROCK_N; rr++) { var o = rocks[rr]; var px = ((o.x - bk * 0.05 * o.z) % 1 + 1) % 1; var x = px * W, y = o.y * H, sz = o.sz * scale * o.z * 0.6; ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot + o.spin * bk); ctx.globalAlpha = clamp(bk * 1.6, 0, 0.92); if (!reduced) { ctx.shadowColor = "#3a3a5a"; ctx.shadowBlur = 6; }
-          var aA = asteroidA[o.spr];   // (v0.193.0, Menu#9) real KBB rock art, poly fallback
+          var aA = asteroidA.length ? asteroidA[o.spr % asteroidA.length] : null;   // (v0.193.0, Menu#9) real KBB rock art, poly fallback
           if (aA && aA.ready) { var asz = sz * 2.3, ash = asz * (aA.img.naturalHeight / aA.img.naturalWidth || 1); ctx.drawImage(aA.img, -asz / 2, -ash / 2, asz, ash); }
           else { regPoly(0, 0, sz, o.sides, 0); ctx.fillStyle = "#2b2b3e"; ctx.fill(); ctx.strokeStyle = "#5a5a78"; ctx.lineWidth = 1; ctx.stroke(); }
           ctx.restore(); }
@@ -1925,10 +1932,6 @@
       ".sx-strip-cta{flex:none;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--aqua);border:1px solid rgba(31,221,233,.4);border-radius:999px;padding:7px 14px;}",
       ".sx-strip-cta.gold{background:var(--gold);color:#131313;border-color:var(--gold);}",
       ".sx-strip-gold{border-color:rgba(255,200,87,.45);background:linear-gradient(90deg, rgba(255,200,87,.07), rgba(13,13,24,.78) 40%);}",
-      ".sx-strip-divider{display:flex;align-items:center;gap:12px;margin:6px 0 0;}",
-      ".sx-strip-divider i{flex:1;height:1px;background:linear-gradient(90deg, transparent, rgba(255,200,87,.5));}",
-      ".sx-strip-divider i:last-child{background:linear-gradient(90deg, rgba(255,200,87,.5), transparent);}",
-      ".sx-strip-divider span{font-size:10px;letter-spacing:.22em;color:var(--gold);}",
       // (v0.120.0, Jason) the shattered MCI-station vista was removed from the menu — the photo
       // background stays; the ARM campaign progress still reads on the ARM mission strip.
       // bottom dock

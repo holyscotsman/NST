@@ -17,10 +17,10 @@
  * without running anything unless PERF=1 is set, which CI never set, in a job
  * with no browser for it to use. A green step that ran nothing.
  *
- * And verify-build.mjs, a ~400-line build verifier, has been stale since NIT
- * (the in-game exam) was removed in d4892dd. It asserts four mission lines where
- * there are three, fails two checks, and then crashes dereferencing the button
- * that no longer exists. Nobody found out, because nobody ran it.
+ * And verify-build.mjs, a 3400-line end-to-end verifier of the SHIPPED build, had
+ * been stale since NIT (the in-game exam) was removed in d4892dd. It crashed after
+ * 23 checks, leaving 661 dark. Nobody found out, because nobody ran it.
+ * (v2.49.0) It was repaired and wired in: 557 checks, green, in CI.
  *
  * The common cause is not any of those files. It is that nothing compared what
  * exists on disk with what CI invokes.
@@ -80,15 +80,6 @@ const EXCLUDED = {
     'step that tested air. Run it before a release: cd starnix && PERF=1 node perf-smoke.mjs',
   'wwtbane/tests/e2e.mjs':    'opt-in — needs a browser; the browser job covers this ground end to end',
   'wwtbane/tests/smoke.mjs':  'opt-in — needs a browser, same',
-
-  // --- known stale, and named so it stays visible ---
-  'starnix/verify-build.mjs':
-    'STALE, NOT WIRED — asserts the NIT exam feature that d4892dd removed entirely. ' +
-    'It expects four mission lines (ARM,CC,KBB,NIT) where the shell renders three, ' +
-    'fails that check and the finale-reveal check, then crashes dereferencing the ' +
-    'NIT button. Its NIT assumptions run through several blocks (lines ~154-410), so ' +
-    'this needs a deliberate pass by someone who knows what those blocks were for -- ' +
-    'not a quiet deletion. Until then it is dark on purpose rather than by accident.',
 
   // --- build, not test ---
   'starnix/build.mjs': 'the build itself — CI runs it as `node build.mjs`, matched separately',
@@ -209,7 +200,7 @@ ok('perf-smoke.mjs is NOT a CI step -- it cannot pass without PERF=1 and a brows
   ok('self-check: one CI runs is not',
     rule(invoked, ['starnix/arm-run.cjs'], EXCLUDED).length === 0);
   ok('self-check: one on the exclusion list is not',
-    rule(invoked, ['starnix/verify-build.mjs'], EXCLUDED).length === 0);
+    rule(invoked, ['starnix/kbb-draw.cjs'], EXCLUDED).length === 0);
 
   const without = new Set(invoked); without.delete('kbb-fuzz.cjs');
   ok('self-check: deleting a suite from ci.yml brings it back as unclassified',

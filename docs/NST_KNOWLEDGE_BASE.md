@@ -300,10 +300,14 @@ IDs are stable so mastery records survive re-imports.
     `scripts/*-test.mjs` battery (22 runs): version, security, backup, mastery, server,
     path-guard, compress, backup-db, sync, banks, robustness, update, dashboard, readiness,
     review, auth, docs, pages, load, session, harness-coverage.
-- **StarNix build + logic harnesses** (19 runs) installs **jsdom** and nothing else. The
-  build, the pure harnesses (`bank-lint`, `scheduler-test`, `multi-answer-test`,
-  `shuffle-test`, `timer-test`, `audio-smoke`, `cc-view-smoke`, `cc-fairness-check`,
-  `exhibit-check`, `import-questions --check`, `kbb-balance`, `core-fuzz`) and — since
+- **StarNix build + logic harnesses** (20 runs) installs **jsdom** and nothing else. The
+  build, then — since v2.49.0 — **`verify-build`** (557 checks, ~22s): the end-to-end
+  verifier of the assembled `index.html`, booting the real built shell in jsdom with the
+  real question bank and flying all three games. It had been dark since d4892dd removed
+  the in-game exam, crashing 23 checks in with 534 never reached. Then the pure harnesses
+  (`bank-lint`, `scheduler-test`, `multi-answer-test`, `shuffle-test`, `timer-test`,
+  `audio-smoke`, `cc-view-smoke`, `cc-fairness-check`, `exhibit-check`,
+  `import-questions --check`, `kbb-balance`, `core-fuzz`) and — since
   v2.40.0 — the per-game suites that had never been run by CI at all: `arm-run` (163),
   `cc-run` (124), `kbb-run` (156), `cc-death-paths` (5), `kbb-fuzz`, and `arm-fuzz` at
   `ARM_FUZZ_RUNS=6`. Those six eval the game sources inside a jsdom window, which is why

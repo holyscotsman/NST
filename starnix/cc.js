@@ -2683,7 +2683,8 @@
           ['\u271A', 'Shields are your hull. Clipping an obstacle costs a shield \u2014 lose them all and the chase ends.'],
           ['\u25C8', 'Gates span the chasm at intervals \u2014 you fly through every one, and each stops the chase for an exam question. Some gates carry a power-up.'],
           ['\u221E', 'A right answer restores a shield; a wrong one costs two. The canyon is endless \u2014 score is the distance you reach.'],
-          ['\u26A0', 'MINES: enemy ships leave glowing mines hanging in ONE lane. Slide to a clear lane \u2014 flying into one detonates and costs an extra shield.']   // OB_BOMB
+          ['\u26A0', 'MINES: enemy ships leave glowing mines hanging in ONE lane. Slide to a clear lane \u2014 flying into one detonates and costs an extra shield.'],   // OB_BOMB
+          ['\u26F0', 'BOULDERS: a rockfall lands in ONE lane and stays there \u2014 that lane is dead. Switch out of it early; a landed boulder cannot be jumped or ducked.']   // OB_ROCKFALL
         ];
         // (v0.101.0, C11, Jason) your Garage loadout, visible BEFORE the run (async-load safe)
         var loadout = ce('div', 'cc-howto-loadout'); panel.appendChild(loadout);

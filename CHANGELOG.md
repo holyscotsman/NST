@@ -5,6 +5,78 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.49.0 — the biggest dark suite in the repo (2026-09-13)
+
+`starnix/verify-build.mjs` boots the **assembled `index.html`** in jsdom — the real
+built shell, the real question bank, all three games flown for real frames — and
+checks 557 things about the artefact that actually ships. Nothing else in the
+repo does that.
+
+It had not run since **d4892dd** removed the in-game exam. It crashed 23 checks
+in, dereferencing a button that no longer existed:
+
+```
+✗ Menu#7: four launchable mission lines (ARM,CC,KBB,NIT)
+VERIFY CRASHED: TypeError: Cannot read properties of null (reading 'dispatchEvent')
+```
+
+v2.42.0 catalogued it as *"stale, not wired — needs a deliberate pass by someone
+who knows what those blocks were for."* This is that pass.
+
+### What it found, in the app rather than in itself
+
+**Two of the five asteroid sprites in the cold-open cinematic do not exist.**
+`assets.js` carries `kbbAsteroid1..3`; the cinematic asked for five and indexed
+`rng.next() * 5`, so **two of every five rocks** in the belt beat fell back to flat
+polygons. Nothing crashed and nothing logged — the fallback did its job, which is
+exactly why five releases went by. The rocks now index modulo the art that exists,
+and the build no longer asks for art it does not have. The rule that catches the
+whole class: *every art key the build asks for must be in the bundle.*
+
+**Chasm Chase spawns an obstacle it never explains.** The how-to lists five rules;
+the game spawns five obstacle kinds. They are not the same five — `OB_ROCKFALL`
+lands in a lane and kills it outright, at any action, and was never mentioned. A
+BOULDERS rule joins the list, and the check is now *"is every obstacle the game
+can throw at you named before you meet it"* rather than a pinned count.
+
+**Dead CSS**: four `.sx-strip-divider` rules styling an element nothing creates —
+it divided the exam tile from the missions.
+
+### What it found in itself
+
+- **A check that measured a card in no box at all.** `mC.box =
+  constants.MAX_BUCKET` — the core exports `MAX_BOX`. The undefined read set the
+  box to `undefined`, so "a due correct at the cap" was never at the cap.
+- **A determinism allowlist that counted comments.** `Math.random` mentions, not
+  call sites, so documenting the rule turned the rule red. Counting call sites
+  re-baselines the core from 1 to **0** and ARM from 4 to **3** — both tighter.
+- **A sweep with a silent catch-all.** Every obstacle that was not a wall, arch or
+  rockfall was measured against the LOW ROCK's rule: jump-clearable. The mine,
+  added later, is not — it seals its lane, which is the point of it. Mines now have
+  their own rule, and an unclassified obstacle type goes red instead of being
+  folded into whichever branch is last.
+
+### What was removed
+~950 lines: the exam sections (`K`, `K2`, `B1/B2`), the post-sim report, the
+exam-sim save/resume, the readiness/weakest-drill screen, the certification
+finale, the "why I missed this" memos, the daily gauntlet, the domain lens. Every
+one drove `exam.js`, which was deleted. They were not repairable — there is
+nothing left to assert about.
+
+Where something outlived the exam it was kept and re-pointed: the Codex heatmap,
+the miss pile's pure logic, the Leitner ledger, the telemetry. And where a surface
+went, the check became *"it really is gone, not half-wired"* — no orphan tile, no
+unreachable achievement, no daily mission nobody can complete, no planner
+recommending a sim that cannot be sat.
+
+### Wired in
+The bank is now supplied the way the browser supplies it — the real markdown, the
+real parser, the real StarNix adapter, installed before the build's own scripts
+run — so this harness also verifies the seam it depends on.
+
+CI's StarNix job goes from 19 runs to 20. **557 checks, ~22 seconds.** Breaking
+one on purpose exits 1, so the wiring is not decorative.
+
 ## v2.48.0 — "the server didn't answer" is not "you haven't picked a bank" (2026-09-13)
 
 Every tool here loads its questions over the network at runtime: a manifest fetch,
