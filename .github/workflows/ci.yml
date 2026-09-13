@@ -238,6 +238,13 @@ jobs:
       # harness must now be either run here or on a documented exclusion list
       # with a reason -- stale, a library, a manual tool -- so the next one
       # cannot go dark silently.
+      # (v2.55.0) the study record has to stay small forever. This is a browser tool
+      # somebody uses daily for months, and localStorage is a few megabytes it cannot
+      # raise. A year of study through the real NSTMastery plateaus at 8.8 KB because
+      # the store keeps one row per QUESTION; a store that kept one per ANSWER would
+      # reach 893 KB over the same year, and a wall not long after. The number to watch
+      # is not the size but the shape, and this pins the shape.
+      - run: node ../scripts/storage-growth-test.mjs
       - run: node ../scripts/harness-coverage.mjs
 
       # (v2.45.0) the seam between one bank format and three apps. Both sides of
