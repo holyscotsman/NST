@@ -293,22 +293,43 @@ IDs are stable so mastery records survive re-imports.
 
 ## 8. Testing & CI
 
-- **CI** (`.github/workflows/ci.yml`, on push/PR) runs four jobs. Three are dependency-free:
-  WWTBANE's unit tests (`node --test tests/*.test.mjs`), StarNix's build + pure logic
-  harnesses (`build.mjs`, `bank-lint`, `scheduler-test`, `multi-answer-test`, `shuffle-test`,
-  `timer-test`), and the shared `scripts/*-test.mjs` battery (mastery, sync, banks, backup,
-  server, auth, path guard, compression, robustness, dashboard, readiness, review).
-- **The fourth job (`browser`, v2.23.0)** installs Chromium and runs the six suites that need
-  one — 137 checks: `a11y-audit` (55, launcher, Practice Exams and both games), `a11y-browser` (14, painted-background contrast),
-  `prefs-test` (28, one preference reaching all four front-ends, each in its own idiom),
-  `mobile-audit` (11), `attack-browser` (24, the rendered half of the security gate) and
-  `smoke-test` (15, end to end through a real server and login). It is the repo's only
-  `npm install`, and it is dev tooling: the app itself ships no dependencies.
+- **CI** (`.github/workflows/ci.yml`, on push/PR) runs **four jobs**, of which **two are
+  dependency-free**:
+  - **WWTBANE unit tests** — `node --test tests/*.test.mjs`, 25 files.
+  - **Practice Exams engine harness** — `engine-test.mjs` plus the whole shared
+    `scripts/*-test.mjs` battery (22 runs): version, security, backup, mastery, server,
+    path-guard, compress, backup-db, sync, banks, robustness, update, dashboard, readiness,
+    review, auth, docs, pages, load, session, harness-coverage.
+- **StarNix build + logic harnesses** (19 runs) installs **jsdom** and nothing else. The
+  build, the pure harnesses (`bank-lint`, `scheduler-test`, `multi-answer-test`,
+  `shuffle-test`, `timer-test`, `audio-smoke`, `cc-view-smoke`, `cc-fairness-check`,
+  `exhibit-check`, `import-questions --check`, `kbb-balance`, `core-fuzz`) and — since
+  v2.40.0 — the per-game suites that had never been run by CI at all: `arm-run` (163),
+  `cc-run` (124), `kbb-run` (156), `cc-death-paths` (5), `kbb-fuzz`, and `arm-fuzz` at
+  `ARM_FUZZ_RUNS=6`. Those six eval the game sources inside a jsdom window, which is why
+  the install exists. `kbb-draw.cjs` is deliberately **not** wired: it needs the native
+  `canvas` backend, and a native build in the everyday gate to buy one suite is a bad trade.
+- **The browser job** installs Playwright + axe-core and Chromium, and runs the **nine**
+  suites that need a browser: `a11y-audit` (launcher, Practice Exams and both games),
+  `a11y-browser` (painted-background contrast, keyboard-reachable scroll regions, and the
+  sync/storage warning banners), `prefs-test` (one preference reaching all four front-ends,
+  each in its own idiom), `promise-test` (one mastery store across three codebases),
+  `resume-test` (an exam surviving a discarded tab), `mobile-audit`, `attack-browser` (the
+  rendered half of the security gate), `dialog-test` (every dialog at seven window sizes)
+  and `smoke-test` (end to end through a real server and login).
   These suites self-skip without a browser, so the job sets `NST_REQUIRE_BROWSER=1` — an
-  exit 0 that ran nothing looks exactly like 109 passing checks.
-- **WWTBANE** additionally has a Playwright smoke test and a 22-check e2e (browser tests
-  self-skip if Playwright/Chromium is absent). **StarNix** has a broader local gate
-  (`npm run check`) covering the game engines and, opt-in, a headless-Chromium perf smoke.
+  exit 0 that ran nothing looks exactly like a full pass.
+- **Neither install ships to a user.** Both are dev tooling; the app itself has no runtime
+  dependencies, and `node server/server.mjs` still needs nothing but Node 22+.
+- **`scripts/harness-coverage.mjs`** is what keeps this section honest from the other side:
+  every `.mjs`/`.cjs` under `starnix/`, `scripts/`, `practice-exams/` and `wwtbane/tests/`
+  must be either invoked by `ci.yml` or listed in its `EXCLUDED` map with a reason. It
+  exists because those six StarNix suites sat unrun for months and nothing compared what is
+  on disk with what CI invokes.
+- **WWTBANE** additionally has a Playwright smoke test and an e2e (both self-skip if
+  Playwright/Chromium is absent). **StarNix** has a broader local gate (`npm run check`)
+  and, opt-in, a headless-Chromium perf smoke (`PERF=1 node perf-smoke.mjs`) — opt-in
+  because frame-timing assertions in the everyday gate are a flake source.
 - **Discipline to keep:** negative controls on every test pin; "headless GREEN proves structure,
   not looks/sound" (visual/audio needs a human pass); adversarial review for nontrivial changes.
 
