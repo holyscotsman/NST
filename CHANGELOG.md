@@ -5,6 +5,81 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.64.0 — read the archive before opening it (2026-09-13)
+
+**Hardening on the one code path that downloads from the internet and installs
+it as the service account. No exploit on the platform the tests run on — and
+that was exactly the problem.**
+
+### What the updater left to somebody else
+`applyUpdate` extracted the archive **before** any of its staging checks, so by
+the time the tree was validated a hostile member was already on disk. Nothing in
+this code decided what was safe; it was left to whichever `tar` happened to be
+installed.
+
+Measured against a deliberately hostile archive, GNU tar behaves well:
+
+```
+tar: ../../victim/escaped-relative.txt: Member name contains '..'
+tar: Removing leading `/' from member names
+```
+
+The `..` member is refused and the absolute path is defanged into the staging
+folder. Nothing escaped.
+
+**But this service runs on Windows, where `tar` is bsdtar, not GNU tar.** Every
+test in this repository runs on Linux. The guarantee that mattered was the one on
+the platform none of them cover, and it was never written down anywhere — it was
+a property of the operating system's tar.
+
+### Read first, extract second
+The member list is now read with `-t`, which lists without extracting, and the
+whole archive is refused by **this** code if any member:
+
+- walks up with `..`, anywhere in the path, in either slash direction
+- is absolute, including the `C:\` and `C:/` spellings Windows uses
+- is anything but a plain file or directory — a symlink is refused outright
+  rather than relied upon to be skipped later. `walk()` does skip symlinks; that
+  is a second line of defence, not the first.
+
+Verified both ways: the hostile archive's three bad members are named and
+refused, and this repository's own 294-member archive passes with none.
+
+### Two smaller things on the same path
+**The download had no ceiling.** `res.arrayBuffer()` buffered the whole archive
+with only a *lower* bound (under 10 KB was rejected). `MAX_ARCHIVE_BYTES` is 64 MB
+— ten times the ~6 MB this repository packs to, room for several more
+certification banks and their exhibits, and still a bound on what one response
+can allocate on a small VM. `Content-Length` is checked when sent, and the stream
+is counted regardless, because a header can be absent or wrong.
+
+**Every `tar` failure was reported as a missing `tar`** — "`tar` is not available
+to extract the update… on older Windows, update by hand." A corrupt download, a
+refused member, a disk error: all the same sentence, sending someone to fix
+something that was never broken. `tarFailure()` now distinguishes a missing
+binary from an archive that could not be read, and quotes what was actually said.
+
+### The gate
+`update-test.mjs`, 54 → 75 checks: each refusal separately (`..` leading and
+buried, absolute, Windows drive-letter in both spellings, backslash walk,
+symlink, device), the size ceiling and how it is enforced, the honest error, and
+— the point of the cycle — that **listing happens before extraction** in the
+source order. Three `[neg]` controls keep it from simply refusing everything: a
+directory member passes, a filename merely *containing* two dots passes, and a
+`tar:` warning line is not mistaken for a member.
+
+Against the previous code it goes red on four, including:
+
+```
+FAIL the archive is listed before it is extracted  -- inspect@-1 extract@10901
+```
+
+### A rule that miscounted itself
+"Both tar call sites report through `tarFailure`" counted three, because
+`function tarFailure(e)` matches a search for `tarFailure(e)` as readily as a
+call to it does. The rule was wrong, not the code; it matches the `return`
+statement now.
+
 ## v2.63.0 — one copy, and the right one (2026-09-13)
 
 **Two copies of the same source, diverged, and last cycle blessed the wrong one.**

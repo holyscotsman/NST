@@ -176,5 +176,108 @@ const ok = (name, cond, extra) => {
   ok('the outer catch still covers the pre-write phase', outerIdx > 0 && partialIdx > 0);
 }
 
+/* ---- what the archive is allowed to contain -------------------------------
+ *
+ * THE GAP THIS CLOSES
+ * Extraction ran before any of the staging checks, so by the time the tree was
+ * validated a hostile member was already written to disk. Nothing in this code
+ * decided what was safe: it was left to whichever `tar` happened to be
+ * installed. Measured here on GNU tar, a hostile archive is handled well -- a
+ * `..` member refused, a leading `/` stripped so the file lands inside the
+ * staging folder:
+ *
+ *     tar: ../../victim/escaped-relative.txt: Member name contains '..'
+ *     tar: Removing leading `/' from member names
+ *
+ * But this service runs on WINDOWS, where `tar` is bsdtar, not GNU tar. The
+ * guarantee that mattered was the one on the platform none of these tests run
+ * on. So the member list is now read first (`-t` lists without extracting) and
+ * the archive is refused by this code, identically everywhere.
+ */
+{
+  // `tar -tv` prints an ls-style line per member on GNU tar and bsdtar alike.
+  const line = (mode, name) => `${mode} 0/0  19 1970-01-01 00:00 ${name}`;
+  const listing = [
+    line('-rw-r--r--', 'NST-main/index.html'),
+    line('drwxr-xr-x', 'NST-main/server/'),
+    line('-rw-r--r--', 'NST-main/server/server.mjs'),
+  ].join('\n');
+
+  ok('a normal archive listing is accepted whole', U.unsafeMembers(listing).length === 0,
+    U.unsafeMembers(listing).join(', '));
+
+  const traversal = U.unsafeMembers(line('-rw-r--r--', '../../etc/cron.d/evil'));
+  ok('a member that walks up out of the folder is refused',
+    traversal.length === 1 && /\.\./.test(traversal[0]), JSON.stringify(traversal));
+
+  const nested = U.unsafeMembers(line('-rw-r--r--', 'NST-main/a/../../../../evil'));
+  ok('a ".." buried mid-path is refused too, not just a leading one',
+    nested.length === 1, JSON.stringify(nested));
+
+  const absolute = U.unsafeMembers(line('-rw-r--r--', '/etc/cron.d/evil'));
+  ok('an absolute path is refused', absolute.length === 1, JSON.stringify(absolute));
+
+  // Windows is the platform this service actually runs on.
+  const drive = U.unsafeMembers(line('-rw-r--r--', 'C:\\Windows\\System32\\evil.dll'));
+  ok('a Windows drive-letter path is refused', drive.length === 1, JSON.stringify(drive));
+  const driveFwd = U.unsafeMembers(line('-rw-r--r--', 'C:/Windows/System32/evil.dll'));
+  ok('including the forward-slash spelling of one', driveFwd.length === 1, JSON.stringify(driveFwd));
+  const winUp = U.unsafeMembers(line('-rw-r--r--', 'NST-main\\..\\..\\evil'));
+  ok('and a backslash-separated ".." walk', winUp.length === 1, JSON.stringify(winUp));
+
+  const link = U.unsafeMembers(`lrw-r--r-- 0/0  0 1970-01-01 00:00 NST-main/pwn -> ../../../../etc/passwd`);
+  ok('a symlink is refused outright, not left to be skipped later',
+    link.length === 1 && /\(l\)/.test(link[0]), JSON.stringify(link));
+
+  const dev = U.unsafeMembers(line('crw-r--r--', 'NST-main/dev/null'));
+  ok('and anything that is not a plain file or directory', dev.length === 1, JSON.stringify(dev));
+
+  /* [neg] the check is not simply refusing everything. */
+  ok('[neg] a directory member is allowed', U.unsafeMembers(line('drwxr-xr-x', 'NST-main/banks/')).length === 0);
+  ok('[neg] a name merely CONTAINING two dots is allowed',
+    U.unsafeMembers(line('-rw-r--r--', 'NST-main/banks/ncp..mci.md')).length === 0,
+    JSON.stringify(U.unsafeMembers(line('-rw-r--r--', 'NST-main/banks/ncp..mci.md'))));
+  ok('[neg] a warning line that is not a member is ignored',
+    U.unsafeMembers('tar: Removing leading `/\' from member names').length === 0);
+}
+
+/* ---- the order of operations is the point --------------------------------- */
+{
+  const src = readFileSync(new URL('../server/update.mjs', import.meta.url), 'utf8');
+  const inspect = src.indexOf("'-tvzf'");
+  const extract = src.indexOf("'-xzf'");
+  ok('the archive is listed before it is extracted', inspect > 0 && extract > 0 && inspect < extract,
+    `inspect@${inspect} extract@${extract}`);
+  ok('and nothing is extracted when a member is refused',
+    /unsafe\.length[\s\S]{0,400}?Nothing was extracted/.test(src));
+}
+
+/* ---- a ceiling on the download -------------------------------------------- */
+{
+  ok('there is a maximum archive size', Number.isFinite(U.MAX_ARCHIVE_BYTES) && U.MAX_ARCHIVE_BYTES > 0,
+    U.MAX_ARCHIVE_BYTES);
+  ok('it leaves real room to grow (the repo packs to about 6 MB)',
+    U.MAX_ARCHIVE_BYTES >= 32 * 1024 * 1024, (U.MAX_ARCHIVE_BYTES / 1048576) + ' MB');
+  ok('but still bounds what one response can allocate',
+    U.MAX_ARCHIVE_BYTES <= 256 * 1024 * 1024, (U.MAX_ARCHIVE_BYTES / 1048576) + ' MB');
+  const src = readFileSync(new URL('../server/update.mjs', import.meta.url), 'utf8');
+  ok('the body is counted as it arrives, not trusted from Content-Length',
+    /readCapped\(res, MAX_ARCHIVE_BYTES\)/.test(src) && /size > limit/.test(src));
+  ok('and Content-Length is still checked first, when it is sent',
+    /content-length[\s\S]{0,200}MAX_ARCHIVE_BYTES/i.test(src));
+}
+
+/* ---- saying what actually went wrong -------------------------------------- */
+{
+  const src = readFileSync(new URL('../server/update.mjs', import.meta.url), 'utf8');
+  ok('a tar failure is no longer always reported as a missing tar',
+    /function tarFailure/.test(src) && /ENOENT\|not recognized\|not found/.test(src));
+  // `return tarFailure(e)` -- the call sites, not the `function tarFailure(e)`
+  // that declares it, which the first version of this check counted too.
+  const sites = (src.match(/return\s*\{\s*ok:\s*false,\s*error:\s*tarFailure\(e\)/g) || []).length;
+  ok('and both tar call sites report through it', sites === 2, String(sites));
+}
+
+
 console.log('\n' + (fail ? `UPDATE: ${fail} FAILED of ${pass + fail}` : `UPDATE: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);
