@@ -5,6 +5,85 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.63.0 — one copy, and the right one (2026-09-13)
+
+**Two copies of the same source, diverged, and last cycle blessed the wrong one.**
+
+### What was there
+The interchange export the NCP-MCI bank was built from existed twice:
+`starnix/banks/ncp-mci-e1.md` — which nothing referenced and nothing knew about —
+and `wwtbane/docs/interchange/e1.md`, which **v2.61.0 had just labelled the
+provenance to keep**. They differed in five places, and the shipped bank agrees
+with the unreferenced copy on every one:
+
+| | kept (was `starnix/banks/`) | discarded (was `wwtbane/docs/interchange/`) | live bank |
+| --- | --- | --- | --- |
+| a cluster-size note | "the minimum is four" | "the minimum is five" | four |
+| an LCM question | "a host that has GPUs" | "a host that has **CPUs**" | GPUs |
+| a Metro Availability explanation | describes the options | "Options A and B" | describes them |
+| a storage-container explanation | describes the option | "Option C" | describes it |
+| an invisible character | a plain space | **U+2028 LINE SEPARATOR** ×5 | plain space |
+
+Two of those are more than untidy. "CPUs" makes the question contradict its own
+stem. And U+2028 has already cost this project three questions —
+`starnix/verify-build.mjs` still carries the check from when one silently emptied
+their explanations — so the file the repository pointed an author at held five
+instances of the exact character that had broken it before.
+
+That is how a near-duplicate turns harmful: not by existing, but by becoming the
+copy someone is sent to.
+
+### One copy, beside what it documents
+Both files now live in `banks/provenance/`, next to the bank they are provenance
+for rather than inside one of the three games, with a README recording every
+divergence and which copy won. `starnix/banks/` and `wwtbane/docs/interchange/`
+are gone; `FLAGS.md`, `CONTENT_QA_REPORT.md` and `QUESTION_AUTHORING.md` point at
+the new home.
+
+The manifest rule had to learn about them: `banks/provenance/` holds `.md` files
+under `banks/` that are deliberately not banks, so it is excepted the way
+`drafts/` is — with a second check that the exception is not an empty excuse.
+
+### The gates
+`bank-test.mjs`, 89 → 96 checks.
+
+**No tracked text file is a near-duplicate of another.** Line-set Jaccard over
+every tracked `.md`/`.js`/`.mjs`/`.json`/`.css` of 4 KB or more, excluding vendor
+code and build output. Measured across 138 files it found exactly the two pairs
+that started this and nothing else — zero false positives. Tracked files only,
+which is the right trade and is said so in the rule: CI runs on a full checkout,
+so nothing reaches `main` unseen, while a working-tree scan would flag every
+scratch copy someone made while editing. A `[neg]` control plants a copy and
+requires it to score as one.
+
+**No invisible line or paragraph separator under `banks/`.** U+2028 and U+2029
+are line terminators to a JavaScript parser and nothing at all to a reader.
+Nothing in a question bank needs either.
+
+That second rule went red the moment it was written, on a file this cycle had
+just moved: `ncp-mci-e1-review.md` carried **four** U+2028s — and being
+byte-identical in both old locations, both copies had them. They sit inside a
+single-line `@overall:` field where a newline would break the format, so they are
+now single spaces, which is what the corrected `e1.md` did with its own.
+
+Both rules were run against the original state and both go red:
+
+```
+FAIL no tracked text file is a near-duplicate of another
+  -- banks/provenance/ncp-mci-e1.md ~ wwtbane/docs/interchange/e1.md (1.00)
+FAIL no bank or provenance file carries an invisible line separator
+  -- banks/provenance/ncp-mci-e1-review.md: 1x U+2028 LINE SEPARATOR
+```
+
+### Also checked, and clean
+Four things this cycle measured and found working, recorded so they are not
+re-investigated: the launcher's weak-area link does open Practice Exams focused
+on that domain (end to end, `focusDomain` written and the chip active); the nav
+bank badge is correctly wired to both its initial and its update call; Practice
+Exams' question-count facts do update when the set selection changes; and there
+is no reference to any AI assistant anywhere in the tracked tree outside the
+changelog.
+
 ## v2.62.0 — the second bank fits (2026-09-13)
 
 **A cliff the code could only warn about, reached by the next thing this

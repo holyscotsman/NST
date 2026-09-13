@@ -30,7 +30,7 @@ required by the project design rules.
   which were assigned during ingestion, not by the owner (`FLAGS.md §1`).
 
 ## Exam2 interchange set (owner-supplied, merged ahead of the AI-drafted pool)
-- **51 questions** from `docs/interchange/e1.md` (ids `ncp-mci-e1-qN`),
+- **51 questions** from `banks/provenance/ncp-mci-e1.md` (ids `ncp-mci-e1-qN`),
   transcribed verbatim from the source exam by the owner — stems, options,
   keys, per-option explanations, and overall explanations are the exam's own,
   so these ship `reviewStatus:"human-reviewed"`. 6 exhibit images included.
@@ -42,7 +42,7 @@ required by the project design rules.
 ## Quarantined (not shipped)
 - STOR-X-001: Duplicate niche fact (Curator scan cadence) — kept PERF-X-001
 - FDN-X-001: Duplicate niche fact (192.168.5.254 internal address) — kept AHV-X-001
-- 9 interchange review-file questions (`docs/interchange/e1-review.md`):
+- 9 interchange review-file questions (`banks/provenance/ncp-mci-e1-review.md`):
   8 choose-two + 1 contradictory source key — each needs an owner decision
   (see `FLAGS.md §0`); the parser rejects `@review`/`@multi` blocks outright.
 
