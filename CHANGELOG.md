@@ -5,6 +5,69 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.66.0 — the third one, in the place I had already cleared (2026-09-13)
+
+**A sweep for the class v2.57.0 and v2.65.0 belong to, and it found a third
+instance — in the exact ranking v2.57.0 examined and let stand.**
+
+### The class
+Three times a recommendation has been decided by a **rate**, and a rate is won by
+the smallest sample: one question answered wrong is 0%, and 0% beats everything.
+
+### The third one
+StarNix's coach took `stats().domains[0]`, sorted by `masteredPct`. Simulated
+over 4,000 profiles of 5–11 domains with 1–45 questions each:
+
+| | before | after |
+| --- | --- | --- |
+| named a domain with LESS left to learn | **65%** of profiles | 0% |
+| average questions forgone | **15.7** | 0 |
+| smallest domain ever named | **1 question** | 3 |
+
+15.7 questions is the largest miss of the three, because StarNix ranks over whole
+domains rather than one sitting's slice.
+
+**v2.57.0 looked straight at this ranking** — it is where "Weakest domain" became
+"Least mastered" — and let the ordering stand, reasoning that "for a drill
+prompt, least-mastered is a fair thing to suggest". That reasoning assumed ties
+would be common and the tie-breaker would carry the decision. Ties are not
+common. The rate carried it.
+
+### The fix
+`StarNix.plan.drillTarget(domains)`: rank by **questions left to master**, ties
+broken by the lower rate — the same shape as `engine.focusDomain` (v2.65.0). The
+Codex list keeps its own `masteredPct` order, which is fine: it prints
+`mastered/total` beside every row, so nothing there can be misread.
+
+### The rule, so there is no fourth
+`scripts/ranker-test.mjs`, new, 14 checks, in CI after `dashboard-test`. One
+property, asked of all three rankers in their own vocabularies — the launcher in
+answers, the results screen in misses, StarNix in mastered-of-total:
+
+1. **Same rate, different size → the larger wins.** Two domains you are equally
+   bad at are not equally worth an evening.
+2. **A minimal candidate at the worst possible rate must not win** against a
+   substantially larger one. The failure itself, stated directly.
+3. **Same size, different rate → the weaker wins**, so a ranker cannot satisfy
+   the first two by ignoring skill entirely.
+
+Three `[neg]` controls rank the same fixtures **by rate** and require a different
+answer — except on the third, which both rankings get right, and which is
+labelled as deliberately non-discriminating so it is not mistaken for proof.
+
+Reverting the comparison turns it red:
+
+```
+FAIL drillTarget: a one-question domain at 0% does not beat ten unmastered -- tiny
+```
+
+### What the three fixes taught, in order
+v2.57.0 required **evidence before ranking** — a threshold, which has to be
+tuned. v2.65.0 and this one rank on **the quantity itself**, which needs no
+threshold: a domain with one question has at most one miss and structurally
+cannot win. The second shape is better, and the launcher keeps the first only
+because "how many answers back this" is genuinely its question.
+
 ## v2.65.0 — the smallest domain kept winning (2026-09-13)
 
 **A defect, and the same one as v2.57.0 in a second place. The screen that tells

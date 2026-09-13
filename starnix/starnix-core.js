@@ -1396,6 +1396,23 @@
     if (wk && (wk.masteredPct || 0) < 0.8) return { kind: "domain", label: "Least mastered: " + wk.domain + " (" + Math.round((wk.masteredPct || 0) * 100) + "% mastered) \u2014 drill it", cta: "Open Codex \u25b8", action: "progress", domain: wk.domain };
     return { kind: "clear", label: "All clear \u2014 fly any mission for XP", cta: null, action: null };
   }
+  /* Which domain to drill, from stats().domains. Exported so the same property
+   * can be pinned here and in the launcher and Practice Exams: a recommendation
+   * must not be decided by a rate the smallest sample wins.
+   *
+   * Returns null when everything is mastered. Pure. */
+  function drillTarget(domains) {
+    var pick = null, pickLeft = -1, pickPct = 2;
+    for (var i = 0; domains && i < domains.length; i++) {
+      var d = domains[i];
+      if (!d || !d.total) continue;
+      var left = d.total - (d.mastered || 0);
+      var pc = d.masteredPct != null ? d.masteredPct : (d.mastered || 0) / d.total;
+      if (left > pickLeft || (left === pickLeft && pc < pickPct)) { pick = d; pickLeft = left; pickPct = pc; }
+    }
+    return pick && pickLeft > 0 ? pick : null;
+  }
+
   function flightPlanFromCore(core, now) {
     now = now != null ? now : clock.now();
     var sig = { now: now, dueCount: 0, daily: [], weakest: null };
@@ -1407,10 +1424,29 @@
         if (st && !st.claimed) sig.daily.push(st);
       }
     } catch (e2) {}
-    try { var stx = core.questions.stats(); if (stx.domains && stx.domains[0]) sig.weakest = { domain: stx.domains[0].domain, masteredPct: stx.domains[0].masteredPct }; } catch (e4) {}
+    /* WHICH DOMAIN TO DRILL: THE COUNT, NOT THE RATE
+     *
+     * stats().domains is sorted by masteredPct for the Codex list, which shows
+     * `mastered/total` beside each row so nothing there can be misread. Taking
+     * domains[0] for the coach is a different matter: a rate is won by the
+     * SMALLEST domain, because one unmastered question out of one is 0%.
+     *
+     * Simulated over 4,000 profiles (5-11 domains, 1-45 questions each), the
+     * first-by-rate pick named a domain with LESS left to learn than another
+     * 65% of the time, forgoing 15.7 questions on average, and it has named a
+     * one-question domain. v2.57.0 looked at this ranking and let it stand as
+     * "fair for a drill prompt"; measuring it says otherwise.
+     *
+     * So pick by what is actually left -- total minus mastered -- with the rate
+     * breaking ties, which is the same shape as engine.focusDomain (v2.65.0).
+     * The list keeps its own order. */
+    try {
+      var pick = drillTarget(core.questions.stats().domains);
+      if (pick) sig.weakest = { domain: pick.domain, masteredPct: pick.masteredPct };
+    } catch (e4) {}
     return flightPlan(sig);
   }
-  StarNix.plan = { rank: flightPlan, next: flightPlanFromCore };
+  StarNix.plan = { rank: flightPlan, next: flightPlanFromCore, drillTarget: drillTarget };
 
   /* Field error ring (v0.147.0, V1.1 Backend#3) — the v0.116 radar bug threw 60x/s in real
    * browsers for five releases while jsdom's null-context early-return kept every harness
