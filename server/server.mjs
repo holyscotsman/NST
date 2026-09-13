@@ -258,28 +258,39 @@ async function handle(req, res) {
       const form = parseForm(await readBody(req, 64 * 1024));
       if (!csrfValid(req, form)) return sendHtml(res, 400, P.loginPage({ csrf, error: 'Your sign-in form expired. Try again.', allowSignup: ALLOW_SIGNUP }));
       const username = String(form.username || '').trim();
-      const key = clientIp(req) + '|' + username.toLowerCase();
-      const gate = A.throttleCheck(key);
+      const ip = clientIp(req);
+      const key = ip + '|' + username.toLowerCase();
+      // Two gates. The fine one stops someone working through passwords for a
+      // known account; the coarse one stops someone working through ACCOUNTS,
+      // which the fine key cannot see at all because it never repeats.
+      const ipKey = 'login-ip|' + ip;
+      const gate = A.throttleCheck(ipKey).allowed ? A.throttleCheck(key) : A.throttleCheck(ipKey);
       if (!gate.allowed) {
         const mins = Math.ceil(gate.retryAfterMs / 60000);
         return sendHtml(res, 429, P.loginPage({ csrf, username, allowSignup: ALLOW_SIGNUP,
           error: `Too many attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.` }));
       }
       const user = DB.getUserByName(db, username);
-      const good = user && !user.disabled && A.verifyPassword(form.password, user.pass_hash, user.pass_salt);
+      // No user, or a disabled one, must still cost what a real check costs --
+      // otherwise the reply time says which usernames exist. See absorbPassword.
+      const good = (user && !user.disabled)
+        ? A.verifyPassword(form.password, user.pass_hash, user.pass_salt)
+        : A.absorbPassword(form.password);
       if (!good) {
         A.throttleFail(key);
-        DB.audit(db, username || null, 'login-failed', clientIp(req));
+        A.throttleFail(ipKey, Date.now(), A.MAX_ATTEMPTS_PER_IP);
+        DB.audit(db, username || null, 'login-failed', ip);
         // One message for every failure: telling someone which half was wrong
         // hands them a way to enumerate valid usernames.
         return sendHtml(res, 401, P.loginPage({ csrf, username, allowSignup: ALLOW_SIGNUP,
           error: 'That username and password do not match.' }));
       }
       A.throttleReset(key);
+      A.throttleReset(ipKey);                     // a real sign-in clears the address too
       const { token, tokenHash } = A.newSessionToken();
       DB.createSession(db, tokenHash, user.id, SESSION_TTL, req.headers['user-agent']);
       DB.touchLogin(db, user.id);
-      DB.audit(db, user.username, 'login', clientIp(req));
+      DB.audit(db, user.username, 'login', ip);
       return redirect(res, user.must_change ? '/account/password' : '/', {
         'Set-Cookie': A.cookieHeader(COOKIE, token, { maxAge: SESSION_TTL, secure }),
       });
@@ -297,6 +308,21 @@ async function handle(req, res) {
       const back = (error) => sendHtml(res, 400, P.signupPage({
         csrf, error, username: form.username, displayName: form.displayName, minPassword: A.MIN_PASSWORD,
       }));
+      /* Sign-up was the unthrottled door. Every POST ran a deliberately slow
+       * scrypt and wrote a row, so a loop against it pinned the CPU and grew the
+       * database without limit -- and "That username is already taken" told the
+       * same loop which accounts exist. Rate-limit it per address, before any of
+       * the work, and count every attempt rather than only the failures: the
+       * thing being capped here is how fast accounts can be created. */
+      const sKey = 'signup|' + clientIp(req);
+      const sGate = A.throttleCheck(sKey);
+      if (!sGate.allowed) {
+        const mins = Math.ceil(sGate.retryAfterMs / 60000);
+        return sendHtml(res, 429, P.signupPage({ csrf, minPassword: A.MIN_PASSWORD,
+          username: form.username, displayName: form.displayName,
+          error: `Too many sign-up attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.` }));
+      }
+      A.throttleFail(sKey);
       if (!csrfValid(req, form)) return back('Your form expired. Try again.');
       const u = A.validateUsername(form.username);
       if (!u.ok) return back(u.error);

@@ -141,3 +141,9 @@ jobs:
       # policy: overdue before new, oldest due date first, a stated cap, and a
       # queue that does not reshuffle between the count shown and the session run.
       - run: node ../scripts/review-test.mjs
+      # (v2.22.0) the login layer, probed against a running server rather than
+      # read. A malformed cookie answered 500 to every page including /login; an
+      # unknown username skipped the scrypt and so answered 20x faster than a
+      # real one, naming every account despite the identical error text; sign-up
+      # had no throttle, so a loop created accounts and burned CPU without limit.
+      - run: node ../scripts/auth-test.mjs

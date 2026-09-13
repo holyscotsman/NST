@@ -275,8 +275,18 @@ Reasonable for an internal tool on a trusted network:
 - passwords are stored as **scrypt** hashes with a per-user random salt — never plaintext
 - session tokens are random 32-byte values, stored **hashed**, so database access alone does not yield a usable cookie
 - cookies are `HttpOnly` + `SameSite=Strict`, and `Secure` when served over HTTPS
-- repeated failed sign-ins are locked out per IP and username
-- sign-in failures are deliberately indistinguishable, so usernames cannot be enumerated
+- repeated failed sign-ins are locked out on two keys: per IP *and* username
+  (eight tries), and per address alone on a much looser limit, because a bot
+  inventing a new username every request never repeats the first key. The
+  attempt table itself is capped, so neither flood can exhaust the process
+- sign-in failures are indistinguishable **in text and in time** — an unknown or
+  disabled account burns the same scrypt as a real one, so the reply clock cannot
+  be used to enumerate accounts either
+- sign-up is rate-limited per address *before* the name lookup, the password hash
+  or the insert, so it cannot be used to create accounts in bulk, pin the CPU, or
+  mine "that username is already taken"
+- a malformed `Cookie` header is parsed, never fatal — an undecodable value
+  matches nothing instead of erroring the request
 - state-changing forms carry a CSRF token
 - the database, `.git`, and CI config are never served, to anyone
 
@@ -297,3 +307,19 @@ node scripts/server-test.mjs
 Spawns its own instance on a scratch port with a throwaway database, and checks
 the whole surface — gating, traversal, account isolation, admin actions, CSRF,
 throttling. It runs in CI.
+
+```bash
+node scripts/auth-test.mjs
+```
+
+The login layer on its own: cookie parsing against everything a client can send,
+a real timing measurement of a known versus an unknown username, the ordering
+proof that the sign-up gate runs before any expensive work, and a lockout that
+has to survive someone flooding the attempt table to wash it out. Also in CI.
+
+```bash
+node scripts/robustness-test.mjs
+```
+
+Everything hostile or merely malformed a client can send, against one bar: the
+process must not end. Also in CI.

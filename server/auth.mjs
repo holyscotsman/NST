@@ -32,6 +32,24 @@ export function verifyPassword(password, storedHash, salt) {
   } catch { return false; }
 }
 
+/* The identical error message on a failed login is only half of not leaking who
+ * has an account here. The other half is the CLOCK: verifyPassword is meant to
+ * be slow, so a sign-in that skips it because no such user exists answers in a
+ * millisecond while a real username answers in thirty. Measured on this server
+ * that was a 20x gap -- enough to enumerate every account without ever reading
+ * the error text.
+ *
+ * So when the username misses, burn the same scrypt against a fixed throwaway
+ * salt and throw the answer away. Same work, same wait, nothing to compare. */
+const DUMMY_SALT = randomBytes(16).toString('hex');
+const DUMMY_HASH = scryptSync('\u0000unused', DUMMY_SALT, SCRYPT.keylen,
+  { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p }).toString('hex');
+
+export function absorbPassword(password) {
+  verifyPassword(password, DUMMY_HASH, DUMMY_SALT);
+  return false;                                  // never a sign-in, always false
+}
+
 export function newSessionToken() {
   const token = randomBytes(32).toString('base64url');
   return { token, tokenHash: hashToken(token) };
@@ -75,6 +93,34 @@ const WINDOW_MS = 15 * 60 * 1000;
 const MAX_ATTEMPTS = 8;
 const LOCKOUT_MS = 10 * 60 * 1000;
 
+/* A key is ip|username, and an unknown username costs the server nothing to
+ * reject -- so a bot posting a fresh random name every time minted a map entry
+ * per request that nothing ever came back to expire. The throttle that exists
+ * to survive a flood was itself the way to exhaust the process.
+ *
+ * Cap it. Expired records go first; if that is not enough, evict the oldest
+ * records that are NOT serving a live lockout, so filling the map cannot be
+ * used to wash out a lockout someone has already earned. */
+const MAX_KEYS = 4096;
+
+function sweep(now) {
+  if (attempts.size <= MAX_KEYS) return;
+  for (const [k, r] of attempts) {
+    const locked = r.lockedUntil && r.lockedUntil > now;
+    if (!locked && now - r.first > WINDOW_MS) attempts.delete(k);
+  }
+  if (attempts.size <= MAX_KEYS) return;
+  for (const [k, r] of attempts) {                  // insertion order = oldest first
+    if (attempts.size <= MAX_KEYS) break;
+    if (!(r.lockedUntil && r.lockedUntil > now)) attempts.delete(k);
+  }
+  while (attempts.size > MAX_KEYS) {                // all of them locked: take the oldest
+    const k = attempts.keys().next().value;
+    if (k === undefined) break;
+    attempts.delete(k);
+  }
+}
+
 export function throttleCheck(key, now = Date.now()) {
   const rec = attempts.get(key);
   if (!rec) return { allowed: true };
@@ -85,28 +131,60 @@ export function throttleCheck(key, now = Date.now()) {
   return { allowed: true };
 }
 
-export function throttleFail(key, now = Date.now()) {
+/* `max` lets one caller be coarser than another. The fine key is ip|username at
+ * eight tries; the coarse key is the address alone, and has to sit far above any
+ * honest use because a whole office can share one address behind NAT. */
+export function throttleFail(key, now = Date.now(), max = MAX_ATTEMPTS) {
   let rec = attempts.get(key);
   if (!rec || now - rec.first > WINDOW_MS) rec = { count: 0, first: now, lockedUntil: 0 };
   rec.count++;
-  if (rec.count >= MAX_ATTEMPTS) { rec.lockedUntil = now + LOCKOUT_MS; rec.count = 0; rec.first = now; }
+  if (rec.count >= Math.max(1, max)) { rec.lockedUntil = now + LOCKOUT_MS; rec.count = 0; rec.first = now; }
   attempts.set(key, rec);
+  sweep(now);
   return rec;
 }
+
+/* Failed sign-ins per ADDRESS, regardless of which username was tried.
+ *
+ * The per-username gate cannot see this attack: keyed ip|username, a bot that
+ * invents a fresh name every request never hits the same key twice, so it is
+ * never throttled at all. That was survivable only while an unknown username
+ * was free to reject -- and closing the timing leak made every one of them cost
+ * a full scrypt. Without this second gate, fixing the leak would have handed
+ * over a CPU exhaustion vector in its place.
+ *
+ * Deliberately loose. Only FAILURES count, so a person signing in normally never
+ * approaches it, and a shared office address has room for everyone's bad day. */
+export const MAX_ATTEMPTS_PER_IP = 60;
+
+export function _throttleSize() { return attempts.size; }
+export const _THROTTLE_MAX_KEYS = MAX_KEYS;
+export const _THROTTLE_MAX_ATTEMPTS = MAX_ATTEMPTS;
 
 export function throttleReset(key) { attempts.delete(key); }
 export function _throttleClearAll() { attempts.clear(); }
 
 /* ---- cookies --------------------------------------------------------- */
 
+/* Never throws. The Cookie header is attacker-controlled on every single
+ * request, and decodeURIComponent('%') is a URIError -- which used to escape
+ * all the way out of the request handler and answer 500. Not just on one page:
+ * the session cookie is read before routing, so ONE malformed cookie turned the
+ * whole site, sign-in screen included, into an error page for that browser, with
+ * no way in to clear it.
+ *
+ * A value that will not decode is kept verbatim instead. It will not match a
+ * session or a CSRF token, which is the correct outcome; being unreadable is not
+ * grounds for taking the server down. */
 export function parseCookies(header) {
-  const out = {};
+  const out = Object.create(null);
   String(header || '').split(';').forEach((part) => {
     const i = part.indexOf('=');
     if (i < 0) return;
     const k = part.slice(0, i).trim();
     const v = part.slice(i + 1).trim();
-    if (k) out[k] = decodeURIComponent(v);
+    if (!k) return;
+    try { out[k] = decodeURIComponent(v); } catch { out[k] = v; }
   });
   return out;
 }
