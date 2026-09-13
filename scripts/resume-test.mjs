@@ -141,15 +141,23 @@ async function discardAndReturn(ctx, page) {
       answered: document.querySelectorAll('.pe-pal.answered').length,
       flagged: document.querySelectorAll('.pe-pal.flagged').length,
       sameOptions: JSON.stringify(rebuilt) === JSON.stringify(b.options),
-      sameAnswer: raw.answers[0] === b.answer0,
+      /* Deep-compare, not ===. A MULTI-answer question stores its answer as an
+       * ARRAY of chosen indices, and two arrays are never === after a JSON
+       * round-trip. 13% of this bank is multi-answer, so === passed locally and
+       * failed in CI the first time the shuffle put one of those first -- an
+       * intermittency that looks exactly like a flake and is not one. */
+      sameAnswer: JSON.stringify(raw.answers[0]) === JSON.stringify(b.answer0),
+      answerWasMulti: Array.isArray(b.answer0),
       endTimeUnchanged: raw.endTime === b.endTime,
+      rawAnswer0: raw.answers[0],
     };
   }, before);
   ok('every answer is still there', after.answered === 6, after.answered);
   ok('and the flag', after.flagged === 1, after.flagged);
   ok('the options come back in the SAME order — this is what makes the answers mean what they meant',
     after.sameOptions);
-  ok('so the stored answer still points at the option it pointed at', after.sameAnswer);
+  ok('so the stored answer still points at the option it pointed at', after.sameAnswer,
+    `${JSON.stringify(before.answer0)} -> ${JSON.stringify(after.rawAnswer0)}${after.answerWasMulti ? ' (multi-answer)' : ''}`);
   ok('and resuming did not extend the deadline', after.endTimeUnchanged);
   await ctx.close();
 }

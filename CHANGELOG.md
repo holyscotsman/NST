@@ -55,6 +55,24 @@ Removing `esc()` from the admin display name, the username, the audit actor, the
 update page's version and the error message each fail 10–11 checks by name,
 printing the raw tag-opening that survived.
 
+### Also fixed: a test that was wrong 13% of the time
+CI caught `resume-test.mjs` failing one check — *"so the stored answer still
+points at the option it pointed at"* — on a suite that passes locally. It was not
+a flake and was not re-run. It compared the stored answer with `===`, and a
+**multi-answer** question stores its answer as an *array* of chosen indices,
+which is never `===` to itself after a JSON round-trip. 13% of this bank is
+multi-answer, so the check failed exactly when the shuffle put one of those
+first. Reproduced by forcing a multi-answer question into first place:
+
+```
+first question answer stored as: [0]  (MULTI — the CI case)
+after resuming:                  [0]
+strict ===   : false   <- what failed in CI
+deep compare : true    <- what the fix uses
+```
+
+The exam data was never wrong; only the assertion about it was.
+
 ## v2.32.0 — Checking the one sentence the whole project rests on (2026-09-13)
 
 *"However you play, right and wrong answers feed the same mastery tracker."*
