@@ -5,6 +5,86 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.60.0 — whose progress is this? (2026-09-13)
+
+**A data-separation defect. On a machine two colleagues share, the first
+person's study record was transferred into the second person's account.**
+
+### The setup this deployment actually has
+The tool is served from one VM to a whole team. `localStorage` is per-browser; an
+account is per-person. Signing out deletes the server session and deliberately
+**leaves the study record alone** — it has to, or studying offline or on a static
+host would be impossible.
+
+Nothing recorded whose record it was. `NSTSync.start()` pulled with mode
+`"merge"` whenever anything was already local, then force-pushed the result to
+whoever had just signed in.
+
+On a shared machine that is not a merge. It is a transfer. Measured end to end,
+one browser, two accounts:
+
+```
+localStorage after sign-out         nst.mastery.v1, nst.activeBank
+signed in as                        bob
+bob's account contains alice's ids  true   (12 of 12)
+```
+
+Alice's twelve questions, permanently in Bob's account, feeding his mastery
+scheduler, his readiness estimate and his review queue. And visible to him on
+screen, because it is the same browser store the dashboard reads.
+
+### The fix
+The browser now carries a stamp — `nst.sync.owner` — saying which account last
+synced there. On sign-in:
+
+- **A different id** means this record belongs to someone else. It is cleared
+  before anything reads or sends it, and never pushed.
+- **The same id** is the person's own offline work, and merging it is the whole
+  point — study on a laptop, open a phone, lose nothing. Unchanged.
+- **No stamp at all** is the case the original comment describes, *"a first
+  sign-in adopts existing local progress"*: a browser that studied before sync
+  existed, or on a static host. Still adopted, **once**, after which the stamp
+  makes every later switch visible.
+
+`NSTBackup.clearLocal()` is new and necessary: `restore(..., {mode:"replace"})`
+only clears keys on its way to writing new ones, so against a **brand-new**
+account — which has nothing stored — `pull()` returns "nothing stored yet",
+writes nothing, and the previous person's record survives to be pushed up. That
+is precisely how it escaped.
+
+**What this costs.** Work that was never pushed is lost — someone who studied
+with the network down and signed out before it recovered. That window is narrow
+(a push fires every five seconds, on page-hide, and forced at sign-in), and both
+alternatives are worse: their record ends up inside a colleague's account, and it
+stays readable in a colleague's browser. Nothing is said on screen; the incoming
+person sees their own progress, which is correct, and naming the previous account
+to them would be its own small leak. `NSTSync.switchedFrom()` reports it for a
+surface that may want it later.
+
+### The gate, in two places because the bug lives in two
+`sync-test.mjs`, 68 → 82 checks, pins all three cases apart — different account,
+same account, no stamp — plus the brand-new-account case that `replace` cannot
+cover, and `clearLocal` removing every owned key and nothing else. A `[neg]`
+control runs the same switch with the stamp absent and requires the data to
+travel, so the fixture cannot quietly stop exercising the path.
+
+`smoke-test.mjs`, 15 → 20 checks, plays it out for real: a colleague studies,
+signs out, root signs in at the same browser, and root's account must hold none
+of it. Against the original code:
+
+```
+FAIL and their account holds NONE of the previous person's questions
+  -- 12 of 12 carried over
+```
+
+### A harness subtlety worth recording
+`NSTSync` starts itself on load, so the mock window has already run the whole
+sign-in path before the test touches it. Calling `start()` again is not a no-op:
+by then the browser carries the *new* owner's stamp, so the second run correctly
+sees no switch and resets `switchedFrom` to null — which is exactly what the new
+check reported, against working code, until the test read the automatic run
+instead of re-running it.
+
 ## v2.59.0 — the map that never moved (2026-09-13)
 
 **A defect. The question strip in both study modes was pinned to question one

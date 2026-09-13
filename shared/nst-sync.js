@@ -22,6 +22,9 @@
   var state = {
     enabled: false, user: null, lastPushed: "", pushTimer: null,
     lastError: null, busy: false, failures: 0,
+    // The account id this browser was stamped with before the current sign-in,
+    // when it was a different one. Null on every ordinary load.
+    switchedFrom: null,
   };
 
   /* How many consecutive failed pushes before the page is told. One is a hiccup
@@ -46,6 +49,39 @@
   }
 
   function backup() { return window.NSTBackup || null; }
+
+  /* WHICH ACCOUNT THIS BROWSER'S PROGRESS BELONGS TO
+   *
+   * localStorage is per-browser; an account is per-person. Signing out deletes
+   * the server session and deliberately leaves the study record alone -- it has
+   * to, or studying offline or on a static host would be impossible. But nothing
+   * recorded WHOSE record it was, and `start()` merges whatever is local into
+   * the account that just signed in and then force-pushes the result.
+   *
+   * On a machine two colleagues share, that is not a merge, it is a transfer.
+   * Measured, with one browser and two accounts:
+   *
+   *     localStorage after sign-out        nst.mastery.v1, nst.activeBank
+   *     signed in as                       bob
+   *     bob's account contains alice's ids true  (12 of 12)
+   *
+   * Alice's twelve questions, permanently in Bob's account, feeding his mastery
+   * scheduler, his readiness estimate and his review queue.
+   *
+   * So the browser now carries a stamp saying who last synced here. A stamp that
+   * does not match the account signing in means this record is someone else's:
+   * it is cleared rather than merged, and never pushed.
+   *
+   * NO stamp with local data present is the case the original comment describes
+   * -- "a first sign-in adopts existing local progress" -- and is still adopted,
+   * once. After that the stamp exists and every later switch is seen. */
+  var OWNER_KEY = "nst.sync.owner";
+  function storedOwner() {
+    try { return window.localStorage.getItem(OWNER_KEY) || ""; } catch (e) { return ""; }
+  }
+  function stampOwner(id) {
+    try { window.localStorage.setItem(OWNER_KEY, String(id)); } catch (e) { /* private mode */ }
+  }
 
   function api(path, opts) {
     return fetch(path, Object.assign({
@@ -172,10 +208,33 @@
       // Let the page render an account control. Fired only when server-backed, so
       // a static host simply never sees it.
       try { window.dispatchEvent(new CustomEvent("nst-account", { detail: me })); } catch (e) {}
+
+      /* A different account last synced here: this browser is holding someone
+       * else's study record. Clear it before anything reads or sends it.
+       *
+       * This does lose work that was never pushed -- someone who studied with
+       * the network down and signed out without it recovering. That window is
+       * narrow (a push fires every five seconds, on page-hide, and forced at
+       * sign-in), and the alternative is worse in both directions: their record
+       * ends up in a colleague's account, and it stays readable in a colleague's
+       * browser. */
+      var mine = String(me && me.id);
+      var stamped = storedOwner();
+      var foreign = !!stamped && stamped !== mine;
+      state.switchedFrom = foreign ? stamped : null;
+      if (foreign) {
+        try { backup().clearLocal(); } catch (e) { /* nothing local to protect */ }
+        state.lastPushed = "";
+      }
+
       return pull().then(function (r) {
         // Anything already in this browser that the server has not seen goes up
         // straight away, so a first sign-in adopts existing local progress.
-        return push(true).then(function () { return r; });
+        // After a switch there is nothing local but what the pull just wrote.
+        return push(true).then(function () {
+          stampOwner(mine);
+          return r;
+        });
       });
     }).then(function () {
       // localStorage writes do not fire an event in the tab that made them, so
@@ -206,6 +265,11 @@
     KEEPALIVE_SAFE_BYTES: KEEPALIVE_SAFE_BYTES,
     FAILURES_BEFORE_WARNING: FAILURES_BEFORE_WARNING,
     user: function () { return state.user; },
+    OWNER_KEY: OWNER_KEY,
+    storedOwner: storedOwner,
+    // Null unless this load found a DIFFERENT account's record in the browser
+    // and cleared it, in which case it is that account's id.
+    switchedFrom: function () { return state.switchedFrom; },
     lastError: function () { return state.lastError; },
   };
 

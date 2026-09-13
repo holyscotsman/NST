@@ -548,5 +548,127 @@ function liveSync({ records = 3, progressHandler } = {}) {
     listens("addEventListener('nst-sync-status', fn)"));
 }
 
+/* ---- whose progress is this? -----------------------------------------------
+ *
+ * THE DEFECT THIS EXISTS FOR
+ * localStorage is per-browser; an account is per-person. Signing out deletes the
+ * server session and deliberately leaves the study record alone -- it has to, or
+ * studying offline would be impossible. But nothing recorded WHOSE record it
+ * was, and start() merged whatever was local into the account that just signed
+ * in, then force-pushed the result.
+ *
+ * On a shared machine that is a transfer, not a merge. End to end, one browser,
+ * two accounts: bob's account came out holding all twelve of alice's question
+ * ids, feeding his scheduler, his readiness estimate and his review queue.
+ *
+ * The browser now carries a stamp saying which account last synced here. These
+ * pin all three cases it has to tell apart. */
+{
+  const ME = (id) => ({ id, username: 'u' + id, displayName: 'U', role: 'user', serverBacked: true });
+
+  /* A scriptable server: reports `me`, serves `stored` on GET, records PUTs. */
+  function stack({ me, stored = null, seed = {} }) {
+    const puts = [];
+    const fetchImpl = (path, opts) => {
+      const method = (opts && opts.method) || 'GET';
+      if (path === '/api/me') return jsonRes(me);
+      if (path === '/api/progress' && method === 'GET') {
+        return jsonRes(stored ? { updatedAt: 1, data: stored } : { updatedAt: 0, data: null });
+      }
+      if (path === '/api/progress') { puts.push(JSON.parse(opts.body)); return jsonRes({ ok: true }); }
+      return jsonRes({}, 404);
+    };
+    const h = makeWindow({ fetchImpl, seed });
+    return { ...h, puts };
+  }
+
+  /* The module starts itself on load -- `document.readyState` is "complete" in
+   * this harness, so `makeWindow` has already run the whole sign-in path by the
+   * time it returns. Calling start() again is not a no-op: by then the browser
+   * carries the NEW owner's stamp, so the second run correctly sees no switch
+   * and resets `switchedFrom` to null. (It reported null for exactly that
+   * reason before this comment existed.) So let the automatic run settle and
+   * read what IT did. */
+  const settle = async () => { for (let i = 0; i < 12; i++) await new Promise((r) => setImmediate(r)); };
+
+  const ALICE_KEY = 'nst.mastery.v1';
+  const aliceLocal = { [ALICE_KEY]: JSON.stringify({ v: 1, records: { 'ALICE-Q1': { id: 'ALICE-Q1', seen: 3, correct: 3, incorrect: 0, box: 2, streak: 3, lastSeen: 1 } } }) };
+
+  /* 1. A DIFFERENT account signed in: the record is someone else's. */
+  {
+    const h = stack({ me: ME(7), seed: { ...aliceLocal, 'nst.sync.owner': '3' } });
+    await settle();
+    const sent = JSON.stringify(h.puts);
+    ok('a different account does not inherit the previous one\'s questions',
+      !/ALICE-Q1/.test(sent), sent.slice(0, 160));
+    ok('and the previous account\'s record is gone from the browser',
+      !/ALICE-Q1/.test(h.storage.getItem(ALICE_KEY) || ''), h.storage.getItem(ALICE_KEY));
+    ok('the switch is reported, naming who was here before',
+      h.win.NSTSync.switchedFrom() === '3', h.win.NSTSync.switchedFrom());
+    ok('and the browser is re-stamped for whoever is signed in now',
+      h.storage.getItem('nst.sync.owner') === '7', h.storage.getItem('nst.sync.owner'));
+  }
+
+  /* 2. The SAME account: this is the person's own offline work, and merging it
+   *    is the whole point -- studying on a laptop must not be lost by opening a
+   *    phone. This is the case the fix must not break. */
+  {
+    const h = stack({ me: ME(3), seed: { ...aliceLocal, 'nst.sync.owner': '3' } });
+    await settle();
+    ok('the same account keeps its own local progress',
+      /ALICE-Q1/.test(h.storage.getItem(ALICE_KEY) || ''));
+    ok('and pushes it up', /ALICE-Q1/.test(JSON.stringify(h.puts)));
+    ok('no switch is reported', h.win.NSTSync.switchedFrom() === null, h.win.NSTSync.switchedFrom());
+  }
+
+  /* 3. NO stamp at all: a browser that studied before sync existed, or on a
+   *    static host. "A first sign-in adopts existing local progress" -- still
+   *    true, once, after which the stamp makes every later switch visible. */
+  {
+    const h = stack({ me: ME(5), seed: { ...aliceLocal } });
+    await settle();
+    ok('an unstamped browser is adopted by the first account to sign in',
+      /ALICE-Q1/.test(JSON.stringify(h.puts)));
+    ok('and stamped, so the next switch is seen',
+      h.storage.getItem('nst.sync.owner') === '5', h.storage.getItem('nst.sync.owner'));
+  }
+
+  /* 4. The case a "replace" restore cannot cover on its own. */
+  {
+    // Bob's account is BRAND NEW, so the server has nothing to write over
+    // Alice's record with. pull() returns "nothing stored yet" and writes
+    // nothing at all -- which is exactly how her data survived to be pushed up.
+    const h = stack({ me: ME(9), stored: null, seed: { ...aliceLocal, 'nst.sync.owner': '3' } });
+    await settle();
+    ok('a switch to an account with NOTHING stored still clears the browser',
+      !/ALICE-Q1/.test(h.storage.getItem(ALICE_KEY) || ''), h.storage.getItem(ALICE_KEY));
+    ok('and sends nothing of the previous account up', !/ALICE-Q1/.test(JSON.stringify(h.puts)),
+      JSON.stringify(h.puts).slice(0, 160));
+  }
+
+  /* 5. clearLocal itself: everything this app owns, and nothing else. */
+  {
+    const h = stack({ me: ME(1), seed: {
+      'nst.mastery.v1': '{"v":1}', 'starnix:profile': '{}', 'wwtbane.runs': '[]',
+      'someone-elses-site': 'keep me', 'unrelated': 'keep me too',
+    } });
+    const out = h.win.NSTBackup.clearLocal();
+    ok('clearLocal removes every owned key', out.ok && out.cleared === 3, JSON.stringify(out));
+    ok('and touches nothing it does not own',
+      h.storage.getItem('someone-elses-site') === 'keep me' && h.storage.getItem('unrelated') === 'keep me too');
+  }
+
+  /* 6. [neg] the fixture would notice if the leak came back. */
+  {
+    // Run the same switch with the stamp REMOVED, which is what the old code
+    // effectively did: no stamp means adopt, and the leak reappears. If this
+    // does not leak, the fixture is not exercising the path at all.
+    const h = stack({ me: ME(7), seed: { ...aliceLocal } });
+    await settle();
+    ok('[neg] with no stamp the same data DOES travel, so the fixture is live',
+      /ALICE-Q1/.test(JSON.stringify(h.puts)));
+  }
+}
+
 console.log('\n' + (fail ? `SYNC: ${fail} FAILED (${pass} passed)` : `SYNC: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);
