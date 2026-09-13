@@ -128,5 +128,68 @@ const README = readFileSync(join(ROOT, 'README.md'), 'utf8');
   }
 }
 
+/* ---- server/README.md is the page somebody follows to stand a VM up --------
+ * Two things in it go stale without anyone noticing: a setting the code reads
+ * that the table never mentions (unfindable), a row for one the code no longer
+ * reads (silently does nothing), and the performance figures, which are exact
+ * today and drift the moment content changes. */
+{
+  const srvDoc = join(ROOT, 'server', 'README.md');
+  if (existsSync(srvDoc)) {
+    const doc = readFileSync(srvDoc, 'utf8');
+
+    // Every NST_* the SERVER reads (scripts/ has its own, for test tooling).
+    const read = new Set();
+    for (const f of readdirSync(join(ROOT, 'server')).filter((n) => n.endsWith('.mjs'))) {
+      const src = readFileSync(join(ROOT, 'server', f), 'utf8');
+      for (const m of src.matchAll(/process\.env\.(NST_[A-Z_]+)/g)) read.add(m[1]);
+    }
+    const documented = new Set([...doc.matchAll(/^\|\s*`(NST_[A-Z_]+)`/gm)].map((m) => m[1]));
+
+    ok('the server reads at least one setting', read.size > 0, read.size);
+    const undocumented = [...read].filter((v) => !documented.has(v));
+    ok('every setting the server reads is in the configuration table',
+      undocumented.length === 0, undocumented.join(', '));
+    const phantom = [...documented].filter((v) => !read.has(v));
+    ok('and the table has no row for a setting the server ignores',
+      phantom.length === 0, phantom.join(', '));
+
+    /* The compression table. These are the numbers a reader uses to decide
+     * whether this will be fast enough over their network, so a stale one is a
+     * wrong answer, not a typo. Tolerance is deliberately tight: they are exact
+     * today, and 3% of the StarNix build is still 86 KB of headroom. */
+    const zlib = await import('node:zlib');
+    const Q = Number((readFileSync(join(ROOT, 'server', 'compress.mjs'), 'utf8')
+      .match(/BR_QUALITY\s*=\s*(\d+)/) || [])[1]);
+    ok('the brotli quality the server uses is readable', Number.isFinite(Q) && Q > 0, Q);
+
+    const rows = [...doc.matchAll(/^\|\s*([^|]*?[A-Za-z][^|]*?)\s*\|\s*(\d+) KB\s*\|\s*(\d+) KB\s*\|/gm)]
+      .map((m) => ({ label: m[1].trim(), disk: +m[2], wire: +m[3] }));
+    ok('the performance table has rows to check', rows.length >= 3, rows.length);
+
+    const FILES = {
+      'StarNix (one self-contained file)': 'starnix/index.html',
+      'The NCP-MCI question bank': 'banks/ncp-mci/ncp-mci.md',
+      "WWTBANE's 3D library": 'wwtbane/vendor/three/build/three.module.min.js',
+    };
+    for (const row of rows) {
+      const rel = FILES[row.label];
+      if (!rel) { ok(`performance table row "${row.label}" names a file this check knows`, false, 'unmapped row'); continue; }
+      const abs = join(ROOT, rel);
+      if (!existsSync(abs)) { ok(`"${row.label}" — the file it describes exists`, false, rel); continue; }
+      const buf = readFileSync(abs);
+      const disk = Math.round(buf.length / 1024);
+      const wire = Math.round(zlib.brotliCompressSync(buf,
+        { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: Q } }).length / 1024);
+      const dDrift = Math.abs(disk - row.disk) / row.disk * 100;
+      const wDrift = Math.abs(wire - row.wire) / row.wire * 100;
+      ok(`"${row.label}" — the on-disk size in the README is current`,
+        dDrift <= 3, `README says ${row.disk} KB, it is ${disk} KB`);
+      ok(`"${row.label}" — and the over-the-wire size is current`,
+        wDrift <= 5, `README says ${row.wire} KB, brotli q${Q} gives ${wire} KB`);
+    }
+  }
+}
+
 console.log('\n' + (fail ? `DOCS: ${fail} FAILED (${pass} passed)` : `DOCS: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

@@ -5,6 +5,34 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.28.0 — Pinning the setup guide to the code (2026-09-13)
+
+**`server/README.md` was checked claim by claim and found accurate.** Nothing in
+it is fixed. It is also the page somebody follows to stand a VM up, and the two
+things in it most likely to go stale without anyone noticing now cannot.
+
+### Added
+- **11 more checks in `scripts/docs-test.mjs` (24 total).**
+
+  **The configuration table, both ways.** Every `NST_*` the *server* reads must
+  have a row, or it is a setting nobody can find; and every row must name one
+  the server still reads, or it is a setting that silently does nothing. (The
+  `NST_*` variables under `scripts/` are test tooling and are deliberately out
+  of scope.) All six documented today are exactly the six the server reads.
+
+  **The performance table, against real brotli.** Each row's on-disk and
+  over-the-wire figure is recompressed at the quality `server/compress.mjs`
+  actually uses and compared. These are the numbers a reader uses to decide
+  whether this will be fast enough over their network, so a stale one is a wrong
+  answer rather than a typo. All three are currently exact — 2868/1350 KB,
+  367/98 KB, 652/155 KB, a 59% saving — and the tolerance is tight (3% on disk,
+  5% over the wire) because they can afford to be.
+
+### Verified
+Adding an undocumented setting, leaving a row for a removed one, and shifting one
+size figure each fail their own check, naming the variable or printing both
+numbers.
+
 ## v2.27.0 — Documentation describing a repository it no longer has (2026-09-13)
 
 Read the README as a newcomer would, and check each claim against the code.
