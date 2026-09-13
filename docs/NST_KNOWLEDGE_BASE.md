@@ -151,12 +151,14 @@ and `resetAll()`.
 `src/core/` — `config.js` (all constants), `rng.js`, `questionSchema.js`, `mastery.js`
 (Leitner), `selection.js` (buildSet + SetManager double-buffer + priority), `coins.js`,
 `lifelines.js`, `runController.js` (run state machine), `eventBus.js`, `aiAdapter.js` (no-op).
-`src/content/` — `questions.js` (generated bank), `parseMarkdownBank.js` /
-`parseInterchangeBank.js` (two authoring formats), `quarantine.js`, `images/`.
+`src/content/` — `images/` only. The compiled `questions.js` went in v2.51.0 and the
+two authoring parsers (`parseMarkdownBank.js`, `parseInterchangeBank.js`) plus
+`quarantine.js` in v2.61.0: banks are parsed at runtime by `shared/bank-parser.js`
+from `/banks/`, so there is no game-specific question format left.
 `src/shell/` — `main.js` (Game class + boot + wiring), `studio.js` / `director.js` / `takes.js`
 (WebGL studio + camera), `backdrop.js` (CSS fallback), `music.js` / `audio.js`, `persistence.js`,
-`ui/` (overlay, screens, hud, cinematic, steveCutscene). `scripts/import-questions.mjs` (bank
-importer). `vendor/` (Three.js r160 + Montserrat). `tests/` (unit + smoke + e2e).
+`ui/` (overlay, screens, hud, cinematic, steveCutscene).
+`vendor/` (Three.js r160 + Montserrat). `tests/` (unit + smoke + e2e).
 
 ---
 

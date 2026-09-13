@@ -296,5 +296,168 @@ const README = readFileSync(join(ROOT, 'README.md'), 'utf8');
     jobs.length === [...ci.matchAll(/runs-on:/g)].length, jobs.length);
 }
 
+/* ---- a doc that tells you to run something must name something runnable ----
+ *
+ * THE DEFECT THIS EXISTS FOR
+ * WWTBANE shipped a second, incompatible authoring format and an importer that
+ * compiled it into `src/content/questions.js`. v2.51.0 deleted that compiled
+ * file when the runtime bank engine took over — and left the importer, its two
+ * parsers, its tests, and four documents telling you to run it.
+ *
+ * So `docs/QUESTION_AUTHORING.md` described a format nothing parses, and
+ * `node scripts/import-questions.mjs docs/priority-question-bank.md --merge`
+ * wrote a file no app loads. Someone adding a certification bank — the next
+ * thing this repo is for — would have authored in the wrong shape, run a
+ * command that appeared to work, and seen no questions, with nothing anywhere
+ * saying why.
+ *
+ * THE RULE
+ * Every command a document presents as runnable has to be runnable: the script
+ * `node <path>` names must exist, and the script `npm run <name>` names must be
+ * in the nearest package.json. Nothing here checks prose — a comment or a
+ * changelog may discuss a deleted file in the past tense, and several
+ * deliberately do. This is only about instructions. */
+{
+  const MD_DIRS = ['', 'docs', 'banks', 'banks/drafts', 'server', 'starnix', 'wwtbane', 'wwtbane/docs'];
+  const docs = [];
+  for (const d of MD_DIRS) {
+    const abs = d ? join(ROOT, d) : ROOT;
+    if (!existsSync(abs)) continue;
+    for (const f of readdirSync(abs)) {
+      if (!f.endsWith('.md')) continue;
+      // The changelog is a history: it names things that are gone on purpose.
+      if (f === 'CHANGELOG.md') continue;
+      docs.push(d ? `${d}/${f}` : f);
+    }
+  }
+  ok('there are documents to check', docs.length >= 8, docs.length + ' found');
+
+  // A placeholder is an instruction to substitute, not a path to resolve.
+  const PLACEHOLDER = /[<>*]|\.\.\.|…|path\/to|your-|\$\{|\byour\b|example\.md$/i;
+
+  /* The nearest package.json above a document, for `npm run`. */
+  function packageFor(docPath) {
+    let dir = dirname(join(ROOT, docPath));
+    for (let i = 0; i < 5; i++) {
+      const pj = join(dir, 'package.json');
+      if (existsSync(pj)) return pj;
+      const up = dirname(dir);
+      if (up === dir || !up.startsWith(ROOT)) break;
+      dir = up;
+    }
+    return null;
+  }
+
+  /* Every package.json in the repo, for `npm run`. A root-level document
+   * describing three sub-projects names their scripts without a `cd`, so the
+   * question is "does this script exist", not "does it exist right here". */
+  const PACKAGES = [];
+  for (const d of ['', 'wwtbane', 'starnix', 'server', 'practice-exams']) {
+    const pj = join(ROOT, d, 'package.json');
+    if (existsSync(pj)) PACKAGES.push(pj);
+  }
+
+  /* Which directory a command runs in. A doc writes `cd starnix && node
+   * build.mjs`, or opens a fenced block with `cd wwtbane` and carries it down
+   * the following lines -- resolving from the document's own folder instead
+   * reports six perfectly good commands as missing, which is what the first
+   * version of this rule did. */
+  const SUBPROJECTS = ['wwtbane', 'starnix', 'server', 'practice-exams', 'scripts', 'shared']
+    .filter((d) => existsSync(join(ROOT, d)));
+
+  function basesFor(docPath, cdDir) {
+    const out = [];
+    if (cdDir) out.push(join(ROOT, cdDir), join(dirname(join(ROOT, docPath)), cdDir));
+    out.push(dirname(join(ROOT, docPath)), ROOT);
+    const pkg = packageFor(docPath);
+    if (pkg) out.push(dirname(pkg));
+    /* And every sub-project root.
+     *
+     * THE LIMIT OF THIS RULE, STATED
+     * Prose establishes a working directory a line or two earlier -- "StarNix:
+     * rebuild with `cd starnix && node build.mjs`. Harnesses: `node
+     * bank-lint.mjs`" -- and a backticked command in a sentence is sometimes a
+     * mention rather than an instruction ("git may have rewritten files to
+     * CRLF, which breaks `node build.mjs`"). Trying to tell those apart
+     * reported four perfectly good lines as broken.
+     *
+     * So this does not check that a command would run FROM HERE. It checks the
+     * thing that actually went wrong: that the file it names exists in this
+     * repository at all. A command whose script has been deleted fails
+     * wherever it is written, and that is the whole regression. */
+    for (const d of SUBPROJECTS) out.push(join(ROOT, d));
+    return out;
+  }
+
+  const badFiles = [], badScripts = [];
+  let commands = 0;
+  for (const doc of docs) {
+    const text = readFileSync(join(ROOT, doc), 'utf8');
+
+    // Walk line by line so a `cd` can carry forward inside a fenced block.
+    let blockCd = null, inFence = false;
+    for (const line of text.split('\n')) {
+      if (/^\s*```/.test(line)) { inFence = !inFence; if (!inFence) blockCd = null; continue; }
+      const cdHere = line.match(/\bcd\s+([A-Za-z0-9_./-]+)/);
+      const cdForLine = cdHere ? cdHere[1] : (inFence ? blockCd : null);
+      if (cdHere && inFence) blockCd = cdHere[1];
+
+      for (const m of line.matchAll(/\b(?:node|bash|sh)\s+([A-Za-z0-9_./-]+\.(?:mjs|cjs|js|sh))/g)) {
+        const rel = m[1];
+        if (PLACEHOLDER.test(rel)) continue;
+        // An absolute path is a deployment location on someone's server, not a
+        // file in this repository.
+        if (rel.startsWith('/')) continue;
+        commands++;
+        if (!basesFor(doc, cdForLine).some((b) => existsSync(join(b, rel)))) {
+          badFiles.push(`${doc}: ${m[0].trim()}`);
+        }
+      }
+
+      for (const m of line.matchAll(/\bnpm\s+run\s+([a-z0-9:_-]+)/gi)) {
+        const name = m[1];
+        commands++;
+        const defined = PACKAGES.some((pj) => {
+          try { return Object.prototype.hasOwnProperty.call(JSON.parse(readFileSync(pj, 'utf8')).scripts || {}, name); }
+          catch { return false; }
+        });
+        if (!defined) badScripts.push(`${doc}: npm run ${name}`);
+      }
+    }
+  }
+
+  ok('the scan found runnable commands to check (a parse that found none would pass everything)',
+    commands >= 10, commands + ' found');
+  ok('every script a document says to run exists', badFiles.length === 0, badFiles.join(' | '));
+  ok('every npm script a document says to run is defined', badScripts.length === 0, badScripts.join(' | '));
+
+  /* [neg] Two controls, because the rule has two halves and either could go
+   * quiet on its own. Both plant an instruction the repo cannot satisfy and
+   * require this scan to name it. */
+  {
+    const probeDoc = 'docs/NST_KNOWLEDGE_BASE.md';
+    const planted = readFileSync(join(ROOT, probeDoc), 'utf8')
+      + '\n\nRun `node scripts/no-such-tool.mjs` and `npm run no-such-script`.\n';
+    const caught = [];
+    for (const m of planted.matchAll(/\b(?:node|bash|sh)\s+([A-Za-z0-9_./-]+\.(?:mjs|cjs|js|sh))/g)) {
+      if (PLACEHOLDER.test(m[1])) continue;
+      if (!existsSync(join(ROOT, m[1]))) caught.push(m[1]);
+    }
+    const caughtScript = [...planted.matchAll(/\bnpm\s+run\s+([a-z0-9:_-]+)/gi)]
+      .map((m) => m[1])
+      .filter((n) => !PACKAGES.some((pj) => {
+        try { return Object.prototype.hasOwnProperty.call(JSON.parse(readFileSync(pj, 'utf8')).scripts || {}, n); }
+        catch { return false; }
+      }));
+    ok('[neg] the control has real package.json files to test against', PACKAGES.length >= 2,
+      PACKAGES.length + ' found');
+    ok('[neg] a documented command naming a missing file IS caught',
+      caught.includes('scripts/no-such-tool.mjs'), caught.join(', '));
+    ok('[neg] a documented npm script that does not exist IS caught',
+      caughtScript.includes('no-such-script'), caughtScript.join(', '));
+  }
+}
+
+
 console.log('\n' + (fail ? `DOCS: ${fail} FAILED (${pass} passed)` : `DOCS: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

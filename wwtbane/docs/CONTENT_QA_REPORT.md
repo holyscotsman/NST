@@ -23,8 +23,8 @@ required by the project design rules.
   `docs/priority-question-bank.md`. Keys and explanations are the owner's, so
   these are `reviewStatus:"human-reviewed"` — not AI-derived.
 - **By difficulty:** easy 3, medium 13, hard 9. Structurally validated by the
-  same schema the game uses at boot; merged with `import-questions.mjs --merge`
-  (bank total now 182).
+  same schema the game used at boot; merged by an importer since removed
+  (v2.61.0), at a bank total of 182 at the time.
 - **Machine QA only did structure here** (the keys are the owner's, not
   re-derived). Outstanding human item: confirm the **domain/difficulty tags**,
   which were assigned during ingestion, not by the owner (`FLAGS.md §1`).

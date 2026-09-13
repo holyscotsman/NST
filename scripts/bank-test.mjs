@@ -306,7 +306,7 @@ if (!DRAFT_MODE) {
 /* ---- one bank, one copy (v2.51.0) ----
  *
  * StarNix used to carry its own compiled copy of these questions: starnix_questions.md
- * compiled by import-questions.mjs into a 391 KB questions.js, which bank-lint and
+ * compiled by an importer (both since removed) into a 391 KB questions.js, which bank-lint and
  * multi-answer-test linted while the app served banks/ncp-mci/ncp-mci.md. The two were
  * identical in every stem, option and explanation — right up until v2.50.0 wrote
  * twenty-one exhibit descriptions into the bank. The copy kept the old ones, and
