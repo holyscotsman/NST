@@ -1032,18 +1032,43 @@ export class Game {
   // Returns [] when no bank is selected or the loader/global is absent — the caller then
   // shows the friendly "no bank" screen. Never throws.
   async _loadRuntimeBank() {
+    this._bankError = null;
     try {
       if (window.NSTBank && typeof window.NSTBank.load === 'function') {
         const bank = await window.NSTBank.load();
         if (bank && bank.questions && bank.questions.length) return window.NSTBank.toWWTBANE(bank);
+        // (v2.48.0) load() resolves rather than rejects when the MANIFEST is what failed,
+        // so the resolved-empty case has to consult the loader too.
+        if (window.NSTBank.manifestError && window.NSTBank.manifestError()) this._bankError = 'manifest';
       }
-    } catch (e) { console.warn('[wwtbane] bank load failed:', e); }
+    } catch (e) {
+      // (v2.48.0) The failure used to end here, in a console nobody has open, and the
+      // player was shown "no question bank is loaded yet — choose one in the launcher"
+      // while the launcher showed the bank they had chosen. Keep it and say it.
+      console.warn('[wwtbane] bank load failed:', e);
+      this._bankError = 'bank';
+    }
     return [];
   }
 
   // (NST) Shown when no playable bank is loaded: no bank selected, or the selected bank has
   // fewer than the 30 valid questions the ladder needs. Links back to the launcher to choose one.
   _noBank(count) {
+    // A fetch that failed is not a bank that was never chosen, and the difference is the
+    // whole of what the player can do about it: one is fixed by picking a bank, the other
+    // only by trying again. Saying the first when it is the second sends them somewhere
+    // that will show them the bank already selected and no way forward.
+    if (count === 0 && this._bankError) {
+      const why = this._bankError === 'manifest'
+        ? "Couldn't load the list of question banks — the server didn't answer."
+        : "Couldn't load the question bank — the file is missing, or the server didn't answer.";
+      this._swap(h('section', { class: 'screen fatal' },
+        h('h2', {}, "Couldn't load the question bank"),
+        h('p', {}, `${why} Check your connection, then try again.`),
+        h('button', { class: 'primary', type: 'button', onclick: () => { window.location.reload(); } }, 'Try again'),
+        h('button', { class: 'secondary', type: 'button', onclick: () => { window.location.href = '../'; } }, 'Main menu')));
+      return;
+    }
     const msg = count > 0
       ? `This question bank has only ${count} valid question${count === 1 ? '' : 's'}. Who Wants to be a Nutanix Engineer needs at least ${MIN_BANK} to build a ladder.`
       : 'No question bank is loaded yet. Choose one in the Nutanix Study Tool launcher (Settings → Question bank), then come back to play.';

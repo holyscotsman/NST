@@ -53,8 +53,10 @@
     back.href = HOME;
     header.appendChild(back);
     header.appendChild(el("h1", "pe-entry-title", "Nutanix Practice Exams"));
+    var problem = bankProblem();
     header.appendChild(el("p", "pe-entry-sub",
       hasQ ? (esc(meta.name) + " · " + meta.total + " questions in the bank")
+           : problem ? "The question bank could not be loaded."
            : "Choose a question bank to begin."));
     root.appendChild(header);
 
@@ -62,9 +64,21 @@
     root.appendChild(buildBankPicker(container));
 
     // No bank selected yet: prompt to pick one above (the picker is already rendered).
+    // Unless something FAILED, in which case say that instead — "select a bank above" is
+    // useless advice to someone whose bank is selected and whose file just 404'd.
     if (!hasQ) {
       var prompt = el("div", "pe-pickprompt");
-      prompt.appendChild(el("p", null, "Select a question bank above, then start a practice test or exam."));
+      if (problem) {
+        prompt.appendChild(el("p", null, problem === "manifest"
+          ? "Couldn't load the list of question banks — the server didn't answer. Check your connection, then try again."
+          : "Couldn't load this question bank — the file is missing, or the server didn't answer. Check your connection, then try again."));
+        var retry = el("button", "pe-btn pe-btn-primary", "Try again");
+        retry.type = "button";
+        retry.addEventListener("click", function () { reloadBank(container); });
+        prompt.appendChild(retry);
+      } else {
+        prompt.appendChild(el("p", null, "Select a question bank above, then start a practice test or exam."));
+      }
       root.appendChild(prompt);
       container.appendChild(root);
       try { window.scrollTo(0, 0); } catch (e) {}
@@ -333,16 +347,36 @@
     return wrap;
   }
 
-  // Switch the active bank, reload it, and re-render the entry screen with the new counts.
-  function switchBank(id, container) {
-    window.NSTBank.setActive(id || null);
+  /* (v2.48.0) Why there are no questions — when there is a reason beyond "nobody has
+   * chosen one". The loader records a failed manifest fetch and a failed bank-file
+   * fetch; this page showed the same empty state for both, and for neither. */
+  function bankProblem() {
+    var B = window.NSTBank;
+    if (!B) return null;
+    if (B.loadError && B.loadError()) return "bank";
+    if (B.manifestError && B.manifestError()) return "manifest";
+    return null;
+  }
+
+  /* Re-fetch whatever failed, then re-render. The manifest is refetched only when IT
+   * was the thing that failed: manifest() caches the empty result of a failed fetch, so
+   * without force=true a retry would resolve null off the cache and try nothing. */
+  function reloadBank(container) {
+    var B = window.NSTBank;
     container.innerHTML = '<div class="pe-loading">Loading question bank…</div>';
     function done(bank) {
-      window.STARNIX_QUESTIONS = (bank && bank.questions.length) ? window.NSTBank.toStarNix(bank) : { questions: [] };
+      window.STARNIX_QUESTIONS = (bank && bank.questions.length) ? B.toStarNix(bank) : { questions: [] };
       engine.resetCache();
       showEntry(container);
     }
-    window.NSTBank.load().then(done).catch(function () { done(null); });
+    var first = (B.manifestError && B.manifestError()) ? B.manifest(true) : Promise.resolve(null);
+    first.then(function () { return B.load(); }).then(done).catch(function () { done(null); });
+  }
+
+  // Switch the active bank, reload it, and re-render the entry screen with the new counts.
+  function switchBank(id, container) {
+    window.NSTBank.setActive(id || null);
+    reloadBank(container);
   }
 
   function showNoBank(container) {
@@ -439,7 +473,9 @@
     // If the manifest has any banks, always render the entry screen (it carries the bank
     // picker, so the player can switch banks here). Only a truly empty manifest is a dead end.
     window.NSTBank.list().then(function (banks) {
-      if (!banks || !banks.length) { showNoBank(container); return; }
+      // An empty list because the fetch failed is not the same as a manifest with no
+      // banks in it. Only the second is the "nothing is configured" dead end.
+      if ((!banks || !banks.length) && !bankProblem()) { showNoBank(container); return; }
       window.NSTBank.load().then(function (bank) {
         if (bank && bank.questions.length) {
           window.STARNIX_QUESTIONS = window.NSTBank.toStarNix(bank);
