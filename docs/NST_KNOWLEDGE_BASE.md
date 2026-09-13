@@ -325,9 +325,9 @@ IDs are stable so mastery records survive re-imports.
   dependency-free**:
   - **WWTBANE unit tests** — `node --test tests/*.test.mjs`, 25 files.
   - **Practice Exams engine harness** — `engine-test.mjs` plus the whole shared
-    `scripts/*-test.mjs` battery (22 runs): version, security, backup, mastery, server,
+    `scripts/*-test.mjs` battery (23 runs): version, security, backup, mastery, server,
     path-guard, compress, backup-db, sync, banks, robustness, update, dashboard, readiness,
-    review, auth, docs, pages, load, session, harness-coverage.
+    review, auth, docs, pages, load, session, adapter, storage-growth, harness-coverage.
 - **StarNix build + logic harnesses** (19 runs) installs **jsdom** and nothing else. The
   build, then — since v2.49.0 — **`verify-build`** (557 checks, ~22s): the end-to-end
   verifier of the assembled `index.html`, booting the real built shell in jsdom with the

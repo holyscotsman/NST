@@ -352,6 +352,62 @@ try {
     }
     ok('repeated failed sign-ins are locked out', sawLockout);
   }
+  /* ---- 12. every state-changing route is defended, and the same way twice ----
+   *
+   * (v2.55.0) The server has two defences against a hostile page posting to it as a
+   * signed-in user, and they are not interchangeable. The session cookie is
+   * `HttpOnly; SameSite=Strict`, so a cross-site request carries no session at all —
+   * that is the one that covers the JSON API. The forms additionally carry a CSRF
+   * token, because a form post is the thing an attacker would try first.
+   *
+   * Nothing checked which routes had which. A new POST route added later could have
+   * neither and look exactly like the ones that have both. This is a gate over
+   * behaviour that is already correct: every route below is defended today.
+   */
+  {
+    const src = readFileSync(new URL('../server/server.mjs', import.meta.url), 'utf8');
+    /* Routes that rely on SameSite alone, each with the reason it may. */
+    const SAMESITE_ONLY = {
+      '/api/progress': 'JSON API read and written by the app\'s own fetch(); a cross-site ' +
+        'post carries no session cookie at all, and there is no form to carry a token',
+    };
+    const lines = src.split('\n');
+    const undefended = [];
+    lines.forEach((line, i) => {
+      if (!/method === '(POST|PUT)'/.test(line)) return;
+      /* The route this branch belongs to: the nearest `path === '...'` at or above it. */
+      let route = '(unknown)';
+      for (let j = i; j >= 0 && j > i - 40; j--) {
+        const m = lines[j].match(/path === '([^']+)'/) || lines[j].match(/path\.startsWith\('([^']+)'\)/);
+        if (m) { route = m[1]; break; }
+      }
+      /* Scan only to the START OF THE NEXT ROUTE, never a fixed number of lines. A
+       * 40-line window was the first attempt and it was vacuous: a planted undefended
+       * route immediately above /logout passed, because /logout's own csrfValid call
+       * sat inside the window. The control caught that; a fixed window is a rule that
+       * reads its neighbour's homework. */
+      let stop = lines.length;
+      for (let j = i + 1; j < lines.length; j++) {
+        if (/path === '|path\.startsWith\('/.test(lines[j])) { stop = j; break; }
+      }
+      const body = lines.slice(i, stop).join('\n');
+      if (/csrfValid\(/.test(body)) return;                          // defended by token
+      if (Object.prototype.hasOwnProperty.call(SAMESITE_ONLY, route)) return;  // defended by cookie policy
+      undefended.push(route + ' (line ' + (i + 1) + ')');
+    });
+    ok('every state-changing route validates CSRF, or is listed as SameSite-defended',
+      undefended.length === 0, undefended.join(', ') + ' -- add csrfValid, or list it with a reason');
+    ok('the SameSite-only list carries a real reason for each entry',
+      Object.values(SAMESITE_ONLY).every((why) => why && why.length > 40));
+    /* The premise the whole list rests on. If this ever changes, the list is a lie. */
+    ok('and the session cookie really is HttpOnly + SameSite=Strict',
+      /'HttpOnly', 'SameSite=Strict'/.test(readFileSync(new URL('../server/auth.mjs', import.meta.url), 'utf8')));
+    /* Not vacuous: the scan finds routes at all, and a planted undefended one is caught. */
+    const posts = lines.filter((l) => /method === '(POST|PUT)'/.test(l)).length;
+    ok('the scan found the state-changing routes (a parse that found none would pass everything)',
+      posts >= 6, posts + ' found');
+  }
+
 } catch (err) {
   console.log('FAIL unexpected error: ' + (err && err.stack ? err.stack : err));
   fail++;

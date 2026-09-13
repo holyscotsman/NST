@@ -5,6 +5,63 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.55.0 — the shape of the study record (2026-09-13)
+
+**No defect. Two gates over behaviour that is already right, and one of them was
+vacuous until its own control caught it.**
+
+### The study record has to stay small forever
+This is a browser tool somebody uses every day for months before an exam, and the
+whole study record lives in `localStorage` — a few megabytes the app cannot raise
+and, when they run out, cannot write to. v2.41.0 added the banner that says so:
+*"your answers are not being saved."* Nothing checked the thing that would make
+that banner appear.
+
+A year of daily study, driven through the real `NSTMastery` against the real bank
+— 365 days × 40 answers, on a clock that advances a day at a time:
+
+```
+14600 answers over 365 simulated days against 255 questions
+  day 1: 6.7 KB   day 30: 8.7 KB   day 180: 8.8 KB   day 365: 8.8 KB
+```
+
+Flat from the half-year mark, because the store keeps one row per **question** and
+updates it. The negative control keeps one row per **answer** — the mistake this
+exists to catch — and reaches **893 KB** over the same year, on its way to a wall
+a daily user would hit in a few months.
+
+So `scripts/storage-growth-test.mjs` (9 checks) pins the *shape*, not the size:
+the store must plateau by day 180, fit in 64 KB, and stay proportional to the bank
+rather than the answers. A future change that starts appending per answer fails all
+three.
+
+### Every state-changing route is defended, and the record says which way
+The server has two defences against a hostile page posting as a signed-in user,
+and they are not interchangeable: the session cookie is `HttpOnly; SameSite=Strict`,
+so a cross-site request carries no session at all — and the forms additionally
+carry a CSRF token. `/api/progress` relies on the first; every form route uses
+both. Nothing checked which had which, so a new POST route could have neither and
+look exactly like the ones that have both.
+
+`server-test.mjs`, +4 checks (74 → 78): every `POST`/`PUT` branch must call
+`csrfValid`, or appear on a list of SameSite-defended routes with a written reason,
+and the premise that list rests on — the cookie really being `HttpOnly;
+SameSite=Strict` — is asserted beside it.
+
+### The control earned its keep
+The first version scanned forty lines ahead of each route for `csrfValid`. A
+deliberately undefended route planted immediately above `/logout` **passed**,
+because `/logout`'s own `csrfValid` call sat inside that window. A fixed window is
+a rule that reads its neighbour's homework. The scan now stops at the start of the
+next route, and the same planted route is caught by name:
+
+```
+FAIL every state-changing route validates CSRF, or is listed as SameSite-defended
+  -- /planted-route (line 346)
+```
+
+CI's Practice Exams job: 22 shared suites → 23.
+
 ## v2.54.0 — the final nobody could meet (2026-09-13)
 
 Rung 30 of Who Wants to be a Nutanix Engineer has a special case. The first time
