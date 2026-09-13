@@ -965,10 +965,15 @@ body {
 }
 .nst-dash-weakpct {
   flex: 0 0 auto;
-  width: 40px;
+  /* Wide enough for the number AND its unit on one line ("62% correct").
+     Sized for 40px it fitted a bare "62%", which is exactly what this column
+     must never show again -- an unlabelled percentage beside a card that also
+     reports accuracy. */
+  width: 76px;
   text-align: right;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--faint);
 }
 
@@ -981,6 +986,7 @@ body {
   .nst-dash-stat-v { font-size: 18px; }
   .nst-dash-weaklist { grid-template-columns: 1fr; }
   .nst-dash-weakname { width: 88px; font-size: 12px; }
+  .nst-dash-weakpct { width: 72px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1378,7 +1378,7 @@
 
   /* Flight plan (v0.141.0, V1.1 Flow#2) — "what should I do right now?" as a PURE ranking
    * over explicit signals, so the gate can pin every branch without live state. Order:
-   * due reviews > first undone daily > weakest domain (<80% mastered) > all clear.
+   * due reviews > first undone daily > least-mastered domain (<80% mastered) > all clear.
    * next() gathers the signals from a live core. */
   function flightPlan(sig) {
     sig = sig || {};
@@ -1393,7 +1393,7 @@
       }
     }
     var wk = sig.weakest;
-    if (wk && (wk.masteredPct || 0) < 0.8) return { kind: "domain", label: "Weakest domain: " + wk.domain + " (" + Math.round((wk.masteredPct || 0) * 100) + "% mastered) \u2014 drill it", cta: "Open Codex \u25b8", action: "progress", domain: wk.domain };
+    if (wk && (wk.masteredPct || 0) < 0.8) return { kind: "domain", label: "Least mastered: " + wk.domain + " (" + Math.round((wk.masteredPct || 0) * 100) + "% mastered) \u2014 drill it", cta: "Open Codex \u25b8", action: "progress", domain: wk.domain };
     return { kind: "clear", label: "All clear \u2014 fly any mission for XP", cta: null, action: null };
   }
   function flightPlanFromCore(core, now) {

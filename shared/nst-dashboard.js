@@ -27,6 +27,11 @@
    * would just be alphabetical and would change as soon as one is opened. */
   var WEAK_MAX = 3;
   var WEAK_MIN_DOMAINS = 2;
+  /* ...and being answered ONCE is not evidence of weakness either. Below this
+   * many answers a domain's accuracy is a coin flip wearing a percentage: one
+   * miss out of three is 67%, and the same domain answered twice more is 80%.
+   * A list that reorders itself on a single answer is not a diagnosis. */
+  var WEAK_MIN_ANSWERS = 8;
 
   function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
   function pct(part, whole) { return whole > 0 ? Math.round((num(part) / whole) * 100) : 0; }
@@ -76,22 +81,77 @@
     var due = s ? num(s.due) : 0;
     var answered = s ? num(s.correct) + num(s.incorrect) : 0;
 
-    /* Weakest areas, from domains that have actually been answered. */
+    /* Weakest areas.
+     *
+     * TWO QUESTIONS THAT LOOK LIKE ONE
+     * "What am I bad at?" and "What have I not covered?" have different answers,
+     * and the second one masquerades as the first. `summary().score` is box
+     * progress over the WHOLE domain, so a domain you have opened four times out
+     * of twenty-six scores near zero no matter how well those four went —
+     * ranking by it ranks least-STUDIED, and calling that result "weakest"
+     * tells someone their best subject is their worst. (It did: with every
+     * domain held at ~73% accuracy, ranking by score reported the three
+     * least-covered as the weak ones, one of them the highest-scoring of the
+     * nine.)
+     *
+     * So rank by the thing the word claims — accuracy — as soon as enough
+     * answers exist to mean anything, and say so via `basis`. Before that,
+     * coverage is genuinely the more useful prompt ("you have not opened this
+     * yet"), so it is still offered — but `basis` is "coverage" and the surface
+     * is expected to change the heading rather than pass it off as weakness.
+     *
+     * `pct` is whatever the chosen basis measures, so the bar always draws the
+     * number beside it. The unit belongs to `basis`; a caller that prints `pct`
+     * without it is the defect this replaced. */
     var weakest = [];
+    var weakBasis = "none";
     if (s && s.domains && s.domains.length) {
-      var touched = [];
+      var touched = [], evidenced = [];
       for (var i = 0; i < s.domains.length; i++) {
         var d = s.domains[i];
         if (!d || !num(d.seen)) continue;
-        touched.push({
+        // NOT `answered` -- `var` is function-scoped and that name already
+        // holds the bank-wide answer count this function's `accuracy` divides
+        // by. Shadowing it here silently made the card report 100%.
+        var domAnswers = num(d.answered);
+        var row = {
           domain: String(d.domain || "General"),
           pct: clampPct(num(d.score) * 100),
+          coveragePct: pct(num(d.seen), num(d.total)),
+          accuracy: d.accuracy == null ? null : clampPct(num(d.accuracy) * 100),
+          answered: domAnswers,
           seen: num(d.seen),
           total: num(d.total),
-        });
+          basis: "coverage",
+        };
+        touched.push(row);
+        if (domAnswers >= WEAK_MIN_ANSWERS && row.accuracy != null) evidenced.push(row);
       }
-      // summary() already sorts weakest-first; keep that order.
-      if (touched.length >= WEAK_MIN_DOMAINS) weakest = touched.slice(0, WEAK_MAX);
+      if (evidenced.length >= WEAK_MIN_DOMAINS) {
+        weakBasis = "accuracy";
+        evidenced.sort(function (x, y) {
+          // Least accurate first. Ties go to the one with more answers behind
+          // it -- the better-evidenced claim -- then to a stable name order.
+          return (x.accuracy - y.accuracy) || (y.answered - x.answered) ||
+            String(x.domain).localeCompare(String(y.domain));
+        });
+        weakest = evidenced.slice(0, WEAK_MAX);
+        for (var w = 0; w < weakest.length; w++) {
+          weakest[w].basis = "accuracy";
+          weakest[w].pct = weakest[w].accuracy;
+        }
+      } else if (touched.length >= WEAK_MIN_DOMAINS) {
+        weakBasis = "coverage";
+        // Ranked and reported on the SAME number. summary() sorts by box score,
+        // which correlates with coverage but is not it, and a list whose order
+        // disagrees with the percentages printed beside it reads as a bug.
+        touched.sort(function (x, y) {
+          return (x.coveragePct - y.coveragePct) || (x.seen - y.seen) ||
+            String(x.domain).localeCompare(String(y.domain));
+        });
+        weakest = touched.slice(0, WEAK_MAX);
+        for (var c = 0; c < weakest.length; c++) weakest[c].pct = weakest[c].coveragePct;
+      }
     }
 
     var best = null, last = null;
@@ -118,6 +178,11 @@
       // Only meaningful when nothing is due right now; otherwise the queue is the message.
       nextDue: due > 0 ? null : (s ? untilText(s.nextDueAt, now) : null),
       weakest: weakest,
+      // "accuracy" (ranked by how often the answers were right), "coverage"
+      // (not enough answers yet, ranked by how little has been opened), or
+      // "none". The surface MUST word its heading and its percentages from
+      // this -- the two bases are different claims.
+      weakBasis: weakBasis,
       exam: attempts.length ? { best: best, last: last, count: attempts.length } : null,
       nudge: total
         ? "Answer a few questions in any tool — they all feed this."
@@ -211,5 +276,6 @@
     cleanAttempts: cleanAttempts,
     WEAK_MAX: WEAK_MAX,
     WEAK_MIN_DOMAINS: WEAK_MIN_DOMAINS,
+    WEAK_MIN_ANSWERS: WEAK_MIN_ANSWERS,
   };
 })();
