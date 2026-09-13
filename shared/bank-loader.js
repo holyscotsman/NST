@@ -128,11 +128,26 @@
   // folded down to match (1,2 -> 1 easy · 3 -> 2 medium · 4,5 -> 3 hard), consistent with
   // the WWTBANE tiering. Practice Exams treats difficulty as an opaque hint, so this is safe there too.
   var SX_DIFF = { 1: 1, 2: 1, 3: 2, 4: 3, 5: 3 };
+
+  /* (v2.68.0) What a bank is CALLED, in one place.
+   *
+   * Practice Exams stamps every saved attempt with this string (engine.saveAttempt
+   * -> bankMeta().name, which is toStarNix's `name`), so it is the identity a
+   * stored score is filed under. Anything that later wants to ask "was this score
+   * earned on THIS bank?" has to produce the same string, and a second copy of the
+   * expression is a silent mis-attribution waiting for the day a bank has a `cert`
+   * but no `title`. Both sides call this instead. */
+  function bankName(bank) {
+    if (!bank) return "";
+    var m = bank.meta || {};
+    return String(m.title || m.cert || bank.id || "");
+  }
+
   function toStarNix(bank) {
     if (!bank) return { id: "", name: "", domains: [], questions: [] };
     return {
       id: bank.meta.cert || bank.id,
-      name: bank.meta.title || bank.meta.cert || bank.id,
+      name: bankName(bank),
       domains: bank.meta.domains.slice(),
       questions: bank.questions.map(function (q) {
         var o = {
@@ -193,6 +208,7 @@
     active: active,
     setActive: setActive,
     load: load,
+    bankName: bankName,
     toStarNix: toStarNix,
     toWWTBANE: toWWTBANE,
   };

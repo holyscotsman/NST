@@ -73,7 +73,43 @@
     opts = opts || {};
     var s = opts.summary || null;
     var now = opts.now == null ? Date.now() : opts.now;
-    var attempts = cleanAttempts(opts.history);
+    var all = cleanAttempts(opts.history);
+
+    /* (v2.68.0) Attempts belong to the bank that produced them.
+     *
+     * Every other figure on this panel is scoped to ONE bank -- `summary` is
+     * built from that bank's questions, and the panel's heading names it -- but
+     * the exam history is a single list for every bank there has ever been. So
+     * "Best exam" was the best score anywhere, printed under another bank's name.
+     * Measured on the shipped pair: with the full 255-question bank active and a
+     * 92% on the 25-question set in history, the card read
+     *
+     *   NCP-MCI - Full bank | Mastered 0 of 255 | Seen 0 of 255 | Best exam 92% pass
+     *
+     * while the readiness panel two lines below said "Not enough data yet. You've
+     * seen 0 of 255 questions." One of those two was lying, and it was the one
+     * with the green PASS on it.
+     *
+     * The evidence to tell them apart was already being written: Practice Exams
+     * stamps each attempt with its bank (engine.saveAttempt, "a PASS on the
+     * 25-question bank is not the same claim as one on the full bank") and prints
+     * it on every history row and on the results screen. Only the launcher --
+     * where people actually land -- threw it away.
+     *
+     * `bank` is the name NSTBank.bankName() gives, which is the same string the
+     * engine stamps. Attempts that carry a different one, or none at all (written
+     * before the stamp existed, so genuinely unattributable), are counted but not
+     * claimed: `examElsewhere`. Omitting `bank` keeps the old unscoped behaviour,
+     * for a caller that has no bank to scope to. */
+    var bankKey = opts.bank == null ? "" : String(opts.bank);
+    var attempts = all, elsewhere = 0;
+    if (bankKey) {
+      attempts = [];
+      for (var ai = 0; ai < all.length; ai++) {
+        if (all[ai].bank === bankKey) attempts.push(all[ai]);
+        else elsewhere++;
+      }
+    }
 
     var total = s ? num(s.total) : 0;
     var seen = s ? num(s.seen) : 0;
@@ -162,7 +198,10 @@
     }
 
     /* Nothing answered and no exam taken means there is no picture to draw. The
-     * caller shows the nudge instead of a wall of zeros. */
+     * caller shows the nudge instead of a wall of zeros. "No exam taken" now
+     * means none on THIS bank -- a score earned elsewhere is not a picture of
+     * this one -- so the nudge has to account for where it did go, or someone
+     * who just passed the 25-question set would find the launcher blank. */
     var hasData = seen > 0 || attempts.length > 0;
 
     return {
@@ -184,9 +223,17 @@
       // this -- the two bases are different claims.
       weakBasis: weakBasis,
       exam: attempts.length ? { best: best, last: last, count: attempts.length } : null,
-      nudge: total
-        ? "Answer a few questions in any tool — they all feed this."
-        : "Pick an exam above to start tracking progress.",
+      // Attempts in the store that this bank cannot claim. The surface must not
+      // print their scores; it may say they exist, so a score does not appear to
+      // have been lost.
+      examElsewhere: elsewhere,
+      nudge: elsewhere && !attempts.length
+        ? (elsewhere === 1
+          ? "Your one recorded attempt was on a different bank — nothing on this one yet."
+          : "Your " + elsewhere + " recorded attempts were on other banks — nothing on this one yet.")
+        : total
+          ? "Answer a few questions in any tool — they all feed this."
+          : "Pick an exam above to start tracking progress.",
     };
   }
 

@@ -962,7 +962,18 @@
     catch (e) { history = []; }
 
     var m;
-    try { m = Dash.model({ summary: Mast.summary(bank.questions), history: history }); }
+    try {
+      // (v2.68.0) Scope the exam history to THIS bank. NSTBank.bankName() is the
+      // same string Practice Exams stamps on each attempt, so the two cannot
+      // drift apart; without it the panel printed another bank's best score
+      // under this bank's name.
+      var B = window.NSTBank;
+      m = Dash.model({
+        summary: Mast.summary(bank.questions),
+        history: history,
+        bank: B && B.bankName ? B.bankName(bank) : "",
+      });
+    }
     catch (e) { host.hidden = true; return; }
 
     host.innerHTML = "";
@@ -1029,6 +1040,13 @@
     if (m.exam) {
       stats.appendChild(dashStat("Best exam", m.exam.best.pct + "%",
         m.exam.best.pass ? "pass" : "fail", m.exam.best.pass ? "pass" : "fail"));
+    }
+    // Attempts exist, but on other banks. Saying so beats both printing their
+    // score here (which is the defect this replaced) and printing nothing (which
+    // reads as "the app forgot my exam").
+    else if (m.examElsewhere) {
+      stats.appendChild(dashStat("Best exam", "\u2014",
+        m.examElsewhere === 1 ? "1 attempt, other bank" : m.examElsewhere + " attempts, other banks"));
     }
     body.appendChild(stats);
     host.appendChild(body);
