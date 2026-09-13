@@ -196,6 +196,56 @@ for (const [label, mutate] of [
   await ctx.close();
 }
 
+/* ---- the launcher's shallower check must not lead to a dead end ----------
+ * The launcher advertises an unfinished exam from a check that cannot be
+ * complete: it has no engine, so it cannot know whether the bank still has the
+ * questions. Somebody may follow that link here specifically to find their exam.
+ * Silently clearing it and showing nothing is the dead end. */
+{
+  const ctx = await browser.newContext();
+  const seed = await ctx.newPage();
+  await seed.goto(B + '/index.html', { waitUntil: 'domcontentloaded' });
+  // Shape the launcher accepts, content only Practice Exams can reject.
+  await seed.evaluate((k) => {
+    localStorage.setItem('nst.activeBank', 'ncp-mci');
+    localStorage.setItem(k, JSON.stringify({
+      bank: 'ncp-mci', endTime: Date.now() + 3600000,
+      q: [{ id: 'ncp25-q01', perm: [0, 1, 2, 3] }, { id: 'a-question-since-deleted', perm: [0, 1, 2, 3] }],
+      answers: [0, 1], flags: [false, false], idx: 0,
+    }));
+  }, KEY);
+  await seed.goto(B + '/index.html', { waitUntil: 'networkidle' });
+  await seed.waitForTimeout(700);
+  const advertised = await seed.evaluate(() => {
+    const n = document.querySelector('.nst-dash-exam');
+    return n ? n.innerText.replace(/\s+/g, ' ') : null;
+  });
+  ok('the launcher does advertise it (its check cannot see the missing question)', !!advertised, advertised);
+
+  await seed.click('.nst-dash-exam');
+  await seed.waitForTimeout(1400);
+  const landed = await seed.evaluate(() => {
+    const g = document.querySelector('.pe-resume-gone');
+    return {
+      onPE: /practice-exams/.test(location.pathname),
+      explained: g ? g.textContent : null,
+      role: g ? g.getAttribute('role') : null,
+      cleared: localStorage.getItem('nst.practice-exams.exam.v1') === null,
+      examStillOffered: !!document.querySelector('.pe-modecard-exam'),
+      noFalseResume: !document.querySelector('.pe-modecard-resume'),
+    };
+  });
+  ok('following the link lands on Practice Exams', landed.onPE);
+  ok('and the page says what happened to the exam, rather than nothing at all',
+    !!landed.explained, landed.explained);
+  ok('it names a cause a person can act on', !!landed.explained && /question bank has changed/.test(landed.explained));
+  ok('it is announced, not just drawn', landed.role === 'status', landed.role);
+  ok('the unusable record is cleared, not left to advertise itself again', landed.cleared);
+  ok('it does not offer a resume it cannot honour', landed.noFalseResume);
+  ok('and a fresh exam is still on offer', landed.examStillOffered);
+  await ctx.close();
+}
+
 /* ---- submitting ends it ---- */
 {
   const { ctx, page } = await sitting(3);

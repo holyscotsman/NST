@@ -5,6 +5,46 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.31.0 — The dead end v2.30.0 created (2026-09-13)
+
+Attacking the saved-exam record v2.29.0 introduced — ten payloads: prototype
+pollution in the record and inside a question, a script tag as a question id, a
+permutation of out-of-range indices, a 50,000-entry question array, an index a
+billion past the end, a deadline at the end of representable time. **All ten were
+repelled**: no pollution, no script ran, nothing crashed, and a fresh exam stayed
+on offer throughout.
+
+But the results showed something else. For every malformed record the launcher
+said *"You have an unfinished exam"* while Practice Exams declined it — so
+following that link landed on a page that silently cleared the record and said
+nothing at all. **A dead end, introduced by v2.30.0, one release earlier.**
+
+### Fixed
+- **Practice Exams now says what happened to it.** A saved exam it cannot rebuild
+  is reported — *"An unfinished exam could not be restored — the question bank has
+  changed since it was started, or the saved copy was damaged. It has been
+  cleared."* — with `role="status"`, instead of vanishing. The launcher's check
+  is *necessarily* shallower, because it has no engine to rebuild questions with,
+  so this mismatch cannot be designed away; what it can do is stop being silent.
+  Somebody followed that link looking for exactly this.
+- **The launcher refuses the records that are plainly broken**, rather than
+  advertising an exam the link cannot produce. Every question entry must be an
+  object with a string id and a genuine permutation — whole, in-range, no
+  repeats, at least two options — which is the shape `applyPerm` replays. It
+  still cannot know whether the bank *has* the question; it no longer promises on
+  a record that could never have worked.
+
+### Added
+- **10 checks in `dashboard-test.mjs` (110 total)** for the shapes it now
+  refuses, including that one bad entry among good ones refuses the whole record.
+- **8 checks in `resume-test.mjs` (44 total)** that walk the whole path: a record
+  the launcher accepts and Practice Exams cannot, the link followed, and the
+  explanation found at the other end — named cause, announced, record cleared, no
+  resume offered that cannot be honoured, fresh exam still available.
+
+### Verified
+Removing the explanation puts the dead end back and fails three checks by name.
+
 ## v2.30.0 — Telling you about it on the page you actually land on (2026-09-13)
 
 v2.29.0 taught Exam Mode to survive the tab being discarded and offers the

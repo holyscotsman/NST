@@ -137,6 +137,19 @@
     if (PE.examResume && hasQ) {
       var bankId = (window.NSTBank && window.NSTBank.active && window.NSTBank.active()) || "";
       var pend = PE.examResume.pending(bankId);
+      /* There was a saved exam and it cannot be rebuilt -- the bank changed
+       * under it, or the record was damaged. Say so. The launcher advertises an
+       * unfinished exam from a necessarily shallower check (it has no engine to
+       * rebuild questions with), so somebody may have followed that link here
+       * specifically to find it, and silence would be a dead end. */
+      if (pend && pend.unusable) {
+        var dead = el("p", "pe-resume-gone");
+        dead.setAttribute("role", "status");
+        dead.textContent = "An unfinished exam could not be restored — the question bank has "
+          + "changed since it was started, or the saved copy was damaged. It has been cleared.";
+        root.appendChild(dead);
+        pend = null;
+      }
       if (pend) {
         var mmss = function (ms) {
           var t = Math.max(0, Math.round(ms / 1000));

@@ -169,6 +169,24 @@
     if (!s || typeof s !== "object") return null;
     if (!Array.isArray(s.q) || !s.q.length) return null;
     if (!Array.isArray(s.answers)) return null;
+    /* Only Practice Exams can say whether the bank still has these questions, so
+     * this cannot be a complete check -- but it can refuse the records that are
+     * plainly broken, rather than advertising an exam that the link then cannot
+     * produce. Every entry must be an object with a string id and a permutation
+     * of whole, in-range indices, which is the shape applyPerm replays. */
+    for (var qi = 0; qi < s.q.length; qi++) {
+      var e = s.q[qi];
+      if (!e || typeof e !== "object") return null;
+      if (typeof e.id !== "string" || !e.id) return null;
+      if (!Array.isArray(e.perm) || e.perm.length < 2) return null;
+      var seen = {};
+      for (var pi = 0; pi < e.perm.length; pi++) {
+        var v = e.perm[pi];
+        if (typeof v !== "number" || !isFinite(v) || v < 0 || v >= e.perm.length || v !== Math.floor(v)) return null;
+        if (seen[v]) return null;                 // a permutation cannot repeat an index
+        seen[v] = true;
+      }
+    }
     if (typeof s.endTime !== "number" || !isFinite(s.endTime)) return null;
     if (bankId && s.bank && s.bank !== bankId) return null;
     var answered = 0;
