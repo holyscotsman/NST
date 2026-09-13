@@ -56,19 +56,19 @@
         applyDomainFilter();
         if (d) { try { revHead.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (e) { revHead.scrollIntoView(); } }
       }));
-      // Focus recommendation: name the weakest domain (lowest %, ties broken by most misses)
-      // so the next study session has a target. Skipped when everything scored 100%.
-      var weakest = null, weakPct = 101, weakMiss = -1;
-      Object.keys(summary.byDomain).forEach(function (d) {
-        var s = summary.byDomain[d];
-        if (!s.total) return;
-        var pct = s.correct / s.total * 100, miss = s.total - s.correct;
-        if (pct < weakPct || (pct === weakPct && miss > weakMiss)) { weakest = d; weakPct = pct; weakMiss = miss; }
-      });
-      if (weakest && weakPct < 100) {
+      /* Focus recommendation, so the next session has a target. The ranking is
+       * engine.focusDomain -- by MISSED QUESTIONS, not by percentage; see there
+       * for why, and for what ranking by percentage did instead.
+       *
+       * The sentence leads with the same number the ranking used. Saying "0%
+       * there" first invited the reader to compare rates across domains of very
+       * different sizes, which is the comparison that misleads. */
+      var pick = engine.focusDomain(summary.byDomain);
+      if (pick) {
         var focus = el("p", "pe-focus");
-        focus.innerHTML = "🎯 <b>Focus next on “" + esc(window.NSTDomainLabel ? window.NSTDomainLabel(weakest) : weakest) + "”</b> — " +
-          Math.round(weakPct) + "% there (" + weakMiss + " missed). A Practice Mode pass over its explanations is the fastest gain.";
+        focus.innerHTML = "🎯 <b>Focus next on “" + esc(window.NSTDomainLabel ? window.NSTDomainLabel(pick.domain) : pick.domain) + "”</b> — " +
+          pick.missed + " missed of " + pick.total + " there (" + pick.pct + "% correct). " +
+          "A Practice Mode pass over its explanations is the fastest gain.";
         root.appendChild(focus);
       }
     }

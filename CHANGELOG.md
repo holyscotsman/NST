@@ -5,6 +5,80 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.65.0 — the smallest domain kept winning (2026-09-13)
+
+**A defect, and the same one as v2.57.0 in a second place. The screen that tells
+you what to study next named the domain with the least to learn, most of the
+time.**
+
+### What it said
+After a real 75-question sitting:
+
+```
+🎯 Focus next on "Performance" — 0% there (4 missed).
+```
+
+Performance was **0 of 4** — the smallest slice in that exam. Data Protection was
+**1 of 11**: ten missed. Lifecycle was 1 of 10: nine missed. The recommendation
+named the four.
+
+### Why
+The ranking took the lowest **percentage**, with a comment saying "ties broken by
+most misses". Ties across different denominators are rare, so the tie-breaker
+almost never ran and a bare rate decided it — and the smallest domain wins a rate,
+because four questions reach 0% far more easily than eleven do.
+
+Simulated over 2,000 sittings against the shipped bank:
+
+| sitting | named a domain with FEWER misses | missed questions forgone | smallest domain ever named |
+| --- | --- | --- | --- |
+| 75 questions, 60% accuracy | **62%** of runs | 2.9 average | 1 question |
+| 75 questions, 80% accuracy | 49% | 1.8 | 1 question |
+| 25 questions, 60% accuracy | 53% | 1.7 | 1 question |
+
+A domain with a **single** question answered wrong is 0%, and beat everything.
+
+### The fix
+`engine.focusDomain()`, new and pure: rank by **missed questions**, ties broken by
+the lower percentage. That answers the question actually being asked — where is
+the most to be learned — and it removes the small-sample problem structurally
+rather than with a threshold: a domain with one question has at most one miss and
+can never outrank a domain with more. Between two domains that each cost ten
+marks, the weaker one still wins.
+
+The sentence leads with the number the ranking used:
+
+```
+🎯 Focus next on "Monitoring" — 11 missed of 13 there (15% correct).
+```
+
+Saying "0% there" first invited a comparison of rates across domains of very
+different sizes, which is the comparison that misleads.
+
+### The gate
+`engine-test.mjs`, a new `focus` group: the exact sitting that started this must
+name Data Protection; a one-question domain at 0% must not outrank four real
+misses; equal misses go to the lower percentage; a perfect sitting, an empty
+tally, a missing one and a zero-question domain all behave. Two `[neg]` controls
+run the **old** percentage ranking over the same fixtures and require it to
+answer differently — otherwise the data proves nothing.
+
+Reverting the comparison turns it red:
+
+```
+FAIL [focus] names the domain with the most missed questions, not the lowest rate
+```
+
+### The same class, twice
+v2.57.0 was the launcher ranking "weakest areas" by a measure the least-studied
+domain wins. This is the results screen ranking "focus next" by a measure the
+smallest domain wins. Both are recommendations built on a rate with no regard for
+how much evidence stands behind it. The v2.57.0 rule lives in `dashboard-test`
+and guards `NSTDash` only; this one guards the engine. Worth saying plainly: the
+fix there was to require evidence before ranking, and the fix here is to rank on
+the quantity itself — the second is the better shape, because it needs no
+threshold to tune.
+
 ## v2.64.0 — read the archive before opening it (2026-09-13)
 
 **Hardening on the one code path that downloads from the internet and installs

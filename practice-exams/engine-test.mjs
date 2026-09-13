@@ -147,4 +147,69 @@ for (let i = 0; i < 60; i++) E.saveAttempt({ i });
 check('history capped at 50', E.loadHistory().length === 50);
 pass();
 
+// ---- focusDomain: what to study next ----------------------------------------
+//
+// THE DEFECT THIS EXISTS FOR
+// The results screen ranked the focus recommendation by lowest PERCENTAGE,
+// "ties broken by most misses". Ties across different denominators are rare, so
+// the tie-breaker almost never ran and a bare rate decided it -- which the
+// SMALLEST domain wins, because four questions reach 0% far more easily than
+// eleven do. A real sitting said "Focus next on Performance -- 0% there (4
+// missed)" while Data Protection sat at 1/11, ten missed.
+//
+// Simulated over 2,000 seventy-five-question sittings at 60% accuracy, the old
+// ranking named a domain with fewer missed questions than another 62% of the
+// time, forgoing 2.9 missed questions on average, and it has named a domain with
+// a single question in the exam.
+group = 'focus';
+{
+  const D = (correct, total) => ({ correct, total });
+
+  // The sitting that started this.
+  const real = E.focusDomain({
+    architecture: D(2, 8), 'data-protection': D(1, 11), lifecycle: D(1, 10),
+    monitoring: D(3, 9), networking: D(2, 9), performance: D(0, 4),
+    security: D(1, 4), storage: D(3, 7), vms: D(3, 13),
+  });
+  check('names the domain with the most missed questions, not the lowest rate',
+    real.domain === 'data-protection');
+  check('and reports that count', real.missed === 10);
+  check('with the rate alongside it, not instead of it', real.pct === 9 && real.total === 11);
+
+  // A single-question domain answered wrong is 0%, and must never win.
+  const tiny = E.focusDomain({ tiny: D(0, 1), big: D(8, 12) });
+  check('a one-question domain at 0% does not outrank four real misses',
+    tiny.domain === 'big' && tiny.missed === 4);
+
+  // Equal misses: the weaker domain wins.
+  const tied = E.focusDomain({ weak: D(1, 11), strong: D(30, 40) });
+  check('equal misses go to the lower percentage', tied.domain === 'weak');
+  check('and both really were equal', tied.missed === 10);
+
+  // Nothing missed, nothing to say.
+  check('a perfect sitting gets no recommendation', E.focusDomain({ a: D(5, 5), b: D(3, 3) }) === null);
+  check('an empty tally gets none either', E.focusDomain({}) === null);
+  check('and neither does a missing one', E.focusDomain(null) === null);
+  check('a domain with no questions is skipped, not divided by zero',
+    E.focusDomain({ empty: D(0, 0), real: D(1, 3) }).domain === 'real');
+
+  // [neg] the old ranking would have answered differently on this data --
+  // otherwise the fixture proves nothing.
+  const byPct = (byDomain) => {
+    let best = null, bestPct = 101, bestMiss = -1;
+    for (const d of Object.keys(byDomain)) {
+      const s = byDomain[d];
+      if (!s.total) continue;
+      const pct = s.correct / s.total * 100, miss = s.total - s.correct;
+      if (pct < bestPct || (pct === bestPct && miss > bestMiss)) { best = d; bestPct = pct; bestMiss = miss; }
+    }
+    return best;
+  };
+  check('[neg] the old percentage ranking really does differ here',
+    byPct({ 'data-protection': D(1, 11), performance: D(0, 4) }) === 'performance');
+  check('[neg] and on the one-question case', byPct({ tiny: D(0, 1), big: D(8, 12) }) === 'tiny');
+}
+pass();
+
+
 console.log('engine-test: all groups green');
