@@ -288,5 +288,107 @@ function liveSync({ records = 3, progressHandler } = {}) {
     /NSTMastery\.flush/.test(fo));
 }
 
+/* ---- (v2.39.0) the sync pull, and what is actually protecting it ----
+ *
+ * Every other path into the stores parses with a reviver that drops __proto__:
+ * nst-mastery does it three times, nst-backup twice. The sync pull is the one
+ * that cannot, because it reads the body with `r.json()` and Response.json()
+ * takes no reviver. The poisoned object arrives fully formed.
+ *
+ * IT IS SAFE, AND NOT FOR THE REASON IT LOOKS LIKE.
+ * The obvious story is that this line is the guard:
+ *
+ *     B.restore(JSON.stringify(res.data), { mode: mode })
+ *
+ * -- sync re-serialises the object it just parsed and hands the STRING to
+ * NSTBackup.restore, which parses it again with the reviver. That is true, and
+ * it is worth keeping. It is not what makes the path safe.
+ *
+ * Deleting the reviver from inspect() and re-running these checks pollutes
+ * nothing. Deleting the isOwned/typeof-string filter as well pollutes nothing.
+ * The path is safe structurally: JSON.parse creates "__proto__" as an own DATA
+ * property and never invokes the setter, and the only assignment target is a
+ * fresh local object whose prototype nothing reads back. Both merge paths --
+ * NSTMastery.mergeSerialized and mergeAttempts -- parse with their own revivers
+ * on top, and mergeAttempts' dedupe key is a join on "|" and so can never spell
+ * __proto__.
+ *
+ * WHAT THAT MEANS FOR THE CHECKS BELOW, stated plainly because a suite that
+ * cannot fail is worse than no suite:
+ *
+ *   - The STATIC checks bite. Removing the reviver from nst-backup fails one of
+ *     them, which is the point: defence in depth that silently stops being
+ *     there is not defence in depth.
+ *   - The BEHAVIOURAL checks do NOT currently constrain anything. They pass with
+ *     every guard removed, because there is nothing here to pollute. They are a
+ *     net for a future change -- an unsafe recursive merge, a restoreObject()
+ *     that skips the round trip -- not evidence that today's guards work.
+ *
+ * They are kept for that net and labelled so nobody reads a green line here as
+ * proof of something it does not prove.
+ *
+ * A note on the threat model: the blob comes back from the same account that
+ * wrote it, so the ordinary case is a person poisoning their own browser. It is
+ * worth checking at all because the server is not the only writer -- the blob is
+ * text in SQLite, restored from backup files, and on this deployment the
+ * database sits on a VM.
+ */
+{
+  const WIRE =
+    '{"updatedAt":1,"data":{' +
+      '"app":"nutanix-study-tool","format":1,' +
+      '"__proto__":{"polluted":"yes"},' +
+      '"data":{' +
+        '"nst.mastery.v1":"{\\"format\\":1,\\"records\\":{},\\"updatedAt\\":1}",' +
+        '"__proto__":{"alsoPolluted":"yes"},' +
+        '"nst.poison":"{\\"__proto__\\":{\\"deepPolluted\\":\\"yes\\"}}"' +
+      '}}}';
+  const overTheWire = JSON.parse(WIRE);
+
+  ok('the payload really carries __proto__ as an own key, or this proves nothing',
+    Object.prototype.hasOwnProperty.call(overTheWire.data, '__proto__') &&
+    Object.prototype.hasOwnProperty.call(overTheWire.data.data, '__proto__'),
+    JSON.stringify(Object.keys(overTheWire.data)));
+
+  const { win, map } = makeWindow({
+    fetchImpl: () => jsonRes(overTheWire),
+  });
+  /* pull() returns a promise, and the restore happens inside its .then. Checking
+   * the prototype synchronously after calling it would pass while the restore
+   * had not run yet -- the exact way session-test lied twice earlier today. So:
+   * await it, and require a SIDE EFFECT proving the payload really went through
+   * NSTBackup.restore before asking whether anything was polluted. */
+  let threw = null, out = null;
+  try { out = await win.NSTSync.pull(); } catch (e) { threw = e; }
+  ok('a poisoned pull does not throw', threw === null, threw && threw.message);
+  ok('the pull actually restored -- otherwise the checks below prove nothing',
+    !!out && out.ok === true && out.restored >= 1, JSON.stringify(out));
+  ok('and the payload really reached storage', map.has('nst.mastery.v1'),
+    JSON.stringify([...map.keys()]));
+  ok('net (cannot currently fail): Object.prototype survives a poisoned pull',
+    ({}).polluted === undefined && Object.prototype.polluted === undefined);
+  ok('net (cannot currently fail): nor a nested __proto__', ({}).alsoPolluted === undefined);
+  ok('net (cannot currently fail): nor a poisoned value under an owned key',
+    ({}).deepPolluted === undefined);
+
+  /* THE LINE. Not a style check: this is the only thing standing between
+   * Response.json() and the stores. */
+  const pullSrc = SYNC_SRC.slice(SYNC_SRC.indexOf('function pull'),
+    SYNC_SRC.indexOf('function pull') + 1400);
+  ok('BITES: the pull hands restore a STRING, so nst-backup parses it itself',
+    /restore\(\s*JSON\.stringify\(/.test(pullSrc),
+    'sync reads the body with r.json(), which takes no reviver -- re-serialising ' +
+    'is what puts the payload back through a parse that strips __proto__');
+  ok('BITES: and nst-backup.inspect really does parse with the __proto__ reviver',
+    /JSON\.parse\([^)]*,\s*function\s*\([^)]*\)\s*\{\s*return\s+\w+\s*===\s*"__proto__"/.test(BACKUP_SRC));
+
+  /* Not vacuous: the same payload, parsed the way a restoreObject() shortcut
+   * would leave it, DOES carry the key through. */
+  const shortcut = Object.assign({}, overTheWire.data);
+  ok('BITES: Object.assign on the same payload moves __proto__ onto the copy',
+    Object.getPrototypeOf(shortcut) !== Object.prototype,
+    'if this ever stops being true, the round trip is buying less than it looks');
+}
+
 console.log('\n' + (fail ? `SYNC: ${fail} FAILED (${pass} passed)` : `SYNC: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

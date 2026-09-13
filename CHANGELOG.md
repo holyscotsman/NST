@@ -5,6 +5,71 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.39.0 — The guard that turned out not to be the guard (2026-09-13)
+
+**No defect. The interesting part is what breaking it on purpose showed.**
+
+Every path into the browser stores parses JSON with a reviver that drops
+`__proto__` — `nst-mastery` does it three times, `nst-backup` twice. The account
+**sync pull is the one that cannot**: it reads the body with `r.json()`, and
+`Response.json()` takes no reviver. The poisoned object arrives fully formed.
+
+The obvious story is that this line is the guard:
+
+```js
+B.restore(JSON.stringify(res.data), { mode: mode })
+```
+
+Sync re-serialises the object it just parsed and hands the **string** to
+`NSTBackup.restore`, which parses it again with the reviver. A round trip
+through JSON for data that is already an object — exactly the kind of thing
+somebody tidies up.
+
+That story is wrong, and the checks said so:
+
+| control | result |
+|---|---|
+| reviver deleted from `inspect()` | **nothing polluted** |
+| `isOwned` / typeof-string filter deleted as well | **nothing polluted** |
+
+The path is safe **structurally**. `JSON.parse` creates `__proto__` as an own
+*data* property and never invokes the setter, and the only assignment target is
+a fresh local object whose prototype nothing reads back. Both merge paths —
+`NSTMastery.mergeSerialized` and `mergeAttempts` — parse with their own revivers
+on top, and `mergeAttempts`' dedupe key is a `join("|")`, so it can never spell
+`__proto__`.
+
+### Added — 10 checks in `sync-test.mjs` (30 → 40)
+
+Labelled by whether they can actually fail, because a suite that cannot fail is
+worse than no suite:
+
+- **`BITES:`** — the pull hands `restore` a string; `nst-backup.inspect` really
+  does parse with the reviver; `Object.assign` on the same payload really does
+  move `__proto__` onto the copy (which is what the round trip avoids). Deleting
+  the reviver fails one of these.
+- **`net (cannot currently fail):`** — the three prototype checks. They pass with
+  every guard removed, because there is nothing here to pollute. They are a net
+  for a future change — an unsafe recursive merge, a `restoreObject()` that
+  skips the round trip — **not** evidence that today's guards work.
+
+### This is the third suite today to pass for the wrong reason
+The first version ran its checks synchronously after calling `pull()`, which
+returns a promise — the restore had not happened yet. Fixed by awaiting it. The
+second then reported `ok: false, "That file isn't an NST backup."`: the payload
+was never a valid envelope, so the restore rejected it and the pollution checks
+were green over nothing.
+
+Both were caught by the same addition: a check that the operation **actually
+did something** — `out.ok === true`, `restored >= 1`, and the key present in
+storage — placed before any check that asks whether something bad happened.
+
+### Threat model, stated plainly
+The blob comes back from the same account that wrote it, so the ordinary case is
+someone poisoning their own browser. It is worth checking because the server is
+not the only writer: the blob is text in SQLite, is restored from backup files,
+and on this deployment the database sits on a VM.
+
 ## v2.38.0 — You could read the warning, but only with a mouse (2026-09-13)
 
 v2.37.0 made the clipped text in a confirm dialog reachable by giving it a
