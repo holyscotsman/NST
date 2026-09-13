@@ -135,5 +135,157 @@ function studyYear(record) {
     !(total <= bytesOf(halfMap)), bytesOf(halfMap) + ' -> ' + total + ' bytes');
 }
 
+/* ---- the OTHER store: the bank cache in sessionStorage ----
+ *
+ * Everything above is about localStorage, which is bounded by design. The bank
+ * cache was not bounded at all. It had a five-minute TTL that was checked on
+ * READ and enforced nowhere: a stale entry was found stale, ignored, and left
+ * in place, and nothing in the app ever removed one. The store therefore grew
+ * by one whole bank per bank opened, for the life of the tab.
+ *
+ * Measured: a bank is 380 KB stored, which a browser holds as UTF-16 -- 760 KB
+ * each. Chromium fits 13 before setItem throws; a 5 MB quota fits 6. The
+ * roadmap is eight certifications and NCP-MCI already ships two banks.
+ *
+ * The failure at the wall is the reason this is a bug rather than untidiness.
+ * setItem throws, the throw was swallowed, and nothing was evicted -- so the
+ * cache keeps whichever banks were opened FIRST and the bank being studied now
+ * is the one that never gets cached. Measured in a browser before the fix:
+ * with the store full, writing the active bank threw and it read back absent.
+ * The feature then did the opposite of its stated purpose, silently, and only
+ * for the people who had been using it longest. */
+{
+  /* A sessionStorage with a real quota, so "full" means what it means in a
+   * browser rather than whatever the test decides to assert. */
+  function quotaStore(maxChars) {
+    const map = new Map();
+    const used = () => { let n = 0; for (const [k, v] of map) n += k.length + v.length; return n; };
+    return {
+      get length() { return map.size; },
+      key: (i) => Array.from(map.keys())[i] ?? null,
+      getItem: (k) => (map.has(k) ? map.get(k) : null),
+      removeItem: (k) => { map.delete(k); },
+      clear: () => map.clear(),
+      setItem: (k, v) => {
+        const prev = map.has(k) ? k.length + map.get(k).length : 0;
+        if (used() - prev + k.length + String(v).length > maxChars) {
+          const e = new Error('quota'); e.name = 'QuotaExceededError'; throw e;
+        }
+        map.set(k, String(v));
+      },
+    };
+  }
+
+  function loader(store) {
+    const win = {
+      location: { href: 'http://x/' },
+      document: {
+        currentScript: { src: 'http://x/shared/bank-loader.js' },
+        getElementsByTagName: () => [{ src: 'http://x/shared/bank-loader.js' }],
+      },
+      sessionStorage: store,
+      localStorage: quotaStore(1e9),
+      NSTSafeParse: (t) => { try { return JSON.parse(t); } catch (e) { return null; } },
+    };
+    win.window = win;
+    new Function('window', 'document', 'sessionStorage', 'localStorage', 'fetch',
+      readFileSync(join(ROOT, 'shared', 'bank-loader.js'), 'utf8'))(
+      win, win.document, store, win.localStorage, () => Promise.reject(new Error('no network')));
+    return win.NSTBank;
+  }
+
+  const BANK = 380 * 1024;                       // one bank, as stored
+  const body = (ageMs) => JSON.stringify({ t: Date.now() - ageMs, x: 'x'.repeat(BANK) });
+  const TTL = 5 * 60 * 1000;
+
+  // Bounded by the TTL the cache already claimed.
+  {
+    const store = quotaStore(BANK * 40);
+    const NB = loader(store);
+    for (let i = 0; i < 6; i++) store.setItem('nst.bankcache:old' + i, body(TTL + 60000));
+    ok('six stale banks are sitting in the cache', NB._cacheKeys().length === 6);
+    NB._cachePut('nst.bankcache:new', body(0));
+    ok('writing one sweeps every entry past the TTL', NB._cacheKeys().length === 1,
+      NB._cacheKeys().join(','));
+    ok('and the entry just written is the one that survived',
+      store.getItem('nst.bankcache:new') !== null);
+  }
+
+  // A live entry inside the TTL is not swept -- the sweep must be the TTL, not
+  // "delete everything", or the cache would never hit.
+  {
+    const store = quotaStore(BANK * 40);
+    const NB = loader(store);
+    store.setItem('nst.bankcache:live', body(60 * 1000));
+    NB._cachePut('nst.bankcache:new', body(0));
+    ok('an entry still inside the TTL survives a write', NB._cacheKeys().length === 2,
+      NB._cacheKeys().join(','));
+  }
+
+  // The wall: every entry live, no room left. The bank being asked for now must
+  // win, because it is the one about to be read.
+  {
+    const store = quotaStore(BANK * 6 + 4096);
+    const NB = loader(store);
+    let n = 0;
+    try { for (; n < 40; n++) store.setItem('nst.bankcache:live' + n, body(1000 + n)); } catch (e) {}
+    ok('the store fills at a realistic number of banks', n >= 5 && n <= 7, n);
+    const before = NB._cacheKeys().length;
+    const wrote = NB._cachePut('nst.bankcache:active', body(0));
+    ok('the active bank is cached even with the store full', wrote === true);
+    ok('and it can be read back', store.getItem('nst.bankcache:active') !== null);
+    ok('room was made by eviction, not by growing the store',
+      NB._cacheKeys().length <= before, `${before} -> ${NB._cacheKeys().length}`);
+    ok('the OLDEST entry is the one that went', store.getItem('nst.bankcache:live0') === null);
+    ok('a newer one was kept', store.getItem('nst.bankcache:live' + (n - 1)) !== null);
+  }
+
+  // [neg] the behaviour this replaced: a bare setItem with the throw swallowed.
+  {
+    const store = quotaStore(BANK * 6 + 4096);
+    let n = 0;
+    try { for (; n < 40; n++) store.setItem('nst.bankcache:live' + n, body(1000 + n)); } catch (e) {}
+    let cached = true;
+    try { store.setItem('nst.bankcache:active', body(0)); } catch (e) { cached = false; }
+    ok('[neg] the old write gives up at the wall, leaving the active bank uncached',
+      cached === false && store.getItem('nst.bankcache:active') === null);
+  }
+
+  // [neg] a cache that evicted everything would pass "the active bank fits" and
+  // be useless; the live-entry check above is what rules it out.
+  {
+    const store = quotaStore(BANK * 40);
+    const NB = loader(store);
+    store.setItem('nst.bankcache:live', body(60 * 1000));
+    NB._cachePut('nst.bankcache:new', body(0));
+    ok('[neg] eviction is not "clear the cache"', store.getItem('nst.bankcache:live') !== null);
+  }
+
+  // Storage refusing outright must not break loading -- a miss is a refetch.
+  {
+    const hostile = {
+      get length() { throw new Error('denied'); },
+      key: () => { throw new Error('denied'); },
+      getItem: () => { throw new Error('denied'); },
+      setItem: () => { throw new Error('denied'); },
+      removeItem: () => { throw new Error('denied'); },
+    };
+    const NB = loader(hostile);
+    let threw = null;
+    try { NB._cachePut('nst.bankcache:x', body(0)); } catch (e) { threw = e.message; }
+    ok('a storage that refuses everything does not throw out of the cache', threw === null, threw);
+    ok('and reports the write as failed rather than pretending', NB._cachePut('nst.bankcache:x', body(0)) === false);
+  }
+
+  // The app must go through cachePut, not setItem, or this is all decorative.
+  {
+    const src = readFileSync(join(ROOT, 'shared', 'bank-loader.js'), 'utf8');
+    const puts = (src.match(/sessionStorage\.setItem/g) || []).length;
+    ok('there is exactly one sessionStorage write in the loader', puts === 1, puts);
+    ok('and it is inside cachePut', /function cachePut[\s\S]{0,400}sessionStorage\.setItem/.test(src));
+    ok('the fetch path caches through it', /cachePut\(SESS_PREFIX \+ url/.test(src));
+  }
+}
+
 console.log(fail === 0 ? `\nSTORAGE GROWTH: ALL GREEN (${pass} checks)` : `\n${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);
