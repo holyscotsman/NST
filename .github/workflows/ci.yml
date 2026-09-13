@@ -39,6 +39,31 @@ jobs:
         with:
           node-version: '22'
       # Build the single-file app (zero-dependency) and run the pure harnesses.
+      # (v2.40.0) jsdom, and only jsdom. The six game suites below eval the game
+      # sources inside a jsdom window; without it they cannot start, which is the
+      # real reason they were never wired rather than an oversight. The app
+      # itself stays dependency-free -- this is dev tooling, like the browser
+      # job's playwright, and nothing here ships to a user.
+      #
+      # NOT canvas. starnix/package.json also declares canvas@^3 (jsdom's native
+      # rendering backend), but only kbb-draw.cjs actually needs it -- measured:
+      # with canvas removed, five suites and both fuzzers still pass and kbb-draw
+      # fails 6 of its 16 checks. A native build in the everyday gate to buy one
+      # suite is a bad trade, so kbb-draw stays excluded and named.
+      #
+      # The prefix is starnix/, not the workspace root, and that is not a detail.
+      # Most of these harnesses require jsdom by bare name, which resolves from
+      # anywhere up the tree -- but cc-death-paths.cjs requires it by ABSOLUTE
+      # PATH, `require(__dirname + '/node_modules/jsdom')`, which is satisfied by
+      # exactly one directory. A root install passed the bare-name check and then
+      # failed on that file; both forms are verified below now.
+      - name: Install jsdom for the game harnesses
+        run: |
+          npm install --no-save --prefix "$GITHUB_WORKSPACE/starnix" jsdom@29.1.1
+          node -e "require.resolve('jsdom')" \
+            || { echo "jsdom is not resolvable by bare name from starnix/"; exit 1; }
+          test -d "$GITHUB_WORKSPACE/starnix/node_modules/jsdom" \
+            || { echo "jsdom is not at starnix/node_modules, where cc-death-paths.cjs requires it by absolute path"; exit 1; }
       - run: node build.mjs
       - run: node bank-lint.mjs
       - run: node scheduler-test.mjs
@@ -51,7 +76,26 @@ jobs:
       - run: node cc-view-smoke.mjs
       - run: node cc-fairness-check.mjs
       - run: node exhibit-check.mjs
-      - run: node perf-smoke.mjs
+      # (v2.40.0) perf-smoke.mjs was run here without PERF=1. It exits 0 having
+      # done nothing -- and this job has no browser for it anyway, so it could
+      # never have run. A step that prints "skipped" while the job reports
+      # success is worse than no step. It stays an opt-in pre-release tool:
+      # cd starnix && PERF=1 node perf-smoke.mjs, with a Chromium installed.
+      #
+      # (v2.40.0) The six suites below existed, passed, and had never been run
+      # by CI once. Between them they are the primary coverage for all three
+      # StarNix games -- 448 checks, on the largest app in the repo.
+      - run: node arm-run.cjs
+      - run: node cc-run.cjs
+      - run: node kbb-run.cjs
+      - run: node cc-death-paths.cjs
+      - run: node kbb-fuzz.cjs
+      # The only fuzz coverage of the ARM flight engine, and the only harness
+      # anywhere that feeds an engine random FRAME TIMES -- what a throttled or
+      # backgrounded phone actually produces. Its own header calls it a harness
+      # rather than a gate because the default 20 runs take ~90s; six runs is
+      # ~50s and still exercises deaths, extracts and sector advances.
+      - run: ARM_FUZZ_RUNS=6 node arm-fuzz.cjs
       - run: node import-questions.mjs --check
       - run: KBB_ASSERT=1 node kbb-balance.cjs
       # (v2.5.3) property fuzz: the provider must never throw, return junk, or leak
@@ -177,6 +221,13 @@ jobs:
       # and each is one line from silently not happening, with the admin page and
       # the audit log both still claiming it did.
       - run: node ../scripts/session-test.mjs
+
+      # (v2.40.0) the reason the six StarNix suites above went unrun for so long:
+      # nothing compared what exists on disk against what CI invokes. Every
+      # harness must now be either run here or on a documented exclusion list
+      # with a reason -- stale, a library, a manual tool -- so the next one
+      # cannot go dark silently.
+      - run: node ../scripts/harness-coverage.mjs
 
   # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-

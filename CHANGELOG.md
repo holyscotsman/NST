@@ -5,6 +5,110 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.40.0 — 448 checks that had never run once (2026-09-13)
+
+StarNix is the largest app in this repo — 2.9 MB, three games. **The primary
+test suite for every one of those games had never been executed by CI.** Not
+once. They were written, they passed, and nothing invoked them.
+
+| harness | what it covers | checks |
+|---|---|---|
+| `arm-run.cjs` | a scripted ARM flight run | **163** |
+| `cc-run.cjs` | Chasm Chase | **124** |
+| `kbb-run.cjs` | Kuiper Belt Battle | **156** |
+| `cc-death-paths.cjs` | every way a CC run can end | 5 |
+| `kbb-fuzz.cjs` | KBB invariants under randomised input | — |
+| `arm-fuzz.cjs` | the ARM flight engine under random **frame times** | — |
+
+All six pass. Nothing is fixed here — this is 448 checks of existing, working
+coverage being connected to the thing that was supposed to be running it.
+
+### They were not forgotten — they needed a dependency
+The first attempt at this release wired them and CI went red:
+`Cannot find module 'jsdom'`. These harnesses eval the game sources inside a
+jsdom window, and the StarNix job installs nothing.
+
+`starnix/package.json`'s own `npm run check` script has listed most of them all
+along. `ci.yml` hand-duplicated part of that list and dropped **exactly the ones
+with a dependency** — which is a much better explanation than an oversight, and
+the one this release now records.
+
+So the job installs `jsdom@29.1.1`, the same dev-tooling pattern the browser job
+already uses for Playwright. The app itself stays dependency-free.
+
+**Into `starnix/`, not the workspace root** — and that is not a detail. Most of
+these harnesses require jsdom by bare name, which resolves from anywhere up the
+tree. `cc-death-paths.cjs` requires it by **absolute path**,
+`require(__dirname + '/node_modules/jsdom')`, which exactly one directory
+satisfies. A root install passed the bare-name check and then failed on that one
+file — the second red CI run of this release. The step now verifies **both**
+forms, because the check that only tested the bare one is what let it through.
+
+**Not `canvas`.** `starnix/package.json` also declares `canvas@^3` — jsdom's
+native rendering backend — but measurement says only one suite needs it: with
+canvas removed, `arm-run`, `cc-run`, `kbb-run`, `cc-death-paths` and both
+fuzzers still pass, and **`kbb-draw.cjs` fails 6 of its 16 checks**. It really
+does exercise real rendering. A native build in the everyday gate to buy one
+suite is a bad trade, so `kbb-draw` is excluded and named, with the measurement
+in its reason.
+
+`arm-fuzz.cjs` is worth singling out: it is the only harness anywhere in this
+repo that feeds an engine **random frame times**, which is what a throttled or
+backgrounded phone actually produces, and ARM is the one engine that had never
+been fuzzed. Its own header calls it "a harness rather than a CI gate" because
+the default 20 runs take ~90s. Six runs take ~50s and still exercise deaths,
+extracts and sector advances, so it is wired at `ARM_FUZZ_RUNS=6`.
+
+### A CI step that tested air
+`node perf-smoke.mjs` **was** a step in the StarNix job. It exits 0 without
+running anything unless `PERF=1` is set — which CI never set — in a job with no
+browser for it to use, so it could not have run even if the flag were there.
+Every build reported that step green.
+
+It is removed rather than fixed. Making it real would put frame-timing
+assertions in the everyday gate, which is a flake source; it stays what its
+author intended, an opt-in pre-release tool (`cd starnix && PERF=1 node
+perf-smoke.mjs`). A step that prints "skipped" while the job reports success is
+worse than no step.
+
+### A verifier that has been wrong for months
+`starnix/verify-build.mjs` is a ~400-line build verifier. Nothing runs it, and
+it has been stale since commit `d4892dd` removed the NIT in-game exam entirely.
+It asserts four mission lines (`ARM,CC,KBB,NIT`) where the shell renders three,
+fails that check and the finale-reveal check, then **crashes** dereferencing the
+NIT button that no longer exists.
+
+It is **not** wired and **not** deleted. Its NIT assumptions run through several
+blocks between lines ~154 and ~410, and quietly deleting a verifier — or
+guess-editing one — is how coverage disappears. It is named in the exclusion
+list with exactly what is wrong with it, so it is now dark *on purpose* rather
+than by accident, and the next person to open it knows what they are looking at.
+
+### Added — `scripts/harness-coverage.mjs` (22 checks)
+The common cause was not any of those files. It is that **nothing compared what
+exists on disk with what CI invokes.**
+
+Exhaustive classification, deliberately not a heuristic: every `.mjs`/`.cjs`
+under `starnix/`, `scripts/`, `practice-exams/` and `wwtbane/tests/` must be
+either invoked by `ci.yml` or listed in `EXCLUDED` with a reason. A file that is
+neither fails the build and has to be classified by a person — there is no
+"looks like a library" guess to be wrong about. Exclusions are checked back:
+each needs a real reason, must name a file that exists, and must not contradict
+`ci.yml` by naming something it runs.
+
+### Verified
+The decisive check replays the **pre-v2.40.0 workflow** through the same rule
+and requires it to report exactly the six dark suites. It does. Removing any
+one suite from `ci.yml` brings it back as unclassified.
+
+Two bugs in this suite were caught by its own checks before it shipped. The
+workflow comments name commands in prose — "run it before a release: `PERF=1
+node perf-smoke.mjs`" — and the first parse read those as invocations, so it
+concluded CI runs a step that had just been removed. Comments are stripped
+first now, and a check asserts it. The second: the self-check's copy of the rule
+omitted the `node --test tests/*.test.mjs` glob exemption and reported all 25
+WWTBANE test files as dark, which they never were.
+
 ## v2.39.0 — The guard that turned out not to be the guard (2026-09-13)
 
 **No defect. The interesting part is what breaking it on purpose showed.**
