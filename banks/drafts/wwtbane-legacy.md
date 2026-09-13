@@ -396,6 +396,7 @@ Clue: Metro works by extending a single storage namespace synchronously across t
 ### STOR-X-002
 domain: storage
 difficulty: 5
+impossible: true
 tags: metadata, cassandra, medusa, replication-factor, quorum
 reference: Nutanix AOS Distributed Storage Fabric (Medusa/Cassandra metadata)
 
@@ -426,6 +427,7 @@ Clue: Synchronous replication acknowledges each write at both sites before telli
 ### AHV-X-001
 domain: ahv
 difficulty: 5
+impossible: true
 tags: ahv, cvm, iscsi-redirector, stargate, internal-network
 reference: Nutanix AHV architecture (CVM autopathing / iSCSI redirector)
 
@@ -471,6 +473,7 @@ Clue: A single management-plane VM is a single point of failure, so the resilien
 ### NET-X-001
 domain: networking
 difficulty: 5
+impossible: true
 tags: ahv, mac-address, oui, vnic, networking
 reference: AHV Administration Guide (MAC Address Prefix)
 
@@ -561,6 +564,7 @@ Clue: Nutanix does not just harden the platform once; it re-checks well over a t
 ### PERF-X-001
 domain: performance
 difficulty: 5
+impossible: true
 tags: performance, curator, full-scan, partial-scan, mapreduce
 reference: The Nutanix Bible - AOS Storage (Curator); Nutanix KB on Curator scan types and frequency
 

@@ -85,6 +85,9 @@ Explain: A storage container needs only a name; other settings inherit cluster d
 - `- [x]` marks the correct option (two or more `[x]` = a multi-answer question).
 - Everything except `id`, `domain`, `Q:`, the options, and `Explain:` is optional.
 - Optional per-question fields: `tags`, `image` + `image-alt`, `priority: true`, `reference`, and a `Teach:` blurb (used by the games).
+- `impossible: true` marks a question as Who Wants to be a Nutanix Engineer's rung-30
+  special: the first time a player ever reaches the final, that is what they get. Only
+  worth putting on a `difficulty: 5` question. Ignored by StarNix and Practice Exams.
 - `Clue:` is Steve's green-room hint in Who Wants to be a Nutanix Engineer — a couple of
   sentences that *teach toward* the answer without naming it. He only ever offers a hard
   question that carries one, so a bank with no clues leaves his green room empty. It may

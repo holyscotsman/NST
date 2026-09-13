@@ -7,7 +7,7 @@
  *   { meta: { cert, title, version, pass, domains[] },
  *     questions: [ { id, domain, difficulty(1-5), tags[], image, imageAlt, priority,
  *                    reference, stem, options[], correct(number|number[]), optionNotes[],
- *                    explanation, teach, clue } ],
+ *                    explanation, teach, clue, impossible } ],
  *     errors: [ { id?, line?, message } ] }
  */
 (function (root, factory) {
@@ -113,7 +113,7 @@
   function parseBlock(blk, questions, errors, meta, seenIds) {
     var q = {
       id: blk.id, domain: "", difficulty: 3, tags: [], image: null, imageAlt: "",
-      priority: false, reference: "", stem: "", options: [], correct: null,
+      priority: false, impossible: false, reference: "", stem: "", options: [], correct: null,
       optionNotes: [], explanation: "", teach: "", clue: "",
     };
     var correctIdx = [];
@@ -161,6 +161,10 @@
           case "image": case "exhibit": q.image = p[1] || null; break;
           case "image-alt": case "imagealt": case "alt": q.imageAlt = p[1]; break;
           case "priority": q.priority = truthy(p[1]); break;
+          /* (v2.54.0) WWTBANE's rung-30 special: the FIRST time a player ever reaches the
+           * final, it serves a question marked impossible if the bank has one. No bank
+           * could say so, so that branch had never run for anybody. */
+          case "impossible": q.impossible = truthy(p[1]); break;
           case "reference": case "ref": q.reference = p[1]; break;
           case "q": case "question": case "stem": state = "stem"; if (p[1]) stemBuf.push(p[1]); break;
           case "explain": case "explanation": state = "explain"; if (p[1]) expBuf.push(p[1]); break;
