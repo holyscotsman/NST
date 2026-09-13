@@ -436,6 +436,21 @@ function liveSync({ records = 3, progressHandler } = {}) {
 
   const hears = (src, ev) => new RegExp(`addEventListener\\(\\s*['"]${ev}['"]`).test(src);
 
+  /* The third event, and why it is NOT on this list.
+   *
+   * nst-sync.js also fires "nst-account" when it learns who is signed in, and
+   * only the launcher listens for it. That is a deliberate difference rather
+   * than the same gap a third time: the two events above are FAILURE
+   * notifications, and missing one means a failure nobody is told about.
+   * nst-account is informational -- it names the account, it does not report
+   * anything going wrong -- so a page that does not show it loses nothing but a
+   * label. Recorded here so the next person reading this rule does not extend it
+   * by rote, and so that if nst-account ever starts carrying a failure the
+   * reason it was left out is visible. */
+  ok('nst-account is informational, so the rule above deliberately excludes it',
+    /CustomEvent\("nst-account"/.test(SYNC_SRC) &&
+    !/nst-account[^]{0,200}(error|fail|warn)/i.test(SYNC_SRC));
+
   for (const [name, page, scripts] of pages) {
     const html = read(...page.split('/'));
     const bodies = scripts.map((f) => read(...f.split('/'))).join('\n');
