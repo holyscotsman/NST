@@ -5,6 +5,47 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.27.0 — Documentation describing a repository it no longer has (2026-09-13)
+
+Read the README as a newcomer would, and check each claim against the code.
+Three were wrong, one of them in a way that matters.
+
+### Fixed
+- **The README told you nothing is sent to a server — in a file that documents
+  the server.** The opening promised "everything saves to your browser's local
+  storage — nothing is sent to a server, there's no account to make", while
+  *Host it for a team (accounts + login)* describes accounts, sign-in and
+  progress that "follows you to any browser or device". Both cannot be true. On
+  the public static site the first is right; on a self-hosted instance — which
+  is the whole point of the server — it is simply false, and it is the
+  privacy-relevant half. Now scoped: local-only on the public site, mirrored to
+  an account on **your** server if you run one, and nowhere else either way.
+- **The architecture tree listed seven top-level entries against ten real
+  ones.** Missing: `server/` (documented at length in the same file),
+  `scripts/` (every shared test suite) and `styles/`. Someone using the tree to
+  find their way around was told the login server did not exist.
+- **`shared/` was described as "bank parser + loader + per-tool adapters +
+  Nutanix wordmark".** It is also the mastery store — the spaced-repetition
+  scheduler the whole app is built on — plus the dashboard, readiness and review
+  views, preferences, backup, account sync and the version stamp. The one
+  sentence describing the most important directory in the repo omitted its
+  reason for existing.
+- **`Develop` did not mention the shared suites at all**, though they are the
+  majority of the gate. It now shows how to run them, and the six browser suites
+  with the one-line install they need.
+
+### Added
+- **`scripts/docs-test.mjs` (CI-gated, 13 checks).** Every top-level directory
+  must appear in the architecture tree and everything in the tree must still
+  exist; every relative link across README, CHANGELOG, the server, bank and
+  format docs and the knowledge base must resolve (a dead link is invisible
+  until somebody clicks it, and nothing here ever clicked); and the local-only
+  promise must stay scoped while the server section exists.
+
+### Verified
+Deleting `server/` from the tree fails two checks by name; breaking one doc link
+fails a third with the file and target printed.
+
 ## v2.26.0 — One preference, four front-ends (2026-09-13)
 
 **No bug was found here, and none is fixed.** This is the check that would have

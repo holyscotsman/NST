@@ -147,6 +147,12 @@ jobs:
       # real one, naming every account despite the identical error text; sign-up
       # had no throttle, so a loop created accounts and burned CPU without limit.
       - run: node ../scripts/auth-test.mjs
+      # (v2.27.0) documentation describing a repository it no longer has. The
+      # README's architecture tree listed seven top-level entries against ten
+      # real ones -- server/ was missing from a file that documents the server
+      # at length further down. Also checks every relative link in the docs
+      # resolves, because a dead one is invisible until somebody clicks it.
+      - run: node ../scripts/docs-test.mjs
 
   # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-
