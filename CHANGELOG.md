@@ -5,6 +5,63 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.18.0 — "Merge" now merges (2026-09-13)
+
+The worst kind of bug: no error, no crash, and the thing the whole app exists to
+accumulate quietly disappearing.
+
+### Fixed
+- **Merging progress replaced it instead of combining it.** `NSTBackup.restore`
+  in `merge` mode meant only *"do not delete keys the incoming copy lacks"* —
+  within a key, the incoming value won outright. **All mastery lives in one
+  localStorage key**, and all exam attempts in another, so "merge" threw away one
+  side's entire history.
+
+  Two ways to hit it, both ordinary:
+
+  - **Two devices, one account.** Study on a laptop in the morning, open the tool
+    on a phone at lunch: the phone pulls the account copy over its own local
+    progress, and then pushes the result — so the loss propagates back to the
+    server and the laptop. Verified: before this change a phone holding two
+    questions the server had never seen ended up with the server's two and lost
+    its own.
+  - **Restore from file, choosing "merge".** The only sensible reading of that
+    word is "combine", and it did not.
+
+  `nst.mastery.v1` is now combined **record by record**, and
+  `nst.practice-exams.history.v1` as the union of attempts, de-duplicated and
+  re-capped. Keys with no strategy (preferences, the resume position) stay
+  last-writer-wins, which is what those actually mean.
+
+- **The in-memory store could put the old records back.** `NSTMastery` parses the
+  store once and writes it back on its next save. A restore that changed
+  localStorage underneath that cache would be undone by the next debounced save —
+  intermittently, depending on timing. `restore` now invalidates it.
+
+### The merge policy, and why
+Two devices' records descend from a **shared** history, so this is not the same
+problem as `mergeLegacy`, which folds together stores from different tools that
+never overlapped and can safely sum:
+
+- **The record with the newer `lastSeen` decides box, streak and schedule.** It
+  is the most recent evidence. Taking the higher box would be kinder and wrong:
+  getting a question wrong an hour ago is the truth, even if yesterday's device
+  still remembers a high box.
+- **Counters take the larger of the two, never the sum.** Both sides share a
+  prefix; max never double-counts it and never loses what one side did alone.
+- **`firstCorrectAt` takes the earlier value** — it marks when something first
+  clicked, and the earlier one is the true one.
+
+### Tests
+`scripts/backup-test.mjs` 26 → 44 checks, on a window with **both** modules
+wired the way a page wires them — the merge looks `NSTMastery` up lazily at
+restore time because `nst-backup.js` loads first, and testing them together is
+the only way to prove that lookup works.
+
+Verified end to end against a real server with two separate browser contexts as
+two devices: each holding two questions the other had never seen, both converge
+on all four.
+
 ## v2.17.0 — A phone held sideways (2026-09-13)
 
 Every mobile pass so far measured portrait. Landscape is the shorter, more

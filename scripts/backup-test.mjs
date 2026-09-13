@@ -41,6 +41,33 @@ function makeWindow(seed = {}, opts = {}) {
   return { win, storage, map };
 }
 
+const T0 = 1_700_000_000_000;
+const MASTERY_SRC = readFileSync(join(HERE, '..', 'shared', 'nst-mastery.js'), 'utf8');
+
+/* A window with BOTH modules in it, wired the way a page wires them: backup
+ * first, mastery second, exactly as index.html loads them. The merge path looks
+ * NSTMastery up lazily at restore time for that reason, and testing the two
+ * together is the only way to prove that lookup works. */
+function freshBoth() {
+  const map = new Map();
+  const storage = {
+    get length() { return map.size; },
+    key: (i) => Array.from(map.keys())[i] ?? null,
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+    removeItem: (k) => { map.delete(k); },
+  };
+  const win = { localStorage: storage, NST_VERSION: '9.9.9' };
+  win.window = win;
+  new Function('window', 'navigator', 'document', 'Blob', 'URL', 'setTimeout', SRC)(
+    win, {}, undefined, undefined, undefined, () => {});
+  new Function('window', 'setTimeout', 'clearTimeout', 'Date', MASTERY_SRC)(
+    win, (fn) => { fn(); return 0; }, () => {}, Date);
+  // The tests below reach for localStorage directly for keys with no module.
+  globalThis.localStorage = storage;
+  return { B: win.NSTBackup, M: win.NSTMastery, map, win };
+}
+
 const SEED = {
   'nst.prefs': '{"reducedMotion":true}',
   'nst.activeBank': 'ncp-mci-25',
@@ -138,7 +165,10 @@ const SEED = {
   const mer = makeWindow({ 'nst.prefs': '{"old":true}', 'starnix:profile': '{"xp":1}' });
   mer.win.NSTBackup.restore(good, { mode: 'merge' });
   ok('merge keeps NST keys not present in the backup', mer.map.get('starnix:profile') === '{"xp":1}');
-  ok('merge still overwrites the keys it does carry', mer.map.get('nst.prefs') === '{"new":true}');
+  // True for a key with no merge strategy -- a preference IS last-writer-wins.
+  // NOT a general rule: the keys holding mastery and exam history are combined
+  // value-by-value instead. See the merge section further down.
+  ok('a key with no merge strategy is taken from the backup', mer.map.get('nst.prefs') === '{"new":true}');
 }
 
 /* ---- a failed write must not destroy what was there ---- */
@@ -160,6 +190,152 @@ const SEED = {
 {
   const { win } = makeWindow({});
   ok('filename is dated and .json', /^nst-progress-\d{4}-\d{2}-\d{2}\.json$/.test(win.NSTBackup.filename()), win.NSTBackup.filename());
+}
+
+/* ---- merge must actually merge, not overwrite ----
+ *
+ * This is the bug this section exists for. "merge" used to mean only "do not
+ * delete keys the incoming copy lacks": within a key the incoming value won
+ * outright. All mastery lives in ONE key, so two devices -- or a restore over
+ * existing progress -- silently threw one side's work away.
+ */
+{
+  const { B, M, map } = freshBoth();
+
+  // This browser: two questions answered, one of them recently and wrongly.
+  M.record('shared-q', { correct: true, gate: 'always', now: T0 });
+  M.record('local-only', { correct: true, gate: 'always', now: T0 });
+  M.flush();
+
+  // The other device: the same shared question plus one of its own.
+  const other = {
+    app: 'nutanix-study-tool', format: 1, data: {
+      'nst.mastery.v1': JSON.stringify({
+        format: 1,
+        records: {
+          'shared-q': { id: 'shared-q', box: 5, seen: 9, correct: 8, incorrect: 1, streak: 3, lastSeen: T0 + 60_000, firstCorrectAt: T0 - 1000, lastRun: 4 },
+          'remote-only': { id: 'remote-only', box: 2, seen: 3, correct: 2, incorrect: 1, streak: 1, lastSeen: T0, firstCorrectAt: T0, lastRun: -1 },
+        },
+        updatedAt: T0 + 60_000,
+      }),
+    },
+  };
+
+  const out = B.restore(JSON.stringify(other), { mode: 'merge' });
+  ok('a merge restore succeeds', out.ok === true, out.error);
+
+  M.load(true);
+  ok('the local-only question survives the merge', !!M.get('local-only'),
+    'THIS IS THE BUG: the incoming copy used to overwrite the whole key');
+  ok('the other device\'s question arrives', !!M.get('remote-only'));
+  ok('the shared question is still there', !!M.get('shared-q'));
+
+  const sh = M.get('shared-q');
+  ok('the newer sighting owns the schedule', sh.box === 5 && sh.lastSeen === T0 + 60_000,
+    `box ${sh.box}, lastSeen ${sh.lastSeen}`);
+  ok('counters take the larger side, never the sum', sh.seen === 9 && sh.correct === 8,
+    `seen ${sh.seen}, correct ${sh.correct}`);
+  ok('and are not double-counted', sh.seen < 10, sh.seen);
+  ok('the earlier first-correct wins', sh.firstCorrectAt === T0 - 1000, sh.firstCorrectAt);
+}
+{
+  // The reverse direction: a LOCAL answer newer than the incoming one must win
+  // the schedule, or syncing would undo the answer you just gave.
+  const { B, M } = freshBoth();
+  M.record('q', { correct: false, gate: 'always', now: T0 + 500_000 });   // just got it wrong
+  M.flush();
+  const stale = {
+    app: 'nutanix-study-tool', format: 1, data: {
+      'nst.mastery.v1': JSON.stringify({
+        format: 1,
+        records: { q: { id: 'q', box: 8, seen: 4, correct: 4, incorrect: 0, streak: 4, lastSeen: T0, firstCorrectAt: T0, lastRun: -1 } },
+        updatedAt: T0,
+      }),
+    },
+  };
+  B.restore(JSON.stringify(stale), { mode: 'merge' });
+  M.load(true);
+  const q = M.get('q');
+  ok('a stale high box does not overwrite a fresh miss', q.box < 8, `box ${q.box}`);
+  ok('and the fresh sighting time is kept', q.lastSeen === T0 + 500_000, q.lastSeen);
+  ok('but the older run of correct answers is not lost', q.correct === 4, q.correct);
+}
+{
+  // Exam attempts are the other single key holding everything.
+  const { B } = freshBoth();
+  const mine = [{ at: 3000, pct: 70, total: 25, correct: 17, pass: false }];
+  const theirs = [
+    { at: 5000, pct: 92, total: 25, correct: 23, pass: true },
+    { at: 3000, pct: 70, total: 25, correct: 17, pass: false },   // the same attempt
+  ];
+  const KEY = 'nst.practice-exams.history.v1';
+  localStorage.setItem(KEY, JSON.stringify(mine));
+  B.restore(JSON.stringify({
+    app: 'nutanix-study-tool', format: 1, data: { [KEY]: JSON.stringify(theirs) },
+  }), { mode: 'merge' });
+  const got = JSON.parse(localStorage.getItem(KEY));
+  ok('exam attempts are unioned, not replaced', got.length === 2, got.length);
+  ok('and the duplicate is not duplicated', got.filter((a) => a.at === 3000).length === 1);
+  ok('newest first', got[0].at === 5000, got.map((a) => a.at).join(','));
+}
+{
+  // Replace mode must still mean replace.
+  const { B, M } = freshBoth();
+  M.record('local-only', { correct: true, gate: 'always', now: T0 });
+  M.flush();
+  B.restore(JSON.stringify({
+    app: 'nutanix-study-tool', format: 1, data: {
+      'nst.mastery.v1': JSON.stringify({ format: 1, records: { incoming: { id: 'incoming', box: 1, seen: 1, correct: 1, incorrect: 0, streak: 1, lastSeen: T0, firstCorrectAt: T0, lastRun: -1 } }, updatedAt: T0 }),
+    },
+  }), { mode: 'replace' });
+  M.load(true);
+  ok('replace still replaces', !M.get('local-only') && !!M.get('incoming'));
+}
+{
+  // The in-memory cache must not put the old records back.
+  //
+  // NSTMastery parses the store once and writes it back on its next save. If a
+  // restore changes localStorage underneath that cache, a later debounced save
+  // rewrites the OLD records over the merged ones -- losing exactly what the
+  // merge just rescued, and only sometimes, depending on timing.
+  const { B, M } = freshBoth();
+  M.record('local-only', { correct: true, gate: 'always', now: T0 });
+  M.flush();
+  M.get('local-only');                      // prime the cache
+
+  B.restore(JSON.stringify({
+    app: 'nutanix-study-tool', format: 1, data: {
+      'nst.mastery.v1': JSON.stringify({
+        format: 1,
+        records: { incoming: { id: 'incoming', box: 3, seen: 2, correct: 2, incorrect: 0, streak: 2, lastSeen: T0, firstCorrectAt: T0, lastRun: -1 } },
+        updatedAt: T0,
+      }),
+    },
+  }), { mode: 'merge' });
+
+  // No explicit reload here: the restore is responsible for invalidating it.
+  ok('the store sees the merged data without being told to reload',
+    !!M.get('incoming') && !!M.get('local-only'),
+    `incoming ${!!M.get('incoming')}, local ${!!M.get('local-only')}`);
+
+  // And a save from the cache must now write the merged set, not the old one.
+  M.record('third', { correct: true, gate: 'always', now: T0 + 1000 });
+  M.flush();
+  const written = JSON.parse(localStorage.getItem('nst.mastery.v1')).records;
+  ok('and a later save does not resurrect the pre-restore records',
+    !!written.incoming && !!written['local-only'] && !!written.third,
+    Object.keys(written).join(','));
+}
+{
+  // Keys with no merge strategy are last-writer-wins, which is what a preference means.
+  const { B } = freshBoth();
+  localStorage.setItem('nst.prefs.v1', JSON.stringify({ theme: 'old' }));
+  B.restore(JSON.stringify({
+    app: 'nutanix-study-tool', format: 1,
+    data: { 'nst.prefs.v1': JSON.stringify({ theme: 'new' }) },
+  }), { mode: 'merge' });
+  ok('a preference is simply taken from the incoming copy',
+    JSON.parse(localStorage.getItem('nst.prefs.v1')).theme === 'new');
 }
 
 console.log('\n' + (fail ? `BACKUP: ${fail} FAILED of ${pass + fail}` : `BACKUP: ALL GREEN (${pass} checks)`));
