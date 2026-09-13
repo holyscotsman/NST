@@ -318,6 +318,87 @@ try {
       /setDisabled[^]{0,300}DELETE FROM sessions WHERE user_id/.test(db));
   }
 
+  /* ---- (v2.43.0) the audit log, which nothing checked was written ----
+   *
+   * pages-test proves the audit table ESCAPES what it renders. Nothing proved
+   * anything is ever put in it.
+   *
+   * That matters more than it sounds. The admin page is the only record of who
+   * did what to whose account on this server, and every one of those actions is
+   * one forgotten DB.audit() away from leaving no trace: the action still
+   * succeeds, the page still says "X is disabled and signed out", and the log is
+   * silent about it. Nobody discovers that until they go looking for a record
+   * that was never written -- which is exactly when they need it.
+   *
+   * Two halves, because they fail differently. The behavioural half drives the
+   * real actions and reads the real page. The static half reads the switch: a
+   * NEW action added without a DB.audit() call is the regression that actually
+   * happens, and the behavioural half cannot see an action it does not know to
+   * perform. */
+  {
+    const auditRows = async () => {
+      const page = (await root.req('/admin')).text;
+      const start = page.indexOf('Recent activity');
+      if (start < 0) return [];
+      return [...page.slice(start).matchAll(/<tr><td>[^<]*<\/td><td>([^<]*)<\/td>\s*<td>([a-z-]+)(?:\s*<span class="muted">([^<]*)<\/span>)?/g)]
+        .map((m) => ({ actor: m[1].trim(), action: m[2], detail: (m[3] || '').trim() }));
+    };
+
+    const seeded = await auditRows();
+    ok('the admin page renders an audit log with rows in it',
+      seeded.length > 0, seeded.length + ' rows');
+    ok('and it is not a static fixture -- the actions above are in it',
+      seeded.some((r) => r.action === 'disabled') &&
+      seeded.some((r) => r.action === 'password-reset') &&
+      seeded.some((r) => r.action === 'deleted'),
+      seeded.map((r) => r.action).join(','));
+
+    /* Each action, performed now, must appear now -- naming who did it and to
+     * whom. A log that records the verb but not the target is not a record. */
+    const { name, c: _c } = await mk('a-good-long-password');
+    const id = await findId(name);
+    for (const [action, verb] of [['disable', 'disabled'], ['enable', 'enabled'],
+                                  ['promote', 'promoted'], ['demote', 'demoted']]) {
+      const before = (await auditRows()).filter((r) => r.action === verb).length;
+      await adminAction(root, action, id);
+      const rows = await auditRows();
+      const mine = rows.filter((r) => r.action === verb);
+      ok(`"${action}" writes an audit row`, mine.length === before + 1,
+        `${before} -> ${mine.length}`);
+      ok(`and it names the administrator who did it`,
+        mine.some((r) => r.actor === 'root'), JSON.stringify(mine.slice(0, 2)));
+      ok(`and the account it was done to`,
+        mine.some((r) => r.detail === name), JSON.stringify(mine.slice(0, 2)));
+    }
+
+    /* The static half: every branch of the admin switch audits. */
+    const fs = await import('node:fs');
+    const srv = fs.readFileSync(join(REPO, 'server', 'server.mjs'), 'utf8');
+    const sw = srv.slice(srv.indexOf("const action = path.slice('/admin/'.length)"),
+                         srv.indexOf('/* --- the study tool itself --- */'));
+    const cases = [...sw.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]);
+    ok('the admin switch has branches to check', cases.length >= 5, cases.join(','));
+    const unaudited = cases.filter((cse) => {
+      const at = sw.indexOf(`case '${cse}':`);
+      const next = sw.indexOf('case ', at + 6);
+      const body = sw.slice(at, next > 0 ? next : sw.indexOf('default:', at));
+      return !/DB\.audit\(/.test(body);
+    });
+    ok('every admin action writes to the audit log', unaudited.length === 0,
+      unaudited.join(', ') + ' -- succeeds and leaves no record of who did it');
+
+    /* Not vacuous. */
+    const planted = sw.replace(/case 'enable':[^]*?DB\.audit\([^;]*;/, "case 'enable':\n  DB.setDisabled(db, target.id, 0);");
+    const plantedUnaudited = [...planted.matchAll(/case '([a-z-]+)':/g)].map((m) => m[1]).filter((cse) => {
+      const at = planted.indexOf(`case '${cse}':`);
+      const next = planted.indexOf('case ', at + 6);
+      const body = planted.slice(at, next > 0 ? next : planted.indexOf('default:', at));
+      return !/DB\.audit\(/.test(body);
+    });
+    ok('self-check: an action with its DB.audit removed is caught',
+      planted !== sw && plantedUnaudited.includes('enable'), plantedUnaudited.join(','));
+  }
+
   /* ---- 7. the checks can see a revocation that did not happen ----
    *
    * Every check above passed, which proves only that signing out works at all.

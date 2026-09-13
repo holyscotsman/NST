@@ -261,6 +261,86 @@ ok('every question id in every bank is globally unique', true,
     JSON.stringify(strayDomainsIn(stray.questions, new Set(stray.meta.domains))));
 }
 
+/* ---- (v2.43.0) line endings, because the next banks will be written on Windows ----
+ *
+ * bank-parser.js normalises CRLF and lone CR to LF before it splits lines:
+ *
+ *     var text = String(md == null ? "" : md).replace(/\r\n?/g, "\n");
+ *
+ * Every bank in this repository uses LF, so that line is load-bearing for
+ * exactly zero of them today and nothing here noticed it existed. It reads like
+ * a redundant normalisation of the kind somebody tidies away.
+ *
+ * Delete it and every check in this suite still passes. Then measure what a
+ * Windows-authored bank actually does without it, which is worse than the stray
+ * trailing characters this comment first predicted:
+ *
+ *     CRLF  -> questions: []      the whole bank parses to NOTHING
+ *     CR    -> questions: [], and empty metadata as well
+ *
+ * `### w1\r` does not match the heading pattern, so no question is ever opened.
+ * The file is not mangled, it is invisible: a bank that loads, reports no error,
+ * and contains zero questions. Nothing about that looks like a line-ending
+ * problem, which is why the checks below name the ending rather than the symptom.
+ *
+ * Seven more banks are planned. This is the check that makes the normalisation
+ * survive until they arrive.
+ */
+{
+  const head = 'cert: X\ntitle: T\npass: 0.80\ndomains: storage, networking\n\n';
+  const body = '### w1\ndomain: storage\ndifficulty: 2\n\n' +
+    'Q: Which node holds the Curator leader?\n' +
+    '- [x] The one that won the election\n' +
+    '- [ ] The one with the lowest id\n\n' +
+    'Explain: Curator elects a leader per cluster.\n';
+  const lf = head + body;
+
+  const parsedLf = Parser.parse(lf);
+  ok('the LF control bank parses', (parsedLf.errors || []).length === 0 && parsedLf.questions.length === 1);
+
+  for (const [label, eol] of [['CRLF (Windows)', '\r\n'], ['CR (classic Mac)', '\r']]) {
+    const converted = lf.replace(/\n/g, eol);
+    ok(`the ${label} source really differs from the LF one`, converted !== lf);
+    const p2 = Parser.parse(converted);
+    ok(`${label}: parses without errors`, (p2.errors || []).length === 0,
+      JSON.stringify((p2.errors || []).slice(0, 2)));
+    ok(`${label}: yields the same questions as LF`,
+      JSON.stringify(p2.questions) === JSON.stringify(parsedLf.questions),
+      JSON.stringify(p2.questions).slice(0, 200));
+    ok(`${label}: yields the same metadata`,
+      JSON.stringify(p2.meta) === JSON.stringify(parsedLf.meta),
+      JSON.stringify(p2.meta));
+
+    /* The specific damage a surviving \r does, named so a failure is readable. */
+    const q = p2.questions[0] || {};
+    const carriage = (v) => typeof v === 'string' && v.includes('\r');
+    ok(`${label}: no carriage return survives into the question id`, !carriage(q.id), JSON.stringify(q.id));
+    ok(`${label}: nor the stem`, !carriage(q.stem), JSON.stringify(q.stem));
+    ok(`${label}: nor the domain -- a stray \\r makes it miss the declared list`,
+      !carriage(q.domain), JSON.stringify(q.domain));
+    ok(`${label}: nor any option -- it would render as an invisible character`,
+      !(q.options || []).some(carriage), JSON.stringify(q.options));
+    ok(`${label}: nor the explanation`, !carriage(q.explanation), JSON.stringify(q.explanation));
+    ok(`${label}: nor any declared domain`,
+      !(p2.meta.domains || []).some(carriage), JSON.stringify(p2.meta.domains));
+  }
+
+  /* Mixed endings, because a file edited on both platforms has both. */
+  const mixed = head.replace(/\n/g, '\r\n') + body;
+  const pm = Parser.parse(mixed);
+  ok('a file with mixed CRLF and LF parses the same too',
+    JSON.stringify(pm.questions) === JSON.stringify(parsedLf.questions) &&
+    JSON.stringify(pm.meta) === JSON.stringify(parsedLf.meta));
+
+  /* The rule is not vacuous: without the normalisation, CRLF breaks. Run the
+   * SAME parser over a source whose \r the parser cannot see, by checking that
+   * the raw split it would otherwise do leaves carriage returns behind. */
+  const naive = (head + body).replace(/\n/g, '\r\n').split('\n');
+  ok('self-check: splitting CRLF on \\n alone really does leave \\r behind',
+    naive.some((l) => l.endsWith('\r')),
+    'if this is false the whole section proves nothing');
+}
+
 console.log('\n' + (fail
   ? `BANKS: ${fail} FAILED (${pass} passed${warn ? `, ${warn} warning${warn > 1 ? 's' : ''}` : ''})`
   : `BANKS: ALL GREEN (${pass} checks${warn ? `, ${warn} warning${warn > 1 ? 's' : ''}` : ''})`));
