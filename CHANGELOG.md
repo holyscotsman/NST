@@ -5,6 +5,82 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.45.0 — The seam between one bank format and three apps (2026-09-13)
+
+**No defect.** Both adapters are correct. The finding is that nothing checked
+them, and they sit exactly where nobody looks.
+
+| side | coverage |
+|---|---|
+| `shared/bank-parser.js` | `bank-test.mjs`, 78 checks |
+| WWTBANE's own format | 25 test files of its own |
+| StarNix's own format | `bank-lint`, `multi-answer-test`, `shuffle-test`, … |
+| **the conversion between them** | **nothing** |
+
+`toStarNix` and `toWWTBANE` live in `shared/bank-loader.js`, and nothing
+referenced either one except `starnix/build.mjs`. A field dropped or renamed in
+the conversion is invisible to both sides: the parser still emits it, the game
+still handles its own shape, and the value simply never arrives.
+
+### The one that would matter most
+The two adapters name the answer differently, and differently again by arity:
+
+```
+StarNix   single -> correctIndex (a number)      multi -> correctIndices (array)
+WWTBANE   single -> type "single", answer [i]    multi -> type "multi", answer [..]
+```
+
+Four spellings of the same fact. Get one wrong and a game marks a different
+option correct than the bank says — the worst defect available to a study tool,
+because the learner is confidently taught the wrong answer and the shared
+mastery store records it as settled.
+
+### Added — `scripts/adapter-test.mjs` (53 checks), wired into CI
+A synthetic bank exercising every field the parser can emit, run through both
+real adapters — not a re-implementation, or the test and the runtime could
+disagree about what the conversion means. Every field is checked into place, and
+the deliberate divergences are pinned with their reasons:
+
+- `priority` is `2` for StarNix and `true` for WWTBANE — different types on purpose.
+- `teach` is **renamed** to `briefing` for StarNix and **dropped** for WWTBANE,
+  which has no briefing surface. Pinned so nobody "fixes" it into existence.
+- `image` is `{src, alt}` for WWTBANE and `image`/`imageSrc`/`imageAlt` for
+  StarNix — and both must point at the same file.
+- Difficulty is lossy on purpose: five authored tiers into StarNix's three, and
+  into WWTBANE's named tiers.
+- Every array is `.slice()`d. If one stopped, a game shuffling its own options
+  would reorder the bank's, and the next app to read it would see the shuffled
+  order with the original answer index — a wrong answer arriving only in
+  whichever app happened to run second.
+
+### A coupling worth knowing about
+Both adapters read `q.imageSrc`, and **the parser never emits it.** It is added
+by `load()`, which resolves the bank-relative filename against the bank file's
+own URL. An adapter handed raw parser output produces a question whose image has
+no source. Not a defect — nothing in the app calls an adapter that way — but an
+undocumented dependency between two modules, found because this suite did
+exactly that on its first run.
+
+### Verified
+Four controls against the real adapters, each naming the damage:
+
+```
+multi-answer given correctIndex     -> {"correctIndex":0}
+WWTBANE answer index shifted by 1   -> points at "Cassandra", and ["They require LACP", null]
+teach no longer renamed to briefing -> {}
+options handed over uncopied        -> reversing StarNix's reversed the bank's
+```
+
+The second is the one the suite exists for: a one-place index shift, and the
+game teaches the wrong answer.
+
+### Three bugs in this suite, before the code
+Its first run failed on a `document` shim without `getElementsByTagName`, then
+on images (it skipped the `load()` step that creates `imageSrc`), then on option
+notes (the syntax is `> text`, not `note:`). Each was caught because the failure
+looked wrong for the change — and each is now either replicated properly or
+documented as the coupling it revealed.
+
 ## v2.44.0 — Half of a success criterion (2026-09-13)
 
 **No defect.** Every interactive control in this app conforms to WCAG 2.2

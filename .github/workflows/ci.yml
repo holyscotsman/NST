@@ -229,6 +229,14 @@ jobs:
       # cannot go dark silently.
       - run: node ../scripts/harness-coverage.mjs
 
+      # (v2.45.0) the seam between one bank format and three apps. Both sides of
+      # it were thoroughly tested and the conversion between them was not:
+      # nothing referenced toStarNix or toWWTBANE except starnix/build.mjs. The
+      # two adapters spell the answer four different ways (correctIndex,
+      # correctIndices, type+answer for single, type+answer for multi), and
+      # getting one wrong teaches a learner the wrong answer with confidence.
+      - run: node ../scripts/adapter-test.mjs
+
   # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-
   # background contrast, phone and landscape layout, the DOM half of the security
