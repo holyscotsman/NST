@@ -11,6 +11,8 @@
  *   NST_ROOT_PASSWORD  root's password on FIRST RUN (default "nutanix")
  *   NST_ALLOW_SIGNUP   "0" to close self-registration
  *   NST_TRUST_PROXY    "1" to read X-Forwarded-For / -Proto (only behind one)
+ *   NST_TRUST_PROXY_HOPS  how many proxies are in front (default 1)
+ *   NST_TRUST_PROXY_FROM  comma-separated proxy addresses allowed to forward
  *
  * The site itself is unchanged: the same static files are served, and the app
  * keeps using localStorage as its working store. A small client module
@@ -38,6 +40,21 @@ const DB_FILE = process.env.NST_DB || join(HERE, 'data', 'nst.db');
 const DEFAULT_ROOT_PASSWORD = 'nutanix';
 const ALLOW_SIGNUP = process.env.NST_ALLOW_SIGNUP !== '0';
 const TRUST_PROXY = process.env.NST_TRUST_PROXY === '1';
+/* How many reverse proxies sit in front. Only meaningful with TRUST_PROXY, and
+ * it decides how far from the RIGHT of X-Forwarded-For the real client address
+ * is -- see forwardedEntry. Anything unparseable or below 1 means 1, the
+ * single-proxy case; there is no configuration in which reading the left-hand
+ * entry is correct, so none is offered. */
+const TRUST_PROXY_HOPS = Math.max(1, Math.floor(Number(process.env.NST_TRUST_PROXY_HOPS) || 1));
+/* Which peers are allowed to speak for someone else. Reading the right-hand
+ * entry is correct only when a proxy actually wrote it; if the app is ALSO
+ * reachable directly -- a second binding, a LAN shortcut past the proxy -- a
+ * client connecting that way has the whole header to itself again. Listing the
+ * proxy's address here makes the trust conditional on who connected, which is
+ * the one thing a client cannot forge. Empty (the default) trusts any peer, so
+ * an existing deployment behaves exactly as before. */
+const TRUST_PROXY_FROM = String(process.env.NST_TRUST_PROXY_FROM || '')
+  .split(',').map((v) => v.trim()).filter(Boolean);
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000;           // 30 days, sliding
 const MAX_BODY = 8 * 1024 * 1024;                       // a progress blob, generously
 const COOKIE = 'nst_session';
@@ -80,15 +97,68 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8', '.map': 'application/json; charset=utf-8',
 };
 
+/* READING A FORWARDED HEADER FROM THE RIGHT, NOT THE LEFT
+ *
+ * `X-Forwarded-For: a, b, c` is built left to right: whatever the CLIENT sent
+ * comes first, and each proxy APPENDS the address it received the connection
+ * from. So the leftmost entry is not the client's address -- it is a string the
+ * client chose, and reading it hands the client control of every decision made
+ * from it.
+ *
+ * That is not theoretical. Both login gates key on this value, and with
+ * NST_TRUST_PROXY=1 (which server/README.md recommends for any deployment past
+ * a trusted LAN) a single socket rotating the header never tripped either one:
+ *
+ *     fine gate  (one username, rotating X-Forwarded-For)   locked after NEVER
+ *     coarse gate(70 usernames, rotating X-Forwarded-For)   locked after NEVER
+ *
+ * versus 9 and 61 attempts without the header. Unlimited password guesses at
+ * `root`, and unlimited account enumeration, from one connection.
+ *
+ * The only entry this server did not take on the client's word is the one the
+ * trusted proxy appended itself -- at the RIGHT-hand end. With N proxies in
+ * front, the last N entries were written by them and everything left of that is
+ * the client's; the address that reached the first trusted proxy is therefore
+ * the Nth from the right. NST_TRUST_PROXY_HOPS says how many N is; it defaults
+ * to 1, the single-reverse-proxy case the README describes.
+ *
+ * A header with fewer entries than that was not written by the proxies claimed,
+ * so it is not used at all: the socket address is always a true statement about
+ * who connected, and falling back to it can only ever tighten a limit. */
+/* IPv4-mapped IPv6 ("::ffff:10.0.0.5") is how Node reports a v4 peer on a
+ * dual-stack socket; an operator writing the proxy's address means the v4 one. */
+function peerTrusted(req) {
+  if (!TRUST_PROXY_FROM.length) return true;
+  const peer = String(req.socket.remoteAddress || '');
+  const bare = peer.replace(/^::ffff:/, '');
+  return TRUST_PROXY_FROM.indexOf(peer) !== -1 || TRUST_PROXY_FROM.indexOf(bare) !== -1;
+}
+
+function forwardedEntry(req, header) {
+  if (!peerTrusted(req)) return null;
+  const raw = req.headers[header];
+  if (!raw) return null;
+  const parts = String(raw).split(',').map((v) => v.trim()).filter(Boolean);
+  // Nth from the right. Too few entries means the header is not what the
+  // configured topology would have produced -- ignore it rather than guess.
+  if (parts.length < TRUST_PROXY_HOPS) return null;
+  return parts[parts.length - TRUST_PROXY_HOPS];
+}
+
 function isHttps(req) {
-  if (TRUST_PROXY && req.headers['x-forwarded-proto']) {
-    return String(req.headers['x-forwarded-proto']).split(',')[0].trim() === 'https';
+  if (TRUST_PROXY) {
+    const proto = forwardedEntry(req, 'x-forwarded-proto');
+    // Only an affirmative "https" from the proxy downgrades nothing. A client
+    // that prepends "http" must not be able to strip Secure off the session
+    // cookie, which is what reading the left-hand entry allowed.
+    if (proto) return proto.toLowerCase() === 'https';
   }
   return !!req.socket.encrypted;
 }
 function clientIp(req) {
-  if (TRUST_PROXY && req.headers['x-forwarded-for']) {
-    return String(req.headers['x-forwarded-for']).split(',')[0].trim();
+  if (TRUST_PROXY) {
+    const ip = forwardedEntry(req, 'x-forwarded-for');
+    if (ip) return ip;
   }
   return req.socket.remoteAddress || 'unknown';
 }
