@@ -5,6 +5,66 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.46.0 — You had to publish a bank to check it (2026-09-13)
+
+Seven more banks are planned, and the workflow for adding one had a hole in the
+middle of it.
+
+`bank-test.mjs` checks every bank `banks/manifest.json` lists. So to validate a
+bank you are still writing, you first had to add it to the manifest — **the file
+that decides what the live app offers people.** An unfinished bank had to be
+published to be checked.
+
+And it was not optional. One of the rules is *"every bank file on disk is listed
+in the manifest"* — correct, because an unlisted bank is invisible to the app and
+that is nearly always a mistake. But it means the moment you create
+`banks/ncp-ai/ncp-ai.md`, CI goes red. Measured:
+
+```
+FAIL every bank file on disk is listed in the manifest  -- ncp-ai/ncp-ai.md
+```
+
+The only way back to green was to publish an unfinished bank.
+
+### Added — `banks/drafts/`
+A bank being written lives here until it is ready. Files here are exempt from
+the orphan rule: not being in the manifest is the whole point of them. The full
+run reports them as a warning naming the command to check each one, so a
+forgotten draft is visible rather than silent.
+
+### Added — a single-file mode
+```bash
+node scripts/bank-test.mjs banks/drafts/ncp-ai.md
+```
+Runs the content rules against one file and skips the manifest entirely: 15
+checks — ids unique, every question answerable, answer keys in range, domains
+declared, no option referred to by letter or position, images resolve.
+
+It reuses **the same loop** as the real run rather than a copy, so a draft cannot
+pass checks the published banks would fail. The manifest-shape rules, the
+cross-bank id check and the linter's own self-checks are skipped, because none of
+them mean anything for one unpublished file — and counting them would inflate a
+draft's result with checks that have nothing to do with the draft.
+
+### Verified
+A deliberately broken draft is caught with the question and the line:
+
+```
+FAIL bank "broken.md" parses without errors
+  -- b1@16: no correct option marked ([x]); domain 'not-a-declared-domain'
+     not in the bank's domains list
+FAIL bank "broken.md" never refers to an option by letter  -- b1:explanation
+```
+
+The normal run is unchanged at 78 checks, and a draft present no longer fails it.
+
+### What a draft check cannot do, said in the README
+**Question ids are global.** `NSTMastery` keys on the bare id with no bank
+scoping, so two banks sharing an id share one record — answering a question in
+one moves the other's box, counters and review date, and nothing reports it. Only
+the full run sees across banks, so publishing still ends with `node
+scripts/bank-test.mjs`.
+
 ## v2.45.0 — The seam between one bank format and three apps (2026-09-13)
 
 **No defect.** Both adapters are correct. The finding is that nothing checked
