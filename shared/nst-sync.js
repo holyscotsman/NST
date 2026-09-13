@@ -21,8 +21,29 @@
   var PUSH_DEBOUNCE_MS = 2500;
   var state = {
     enabled: false, user: null, lastPushed: "", pushTimer: null,
-    lastError: null, busy: false,
+    lastError: null, busy: false, failures: 0,
   };
+
+  /* How many consecutive failed pushes before the page is told. One is a hiccup
+   * the next push covers; three means something is actually wrong. */
+  var FAILURES_BEFORE_WARNING = 3;
+
+  /* Let the page show sync trouble. Fired only when the state CHANGES, so a
+   * healthy session never sees an event and a broken one says it once. */
+  // Starts false, not null: "fine" is the assumed state, so a session that is
+  // fine throughout never fires anything. Starting at null made the first
+  // successful push announce an all-clear for trouble that never happened.
+  var announced = false;
+  function announce() {
+    var stuck = state.failures >= FAILURES_BEFORE_WARNING;
+    if (stuck === announced) return;
+    announced = stuck;
+    try {
+      window.dispatchEvent(new CustomEvent("nst-sync-status", {
+        detail: { ok: !stuck, failures: state.failures, error: state.lastError },
+      }));
+    } catch (e) { /* no CustomEvent here; the sync itself is unaffected */ }
+  }
 
   function backup() { return window.NSTBackup || null; }
 
@@ -78,8 +99,17 @@
     if (!snap || snap === "{}") return Promise.resolve({ ok: true, skipped: true });
     state.busy = true;
     return api("/api/progress", { method: "PUT", body: JSON.stringify(B.envelope()) })
-      .then(function (r) { state.lastPushed = snap; state.lastError = null; return { ok: true, at: r.updatedAt }; })
-      .catch(function (e) { state.lastError = e.message; return { ok: false, error: e.message }; })
+      .then(function (r) {
+        state.lastPushed = snap; state.lastError = null; state.failures = 0;
+        announce(); return { ok: true, at: r.updatedAt };
+      })
+      .catch(function (e) {
+        // Silence is what makes this dangerous: someone keeps studying for an
+        // hour while nothing reaches their account. One failure is a hiccup the
+        // next push covers; a run of them is worth saying out loud.
+        state.lastError = e.message; state.failures = (state.failures || 0) + 1;
+        announce(); return { ok: false, error: e.message };
+      })
       .then(function (r) { state.busy = false; return r; });
   }
 
@@ -89,20 +119,41 @@
     state.pushTimer = setTimeout(function () { state.pushTimer = null; push(false); }, PUSH_DEBOUNCE_MS);
   }
 
-  /* A last-chance push as the tab goes away. keepalive lets the browser finish
-   * the request after the page is gone, which a normal fetch would not survive. */
+  /* keepalive bodies are capped at 64 KB by the browser, across ALL in-flight
+   * keepalive requests. Measured with the full 255-question bank studied plus the
+   * game saves and exam history a regular user accumulates, the envelope is
+   * 60.5 KB -- 94% of the cap, and the mastery store alone is 43 KB for ONE bank.
+   * A second cert's bank takes it over on its own.
+   *
+   * Over the cap the request is rejected and nothing says so. Sitting this close
+   * to a silent cliff is not a place to leave a data path, so the size is checked
+   * and the oversized case falls back to an ordinary fetch: less likely to
+   * survive the page going away, but it either works or it does not, rather than
+   * never working while appearing to. */
+  var KEEPALIVE_SAFE_BYTES = 56 * 1024;
+
+  function bodyBytes(text) {
+    try { return new Blob([text]).size; } catch (e) { return text.length; }
+  }
+
+  /* A last-chance push as the tab goes away. */
   function flushOnHide() {
     var B = backup();
     if (!B || !state.enabled) return;
     var snap = snapshot();
     if (snap === state.lastPushed || !snap || snap === "{}") return;
+    var body = JSON.stringify(B.envelope());
+    var small = bodyBytes(body) <= KEEPALIVE_SAFE_BYTES;
     try {
       fetch("/api/progress", {
-        method: "PUT", credentials: "same-origin", keepalive: true,
+        method: "PUT", credentials: "same-origin", keepalive: small,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(B.envelope()),
+        body: body,
       });
-      state.lastPushed = snap;
+      // NOT marked as pushed. This request cannot be awaited -- the page is
+      // going -- so its success is unknown, and a page restored from bfcache
+      // would carry a false "already pushed" and skip the next real push.
+      // Since a merge no longer loses anything (v2.18.0), re-sending is free.
     } catch (e) { /* nothing more we can do on the way out */ }
   }
 
@@ -142,6 +193,11 @@
   window.NSTSync = {
     start: start, pull: pull, push: push, flushOnHide: flushOnHide,
     isEnabled: function () { return state.enabled; },
+    status: function () {
+      return { ok: state.failures < FAILURES_BEFORE_WARNING, failures: state.failures, error: state.lastError };
+    },
+    KEEPALIVE_SAFE_BYTES: KEEPALIVE_SAFE_BYTES,
+    FAILURES_BEFORE_WARNING: FAILURES_BEFORE_WARNING,
     user: function () { return state.user; },
     lastError: function () { return state.lastError; },
   };

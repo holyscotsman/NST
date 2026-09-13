@@ -978,6 +978,29 @@
       utils.insertBefore(wrap, utils.firstChild);
     });
 
+    /* Sync trouble, said out loud.
+     *
+     * A push that keeps failing is the worst kind of quiet: someone studies for
+     * an hour while nothing reaches their account, and finds out on the next
+     * device. NSTSync fires this only when the state changes, so a healthy
+     * session shows nothing at all. */
+    window.addEventListener("nst-sync-status", function (ev) {
+      var d = (ev && ev.detail) || {};
+      var existing = document.getElementById("nst-sync-warn");
+      if (d.ok) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      var utils2 = document.querySelector(".nst-nav-utils");
+      if (!utils2) return;
+      var chip = el("span", "nst-syncwarn", "Not saving");
+      chip.id = "nst-sync-warn";
+      chip.title = "Your progress isn't reaching your account" +
+        (d.error ? " (" + d.error + ")" : "") +
+        ". It's still safe in this browser. Check your connection, or use Settings \u2192 Save backup file.";
+      chip.setAttribute("role", "status");
+      chip.setAttribute("aria-label", chip.title);
+      utils2.insertBefore(chip, utils2.firstChild);
+    });
+
     var help = document.getElementById("nst-help-btn");
     if (help) help.addEventListener("click", buildHelpModal);
     renderNavBadge();

@@ -105,6 +105,17 @@ jobs:
       # backup from a running server, opens it as a database and reads the rows
       # back, because a backup that cannot restore is worse than none.
       - run: node ../scripts/backup-db-test.mjs
+      # (v2.19.0) account sync is the only path by which progress leaves the
+      # browser it was made in, and every way it fails is silent: a request the
+      # browser rejects for being too large, a push the module believes it made,
+      # or an error left in a variable no surface reads.
+      - run: node ../scripts/sync-test.mjs
+      # (v2.20.0) the question banks and the manifest that lists them. Mastery
+      # keys on the bare question id with no bank scoping, so two banks sharing
+      # an id would share one record -- answering in one silently moves the
+      # other's schedule. Nothing enforced unique ids and six more banks are
+      # planned, so this does.
+      - run: node ../scripts/bank-test.mjs
       # (v2.8.2) the one-click updater downloads code from the internet and runs
       # it as the service account. The gate asserts the source stays a constant
       # (unreachable from a request), that the staged copy is verified before the

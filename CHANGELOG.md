@@ -5,6 +5,117 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.20.0 — The question banks are checked now (2026-09-13)
+
+Seven more certification banks are planned, and nothing checked the ones that
+exist. `starnix/bank-lint.mjs` lints StarNix's *generated* `questions.js`; the
+Markdown banks in `/banks/` — what the runtime actually loads, and what a person
+edits by hand — had no check at all.
+
+### Added
+- **`scripts/bank-test.mjs` (CI-gated, 55 checks).** It parses every bank with
+  the **real** `shared/bank-parser.js` rather than a re-implementation, so the
+  lint and the runtime cannot disagree about what a bank means.
+
+  **The check that matters most: question ids are global.** `NSTMastery.get(id)`
+  keys on the bare id with no bank scoping, so two banks using the same id share
+  one record — answering a question in one moves the other's box, its counters
+  and its review date. Nothing reports it; the schedule just becomes quietly
+  wrong for both. Today's two banks happen not to collide because they were
+  written with different prefixes. Nothing enforced that.
+
+  Also checked: the manifest's banks all exist and belong to declared certs;
+  every cert variant resolves; no `.md` sits under `/banks/` unlisted and
+  therefore invisible; every question has a stem, two options, an answer key
+  pointing at a real option, and a domain from the bank's own declared list (a
+  typo there silently creates a one-question "domain" in the dashboard and the
+  practice focus); no explanation names an option **by letter** and no option
+  says "all of the above", both of which are wrong under the runtime's option
+  shuffling; and every exhibit image resolves. Missing explanations and
+  correct-answer-is-longest tells are reported as warnings, not failures.
+
+### Documented
+The rule the linter now enforces was not written down anywhere. `docs/BANK_FORMAT.md`
+said ids must be "stable, unique", which any reader takes to mean unique *in this
+file* — precisely the misreading that causes the collision. Both that spec and
+`banks/README.md` now say **across every bank**, explain why (mastery stores one
+record per id, with no bank scoping), point at the prefix convention the bundled
+banks already follow, and tell an author to run the linter before committing.
+
+### The linter proves it is not vacuous
+Every check passing proves nothing on its own — a rule with a typo in it passes
+everything too. The suite ends by running **the same functions** over
+deliberately broken synthetic banks and requiring them to complain: a duplicate
+id, an explanation naming an option by letter, positional option text, and a
+domain outside the declared list.
+
+Separately, before shipping, the whole linter was driven against nine broken
+bank trees in a temp copy of the repo — including the cross-bank id collision, a
+manifest entry with no file, an orphaned bank file, a cert pointing at a missing
+bank, and an unresolvable image. All nine were caught, and a healthy pair of
+banks still passed.
+
+## v2.19.0 — Sync says when it isn't working (2026-09-13)
+
+Having found one silent way to lose progress, I went looking for the rest in the
+same path. Three more, none of them reported, all of them quiet by construction.
+
+### Fixed
+- **The page-hide push was about to start failing forever, silently.** A
+  `keepalive: true` request body is capped at 64 KB by the browser. Measured with
+  the full 255-question bank studied plus the game saves and exam history a
+  regular user accumulates, the envelope is **60.5 KB — 94% of the cap**, and the
+  mastery store alone is 43 KB for *one* bank. A second cert's bank takes it over
+  on its own, and over the cap the request is simply rejected with no error
+  anywhere. Oversized bodies now fall back to an ordinary fetch: less likely to
+  survive the page going away, but it either works or it does not, rather than
+  never working while appearing to.
+
+- **The page-hide push marked itself as done before knowing whether it worked.**
+  It cannot be awaited — the page is going — so a page restored from bfcache
+  carried a false "already pushed" and skipped the next real push. It no longer
+  records anything; since v2.18.0 a merge loses nothing, so re-sending is free.
+
+- **A repeatedly failing push said nothing.** The error went into a variable no
+  surface read, while someone studied for an hour with nothing reaching their
+  account and found out on the next device. Three consecutive failures now raise
+  a **Not saving** chip in the nav, explaining that the data is still safe in
+  this browser and pointing at Settings → Save backup file. It clears itself when
+  sync recovers.
+
+  One failure is a hiccup the next push covers, so it is not mentioned. The
+  all-clear fires only after real trouble — "fine" is the assumed starting state,
+  so a healthy session shows nothing at all. (It fired a spurious all-clear on
+  every successful first push until the test insisted otherwise.)
+
+### Added
+- **`scripts/smoke-test.mjs` — the whole app, once, the way a person uses it.**
+  Every other suite tests one module in isolation. This one starts a real server
+  with a throwaway database and drives a real browser through the actual journey:
+  a colleague creates an account, signs in, picks a bank, answers questions, and
+  their progress reaches the account and comes back on the dashboard; then root
+  signs in, sees both accounts, downloads a backup and checks for updates. 15
+  checks.
+
+  It exists because every unit suite passing is not the same as the app working.
+  Fourteen releases in one evening is exactly when something composes badly — a
+  CSP that blocks a new call, a route that moved, a module loaded in the wrong
+  order — and no focused test would notice.
+
+  It caught one thing immediately, which turned out not to be a bug: a check that
+  fetched an asset from `/admin` failed, because that page is `default-src 'none'`
+  with no `connect-src` — correct, since it has no script and needs no network of
+  its own. The test was measuring the CSP rather than the thing it meant to.
+
+- **`scripts/sync-test.mjs` (CI-gated, 25 checks)** against a scriptable fetch:
+  the keepalive threshold, which transport each body size chooses, that a second
+  page-hide flush still sends, that one failure is quiet and three are not, and
+  that recovery is announced exactly once.
+
+Verified in a real browser against a real server: a healthy session shows
+nothing, a server returning 500 raises the chip with the reason in its tooltip,
+and recovery removes it.
+
 ## v2.18.0 — "Merge" now merges (2026-09-13)
 
 The worst kind of bug: no error, no crash, and the thing the whole app exists to
