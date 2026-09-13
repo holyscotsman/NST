@@ -32,6 +32,9 @@ if (OUT) mkdirSync(OUT, { recursive: true });
 // WCAG 2.2 SC 2.5.8 Target Size (Minimum), Level AA. 44px is SC 2.5.5 (AAA) —
 // reported separately as advisory, since the in-game HUDs are deliberately dense.
 const MIN_AA = 24, MIN_AAA = 44;
+/* (v2.44.0) SC 2.5.8's spacing clause: an undersized target is acceptable when it
+ * is far enough from its neighbours. 24px is the criterion's own figure. */
+const MIN_GAP = 24;
 // px of tolerance before an overflow counts — below this it is subpixel/rounding noise.
 const SLACK = 8;
 
@@ -51,8 +54,8 @@ const sleep = (ms) => page.waitForTimeout(ms);
 /* Measure the screen currently mounted. */
 async function audit(name) {
   if (OUT) await page.screenshot({ path: `${OUT}/${name}.png` });
-  const r = await page.evaluate(({ vw, minAA, minAAA, slack }) => {
-    const out = { docScrollW: document.documentElement.scrollWidth, over: [], unreachable: [], scrollers: [], aa: [], aaa: [] };
+  const r = await page.evaluate(({ vw, minAA, minAAA, slack, minGap }) => {
+    const out = { docScrollW: document.documentElement.scrollWidth, over: [], unreachable: [], scrollers: [], aa: [], aaa: [], boxes: [], crowded: [] };
     const desc = (el) => {
       const cls = (el.className && el.className.baseVal !== undefined ? el.className.baseVal : el.className) || '';
       return el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') +
@@ -118,10 +121,53 @@ async function audit(name) {
         const rec = { el: desc(el), w, h, text: (el.textContent || '').trim().slice(0, 20) };
         if (w < minAA || h < minAA) out.aa.push(rec);
         else if (w < minAAA || h < minAAA) out.aaa.push(rec);
+        /* (v2.44.0) Keep the geometry for the spacing pass below. */
+        out.boxes.push({ el: desc(el), x: b.left, y: b.top, w: b.width, h: b.height,
+                         text: (el.textContent || '').trim().slice(0, 20) });
+      }
+    }
+
+    /* SC 2.5.8's OTHER half, which this audit never measured.
+     *
+     * The criterion is not "every target must be 24x24". It is: a target under
+     * 24x24 is still conformant when a 24px-diameter circle centred on it does
+     * not intersect the circle of any other target. Size and spacing are
+     * alternatives, and the audit only ever checked size.
+     *
+     * So a sub-24px control alone in a corner passes, and two of them a few
+     * pixels apart do not -- and nothing here could tell those apart.
+     *
+     * THE THRESHOLD IS 24, NOT 44, and getting that wrong is not academic. The
+     * first version of this check used the 44px AAA size as "small" and failed
+     * three screens: KBB's two 106x35 action buttons 8px apart, its 334x42
+     * answer options, and CC's 56x56 key beside a 78x36 skip. Every one of those
+     * is a comfortable thumb target that conforms on size alone, and the spacing
+     * clause has nothing to say about them. A check that fails on correct code is
+     * worse than no check.
+     *
+     * Reported as a problem rather than an advisory, and separately from the size
+     * advisories, because the fix differs: spacing is fixed with margin, size with
+     * padding, and treating them as one thing produces the wrong change. */
+    for (let i = 0; i < out.boxes.length; i++) {
+      for (let j = i + 1; j < out.boxes.length; j++) {
+        const a = out.boxes[i], c = out.boxes[j];
+        const aSmall = a.w < minAA || a.h < minAA;
+        const cSmall = c.w < minAA || c.h < minAA;
+        if (!aSmall && !cSmall) continue;          // both conform on size alone
+        /* The criterion's own geometry: circles of diameter 24 centred on each
+         * target must not intersect, i.e. the centres are at least 24px apart. */
+        const centres = Math.round(Math.hypot(
+          (a.x + a.w / 2) - (c.x + c.w / 2),
+          (a.y + a.h / 2) - (c.y + c.h / 2)));
+        if (centres < minGap) {
+          out.crowded.push({ a: a.el, b: c.el, gap: centres,
+            aSize: Math.round(a.w) + 'x' + Math.round(a.h),
+            bSize: Math.round(c.w) + 'x' + Math.round(c.h) });
+        }
       }
     }
     return out;
-  }, { vw: VW, minAA: MIN_AA, minAAA: MIN_AAA, slack: SLACK });
+  }, { vw: VW, minAA: MIN_AA, minAAA: MIN_AAA, slack: SLACK, minGap: MIN_GAP });
 
   const problems = [];
   if (r.docScrollW > VW + 1) problems.push(`document scrolls sideways (${r.docScrollW}px > ${VW}px)`);
@@ -133,6 +179,16 @@ async function audit(name) {
   dedup(r.scrollers, (x) => `scrolls sideways: ${x.el} (${x.scrollW} > ${x.clientW})`);
   dedup(r.over, (x) => `outside viewport: ${x.el} [${x.left}..${x.right}]`);
   dedup(r.aa, (x) => `target ${x.w}x${x.h} < ${MIN_AA} (WCAG AA): ${x.el} "${x.text}"`);
+  {
+    const seen = new Set();
+    for (const x of r.crowded) {
+      const k = x.a + '|' + x.b;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      problems.push(`crowded: ${x.a} (${x.aSize}) and ${x.b} (${x.bSize}) are ${x.gap}px ` +
+        `between centres -- an undersized target needs ${MIN_GAP}px of clearance (SC 2.5.8 spacing)`);
+    }
+  }
 
   ok(`${name} — layout`, problems.length === 0);
   for (const p of problems) console.log('       ' + p);
@@ -189,6 +245,50 @@ await page.evaluate(() => {
 await sleep(1500); await audit('cc-run');
 await page.evaluate(() => window.StarNix.shell.exitGame());
 await sleep(300);
+
+/* (v2.44.0) The spacing check finds nothing on the real screens, because every
+ * control here conforms on size alone. That is the right answer and it is also
+ * indistinguishable from a check that cannot fire, so: plant two undersized
+ * targets a few pixels apart and require it to say so. Then move them apart and
+ * require it to go quiet -- the rule is about clearance, not about being small. */
+{
+  const plant = (gap) => page.evaluate((g) => {
+    document.querySelectorAll('.planted-target').forEach((n) => n.remove());
+    for (let i = 0; i < 2; i++) {
+      const b = document.createElement('button');
+      b.className = 'planted-target';
+      b.textContent = 'x';
+      b.style.cssText = `position:fixed;z-index:9999;left:${20 + i * g}px;top:20px;` +
+        'width:18px;height:18px;padding:0;margin:0;';
+      document.body.appendChild(b);
+    }
+  }, gap);
+
+  const crowdedCount = () => page.evaluate(({ minAA, minGap }) => {
+    const els = [...document.querySelectorAll('.planted-target')];
+    let n = 0;
+    for (let i = 0; i < els.length; i++) {
+      for (let j = i + 1; j < els.length; j++) {
+        const a = els[i].getBoundingClientRect(), c = els[j].getBoundingClientRect();
+        const aSmall = a.width < minAA || a.height < minAA;
+        const cSmall = c.width < minAA || c.height < minAA;
+        if (!aSmall && !cSmall) continue;
+        const centres = Math.hypot((a.x + a.width / 2) - (c.x + c.width / 2),
+                                   (a.y + a.height / 2) - (c.y + c.height / 2));
+        if (centres < minGap) n++;
+      }
+    }
+    return n;
+  }, { minAA: MIN_AA, minGap: MIN_GAP });
+
+  await plant(10);
+  ok('self-check: two 18px targets 10px apart are reported as crowded',
+    (await crowdedCount()) === 1);
+  await plant(40);
+  ok('self-check: and the same two, 40px apart, are not',
+    (await crowdedCount()) === 0);
+  await page.evaluate(() => document.querySelectorAll('.planted-target').forEach((n) => n.remove()));
+}
 
 ok('no uncaught page errors', pageErrors.length === 0);
 for (const e of pageErrors.slice(0, 6)) console.log('       ' + e);

@@ -5,6 +5,56 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.44.0 — Half of a success criterion (2026-09-13)
+
+**No defect.** Every interactive control in this app conforms to WCAG 2.2
+SC 2.5.8 on size alone. What was missing is that the audit could only ever have
+found out one of the two ways.
+
+`mobile-audit.mjs` checked target **size**: 24x24 to pass, 44x44 reported as an
+advisory. But SC 2.5.8 is not "every target must be 24x24". It is: a target
+under 24x24 is **still conformant** when a 24px-diameter circle centred on it
+does not intersect the circle of any other target. Size and spacing are
+alternatives, and only one of them was ever measured.
+
+So a sub-24px control alone in a corner passes, two of them a few pixels apart
+do not, and nothing here could tell those apart.
+
+### Added — the spacing clause, and 2 self-checks (11 → 13 passing)
+Targets under 24x24 are now checked for the criterion's own geometry: centres at
+least 24px apart. Reported as a **problem**, not an advisory, and separately from
+the size advisories — because the fix differs. Spacing is fixed with margin, size
+with padding, and treating them as one thing produces the wrong change.
+
+### The threshold is 24, not 44, and I got that wrong first
+The first version used the 44px **AAA** size as its definition of "small" and
+failed three screens:
+
+```
+kbb-battle       button.kbb-action (106x35) and button.kbb-action (106x35), 8px apart
+kbb-battle       button.kbb-opt (334x42) and button.kbb-opt (334x42), 8px apart
+cc-establishing  button.cc-key (56x56) and button.cc-intro-skip (78x36), 0px apart
+```
+
+Every one of those is a comfortable thumb target that conforms on size alone, and
+the spacing clause has nothing to say about them. **A check that fails on correct
+code is worse than no check** — the same conclusion that removed a static
+reachability heuristic in v2.41.0. Caught because the "failures" were 35–56px
+buttons, which are obviously not mis-tap risks.
+
+### Verified
+The corrected check finds nothing on the real screens, which is the right answer
+and also indistinguishable from a check that cannot fire. So it plants two 18px
+targets 10px apart and requires them to be reported, then moves them 40px apart
+and requires it to go quiet — the rule is about clearance, not about being small.
+
+### The 20 AAA advisories stand, and stay advisories
+All of them are StarNix in-game controls, several carrying a deliberate
+`min-height: 24px` and a comment naming SC 2.5.8 from an earlier cycle. They are
+small on purpose — a replay-intro link, a skip, a coach dismiss — and pushing
+them to 44px would make deliberately unobtrusive controls prominent. With the
+spacing clause now measured, they are conformant rather than merely untested.
+
 ## v2.43.0 — Two guarantees nobody checked (2026-09-13)
 
 Neither is a defect. Both are load-bearing lines that every existing test would
