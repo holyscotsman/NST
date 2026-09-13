@@ -5,6 +5,60 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.23.0 — The 109 checks nothing ran (2026-09-13)
+
+Every logic suite in this repo gates a pull request. Five did not, for one
+reason: they need a real browser, and CI was kept dependency-free. So
+accessibility, colour contrast, phone and landscape layout, the rendered half of
+the security gate, and the entire sign-in-to-study journey were the only parts of
+this project a change could break in silence. They passed — whenever someone
+remembered to run them.
+
+### Added
+- **A `browser` CI job running all five, 109 checks in total.** `a11y-audit`
+  (45: axe across every surface including the ones only reachable by
+  interacting, plus the keyboard checks axe cannot make — accessible names,
+  visible focus, focus surviving a view change, modal focus trapping, no
+  focus-steal on first paint, WCAG 2.2 target sizes, landscape), `a11y-browser`
+  (14: WCAG contrast of every visible text node against its *actually painted*
+  backdrop, and `prefers-reduced-motion`), `mobile-audit` (11: layout at 390×844
+  across the launcher, both games and every exam surface), `attack-browser`
+  (24: a malicious question bank and poisoned storage loaded into all four real
+  pages, where `security-test.mjs` only proves they stay inert as *data*), and
+  `smoke-test` (15: a real server, a real database and a real login, driven end
+  to end).
+
+  It is the only `npm install` in the repo, and it is dev tooling — nothing
+  there ships to a user. The app itself remains dependency-free.
+
+### Fixed
+- **The skip that would have made the whole job a no-op.** All five printed
+  `SKIP` and exited **0** when no browser was found. That is right on a laptop,
+  where the alternative is a red build for a tool the developer has not
+  installed — and exactly wrong in CI, where an exit 0 that ran nothing is
+  indistinguishable from 109 passing checks. This is the failure mode
+  `robustness-test.mjs` was written to avoid, reintroduced by the harness rather
+  than by the tests. `NST_REQUIRE_BROWSER=1` (which the job sets) now turns the
+  skip into a hard failure naming what is missing and how to install it.
+- **A browser path that only existed on one machine.** Each suite hardcoded a
+  fallback `executablePath` into this sandbox's `/opt`. Naming a path that does
+  not exist is worse than naming none — Playwright fails with a
+  missing-executable error instead of simply using the browser it downloaded.
+  The path is now used only if it is actually there.
+
+### Changed
+- **`scripts/browser-env.mjs`** — the browser-resolution logic was copied into
+  all five suites, in three slightly different spellings. One module now:
+  finding Playwright, finding Chromium, finding axe-core, and the skip-or-fail
+  decision.
+
+### Verified
+The gate was checked against a real regression, not just a green run:
+suppressing the focus ring on `.pe-btn` (`outline: none` with no replacement —
+the defect the check exists for) fails three surfaces by name and exits 1.
+Deleting a *custom* ring correctly does **not** fail, because the browser's own
+focus ring takes over and the control is still visible to a keyboard user.
+
 ## v2.22.0 — What the login page gave away (2026-09-13)
 
 This server sits on a company LAN with self-service sign-up, a root account and

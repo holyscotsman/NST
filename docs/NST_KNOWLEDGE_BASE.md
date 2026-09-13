@@ -293,10 +293,18 @@ IDs are stable so mastery records survive re-imports.
 
 ## 8. Testing & CI
 
-- **CI** (`.github/workflows/ci.yml`, on push/PR) runs each tool's dependency-free checks:
-  WWTBANE's unit tests (`node --test tests/*.test.mjs`) and StarNix's build + pure logic
+- **CI** (`.github/workflows/ci.yml`, on push/PR) runs four jobs. Three are dependency-free:
+  WWTBANE's unit tests (`node --test tests/*.test.mjs`), StarNix's build + pure logic
   harnesses (`build.mjs`, `bank-lint`, `scheduler-test`, `multi-answer-test`, `shuffle-test`,
-  `timer-test`).
+  `timer-test`), and the shared `scripts/*-test.mjs` battery (mastery, sync, banks, backup,
+  server, auth, path guard, compression, robustness, dashboard, readiness, review).
+- **The fourth job (`browser`, v2.23.0)** installs Chromium and runs the five suites that need
+  one — 109 checks: `a11y-audit` (45), `a11y-browser` (14, painted-background contrast),
+  `mobile-audit` (11), `attack-browser` (24, the rendered half of the security gate) and
+  `smoke-test` (15, end to end through a real server and login). It is the repo's only
+  `npm install`, and it is dev tooling: the app itself ships no dependencies.
+  These suites self-skip without a browser, so the job sets `NST_REQUIRE_BROWSER=1` — an
+  exit 0 that ran nothing looks exactly like 109 passing checks.
 - **WWTBANE** additionally has a Playwright smoke test and a 22-check e2e (browser tests
   self-skip if Playwright/Chromium is absent). **StarNix** has a broader local gate
   (`npm run check`) covering the game engines and, opt-in, a headless-Chromium perf smoke.

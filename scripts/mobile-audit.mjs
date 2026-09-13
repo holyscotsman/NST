@@ -12,22 +12,18 @@
  *   - interactive controls under the WCAG 2.2 SC 2.5.8 (AA) 24x24 minimum
  *
  * Screenshots are written alongside for review. Needs a browser and a served
- * copy of the site, so it is not a CI gate (CI stays dependency-free). Run:
+ * copy of the site. Run:
  *   node starnix/build.mjs && node scripts/mobile-audit.mjs
  *   (expects a static server on :8124 serving the repo root)
+ *
+ * Skips cleanly without a browser; CI sets NST_REQUIRE_BROWSER=1 so the skip
+ * becomes a failure there rather than a silent pass over nothing.
  */
 import { mkdirSync } from 'node:fs';
+import { loadChromium, launchOptions, missing } from './browser-env.mjs';
 
-async function loadChromium() {
-  for (const spec of ['playwright', '/opt/node22/lib/node_modules/playwright/index.js']) {
-    try { const m = await import(spec); const c = m.chromium || (m.default && m.default.chromium); if (c) return c; }
-    catch { /* try the next location */ }
-  }
-  return null;
-}
 const chromium = await loadChromium();
-if (!chromium) { console.log('SKIP: playwright not available'); process.exit(0); }
-const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+if (!chromium) missing('playwright', 'npm install --no-save playwright && npx playwright install chromium');
 const B = process.env.NST_BASE || 'http://localhost:8124';
 const VW = Number(process.env.VW || 390), VH = Number(process.env.VH || 844);
 const OUT = process.env.NST_SHOTS || '';
@@ -42,7 +38,7 @@ const SLACK = 8;
 let pass = 0, fail = 0, advisory = 0;
 const ok = (n, c) => { console.log((c ? 'ok   ' : 'FAIL ') + n); c ? pass++ : fail++; };
 
-const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox', '--use-gl=swiftshader'] });
+const browser = await chromium.launch(launchOptions());
 const page = await browser.newPage({
   viewport: { width: VW, height: VH }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
 });

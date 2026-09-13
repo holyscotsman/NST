@@ -147,3 +147,66 @@ jobs:
       # real one, naming every account despite the identical error text; sign-up
       # had no throttle, so a loop created accounts and burned CPU without limit.
       - run: node ../scripts/auth-test.mjs
+
+  # (v2.23.0) The five suites that need a real browser — 109 checks covering
+  # accessibility (axe plus the keyboard checks axe cannot make), painted-
+  # background contrast, phone and landscape layout, the DOM half of the security
+  # gate, and a 15-step end-to-end journey through a real server and a real
+  # login. They existed and passed, but nothing ran them except a person
+  # remembering to, so those were the only parts of this repo a change could
+  # break silently.
+  #
+  # They skip cleanly when no browser is installed, which is right on a laptop
+  # and exactly wrong here: an exit 0 that ran nothing is indistinguishable from
+  # 71 passing checks. NST_REQUIRE_BROWSER=1 turns that skip into a failure.
+  browser:
+    name: Accessibility, mobile layout and end-to-end
+    runs-on: ubuntu-latest
+    env:
+      NST_REQUIRE_BROWSER: '1'
+      # Name the axe build outright. The audit would search for it, but a search
+      # that silently finds nothing is the thing this whole job exists to stop.
+      AXE_PATH: ${{ github.workspace }}/node_modules/axe-core/axe.min.js
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: '22'
+      # The only npm install in this repo, and it is dev tooling: nothing here
+      # ships to a user. The app itself stays dependency-free.
+      #
+      # --prefix is not decoration. With no package.json here, npm walks UP the
+      # tree looking for one and will install into a PARENT node_modules if it
+      # finds it -- verified locally, where the packages landed a directory
+      # above and the checkout was left empty. Name the target, then prove the
+      # files are where the suites will look.
+      - name: Install the dev browser tooling
+        run: |
+          npm install --no-save --prefix "$GITHUB_WORKSPACE" playwright@1.56.1 axe-core@4.13.0
+          test -f "$AXE_PATH" || { echo "axe-core did not install to $AXE_PATH"; exit 1; }
+          test -d "$GITHUB_WORKSPACE/node_modules/playwright" || { echo "playwright did not install into the checkout"; exit 1; }
+      - run: npx playwright install --with-deps chromium
+      # The mobile audit measures the built StarNix monolith, not its sources.
+      - run: node starnix/build.mjs
+      # a11y and mobile read the site over HTTP, as a browser does.
+      # Redirect its output and detach it. A background process that still holds
+      # the step's stdout keeps the step from ever completing -- the job would
+      # hang until the six-hour timeout rather than fail.
+      - name: Serve the repo on :8124
+        run: |
+          nohup python3 -m http.server 8124 --bind 127.0.0.1 > /tmp/static.log 2>&1 &
+          disown || true
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:8124/index.html && break
+            sleep 1
+          done
+          curl -sf -o /dev/null http://127.0.0.1:8124/index.html || { echo "static server never came up"; cat /tmp/static.log; exit 1; }
+      - run: node scripts/a11y-audit.mjs
+      - run: node scripts/a11y-browser.mjs
+      - run: node scripts/mobile-audit.mjs
+      # The rendered half of the security gate: a malicious bank and poisoned
+      # storage loaded into all four real pages, where security-test.mjs only
+      # proves they stay inert as data.
+      - run: node scripts/attack-browser.mjs
+      # smoke-test starts its own server and its own throwaway database.
+      - run: node scripts/smoke-test.mjs
