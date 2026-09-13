@@ -35,6 +35,60 @@ export const BRANCH = 'main';
 const ARCHIVE_URL = `https://codeload.github.com/${REPO}/tar.gz/refs/heads/${BRANCH}`;
 const VERSION_URL = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/shared/nst-version.js`;
 
+/* The repository packs to about 6 MB. Ten times that leaves room for several
+ * more certification banks and their exhibits, and still bounds what a runaway
+ * response can allocate on a small VM. */
+export const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
+
+/* Read a response body with a hard ceiling, rather than trusting its length. */
+async function readCapped(res, limit) {
+  if (!res.body) {
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > limit) throw new Error('too large');
+    return buf;
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of res.body) {
+    size += chunk.length;
+    if (size > limit) { try { await res.body.cancel(); } catch { /* already ending */ } throw new Error('too large'); }
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+/* Members a correct archive of this app never contains.
+ *
+ * `tar -tv` prints one ls-style line per member on both GNU tar and bsdtar: a
+ * mode string, owner, size, date, then the name (and ` -> target` for a link).
+ * Anything whose mode does not start with `-` or `d` is not a plain file or
+ * directory, and is refused whatever it is. */
+export function unsafeMembers(listing) {
+  const bad = [];
+  for (const raw of String(listing).split('\n')) {
+    const line = raw.trimEnd();
+    if (!line) continue;
+    const m = line.match(/^(\S+)\s+\S+\s+\d+\s+\S+\s+\S+\s+(.*)$/);
+    if (!m) continue;                       // not a member line (a warning, say)
+    const mode = m[1];
+    const name = m[2].split(' -> ')[0];
+    const kind = mode[0];
+    if (kind !== '-' && kind !== 'd') { bad.push(name + ' (' + kind + ')'); continue; }
+    if (name.startsWith('/') || /^[A-Za-z]:[\\/]/.test(name)) { bad.push(name); continue; }
+    if (name.split(/[\\/]/).some((seg) => seg === '..')) { bad.push(name); continue; }
+  }
+  return bad;
+}
+
+/* What actually went wrong, rather than always blaming a missing `tar`. */
+function tarFailure(e) {
+  const msg = String((e && (e.stderr || e.message)) || '').trim();
+  if (/ENOENT|not recognized|not found/i.test(msg)) {
+    return '`tar` is not available to extract the update. It ships with Windows 10/Server 2019+ and all Linux; on older Windows, update by hand.';
+  }
+  return `The downloaded archive could not be read${msg ? ': ' + msg.split('\n')[0] : ''}. Nothing was changed.`;
+}
+
 /* Never replaced by an update: runtime state, and anything git does not track. */
 const PRESERVE = ['server/data', 'node_modules', '.git'];
 
@@ -136,15 +190,60 @@ export async function applyUpdate(root, { log = () => {} } = {}) {
     log('Downloading the latest version from GitHub...');
     const res = await fetch(ARCHIVE_URL, { signal: AbortSignal.timeout(120000), headers: { 'User-Agent': 'nst-updater' } });
     if (!res.ok) return { ok: false, error: `GitHub replied ${res.status} when downloading the update.` };
-    const buf = Buffer.from(await res.arrayBuffer());
+    /* A ceiling, because `arrayBuffer()` has none.
+     *
+     * The whole archive is held in memory to be written out, and nothing bounded
+     * how much. The repository is about 6 MB packed today; MAX_ARCHIVE_BYTES is
+     * ten times that, which leaves room for several more certification banks and
+     * their exhibits while keeping a runaway response from taking the service
+     * down on a small VM. Content-Length is checked first when the server sends
+     * one, and the stream is counted regardless -- a header can be absent, or
+     * wrong. */
+    const declared = Number(res.headers.get('content-length') || 0);
+    if (declared > MAX_ARCHIVE_BYTES) {
+      return { ok: false, error: `The download is ${(declared / 1048576).toFixed(0)} MB, larger than the ${MAX_ARCHIVE_BYTES / 1048576} MB limit. Nothing was changed.` };
+    }
+    let buf;
+    try {
+      buf = await readCapped(res, MAX_ARCHIVE_BYTES);
+    } catch (e) {
+      return { ok: false, error: `The download exceeded the ${MAX_ARCHIVE_BYTES / 1048576} MB limit and was stopped. Nothing was changed.` };
+    }
     if (buf.length < 10000) return { ok: false, error: 'The download was too small to be a real copy of the app.' };
     writeFileSync(archive, buf);
     log(`Downloaded ${(buf.length / 1024 / 1024).toFixed(1)} MB.`);
 
+    /* READ THE ARCHIVE BEFORE OPENING IT
+     *
+     * Extraction happens before any of the staging checks below, so by the time
+     * the tree is validated a hostile member is already written. GNU tar refuses
+     * a `..` member and strips a leading `/`; Windows ships bsdtar, not GNU tar,
+     * and this service runs on Windows. Leaving the guarantee to whichever `tar`
+     * is installed means it is untested on the platform that matters.
+     *
+     * So the member list is read first -- `-t` lists without extracting -- and
+     * the whole archive is refused if any member is absolute, walks up with
+     * `..`, or is anything but a plain file or directory. A symlink is refused
+     * outright rather than relied upon to be skipped later: walk() does skip
+     * them, but that is a second line, not the first.
+     *
+     * Same rule on every platform, and testable here. */
+    log('Inspecting the archive...');
+    let listing;
+    try {
+      listing = (await run('tar', ['-tvzf', archive], { timeout: 120000 })).stdout;
+    } catch (e) {
+      return { ok: false, error: tarFailure(e) };
+    }
+    const unsafe = unsafeMembers(listing);
+    if (unsafe.length) {
+      return { ok: false, error: `The download contained ${unsafe.length} file path${unsafe.length === 1 ? '' : 's'} that would write outside the update folder (${unsafe.slice(0, 3).join(', ')}). Nothing was extracted.` };
+    }
+
     log('Extracting...');
     try { await run('tar', ['-xzf', archive, '-C', tmp], { timeout: 120000 }); }
     catch (e) {
-      return { ok: false, error: '`tar` is not available to extract the update. It ships with Windows 10/Server 2019+ and all Linux; on older Windows, update by hand.' };
+      return { ok: false, error: tarFailure(e) };
     }
 
     // codeload unpacks to <repo>-<branch>/
