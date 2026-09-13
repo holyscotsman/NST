@@ -349,6 +349,79 @@
     return Number(rec.lastSeen || 0) + intervalFor(rec.box);
   }
 
+  /* Merge two mastery states that describe the SAME questions.
+   *
+   * This is the two-device case, and it is not the same problem as mergeLegacy
+   * above. That one folds together stores from different tools that never
+   * overlapped, so summing counters is right. Here both sides descend from a
+   * shared history -- the same question answered on a phone and a laptop -- so
+   * summing would double-count every answer they already agreed on.
+   *
+   * THE POLICY, AND WHY
+   *   - the record with the NEWER lastSeen decides box, streak and lastSeen.
+   *     That is the most recent evidence about whether the person knows it. Max
+   *     box would be kinder and wrong: getting it wrong an hour ago is the truth,
+   *     even if yesterday's device still remembers a high box.
+   *   - seen/correct/incorrect take the LARGER of the two, per counter. Both
+   *     sides share a prefix, so max never double-counts it and never loses the
+   *     work one side did alone.
+   *   - firstCorrectAt takes the EARLIER non-zero value: it is a "when did this
+   *     first click" marker and the earlier one is the true one.
+   *
+   * Neither input is modified. Returns a fresh records map.
+   */
+  function mergeStates(a, b) {
+    var out = {};
+    var src = [a || {}, b || {}];
+    for (var i = 0; i < src.length; i++) {
+      var recs = src[i];
+      if (!recs || typeof recs !== "object") continue;
+      for (var id in recs) {
+        if (!Object.prototype.hasOwnProperty.call(recs, id)) continue;
+        if (id === "__proto__") continue;
+        var inc = sanitizeRecord(id, recs[id]);
+        var cur = out[id];
+        if (!cur) { out[id] = inc; continue; }
+
+        var newer = inc.lastSeen >= cur.lastSeen ? inc : cur;
+        var older = newer === inc ? cur : inc;
+        out[id] = {
+          id: String(id),
+          // The most recent sighting owns the schedule.
+          box: newer.box,
+          streak: newer.streak,
+          lastSeen: newer.lastSeen,
+          lastRun: Math.max(cur.lastRun, inc.lastRun),
+          // Counters: the larger of the two, never the sum.
+          seen: Math.max(cur.seen, inc.seen),
+          correct: Math.max(cur.correct, inc.correct),
+          incorrect: Math.max(cur.incorrect, inc.incorrect),
+          // The earlier "first correct" is the real one; 0 means never.
+          firstCorrectAt: (cur.firstCorrectAt && older.firstCorrectAt)
+            ? Math.min(cur.firstCorrectAt, inc.firstCorrectAt)
+            : (cur.firstCorrectAt || inc.firstCorrectAt),
+        };
+      }
+    }
+    return out;
+  }
+
+  /* Merge an incoming serialized state (a whole `nst.mastery.v1` value, as a
+   * string) with what this browser already holds, and return the string to
+   * store. Used by the backup/restore and account-sync paths, which both used to
+   * overwrite this key wholesale -- losing every answer the other side had. */
+  function mergeSerialized(currentText, incomingText) {
+    function recordsOf(text) {
+      if (!text) return {};
+      try {
+        var p = JSON.parse(String(text), function (k, v) { return k === "__proto__" ? undefined : v; });
+        return (p && p.records && typeof p.records === "object") ? p.records : {};
+      } catch (e) { return {}; }
+    }
+    var merged = mergeStates(recordsOf(currentText), recordsOf(incomingText));
+    return JSON.stringify({ format: FORMAT, records: merged, updatedAt: now() });
+  }
+
   /* ---- reporting ------------------------------------------------------ */
 
   /* Roll the shared records up against a bank, for dashboards and readiness.
@@ -417,6 +490,7 @@
     untilText: untilText, dueAt: dueAt,
     record: record,
     mergeLegacy: mergeLegacy, migrateIfNeeded: migrateIfNeeded,
+    mergeStates: mergeStates, mergeSerialized: mergeSerialized,
     summary: summary, reset: reset,
     _blank: blank,
   };

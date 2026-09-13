@@ -41,7 +41,14 @@
    *
    * `mode` is "replace" on a fresh browser and "merge" when there is already
    * local progress: someone who studied offline, or on another device, should
-   * not silently lose that by opening the page. */
+   * not silently lose that by opening the page.
+   *
+   * "merge" has to mean merge WITHIN a value, not just across keys, and until
+   * v2.18.0 it did not. All mastery lives in one localStorage key, so pulling
+   * the account's copy replaced this browser's entire history with the server's.
+   * Study on a laptop, open it on a phone, and the laptop's morning vanished --
+   * then the next push sent the loss back up. shared/nst-backup.js now combines
+   * that key record by record; this path gets it for free. */
   function pull() {
     var B = backup();
     if (!B) return Promise.resolve({ ok: false, reason: "no backup module" });

@@ -151,9 +151,63 @@
     };
   }
 
+  /* Per-key merge strategies.
+   *
+   * "merge" used to mean only "do not delete keys the incoming copy lacks" --
+   * within a key the incoming value still won outright. That is silent data loss
+   * for the two keys that matter, because each is a single value holding
+   * EVERYTHING: all mastery lives in one key, and all exam attempts in another.
+   * Two devices, or a restore over existing progress, and one side's work simply
+   * vanished.
+   *
+   * Anything not listed here (preferences, the resume position) is genuinely
+   * last-writer-wins, which is what those mean.
+   */
+
+  /* Exam attempts: an array, newest first. The union, de-duplicated on the
+   * fields that identify an attempt, re-sorted, and capped the way the engine
+   * caps it. */
+  function mergeAttempts(currentText, incomingText) {
+    function listOf(t) {
+      if (!t) return [];
+      try {
+        // Parsed here rather than through a helper from another file: this
+        // module must work wherever it is loaded, with or without its siblings.
+        var v = JSON.parse(String(t), function (k, val) { return k === "__proto__" ? undefined : val; });
+        return Array.isArray(v) ? v : [];
+      } catch (e) { return []; }
+    }
+    var all = listOf(currentText).concat(listOf(incomingText));
+    var seen = {}, out = [];
+    for (var i = 0; i < all.length; i++) {
+      var a = all[i];
+      if (!a || typeof a !== "object") continue;
+      var key = [a.at, a.pct, a.total, a.correct].join("|");
+      if (seen[key]) continue;
+      seen[key] = 1;
+      out.push(a);
+    }
+    out.sort(function (x, y) { return (Number(y && y.at) || 0) - (Number(x && x.at) || 0); });
+    return JSON.stringify(out.slice(0, 50));
+  }
+
+  /* Looked up lazily: nst-backup.js loads before nst-mastery.js, so the module
+   * is not there yet at definition time -- only at restore time. If it is
+   * somehow missing, fall back to the old behaviour rather than failing. */
+  function mergeValue(key, currentText, incomingText) {
+    if (key === "nst.mastery.v1") {
+      var M = window.NSTMastery;
+      if (M && M.mergeSerialized) return M.mergeSerialized(currentText, incomingText);
+      return incomingText;
+    }
+    if (key === "nst.practice-exams.history.v1") return mergeAttempts(currentText, incomingText);
+    return incomingText;
+  }
+
   /* Write a validated backup into storage.
-   * mode "replace" clears NST's existing keys first; "merge" leaves untouched
-   * keys alone. Either way, only owned keys are ever written. */
+   * mode "replace" clears NST's existing keys first; "merge" combines with what
+   * is already here -- per value for the keys that hold everything, see
+   * mergeValue above. Either way, only owned keys are ever written. */
   function restore(text, opts) {
     var chk = inspect(text);
     if (!chk.ok) return chk;
@@ -170,7 +224,13 @@
         }
       }
       for (var k in chk.data) {
-        if (Object.prototype.hasOwnProperty.call(chk.data, k)) s.setItem(k, chk.data[k]);
+        if (!Object.prototype.hasOwnProperty.call(chk.data, k)) continue;
+        // In merge mode the keys that hold everything are combined value-by-value
+        // rather than overwritten -- see mergeValue above.
+        var value = (mode === "merge")
+          ? mergeValue(k, previous[k], chk.data[k])
+          : chk.data[k];
+        s.setItem(k, value);
       }
     } catch (e) {
       try {
@@ -183,6 +243,15 @@
         : "Restore failed, so nothing was changed.";
       return { ok: false, error: msg };
     }
+    // Anything holding this data in memory is now stale. NSTMastery caches the
+    // parsed store and writes it back on its next save, so without this a
+    // debounced save from before the restore would put the OLD records back over
+    // the merged ones -- losing exactly what the merge just rescued.
+    try {
+      var M = window.NSTMastery;
+      if (M && M.load) M.load(true);
+    } catch (e) { /* the restore itself succeeded; this is a cache hint */ }
+
     return { ok: true, restored: chk.summary, mode: mode, rejected: chk.rejected };
   }
 
@@ -213,6 +282,7 @@
     FORMAT: FORMAT,
     APP: APP,
     OWNED_PREFIXES: OWNED_PREFIXES,
+    mergeValue: mergeValue, mergeAttempts: mergeAttempts,
     isOwned: isOwned,
     collect: collect,
     summarize: summarize,
