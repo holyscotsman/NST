@@ -688,6 +688,23 @@ body {
   cursor: help;
 }
 
+/* (v2.30.0) an unfinished exam, surfaced on the page people actually land on.
+   Amber to match the resume card in Practice Exams, and a link because the only
+   useful thing to do with it is go there. */
+.nst-dash-exam {
+  display: block; margin: 0 0 14px;
+  font-family: var(--font-ui); font-size: 13.5px; line-height: 1.55;
+  color: #FFE2B0; text-decoration: none;
+  background: rgba(255, 200, 87, 0.10);
+  border: 1px solid rgba(255, 200, 87, 0.44);
+  border-radius: 10px; padding: 11px 14px;
+}
+.nst-dash-exam b { color: #FFC857; font-weight: 800; }
+.nst-dash-exam:hover { border-color: rgba(255, 200, 87, 0.8); background: rgba(255, 200, 87, 0.15); }
+.nst-dash-exam:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 2px; }
+.nst-dash-exam.expired { color: #FFD7D7; background: rgba(255, 96, 96, 0.12); border-color: rgba(255, 96, 96, 0.46); }
+.nst-dash-exam.expired b { color: #FF9F9F; }
+
 /* (C2-08) rows overridden by Mute all dim out; values stay for unmute */
 .nst-set-row.muted { opacity: 0.45; pointer-events: none; }
 

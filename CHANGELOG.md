@@ -5,6 +5,46 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.30.0 — Telling you about it on the page you actually land on (2026-09-13)
+
+v2.29.0 taught Exam Mode to survive the tab being discarded and offers the
+sitting back — on the Practice Exams entry screen. Which means the feature only
+worked for somebody who happened to walk back in through the door they left by.
+The launcher is the home page. It said nothing.
+
+### Added
+- **The progress panel now leads with an unfinished exam.** *"You have an
+  unfinished exam — 34:12 left. 5 of 75 answered. The clock is still running."*,
+  linking to Practice Exams. An expired one reads *"An exam finished while you
+  were away"* and is styled as such — red rather than amber, because there is
+  nothing left to go back to, only a result to see.
+
+  It is drawn **before** the no-data check, deliberately: somebody whose very
+  first action was an exam has no mastery to show yet, and is exactly the person
+  who must not lose it.
+
+- **`NSTDash.pendingExam(raw, bankId, now)`** — pure, and deliberately shallow.
+  The launcher has no engine to rebuild questions with, so this decides only what
+  can be decided without a bank. It therefore **must not claim the exam is
+  restorable**: the wording it feeds says "unfinished", not "resume", and points
+  at the one place that can actually know. A record for another certification is
+  not ours to talk about; one that will not parse is not a record.
+
+- **26 checks in `dashboard-test.mjs` (100 total).** Including that a
+  multi-answer selection counts as answered and an unanswered question does not,
+  that an expired record reports `0` rather than a negative remaining time, that
+  a missing, non-numeric or **infinite** deadline is refused rather than treated
+  as forever, that it never mutates what it is handed, and that storage being
+  unavailable does not take the rest of the panel down with it.
+
+### Verified
+Removing the bank guard and the deadline guard fails three checks by name;
+pointing the link anywhere but Practice Exams fails its own.
+
+### Measured, not changed
+The per-render save v2.29.0 added costs **0.6 ms** including the full DOM update,
+for a 4.3 KB record. There is nothing to optimise, so nothing was.
+
 ## v2.29.0 — An exam that survives the tab being taken away (2026-09-13)
 
 Practice Mode has always remembered where you were. Exam Mode — the long one,

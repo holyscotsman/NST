@@ -873,6 +873,36 @@
     if (label) head.appendChild(el("span", "nst-dash-bank", esc(label)));
     host.appendChild(head);
 
+    /* An unfinished exam outranks everything else on this panel, and goes in
+     * before the no-data check: somebody whose very first action was an exam has
+     * no mastery to show yet, and is exactly the person who must not lose it.
+     *
+     * The wording stops at "unfinished" on purpose. Only Practice Exams can
+     * rebuild the questions and know whether it is genuinely resumable, so this
+     * points there rather than promising something it cannot verify. */
+    try {
+      var pe = Dash.pendingExam
+        ? Dash.pendingExam(localStorage.getItem("nst.practice-exams.exam.v1"),
+            (window.NSTBank && window.NSTBank.active && window.NSTBank.active()) || "")
+        : null;
+      if (pe) {
+        var mm = function (ms) {
+          var t = Math.max(0, Math.round(ms / 1000));
+          return Math.floor(t / 60) + ":" + ("0" + (t % 60)).slice(-2);
+        };
+        var note = el("a", "nst-dash-exam" + (pe.expired ? " expired" : ""));
+        note.href = "./practice-exams/";
+        note.setAttribute("role", "status");
+        note.innerHTML = pe.expired
+          ? '<b>An exam finished while you were away.</b> ' +
+            esc(pe.answered + " of " + pe.total + " answered") + " \u2014 see how it scored."
+          : '<b>You have an unfinished exam \u2014 ' + esc(mm(pe.remainingMs)) + ' left.</b> ' +
+            esc(pe.answered + " of " + pe.total + " answered") +
+            ". The clock is still running.";
+        host.appendChild(note);
+      }
+    } catch (eX) { /* storage unavailable: the rest of the panel still draws */ }
+
     if (!m.hasData) {
       host.appendChild(el("p", "nst-dash-nudge", esc(m.nudge)));
       return;
