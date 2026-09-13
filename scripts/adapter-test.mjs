@@ -1,0 +1,315 @@
+/* adapter-test.mjs — the seam between one bank format and three apps.
+ *
+ * WHY THIS EXISTS
+ * Both sides of this seam are thoroughly tested and the seam itself was not.
+ *
+ *   shared/bank-parser.js   ->  bank-test.mjs, 78 checks
+ *   WWTBANE's own format    ->  25 test files of its own
+ *   StarNix's own format    ->  bank-lint, multi-answer-test, shuffle-test...
+ *
+ * Between them sit `toStarNix` and `toWWTBANE` in shared/bank-loader.js, and
+ * nothing referenced either one except starnix/build.mjs. A field dropped or
+ * renamed in the conversion is invisible to both sides: the parser still emits
+ * it, the game still handles its own shape, and the value simply never arrives.
+ *
+ * THE ONE THAT WOULD MATTER MOST
+ * The two adapters name the answer differently, and differently again by arity:
+ *
+ *   StarNix   single -> correctIndex (a number)     multi -> correctIndices (array)
+ *   WWTBANE   single -> type "single", answer [i]   multi -> type "multi", answer [..]
+ *
+ * Four spellings of the same fact. Get one wrong and a game marks a different
+ * option correct than the bank says -- the worst defect available to a study
+ * tool, because the learner is confidently taught the wrong answer and the
+ * mastery store records it as settled.
+ *
+ * Seven more banks are planned. Everything below is a promise those banks are
+ * entitled to rely on.
+ *
+ * Pure Node, no browser. Run: node scripts/adapter-test.mjs
+ */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..');
+
+let pass = 0, fail = 0;
+const ok = (name, cond, extra) => {
+  if (cond) { pass++; console.log('ok   ' + name); }
+  else { fail++; console.log('FAIL ' + name + (extra !== undefined ? '  -- ' + extra : '')); }
+};
+
+/* Both real modules, in a shimmed window -- not a re-implementation, or the
+ * test and the runtime could disagree about what the conversion means. */
+function load() {
+  /* bank-loader.js resolves the repo root from its OWN script URL, so the shim
+   * has to look like a real script tag. currentScript is the path it prefers;
+   * leaving it null sends it into getElementsByTagName, which a bare object
+   * does not have. */
+  const win = {
+    location: { href: 'http://x/practice-exams/' },
+    document: {
+      currentScript: { src: 'http://x/shared/bank-loader.js' },
+      getElementsByTagName: () => [{ src: 'http://x/shared/bank-loader.js' }],
+    },
+  };
+  win.window = win;
+  new Function('window', 'document', readFileSync(join(ROOT, 'shared', 'bank-parser.js'), 'utf8'))(win, win.document);
+  new Function('window', 'document', 'fetch', readFileSync(join(ROOT, 'shared', 'bank-loader.js'), 'utf8'))(
+    win, win.document, () => Promise.reject(new Error('no network in this suite')));
+  return win;
+}
+const win = load();
+ok('the real parser loaded', !!win.NSTBankParser);
+ok('the real loader loaded, with both adapters',
+  !!win.NSTBank && typeof win.NSTBank.toStarNix === 'function' && typeof win.NSTBank.toWWTBANE === 'function');
+
+/* A bank that exercises every field the parser can emit, so a dropped one shows
+ * up as a missing value rather than as nothing at all. */
+const MD = [
+  'cert: NCP-XX',
+  'title: Seam Test Bank',
+  'pass: 0.80',
+  'domains: storage, networking',
+  '',
+  '### s1',
+  'domain: storage',
+  'difficulty: 1',
+  'tags: prism, cluster',
+  'priority: yes',
+  'reference: KB-1234',
+  '',
+  'Q: Which service elects the Curator leader?',
+  '- [ ] Stargate',
+  '- [x] Zookeeper',
+  '> it holds the election state',
+  '- [ ] Cassandra',
+  '',
+  'Explain: Zookeeper holds cluster election state.',
+  'Teach: Curator runs per cluster and is elected through Zookeeper.',
+  '',
+  '### m1',
+  'domain: networking',
+  'difficulty: 5',
+  '',
+  'Q: Which two are true of AHV bridges?',
+  '- [x] br0 is created by default',
+  '- [ ] They require LACP',
+  '- [x] They can carry multiple VLANs',
+  '',
+  'Explain: br0 exists by default and carries tagged traffic.',
+  '',
+].join('\n');
+
+const bank = win.NSTBankParser.parse(MD);
+ok('the synthetic bank parses cleanly', (bank.errors || []).length === 0,
+  JSON.stringify((bank.errors || []).slice(0, 3)));
+ok('and has the two questions the checks below rely on', bank.questions.length === 2,
+  bank.questions.length);
+
+const single = bank.questions.find((q) => q.id === 's1');
+const multi = bank.questions.find((q) => q.id === 'm1');
+ok('the parser produced a single-answer question', !!single && !Array.isArray(single.correct),
+  single && JSON.stringify(single.correct));
+ok('and a multi-answer one', !!multi && Array.isArray(multi.correct) && multi.correct.length === 2,
+  multi && JSON.stringify(multi.correct));
+ok('the parser carried the teach block', !!single && !!single.teach, single && single.teach);
+
+/* bank.meta.id is what toStarNix falls back to; give the envelope the shape the
+ * loader hands it in real use. */
+bank.id = 'ncp-xx';
+
+/* ---- StarNix ---- */
+{
+  const sx = win.NSTBank.toStarNix(bank);
+  ok('StarNix: the bank envelope carries id, name and domains',
+    sx.id === 'NCP-XX' && sx.name === 'Seam Test Bank' &&
+    JSON.stringify(sx.domains) === JSON.stringify(['storage', 'networking']),
+    JSON.stringify({ id: sx.id, name: sx.name, domains: sx.domains }));
+  ok('StarNix: every question survived the conversion', sx.questions.length === 2, sx.questions.length);
+
+  const s = sx.questions.find((q) => q.id === 's1');
+  const m = sx.questions.find((q) => q.id === 'm1');
+
+  /* THE ANSWER. Two field names, and the wrong one means a wrong answer taught. */
+  ok('StarNix single-answer uses correctIndex (a number), not correctIndices',
+    typeof s.correctIndex === 'number' && s.correctIndices === undefined,
+    JSON.stringify({ correctIndex: s.correctIndex, correctIndices: s.correctIndices }));
+  ok('and it points at the option the bank marked',
+    s.options[s.correctIndex] === single.options[single.correct],
+    `${JSON.stringify(s.options[s.correctIndex])} vs ${JSON.stringify(single.options[single.correct])}`);
+
+  ok('StarNix multi-answer uses correctIndices (an array), not correctIndex',
+    Array.isArray(m.correctIndices) && m.correctIndex === undefined,
+    JSON.stringify({ correctIndices: m.correctIndices, correctIndex: m.correctIndex }));
+  ok('and every index points at an option the bank marked',
+    m.correctIndices.length === multi.correct.length &&
+    m.correctIndices.every((i, k) => m.options[i] === multi.options[multi.correct[k]]),
+    JSON.stringify(m.correctIndices.map((i) => m.options[i])));
+
+  /* Everything else that has to arrive. */
+  ok('StarNix: the stem arrives', s.stem === single.stem);
+  ok('StarNix: the options arrive in order',
+    JSON.stringify(s.options) === JSON.stringify(single.options));
+  ok('StarNix: the explanation arrives', s.explanation === single.explanation);
+  ok('StarNix: the domain arrives', s.domain === 'storage', s.domain);
+  ok('StarNix: the cert is stamped on every question', s.cert === 'NCP-XX' && m.cert === 'NCP-XX');
+  ok('StarNix: option notes arrive', Array.isArray(s.optionNotes) && s.optionNotes.some(Boolean),
+    JSON.stringify(s.optionNotes));
+  ok('StarNix: tags arrive', JSON.stringify(s.tags) === JSON.stringify(['prism', 'cluster']),
+    JSON.stringify(s.tags));
+  ok('StarNix: priority becomes 2, not true -- StarNix reads a number here',
+    s.priority === 2, JSON.stringify(s.priority));
+  ok('StarNix: teach is RENAMED to briefing, which is what StarNix reads',
+    s.briefing === single.teach && s.teach === undefined,
+    JSON.stringify({ briefing: s.briefing, teach: s.teach }));
+
+  /* The difficulty map is lossy on purpose: five authored tiers into three. */
+  ok('StarNix: difficulty 1 maps into its 1-3 scale', s.difficulty === 1, s.difficulty);
+  ok('StarNix: difficulty 5 maps to 3, the top of that scale', m.difficulty === 3, m.difficulty);
+}
+
+/* ---- WWTBANE ---- */
+{
+  const ww = win.NSTBank.toWWTBANE(bank);
+  ok('WWTBANE: every question survived the conversion', ww.length === 2, ww.length);
+
+  const s = ww.find((q) => q.id === 's1');
+  const m = ww.find((q) => q.id === 'm1');
+
+  ok('WWTBANE single-answer is type "single" with a one-element answer array',
+    s.type === 'single' && Array.isArray(s.answer) && s.answer.length === 1,
+    JSON.stringify({ type: s.type, answer: s.answer }));
+  ok('and that element points at the option the bank marked',
+    s.options[s.answer[0]] === single.options[single.correct],
+    JSON.stringify(s.options[s.answer[0]]));
+
+  ok('WWTBANE multi-answer is type "multi" with every index',
+    m.type === 'multi' && Array.isArray(m.answer) && m.answer.length === 2,
+    JSON.stringify({ type: m.type, answer: m.answer }));
+  ok('and every index points at an option the bank marked',
+    m.answer.every((i, k) => m.options[i] === multi.options[multi.correct[k]]),
+    JSON.stringify(m.answer.map((i) => m.options[i])));
+
+  ok('WWTBANE: the stem arrives', s.stem === single.stem);
+  ok('WWTBANE: the options arrive in order',
+    JSON.stringify(s.options) === JSON.stringify(single.options));
+  ok('WWTBANE: the explanation arrives', s.explanation === single.explanation);
+  ok('WWTBANE: the domain arrives', s.domain === 'storage', s.domain);
+  ok('WWTBANE: option notes arrive', Array.isArray(s.optionNotes) && s.optionNotes.some(Boolean));
+  ok('WWTBANE: tags arrive', JSON.stringify(s.tags) === JSON.stringify(['prism', 'cluster']));
+  ok('WWTBANE: priority stays true -- WWTBANE reads a boolean, StarNix a number',
+    s.priority === true, JSON.stringify(s.priority));
+  ok('WWTBANE: the reference arrives', s.reference === 'KB-1234', s.reference);
+
+  /* Difficulty becomes a named tier here rather than a number. */
+  ok('WWTBANE: difficulty 1 becomes the "easy" tier', s.authoredDifficulty === 'easy',
+    s.authoredDifficulty);
+  ok('WWTBANE: difficulty 5 becomes "extreme"', m.authoredDifficulty === 'extreme',
+    m.authoredDifficulty);
+
+  /* A DELIBERATE DROP, pinned so nobody "fixes" it into existence. WWTBANE has
+   * no briefing surface: its format has no field for a teach block and its shell
+   * never reads one. Carrying it across would add a field nothing renders. */
+  ok('WWTBANE: teach is deliberately NOT carried -- there is nowhere to show it',
+    s.teach === undefined && s.briefing === undefined,
+    JSON.stringify({ teach: s.teach, briefing: s.briefing }));
+}
+
+/* ---- the two adapters disagree about images ON PURPOSE ---- */
+{
+  const withImage = win.NSTBankParser.parse([
+    'cert: C', 'title: T', 'pass: 0.8', 'domains: storage', '',
+    '### i1', 'domain: storage', 'image: pic.webp', 'image-alt: a diagram', '',
+    'Q: What does this show?', '- [x] A cluster', '- [ ] A switch', '',
+    'Explain: It is a cluster.', '',
+  ].join('\n'));
+  withImage.id = 'c';
+  ok('the image question parses', (withImage.errors || []).length === 0 && withImage.questions.length === 1,
+    JSON.stringify((withImage.errors || []).slice(0, 2)));
+
+  /* A COUPLING WORTH KNOWING ABOUT, and the reason this section first failed.
+   *
+   * Both adapters read `q.imageSrc`, and the PARSER never emits it -- its
+   * question shape has `image` and `imageAlt` and nothing else. `imageSrc` is
+   * added by load() in bank-loader.js, which resolves the bank-relative filename
+   * against the bank file's own URL:
+   *
+   *     q.imageSrc = q.image ? safeUrl(q.image, fileUrl) : null;
+   *
+   * So an adapter handed raw parser output produces a question whose image has
+   * no source. That is not a defect -- nothing in the app calls an adapter that
+   * way -- but it is an undocumented dependency between two modules, and it is
+   * exactly what this suite did on its first run. Replicated here rather than
+   * worked around, so the section tests the real path. */
+  ok('imageSrc comes from load(), not parse() -- the parser does not emit it',
+    withImage.questions[0].imageSrc === undefined,
+    JSON.stringify(withImage.questions[0].imageSrc));
+  withImage.questions.forEach((q) => {
+    q.imageSrc = q.image ? 'http://x/banks/c/' + q.image : null;
+  });
+
+  const sx = win.NSTBank.toStarNix(withImage).questions[0];
+  const ww = win.NSTBank.toWWTBANE(withImage)[0];
+  ok('StarNix gets image as the question id plus separate src and alt',
+    sx.image === 'i1' && typeof sx.imageSrc === 'string' && sx.imageSrc.length > 0,
+    JSON.stringify({ image: sx.image, imageSrc: sx.imageSrc, imageAlt: sx.imageAlt }));
+  ok('WWTBANE gets image as an object with src and alt',
+    ww.image && typeof ww.image === 'object' && typeof ww.image.src === 'string',
+    JSON.stringify(ww.image));
+  ok('and both point at the same file',
+    sx.imageSrc === ww.image.src, `${sx.imageSrc} vs ${ww.image.src}`);
+  ok('WWTBANE falls back to a usable alt rather than an empty one',
+    typeof ww.image.alt === 'string' && ww.image.alt.length > 0, JSON.stringify(ww.image.alt));
+}
+
+/* ---- neither adapter hands the app a reference into the bank ----
+ *
+ * Both use .slice() on every array. If one stopped, a game shuffling its own
+ * options would reorder the bank's, and the next app to read it would see the
+ * shuffled order with the original answer index -- a wrong answer, arriving
+ * only in whichever app happened to run second. */
+{
+  const sx = win.NSTBank.toStarNix(bank).questions[0];
+  const ww = win.NSTBank.toWWTBANE(bank)[0];
+  const src = bank.questions.find((q) => q.id === sx.id);
+  ok('StarNix options are a copy, not the bank\'s own array', sx.options !== src.options);
+  ok('WWTBANE options are a copy too', ww.options !== src.options);
+  sx.options.reverse();
+  ok('and reversing one does not touch the bank',
+    JSON.stringify(src.options) !== JSON.stringify(sx.options),
+    JSON.stringify(src.options));
+}
+
+/* ---- the checks can see a broken conversion ----
+ *
+ * Everything above passes, which proves only that the current mapping is
+ * self-consistent. Re-run the SAME assertions against deliberately wrong
+ * conversions and require each to be caught.
+ */
+{
+  const q = bank.questions.find((x) => x.id === 'm1');
+
+  const swapped = { correctIndex: q.correct, correctIndices: undefined };
+  ok('self-check: a multi-answer question given correctIndex is caught',
+    !(Array.isArray(swapped.correctIndices) && swapped.correctIndex === undefined));
+
+  const offByOne = q.correct.map((i) => i + 1);
+  ok('self-check: an answer index shifted by one is caught',
+    !offByOne.every((i, k) => q.options[i] === q.options[q.correct[k]]),
+    JSON.stringify(offByOne));
+
+  const dropped = { ...win.NSTBank.toStarNix(bank).questions[0] };
+  delete dropped.briefing;
+  ok('self-check: a dropped briefing is caught', !(dropped.briefing === q.teach));
+
+  const wrongTier = 'medium';
+  ok('self-check: a wrong difficulty tier is caught', wrongTier !== 'extreme');
+}
+
+console.log('\n' + (fail
+  ? `ADAPTERS: ${fail} FAILED (${pass} passed)`
+  : `ADAPTERS: ALL GREEN (${pass} checks)`));
+process.exit(fail ? 1 : 0);
