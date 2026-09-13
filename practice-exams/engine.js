@@ -102,9 +102,23 @@
     var n = q.options.length, perm = [];
     for (var i = 0; i < n; i++) perm.push(i);
     for (var k = n - 1; k > 0; k--) { var j = Math.floor(rng() * (k + 1)); var t = perm[k]; perm[k] = perm[j]; perm[j] = t; }
+    return applyPerm(q, perm);
+  }
+
+  /* Rebuild the exact derived question a permutation produced.
+   *
+   * Exam Mode shuffles each question's options, so an answer is stored as an
+   * index into the SHUFFLED list. Restoring a sitting by rebuilding it from the
+   * bank would reshuffle, and every stored index would then point at a different
+   * option -- answers silently rewritten, with nothing to see. Persisting the
+   * permutation and replaying it here is what makes a resumed exam the same
+   * exam. Splitting it out of shuffleOptions keeps one definition of the
+   * mapping rather than two that must be kept in step. */
+  function applyPerm(q, perm) {
     var inv = {}; perm.forEach(function (orig, ni) { inv[orig] = ni; });
     var dq = {
-      id: q.id, prompt: q.prompt, domain: q.domain, difficulty: q.difficulty,
+      id: q.id, perm: perm.slice(),
+      prompt: q.prompt, domain: q.domain, difficulty: q.difficulty,
       explanation: q.explanation, image: q.image, imageAlt: q.imageAlt,
       // (v2.4.1) imageSrc is the ONLY live exhibit source — runtime banks resolve it
       // in bank-loader, and window.PE_EXHIBITS (the old inlined map) is never
@@ -198,8 +212,17 @@
     try { localStorage.removeItem(STORE_KEY); } catch (e) { /* storage unavailable */ }
   }
 
+  /* The normalized (pre-shuffle) question for an id, or null. */
+  function questionById(id) {
+    var bank = normalizeBank();
+    for (var i = 0; i < bank.length; i++) if (bank[i].id === id) return bank[i];
+    return null;
+  }
+
   PE.engine = {
     normalizeBank: normalizeBank,
+    applyPerm: applyPerm,
+    questionById: questionById,
     resetCache: resetCache,
     bankMeta: bankMeta,
     rng: rng,

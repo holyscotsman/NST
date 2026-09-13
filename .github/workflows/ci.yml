@@ -216,6 +216,12 @@ jobs:
       # suite still green, while somebody who needs reduced motion gets a 3D
       # camera flight. Reads the BUILT StarNix, so it runs after build.mjs.
       - run: node scripts/prefs-test.mjs
+      # (v2.29.0) an exam surviving the tab being discarded. Two things make it
+      # correct rather than merely convenient: the clock is an absolute deadline
+      # so resuming buys no time, and each question's option permutation is
+      # replayed -- rebuilding from the bank would reshuffle and silently point
+      # every stored answer at a different option.
+      - run: node scripts/resume-test.mjs
       - run: node scripts/mobile-audit.mjs
       # The rendered half of the security gate: a malicious bank and poisoned
       # storage loaded into all four real pages, where security-test.mjs only

@@ -5,6 +5,58 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.29.0 — An exam that survives the tab being taken away (2026-09-13)
+
+Practice Mode has always remembered where you were. Exam Mode — the long one,
+the timed one, the one worth ninety minutes — remembered nothing. The asymmetry
+was exactly backwards from where the value is.
+
+A phone reclaiming a backgrounded tab took the whole sitting with it, and the
+`beforeunload` guard does not help there: a discarded tab never fires it.
+
+### Added
+- **Exam Mode now saves the sitting and offers it back.** Coming back to the
+  entry screen shows *"Resume your exam — 34:12 left"* above everything else,
+  with the count answered and a way to discard it instead. A 75-question sitting
+  costs **4.2 KB**, which matters beside a sync envelope that is capped and a
+  store that has to survive a full quota.
+
+Two things make this correct rather than merely convenient:
+
+- **The clock does not stop.** `endTime` is an absolute timestamp and is saved as
+  one, so time away is spent whether the page was open or not and resuming buys
+  nothing. The card says so in as many words. An exam whose time ran out while
+  you were gone comes back as *"Time ran out while you were away"* — finished,
+  with an explanation, rather than silently vanishing or silently restarting.
+- **The option order comes back identical.** Exam Mode shuffles each question's
+  options, so an answer is stored as an index into the *shuffled* list.
+  Rebuilding from the bank would reshuffle, and every stored index would then
+  point at a different option — every answer silently rewritten, with nothing on
+  screen to show it. Each question's permutation is persisted and replayed
+  (`engine.applyPerm`, split out of `shuffleOptions` so there is one definition
+  of the mapping rather than two to keep in step).
+
+It refuses rather than guesses. A record from another certification is kept but
+not offered; one naming a question the bank no longer has, one whose option count
+changed under it, one with no questions, and one that will not parse are all
+declined and cleared. Half an exam is not the exam.
+
+The save happens in `renderCard()` — the single point every answer, flag and
+navigation already passes through, so it cannot be forgotten by a later change
+the way seven separate call sites could.
+
+- **`scripts/resume-test.mjs` (CI-gated, 36 checks).** Drives a real exam, answers
+  six, flags one, discards the tab, and comes back: the offer appears, the answers
+  and flag are there, the deadline is unchanged, and **the options are in the same
+  order with the stored answer still pointing where it pointed.** Plus the expiry
+  path, all five refusal paths, and that submitting clears the record so a graded
+  exam is never offered back.
+
+### Verified
+Removing the save fails seven checks. Replacing the replayed permutation with a
+fresh shuffle — the silent-corruption bug this design exists to prevent — fails
+exactly the one check written for it.
+
 ## v2.28.0 — Pinning the setup guide to the code (2026-09-13)
 
 **`server/README.md` was checked claim by claim and found accurate.** Nothing in

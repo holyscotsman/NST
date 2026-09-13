@@ -464,3 +464,14 @@ button.pe-domain-row.on { background: rgba(139, 92, 246, 0.12); border-color: rg
   border: 1px solid rgba(255, 96, 96, 0.52);
   border-radius: 10px; padding: 12px 16px;
 }
+
+/* (v2.29.0) An interrupted exam, offered back. Amber rather than the review
+   card's accent: this is unfinished business with a clock on it, not a
+   suggestion, and it must not be mistaken for one of the ordinary mode cards. */
+.pe-modecard-resume {
+  border-color: rgba(255, 200, 87, 0.55);
+  background: linear-gradient(180deg, rgba(255, 200, 87, 0.10), rgba(255, 200, 87, 0.03));
+}
+.pe-modecard-resume .pe-modecard-tag { color: #FFC857; }
+.pe-modecard-resume:hover { border-color: rgba(255, 200, 87, 0.85); }
+.pe-resume-discard { display: block; margin: -4px auto 18px; }
