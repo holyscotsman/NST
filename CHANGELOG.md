@@ -5,6 +5,76 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.67.0 — the backup that arrived before the answers (2026-09-13)
+
+**A coverage gap on the one client-side action that can destroy a study record,
+and a latent defect the new suite found on its first run.**
+
+### The gap
+`backup-test.mjs` exercises `NSTBackup` directly, thoroughly. What nothing
+covered was the path a person actually takes: **Settings → "Restore from file…" →
+a file → one of two buttons that decide whether their current progress
+survives.** `dialog-test.mjs` says so in its own header — `confirmRestore` only
+appears after a file has been chosen, so it reads the source instead.
+
+### What the first run found
+The backup it produced contained `nst.activeBank` **and nothing else**. No study
+record. Restoring it in Replace mode then wiped the eight answers it was meant to
+bring back.
+
+The cause was not restore. `NSTMastery` debounces its writes by 400ms;
+`NSTBackup.collect()` reads `localStorage`. Inside that window the newest answers
+are in the store's memory and not yet on disk, so an envelope built there omits
+them silently.
+
+**`NSTSync` already knew.** `flushOnHide` flushes mastery before snapshotting,
+with a comment explaining exactly this. Backup is the same envelope built by a
+different door, and that door did not flush.
+
+### How reachable it is: not at all, today
+Backup lives only on the launcher, where there is nothing to answer. Arriving
+there from a tool fires `pagehide`, which flushes. **No user can currently reach
+the window** — the safety is a property of the page layout, not of the module. A
+page that put a backup button beside a question would reopen it in silence, and
+nothing would have said so.
+
+`collect()` flushes now, and only when a write is actually pending
+(`NSTMastery.pending()`, new): the sync poll calls `collect()` every five
+seconds, and an unconditional flush there would rewrite the whole store that
+often for the length of a study session.
+
+### The suite
+`scripts/restore-test.mjs`, new, 24 checks, in the browser CI job after
+`bankfail-test`. Eight answers, a backup, five more answers and a changed sixth,
+then the real buttons:
+
+- the backup taken **straight after answering** carries all eight
+- choosing a file asks before doing anything, offers Cancel / Merge / Replace,
+  and the question says which button does what
+- **Merge** restores all eight, keeps all five the backup never saw, and keeps
+  the *newer* answer to the question both know about
+- **Replace** restores all eight, discards the five as the button says, and
+  reverts the shared question to the backup's version
+- Cancel leaves the record exactly as it was
+- a file that is not a backup never reaches the confirm, says so, and changes
+  nothing
+
+Against the un-flushed `collect()` it goes red on four, naming the cause:
+
+```
+FAIL a backup taken straight after answering contains the study record -- nst.activeBank
+FAIL Replace: everything the backup held comes back  -- 0/8
+```
+
+### A note on how this was read
+The first measurement showed Replace losing everything and Merge apparently
+fine, which reads as a catastrophic restore bug. It was neither: Merge "worked"
+only because the local store still held those eight questions, so the backup was
+never consulted, and Replace failed because the file was empty. Dumping the
+file's contents settled it in one step. The suite now asserts what is *in* the
+backup before it asserts anything about restoring it, so the same confusion
+cannot recur.
+
 ## v2.66.0 — the third one, in the place I had already cleared (2026-09-13)
 
 **A sweep for the class v2.57.0 and v2.65.0 belong to, and it found a third

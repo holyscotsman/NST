@@ -169,6 +169,16 @@
     _saveTimer = setTimeout(function () { _saveTimer = null; writeNow(); }, 400);
   }
   function flush() { save(true); }
+  /* Is there a debounced write still waiting?
+   *
+   * Callers that READ localStorage rather than this module's memory need to know
+   * -- shared/nst-backup.js builds the backup envelope straight out of storage,
+   * so inside the 400ms window it would silently omit the newest answers. They
+   * ask rather than flushing unconditionally because the sync poll calls
+   * collect() every five seconds, and an unconditional flush there would write
+   * the whole store to storage every five seconds for the length of a study
+   * session. */
+  function pending() { return _saveTimer !== null; }
   function saveError() { return _saveErr; }
 
   /* ---- reading -------------------------------------------------------- */
@@ -550,7 +560,7 @@
     KEY: KEY, FORMAT: FORMAT,
     MIN_BOX: MIN_BOX, MAX_BOX: MAX_BOX, MASTERED_BOX: MASTERED_BOX, GRADUATED_BOX: GRADUATED_BOX,
     INTERVALS: INTERVALS, SEED_BOX: SEED_BOX,
-    load: load, save: save, flush: flush, saveError: saveError,
+    load: load, save: save, flush: flush, pending: pending, saveError: saveError,
     all: all, get: get, count: count,
     isDue: isDue, isMastered: isMastered, isGraduated: isGraduated,
     intervalFor: intervalFor, seedFor: seedFor,
