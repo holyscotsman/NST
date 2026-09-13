@@ -173,6 +173,14 @@ for (const suite of ['arm-run.cjs', 'cc-run.cjs', 'kbb-run.cjs',
  * again -- with a MODULE_NOT_FOUND rather than silence, but dark all the same. */
 ok('the StarNix job installs jsdom, without which none of those six can start',
   /npm install[^\n]*\bjsdom@/.test(ci));
+/* Into starnix/, specifically. cc-death-paths.cjs requires jsdom by absolute
+ * path -- require(__dirname + '/node_modules/jsdom') -- which only one directory
+ * satisfies. Installing at the workspace root resolves the bare-name requires
+ * and fails that one, which is how the second attempt at this release went red. */
+ok('and into starnix/, where the absolute-path require can find it',
+  /npm install[^\n]*--prefix\s+"\$GITHUB_WORKSPACE\/starnix"[^\n]*jsdom@/.test(ci));
+ok('and verifies BOTH require forms, not just the bare one',
+  /require\.resolve\('jsdom'\)/.test(ci) && /test -d[^\n]*starnix\/node_modules\/jsdom/.test(ci));
 ok('and does not pull in canvas, which only kbb-draw needs',
   !/npm install[^\n]*\bcanvas@/.test(ci));
 ok('perf-smoke.mjs is NOT a CI step -- it cannot pass without PERF=1 and a browser',

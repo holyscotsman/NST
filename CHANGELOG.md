@@ -36,6 +36,14 @@ the one this release now records.
 So the job installs `jsdom@29.1.1`, the same dev-tooling pattern the browser job
 already uses for Playwright. The app itself stays dependency-free.
 
+**Into `starnix/`, not the workspace root** — and that is not a detail. Most of
+these harnesses require jsdom by bare name, which resolves from anywhere up the
+tree. `cc-death-paths.cjs` requires it by **absolute path**,
+`require(__dirname + '/node_modules/jsdom')`, which exactly one directory
+satisfies. A root install passed the bare-name check and then failed on that one
+file — the second red CI run of this release. The step now verifies **both**
+forms, because the check that only tested the bare one is what let it through.
+
 **Not `canvas`.** `starnix/package.json` also declares `canvas@^3` — jsdom's
 native rendering backend — but measurement says only one suite needs it: with
 canvas removed, `arm-run`, `cc-run`, `kbb-run`, `cc-death-paths` and both

@@ -50,10 +50,20 @@ jobs:
       # with canvas removed, five suites and both fuzzers still pass and kbb-draw
       # fails 6 of its 16 checks. A native build in the everyday gate to buy one
       # suite is a bad trade, so kbb-draw stays excluded and named.
+      #
+      # The prefix is starnix/, not the workspace root, and that is not a detail.
+      # Most of these harnesses require jsdom by bare name, which resolves from
+      # anywhere up the tree -- but cc-death-paths.cjs requires it by ABSOLUTE
+      # PATH, `require(__dirname + '/node_modules/jsdom')`, which is satisfied by
+      # exactly one directory. A root install passed the bare-name check and then
+      # failed on that file; both forms are verified below now.
       - name: Install jsdom for the game harnesses
         run: |
-          npm install --no-save --prefix "$GITHUB_WORKSPACE" jsdom@29.1.1
-          node -e "require.resolve('jsdom')" || { echo "jsdom did not install where the harnesses will look"; exit 1; }
+          npm install --no-save --prefix "$GITHUB_WORKSPACE/starnix" jsdom@29.1.1
+          node -e "require.resolve('jsdom')" \
+            || { echo "jsdom is not resolvable by bare name from starnix/"; exit 1; }
+          test -d "$GITHUB_WORKSPACE/starnix/node_modules/jsdom" \
+            || { echo "jsdom is not at starnix/node_modules, where cc-death-paths.cjs requires it by absolute path"; exit 1; }
       - run: node build.mjs
       - run: node bank-lint.mjs
       - run: node scheduler-test.mjs
