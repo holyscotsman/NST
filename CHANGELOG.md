@@ -5,6 +5,40 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.35.0 — The two apps nobody had ever audited (2026-09-13)
+
+The accessibility audit covered the launcher and Practice Exams. **StarNix and
+WWTBANE had no accessibility gate of any kind** — the two surfaces that are the
+most animated, the most actively worked on, and the most likely to grow a control
+nobody can see the focus on.
+
+Both are clean: zero axe violations, every control Tab reaches has a name, and
+every one shows a 3px focus ring. **Nothing is fixed here.** This is the gate.
+
+### Added
+- **10 checks in `a11y-audit.mjs` (55 total)** covering both games: axe across
+  WCAG 2.0/2.1 A and AA, plus the keyboard walk — every control the tab order
+  reaches must have an accessible name and a visible focus indicator.
+
+### The games are tabbed, not focused, and that matters
+`:focus-visible` matches only in keyboard modality, and a programmatic `focus()`
+does not reliably establish it. A probe written that way **reported two WWTBANE
+controls as having no focus ring** — `seed-input` and `secondary`. Tabbing to
+them shows `focus-visible: true` and `outline: solid 3px rgb(255,200,87)` on
+every control, and `seed-input` is not even in the tab order until its
+`<details>` is opened.
+
+That trap is documented in this file's own header, and a fresh probe fell into it
+anyway. Pressing Tab is both what a keyboard user actually does and immune to it.
+The existing surfaces keep the `focus()` method, which is exercised and working
+there and reaches controls the tab order does not.
+
+### Verified
+Suppressing WWTBANE's focus ring fails the ring check, naming all four affected
+controls. Emptying a button's label fails **two** checks — the name walk and
+axe's own `button-name`. An image with no alt fails axe with
+`[CRITICAL] image-alt`.
+
 ## v2.34.0 — The branches a sweep cannot reach (2026-09-13)
 
 v2.33.0 swept every page builder with hostile input. Feeding input only

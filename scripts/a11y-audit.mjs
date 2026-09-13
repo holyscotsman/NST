@@ -342,6 +342,78 @@ await surface('exam mode', `${B}/practice-exams/`, async (p) => {
   await p.close();
 }
 
+/* ---- the two games, which had never been audited at all -----------------
+ *
+ * Everything above covers the launcher and Practice Exams. StarNix and WWTBANE
+ * -- the two surfaces that are most animated, most actively worked on, and most
+ * likely to grow a control that nobody can see the focus on -- had no
+ * accessibility gate of any kind. Both are clean today; this is what keeps them
+ * that way.
+ *
+ * They are traversed by pressing TAB, not by calling focus(). That is not a
+ * stylistic choice. `:focus-visible` matches only in keyboard modality, and a
+ * programmatic focus() does not reliably establish it -- a probe written that
+ * way reported two WWTBANE controls as having no focus ring when tabbing to
+ * them shows a 3px gold outline on every one. Real Tab presses are both
+ * faithful to what a keyboard user does and immune to that trap. (The surfaces
+ * above keep the focus() method, which is exercised and working there, and lets
+ * them check controls that Tab order does not reach.)
+ */
+async function game(label, url, settleMs) {
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', (e) => errs.push(e.message));
+  p.on('console', (m) => { if (m.type() === 'error' && !/404/.test(m.text())) errs.push(m.text()); });
+  await p.goto(url, { waitUntil: 'domcontentloaded' });
+  await p.evaluate(SEED);
+  await p.goto(url, { waitUntil: 'networkidle' });
+  await p.waitForTimeout(settleMs);
+
+  await p.evaluate(AXE);
+  const violations = await p.evaluate(async () => {
+    const r = await window.axe.run(document, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+    });
+    return r.violations.map((v) => ({ id: v.id, impact: v.impact, n: v.nodes.length, help: v.help }));
+  });
+  ok(`${label} — no axe violations`, violations.length === 0,
+    violations.map((v) => `${v.id}(${v.n})`).join(', '));
+  for (const v of violations) console.log(`       [${(v.impact || '?').toUpperCase()}] ${v.id} × ${v.n} — ${v.help}`);
+
+  // Walk the real tab order, and look at each control as a keyboard user finds it.
+  const seen = [], unnamed = [], noRing = [];
+  const reachable = await p.evaluate(() => document.querySelectorAll(
+    'a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])').length);
+  for (let i = 0; i < Math.min(reachable + 2, 30); i++) {
+    await p.keyboard.press('Tab');
+    const at = await p.evaluate(() => {
+      const a = document.activeElement;
+      if (!a || a === document.body) return null;
+      const cs = getComputedStyle(a);
+      const name = (a.getAttribute('aria-label') || a.getAttribute('title') || a.textContent || a.value || '').trim();
+      const ring = a.matches(':focus-visible')
+        && (cs.outlineStyle !== 'none' || cs.boxShadow !== 'none');
+      return { el: (a.className || a.tagName).toString().slice(0, 34), name, ring };
+    });
+    if (!at) continue;
+    const key = at.el + '|' + at.name;
+    if (seen.indexOf(key) >= 0) break;           // wrapped around: the order is exhausted
+    seen.push(key);
+    if (!at.name) unnamed.push(at.el);
+    if (!at.ring) noRing.push(at.el + (at.name ? ` "${at.name.slice(0, 18)}"` : ''));
+  }
+  ok(`${label} — tabbing reaches its controls`, seen.length > 0, seen.length);
+  ok(`${label} — every control Tab reaches has a name (${seen.length})`,
+    unnamed.length === 0, unnamed.slice(0, 4).join(', '));
+  ok(`${label} — and a visible focus ring when tabbed to`,
+    noRing.length === 0, noRing.slice(0, 4).join(', '));
+  ok(`${label} — no page errors`, errs.length === 0, errs.slice(0, 2).join(' ;; '));
+  await p.close();
+}
+
+await game('wwtbane', `${B}/wwtbane/`, 3500);
+await game('starnix', `${B}/starnix/`, 4500);
+
 await browser.close();
 console.log('\n' + (fail ? `A11Y: ${fail} FAILED (${pass} passed)` : `A11Y: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);
