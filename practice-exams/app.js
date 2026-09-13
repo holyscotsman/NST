@@ -393,10 +393,48 @@
     });
   }
 
+  /* (v2.41.0) Sync trouble, said out loud HERE too.
+   *
+   * The launcher already warns when a push keeps failing. Practice Exams loads
+   * nst-sync.js -- so sync runs, and can fail, on this page -- and listened for
+   * nothing. The warning existed only on the page you are not on while you are
+   * studying, which is the whole of the time it matters.
+   *
+   * The comment above watchStorage makes the argument for the other warning and
+   * it is the same one: someone mid-exam should not have to go and look
+   * somewhere else to learn that the last forty minutes are not reaching their
+   * account. NSTSync fires this only when the state changes, so a healthy
+   * session shows nothing at all.
+   *
+   * Deliberately gentler than the storage banner. Nothing is lost here: the work
+   * is in this browser and will be pushed when the connection comes back. Saying
+   * that in the red reserved for "your answers are not being saved" would teach
+   * people to ignore the red. */
+  function watchSync() {
+    window.addEventListener("nst-sync-status", function (ev) {
+      var d = (ev && ev.detail) || {};
+      var existing = document.getElementById("pe-sync-warn");
+      if (d.ok) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      var root = document.getElementById("pe-root");
+      if (!root || !root.parentNode) return;
+      var bar = document.createElement("div");
+      bar.id = "pe-sync-warn";
+      bar.className = "pe-syncwarn";
+      bar.setAttribute("role", "status");
+      bar.textContent = "Your progress isn't reaching your account"
+        + (d.error ? " (" + d.error + ")" : "")
+        + ". It's still safe in this browser, and will sync when the connection"
+        + " comes back. Nothing you answer here is lost.";
+      root.parentNode.insertBefore(bar, root);
+    });
+  }
+
   function boot() {
     var container = document.getElementById("pe-root");
     if (!container) return;
     watchStorage();
+    watchSync();
     container.innerHTML = '<div class="pe-loading">Loading…</div>';
     // If the manifest has any banks, always render the entry screen (it carries the bank
     // picker, so the player can switch banks here). Only a truly empty manifest is a dead end.

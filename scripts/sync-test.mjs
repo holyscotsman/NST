@@ -390,5 +390,120 @@ function liveSync({ records = 3, progressHandler } = {}) {
     'if this ever stops being true, the round trip is buying less than it looks');
 }
 
+/* ---- (v2.41.0) a page that runs sync must be able to say sync is failing ----
+ *
+ * NSTSync fires `nst-sync-status` when a push has failed FAILURES_BEFORE_WARNING
+ * times in a row. The launcher listened for it. Practice Exams -- which loads
+ * nst-sync.js, so sync runs and can fail there -- listened for nothing.
+ *
+ * That is the worst possible place for the warning to be missing. The launcher
+ * is the page you are NOT on while you are studying, and a 90-minute exam is
+ * exactly the stretch during which an hour of work can quietly fail to reach an
+ * account. Practice Exams already had the machinery: watchStorage() puts a
+ * banner above #pe-root for storage failures, and the comment above it makes
+ * this very argument for that warning -- "someone mid-exam should not have to
+ * notice a small badge to learn that the last forty minutes will not survive
+ * closing the tab."
+ *
+ * The rule is therefore about the class rather than the instance: any page that
+ * loads nst-sync.js must also listen for the event it fires. A fourth page added
+ * later is covered the day it is added.
+ */
+{
+  const pages = [
+    ['launcher', 'index.html', ['scripts/nst-home.js']],
+    ['Practice Exams', 'practice-exams/index.html', ['practice-exams/app.js']],
+    ['WWTBANE', 'wwtbane/index.html', ['wwtbane/src/shell/main.js']],
+  ];
+
+  const EVENT = 'nst-sync-status';
+  /* Quote-agnostic on purpose. The launcher and Practice Exams are ES5-style
+   * with double quotes; WWTBANE is a module written with single quotes. A rule
+   * that only matched one of them reported WWTBANE as deaf when it was not --
+   * which it did, on the first run of this check. */
+  const listens = (src) => new RegExp(`addEventListener\\(\\s*['"]${EVENT}['"]`).test(src);
+  ok(`nst-sync.js really fires ${EVENT} -- the rule below is about this event`,
+    new RegExp(`CustomEvent\\(\\s*['"]${EVENT}['"]`).test(SYNC_SRC));
+  ok('and only when the state changes, so a healthy session shows nothing',
+    /failures >= FAILURES_BEFORE_WARNING/.test(SYNC_SRC));
+
+  for (const [name, page, scripts] of pages) {
+    const html = read(...page.split('/'));
+    const loadsSync = /nst-sync\.js/.test(html);
+    if (!loadsSync) {
+      console.log(`n/a  ${name} does not load nst-sync.js, so it cannot report it`);
+      continue;
+    }
+    const bodies = scripts.map((f) => read(...f.split('/'))).join('\n');
+    ok(`${name} loads sync AND listens for ${EVENT}`, listens(bodies),
+      'sync runs on this page and can fail on it, with nothing to say so');
+
+    /* This rule stops at "listens at all", and that is a real limit rather than
+     * an oversight. Deleting the watchSync() call from Practice Exams' boot()
+     * leaves the addEventListener sitting in a function nothing invokes: the
+     * page goes deaf and this check stays green. Measured -- that control failed
+     * three checks in a11y-browser.mjs and none here.
+     *
+     * Deciding statically whether a registration is reachable is dataflow
+     * analysis, and an approximation of it was tried first: it caught the
+     * Practice Exams case and then reported the launcher (registers inline) and
+     * WWTBANE (a class method called as this._watchSync()) as deaf when both
+     * work. A check that fails on correct code is worse than one with a stated
+     * limit, so the limit is stated: "is it wired" belongs to the browser half
+     * of this gate, which fires the real event in the real page and looks. */
+  }
+
+  /* The two warnings must not be confused for one another. Storage failing means
+   * nothing is written anywhere and the work dies with the tab. Sync failing
+   * means the work is safe here and merely has not left. Saying the second in
+   * the words of the first teaches people to ignore both. */
+  const peApp = read('practice-exams', 'app.js');
+  const syncFn = peApp.slice(peApp.indexOf('function watchSync'), peApp.indexOf('function watchSync') + 1600);
+  const storeFn = peApp.slice(peApp.indexOf('function watchStorage'), peApp.indexOf('function watchStorage') + 1600);
+  ok('the sync banner says the work is still safe in this browser',
+    /still safe in this browser/i.test(syncFn));
+  ok('and the storage banner does NOT -- there, nothing is being saved at all',
+    !/still safe in this browser/i.test(storeFn) && /not being saved/i.test(storeFn));
+  ok('they are different elements, so one cannot silently replace the other',
+    /pe-sync-warn/.test(syncFn) && /pe-store-warn/.test(storeFn));
+  ok('and different styles, so they do not read as the same alarm',
+    /pe-syncwarn/.test(syncFn) && /pe-storewarn/.test(storeFn));
+
+  const css = read('practice-exams', 'styles.css');
+  ok('both banner styles exist', /\.pe-syncwarn\s*\{/.test(css) && /\.pe-storewarn\s*\{/.test(css));
+
+  /* WWTBANE replaces the screen's contents on every question, so a banner
+   * rendered inside it would be wiped by the next answer -- the same reason
+   * Practice Exams puts its banners above #pe-root rather than in it. */
+  const wwt = read('wwtbane', 'src', 'shell', 'main.js');
+  /* From the method DEFINITION. indexOf('_watchSync()') finds the call in boot()
+   * first and slices the wrong 1200 characters -- which is how these three
+   * checks first reported a method that is right there as missing. */
+  const wAt = wwt.indexOf('_watchSync() {');
+  ok('WWTBANE defines _watchSync (and this slice found it)', wAt > 0, String(wAt));
+  const wsync = wwt.slice(wAt, wAt + 1400);
+  ok('WWTBANE appends its banner to <body>, not into the screen it redraws',
+    /document\.body\.appendChild/.test(wsync) && !/roots\.screen/.test(wsync));
+  ok('and says the same thing the other two do -- still safe in this browser',
+    /still safe in this browser/i.test(wsync));
+  ok('and mirrors it into its live region, since the game is played by keyboard',
+    /_announce\(/.test(wsync));
+  const wcss = read('wwtbane', 'styles', 'main.css');
+  ok('WWTBANE has the style for it', /\.sync-warn\s*\{/.test(wcss));
+
+  /* Severity, not decoration: the storage banner interrupts (role=alert), the
+   * sync banner informs (role=status). Getting these the same way round is how a
+   * warning becomes background noise. */
+  ok('the storage banner interrupts a screen reader (role=alert)', /role", "alert"/.test(storeFn));
+  ok('the sync banner does not -- it is role=status', /role", "status"/.test(syncFn));
+
+  /* Not vacuous. */
+  ok('self-check: the rule fires on a page that loads sync and listens for nothing',
+    !listens('function boot(){ watchStorage(); }'));
+  ok('self-check: and passes on one that does listen, in either quote style',
+    listens('addEventListener("nst-sync-status", fn)') &&
+    listens("addEventListener('nst-sync-status', fn)"));
+}
+
 console.log('\n' + (fail ? `SYNC: ${fail} FAILED (${pass} passed)` : `SYNC: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

@@ -5,6 +5,75 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.41.0 — The sync warning lived on the page you are not on (2026-09-13)
+
+`NSTSync` fires `nst-sync-status` once a push has failed three times running.
+The launcher listened for it and showed a "Not saving" chip. **Practice Exams
+and WWTBANE both load `nst-sync.js` — so sync runs, and can fail, on both — and
+listened for nothing.**
+
+That is the worst possible place for the warning to be missing. The launcher is
+the page you are *not* on while you are studying. A 90-minute exam or a long
+WWTBANE run is exactly the stretch during which an hour of work can quietly fail
+to reach an account, and you would find out on the next device.
+
+Practice Exams already had the machinery and the argument. `watchStorage()` puts
+a banner above `#pe-root` for storage failures, and the comment above it says:
+*"someone mid-exam should not have to notice a small badge to learn that the
+last forty minutes will not survive closing the tab."* The same reasoning, the
+same page, a different failure — and it was never wired.
+
+### Fixed
+- **Practice Exams** gains `watchSync()`, a banner above `#pe-root` (never
+  inside it — every mode replaces the contents of that element).
+- **WWTBANE** gains `_watchSync()`, a fixed banner appended to `<body>` rather
+  than into `#screen`, which is redrawn on every question and would wipe it. It
+  also mirrors the message into the game's existing `aria-live` region, since
+  WWTBANE is played from the keyboard.
+
+Both are **amber, not red, and `role="status"`, not `role="alert"`.** The
+launcher already draws this distinction carefully and the new banners keep it:
+storage failing means nothing is written anywhere and the work dies with the
+tab; sync failing means the work is safe in this browser and merely has not left
+yet. Saying the second in the words of the first teaches people to ignore the
+first.
+
+### Added
+- **19 checks in `sync-test.mjs` (40 → 59)** — the rule is about the class, not
+  the instance: any page that loads `nst-sync.js` must listen for the event it
+  fires, so a fourth page is covered the day it is added. Plus the wording and
+  severity split, checked in both directions.
+- **15 checks in `a11y-browser.mjs` (32 → 47)** — the real event fired in the
+  real page: a healthy session shows nothing, a failing push raises a *visible*
+  banner carrying the reason, it is `role="status"`, and it **goes away when
+  sync recovers**.
+
+### Why both halves
+The static rule stops at "listens at all", and that limit is stated rather than
+papered over. Deleting the `watchSync()` call from Practice Exams' `boot()`
+leaves the `addEventListener` in a function nothing invokes — the page goes deaf
+and the static check stays green. Measured: that control failed **three** checks
+in `a11y-browser.mjs` and **none** in `sync-test.mjs`.
+
+An approximation of static reachability was tried first. It caught the Practice
+Exams case and then reported the launcher (registers inline) and WWTBANE (a
+class method called as `this._watchSync()`) as deaf when both work. A check that
+fails on correct code is worse than one with a stated limit, so "is it wired"
+belongs to the browser half.
+
+### Verified
+Removing the Practice Exams listener fails 3 browser checks. Moving WWTBANE's
+banner into the screen it redraws fails the placement check. Both banners were
+confirmed by hand in a browser before the checks were written: absent while
+healthy, visible and in-viewport on failure with the reason attached, gone on
+recovery.
+
+One check had to be corrected rather than the code: it asserted the reason
+appears in `textContent`, which the launcher's nav chip does not do — it reads
+"Not saving" with the detail in its `title` and `aria-label`, a deliberate
+choice for a tight nav bar that still reaches a screen reader. The rule is now
+that the reason is **reachable**, not that it sits in one particular attribute.
+
 ## v2.40.0 — 448 checks that had never run once (2026-09-13)
 
 StarNix is the largest app in this repo — 2.9 MB, three games. **The primary

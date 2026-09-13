@@ -77,6 +77,7 @@ export class Game {
   }
 
   async boot() {
+    this._watchSync();
     // Dev-only FPS meter for the graphics performance budget (?fps=1 / Alt+F).
     installFpsMeter();
 
@@ -958,6 +959,36 @@ export class Game {
   }
 
   _announce(msg) { if (this.roots.announce) this.roots.announce.textContent = msg; }
+
+  /* (v2.41.0) Sync trouble, said out loud here too.
+   *
+   * WWTBANE loads shared/nst-sync.js, so a push can fail during a run and take
+   * an evening's mastery records with it -- the same records the launcher and
+   * Practice Exams both warn about. It listened for nothing, so the only page
+   * that said so was the one nobody is on while they are playing.
+   *
+   * Appended to <body> rather than into #screen, because _swap() replaces the
+   * screen's contents on every question and would wipe it. Gentler than a
+   * storage failure on purpose: nothing is lost here, it simply has not left
+   * this browser yet, and saying that in alarm language teaches people to
+   * ignore the alarms that matter. */
+  _watchSync() {
+    window.addEventListener('nst-sync-status', (ev) => {
+      const d = (ev && ev.detail) || {};
+      const existing = document.getElementById('wwt-sync-warn');
+      if (d.ok) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      const bar = document.createElement('div');
+      bar.id = 'wwt-sync-warn';
+      bar.className = 'sync-warn';
+      bar.setAttribute('role', 'status');
+      bar.textContent = "Your progress isn't reaching your account"
+        + (d.error ? ` (${d.error})` : '')
+        + ". It's still safe in this browser.";
+      document.body.appendChild(bar);
+      this._announce(`Sync warning. ${bar.textContent}`);
+    });
+  }
 
   _fatal(msg) {
     this._swap(h('section', { class: 'screen fatal' },
