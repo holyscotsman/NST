@@ -57,10 +57,33 @@
     return false;
   }
 
-  /* Gather every NST-owned key/value pair currently in storage. */
+  /* Gather every NST-owned key/value pair currently in storage.
+   *
+   * WHY THIS FLUSHES FIRST
+   * NSTMastery debounces its writes by 400ms; this reads localStorage. Inside
+   * that window the newest answers are in the store's memory and not yet on
+   * disk, so an envelope built here silently omits them -- measured, a backup
+   * taken immediately after eight answers contained `nst.activeBank` and nothing
+   * else, and restoring it in Replace mode then wiped the record it was meant to
+   * bring back.
+   *
+   * NSTSync already knew: flushOnHide flushes before snapshotting, for exactly
+   * this reason. This is the same envelope built by a different door, and the
+   * door that does not flush is only safe today because backup lives on the
+   * launcher, where there is nothing to answer -- a property of the page layout,
+   * not of this module. No user can currently reach the window; a page that
+   * offered a backup button beside a question would reopen it silently.
+   *
+   * `pending()` rather than an unconditional flush: the sync poll calls collect()
+   * every five seconds, and flushing there would rewrite the whole store that
+   * often for the length of a study session. */
   function collect() {
     var s = ls(), out = {};
     if (!s) return out;
+    try {
+      var M = window.NSTMastery;
+      if (M && M.pending && M.pending() && M.flush) M.flush();
+    } catch (e) { /* no mastery module here; storage is all there is */ }
     try {
       for (var i = 0; i < s.length; i++) {
         var k = s.key(i);

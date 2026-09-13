@@ -370,5 +370,10 @@ jobs:
       # own server so it can 404 one resource at a time, and repairs it mid-page
       # to prove the retry retries. Starts and stops that server itself.
       - run: node scripts/bankfail-test.mjs
+      # (v2.67.0) the one client-side action that can destroy a study record,
+      # driven through its buttons: back up, study on, restore, both modes. The
+      # module is well covered; the path a person takes was not, because the
+      # confirm only appears after a file is chosen.
+      - run: node scripts/restore-test.mjs
       # smoke-test starts its own server and its own throwaway database.
       - run: node scripts/smoke-test.mjs
