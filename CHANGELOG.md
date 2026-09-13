@@ -5,6 +5,74 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.33.0 — The 307 lines of HTML nobody tested (2026-09-13)
+
+`server/pages.mjs` builds every page the login server serves — by string
+interpolation, from data users control: a username, a display name someone chose
+at self-registration, an error echoed back. Three hundred lines of it, and not
+one direct test.
+
+The attack is short. Sign yourself up with a display name of
+`<img src=x onerror=…>`; root opens `/admin` to see who has registered; it runs
+in root's session — the one account that can delete everybody's progress.
+Nothing about that needs access this server does not deliberately hand out:
+self-registration is on by default.
+
+**It does not happen.** Every interpolation is escaped, confirmed against a
+running instance before this suite existed: the payload comes back as text, no
+element is injected, the page carries zero `<script>` tags. This release is the
+gate, not a fix.
+
+### Added
+- **`scripts/pages-test.mjs` (CI-gated, 159 checks).** `esc()` itself — all five
+  characters, `&` first so nothing is double-escaped, null and undefined, and an
+  object that tries to smuggle markup through `toString`. Then a **sweep**: every
+  exported page builder called with six payloads in every string field, asserting
+  no raw tag-opening from the payload survives. Written as a sweep so a page
+  added later is covered the day it is added, with a check that every exported
+  builder appears in the sweep at all.
+
+### Three ways this suite was wrong before it was right
+Each was caught by a control, not by reading it:
+
+- **It flagged correct code.** `<svg` appears in every page — the shell's favicon
+  is a `data:` URI containing one. And a payload of `javascript:NST_PWN=1`
+  contains nothing `esc()` escapes, so it *should* come through verbatim; as text
+  in a `<p>` it is a string, not a link. The rule now derives its fragments from
+  the payload's own raw tag-openings, which escaping provably removes.
+- **It flagged escaped output as a leak.** Asking "does any tag contain the
+  marker" matched `<input … value="&lt;script&gt;NST_PWN…">` — a correctly
+  escaped value inside a legitimate tag. Closing tags were the same story:
+  `</title>` and `</style>` are in every page already.
+- **And then it could not catch the bug it exists for.** With one hostile value
+  reused everywhere, `username` and `display_name` matched — and the admin page
+  renders the display name *only when it differs*. That branch never ran, and
+  removing its `esc()` left all 159 checks green. Every slot now gets a distinct
+  value, which also makes a failure name the field.
+
+### Verified
+Removing `esc()` from the admin display name, the username, the audit actor, the
+update page's version and the error message each fail 10–11 checks by name,
+printing the raw tag-opening that survived.
+
+### Also fixed: a test that was wrong 13% of the time
+CI caught `resume-test.mjs` failing one check — *"so the stored answer still
+points at the option it pointed at"* — on a suite that passes locally. It was not
+a flake and was not re-run. It compared the stored answer with `===`, and a
+**multi-answer** question stores its answer as an *array* of chosen indices,
+which is never `===` to itself after a JSON round-trip. 13% of this bank is
+multi-answer, so the check failed exactly when the shuffle put one of those
+first. Reproduced by forcing a multi-answer question into first place:
+
+```
+first question answer stored as: [0]  (MULTI — the CI case)
+after resuming:                  [0]
+strict ===   : false   <- what failed in CI
+deep compare : true    <- what the fix uses
+```
+
+The exam data was never wrong; only the assertion about it was.
+
 ## v2.32.0 — Checking the one sentence the whole project rests on (2026-09-13)
 
 *"However you play, right and wrong answers feed the same mastery tracker."*

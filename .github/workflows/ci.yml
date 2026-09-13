@@ -153,6 +153,13 @@ jobs:
       # at length further down. Also checks every relative link in the docs
       # resolves, because a dead one is invisible until somebody clicks it.
       - run: node ../scripts/docs-test.mjs
+      # (v2.33.0) the HTML the login server hands out. It is built by string
+      # interpolation from data users control -- a username, a display name
+      # chosen at self-registration -- and had no direct test. Sign up with a
+      # display name of <img src=x onerror=...>, root opens /admin to see who
+      # registered, and it runs in root's session. It does not happen; this is
+      # what keeps a forgotten esc() from making it happen.
+      - run: node ../scripts/pages-test.mjs
 
   # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-
