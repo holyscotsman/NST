@@ -5,6 +5,52 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.32.0 — Checking the one sentence the whole project rests on (2026-09-13)
+
+*"However you play, right and wrong answers feed the same mastery tracker."*
+
+That is the README's headline claim and the reason this is one app rather than
+three. **It is also the single most fragile thing in it**, and nothing checked
+it. Three independently-built codebases reach the shared store three different
+ways, and any one of them could stop with every other suite still green:
+
+| tool | how it reaches the shared store |
+|---|---|
+| Practice Exams | `engine.recordMastery` → `NSTMastery.record` |
+| StarNix | `core.mastery.record`, through an IIFE whose parameter is named `global` |
+| WWTBANE | only when `state.shared` is true, which `emptyMastery()` sets **solely if the shared module was found at that moment** |
+
+WWTBANE's is the thinnest: a falsy flag silently returns it to keeping private
+records, and the game plays exactly the same.
+
+**All three work.** This release is the check, not a fix.
+
+### Added
+- **`scripts/promise-test.mjs` (CI-gated, 25 checks).** Answers a question in
+  each of the three tools *through that tool's own API*, in one browser context,
+  and asserts all three land in one store — then that the launcher rolls them up.
+
+  The differing **policies** are checked too, because sharing the evidence was
+  never meant to flatten how each tool feels: StarNix and Practice Exams move the
+  box by one and only when a card is due; WWTBANE moves by two from its own seed,
+  and an **assisted** answer counts as exposure without moving the box at all.
+
+  It checks provenance, not presence. `emptyMastery()` hands back a *live
+  reference* to `shared.all()`, so even a broken fallback mutates the same object
+  — presence alone would pass for the wrong reason. So: the record must not have
+  existed before, the store must grow by exactly one, and the record must carry
+  the shared engine's own fields (`streak`, `incorrect`, `firstCorrectAt`) that a
+  private shape has no idea about.
+
+### Verified
+Cutting each thread is caught. WWTBANE's flag set false fails 2 checks including
+the one named for it; WWTBANE keeping a private copy fails 9; StarNix losing the
+bridge fails 7 — including that the launcher can no longer see every tool's work.
+
+The first version of the WWTBANE section **crashed** on a broken integration
+rather than reporting, hiding every check after it. Guarded, it now names nine
+failures instead of printing a stack trace.
+
 ## v2.31.0 — The dead end v2.30.0 created (2026-09-13)
 
 Attacking the saved-exam record v2.29.0 introduced — ten payloads: prototype

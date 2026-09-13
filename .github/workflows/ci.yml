@@ -221,6 +221,12 @@ jobs:
       # so resuming buys no time, and each question's option permutation is
       # replayed -- rebuilding from the bank would reshuffle and silently point
       # every stored answer at a different option.
+      # (v2.32.0) "however you play, answers feed the same mastery tracker" --
+      # the README's headline claim, and the reason this is one app rather than
+      # three. It spans three independently-built codebases that reach the
+      # shared store three different ways, and any one of them could stop with
+      # every other suite still green.
+      - run: node scripts/promise-test.mjs
       - run: node scripts/resume-test.mjs
       - run: node scripts/mobile-audit.mjs
       # The rendered half of the security gate: a malicious bank and poisoned
