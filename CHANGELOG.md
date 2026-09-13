@@ -5,6 +5,132 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.37.0 — A confirm dialog that hid what it was confirming (2026-09-13)
+
+`.nst-modal` is capped at the viewport height and is `overflow: hidden`. That is
+correct only because a child carries the scrolling: the stylesheet gives
+`.nst-modal > .nst-modal-body` `overflow-y: auto`, so a tall dialog scrolls its
+prose while the title and buttons stay put.
+
+Settings and Help are built that way. **The two confirm dialogs were not** —
+they appended their paragraphs straight to `.nst-modal`, with no
+`.nst-modal-body` anywhere. Nothing in them could scroll, so once the window got
+short the text was clipped by the cap and there was no way to reach it.
+
+Measured on the real page, before the fix:
+
+| window | content | box | scrollable |
+|---|---|---|---|
+| 480x280 larger text | 248px | 230px | nothing |
+| 390x260 larger text | 292px | 210px | nothing |
+| 320x240 larger text | 342px | 190px | nothing — **152px unreachable** |
+
+The dialog is **"Reset all saved data?"**, and the clipped sentence is the one
+naming what is about to be permanently destroyed: NST preferences, Practice
+Exams attempt history, and WWTBANE/StarNix progress.
+
+The buttons stayed visible — the flex column shrank the prose rather than the
+button row — so this did not look broken. It looked like a working dialog, with
+the warning cut out of it and a "Reset everything" button under it.
+
+### The accessibility setting was what triggered it
+Larger text moves the threshold from a window under 264px tall to one under
+about 340px. The preference that exists to make the text readable is what made
+it unreachable.
+
+### Fixed
+- **`confirmReset` and `confirmRestore` wrap their prose in `.nst-modal-body`**,
+  the same structure Settings and Help already use. `confirmRestore` needed it
+  more: two paragraphs, one of them a variable-length list of what the backup
+  file contains.
+- **`.nst-modal-sm > .nst-modal-body { padding: 0 }`** — a small dialog pads
+  itself, and 24px of panel plus 24px of body is a 48px gutter on a 420px panel.
+- **The title and action row are pinned** (`flex: 0 0 auto`). Without that the
+  flex column shrinks every child to fit, squashing the buttons instead of
+  letting the body scroll — and on a destructive confirm the buttons are the
+  last thing that should be compressed.
+
+After the fix, every one of those windows reports the content reachable by
+scrolling, and the roomy windows gain no scrollbar they do not need.
+
+### Added
+- **`scripts/dialog-test.mjs` (62 checks)**, wired into CI. A sweep, not a list:
+  every dialog the launcher can open, at seven window sizes, must satisfy one
+  rule — if the panel's content is taller than its box, something inside it must
+  actually scroll. Buttons must also stay above 24px and inside the panel.
+
+  Two details keep the sweep honest. The nav drops the Help button on a narrow
+  viewport, so a dialog can be unreachable at a size; that is reported as `n/a`
+  rather than passed, and a separate check requires each dialog to have been
+  measured on a short window at least once — otherwise a hidden trigger would
+  quietly empty the coverage. And because `confirmRestore` only appears after
+  somebody picks a real backup file, a static rule reads the source and forbids
+  appending body text directly to a `.nst-modal`, which catches the dialog the
+  browser half can never open.
+
+### Verified
+The sweep re-parents the reset confirm's paragraphs back onto the modal — the
+exact pre-fix structure — and requires the rule to fail at 320x240 and 480x280,
+the sizes where it really did clip, and to still pass at 1280x900 where there is
+nothing to hide. The static rule is checked the same way against a planted
+regression.
+
+## Also in v2.37.0 — what happens to a browser that is already signed in
+
+`server-test.mjs` is thorough about **who may sign in**. It had exactly one
+check on the other side of that question — "a disabled account cannot sign in" —
+and that is the login path. Nothing tested the path that matters when something
+has gone wrong: somebody is signed in **right now**, holding a valid cookie, and
+an administrator has just decided they should not be.
+
+Five actions are supposed to end that session immediately. **All five are
+correct.** Nothing is fixed here. But writing the suite and then breaking the
+server on purpose showed the reasons are not the ones the code reads as though
+they are:
+
+| action | what actually cuts it |
+|---|---|
+| admin disables the account | `currentUser`'s `user.disabled` check — **and** the DELETE inside `setDisabled`, independently |
+| admin deletes the account | `currentUser`'s `!user` check. **Not** the cascade |
+| admin resets the password | `deleteUserSessions` — nothing else |
+| person changes own password | `deleteUserSessions` — nothing else |
+| admin demotes a root | nothing, and nothing needs to: the role is re-read per request |
+
+One function carries three of the five: `currentUser`, doing a `getUserById` and
+two null checks that read as ordinary defensiveness. Turning `PRAGMA
+foreign_keys` **OFF** leaves the session rows behind and the holder is *still*
+signed out. The cascade and the `DELETE` inside `setDisabled` are hygiene.
+
+### Added
+- **`scripts/session-test.mjs` (30 checks)**, wired into CI. Spawns a real
+  server on a throwaway database, signs accounts in for real, and checks each
+  revocation against a live cookie.
+
+### This suite lied to me twice before it worked
+Worth writing down, because both are the same mistake in different clothes.
+
+Its first run reported all five revocations green **while the accounts had never
+been signed in at all** — signing up redirects to `/login` rather than creating
+a session. The precondition check on each case ("starts signed in") is what
+caught that, and is why it stays.
+
+Its second lied the other way. Deleting `deleteUserSessions` from the admin
+reset left the suite **ALL GREEN**: an admin reset also sets `must_change`, and
+a `must_change` session answers 403 on `/api/me`. The probe read 403 as "signed
+out" when it means "signed in but confined". Hence `signedInState`, which
+returns `in` / `confined` / `out` and distinguishes a session that is gone from
+one that is merely held.
+
+### Verified
+Each guard was deleted in turn and the suite re-run: the admin reset losing its
+revocation fails 3 checks, the self-change losing its revocation fails 2 (the
+other browser reads `in`), `currentUser` no longer re-reading the user row fails
+5 including a demoted session opening `/admin` with a 200, and `foreign_keys
+OFF` fails only the hygiene check, exactly as labelled. Removing **either** of
+the two disable defences alone is invisible to a request — removing both flips
+the behavioural check to `in`.
+
+
 ## v2.36.0 — Ten scripts, one at a time (2026-09-13)
 
 Every `<script src>` on the launcher and Practice Exams was a plain blocking

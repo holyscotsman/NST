@@ -502,6 +502,15 @@ body {
   overscroll-behavior: contain;
 }
 .nst-modal-sm { max-width: 420px; padding: 24px; max-height: calc(100vh - 48px); }
+/* (v2.37.0) A small dialog pads itself, so its body must not pad again -- 24px
+   of panel plus 24px of body is a 48px gutter on a 420px panel. */
+.nst-modal-sm > .nst-modal-body { padding: 0; }
+/* The title and the buttons are pinned; only the prose between them scrolls.
+   Without this the flex column shrinks every child to fit, which squashes the
+   action row rather than letting the body scroll -- and on a destructive
+   confirm the buttons are the last thing that should be compressed. */
+.nst-modal > .nst-modal-title,
+.nst-modal > .nst-modal-actions { flex: 0 0 auto; }
 .nst-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px 14px; }
 .nst-modal-title { font-family: var(--font-display); font-weight: 600; font-size: 22px; color: var(--heading); }
 .nst-modal-x {

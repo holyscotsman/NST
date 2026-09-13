@@ -170,6 +170,14 @@ jobs:
       # be deleted without breaking a single other test, so this gate exists.
       - run: node ../scripts/load-test.mjs
 
+      # (v2.37.0) what happens to a browser that is ALREADY signed in. server-test
+      # is thorough about who may sign in and had exactly one check on the other
+      # side of it. Five actions are supposed to end a live session at once -- a
+      # self password change, an admin reset, a disable, a delete, a demotion --
+      # and each is one line from silently not happening, with the admin page and
+      # the audit log both still claiming it did.
+      - run: node ../scripts/session-test.mjs
+
   # (v2.23.0) The suites that need a real browser — 109 checks covering
   # accessibility (axe plus the keyboard checks axe cannot make), painted-
   # background contrast, phone and landscape layout, the DOM half of the security
@@ -249,5 +257,14 @@ jobs:
       # storage loaded into all four real pages, where security-test.mjs only
       # proves they stay inert as data.
       - run: node scripts/attack-browser.mjs
+      # (v2.37.0) a dialog must never hide what it is asking you to agree to.
+      # .nst-modal is capped at the viewport height and overflow:hidden, which is
+      # correct only because .nst-modal-body carries the scrolling. The two
+      # confirm dialogs had no body: they appended their paragraphs straight to
+      # the panel, so on a short window the sentence naming what is about to be
+      # permanently destroyed was clipped with no way to scroll to it. Larger
+      # text -- an accessibility preference -- is what moved the threshold from a
+      # window under 264px tall to one under about 340px.
+      - run: node scripts/dialog-test.mjs
       # smoke-test starts its own server and its own throwaway database.
       - run: node scripts/smoke-test.mjs
