@@ -5,6 +5,38 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.17.0 — A phone held sideways (2026-09-13)
+
+Every mobile pass so far measured portrait. Landscape is the shorter, more
+crowded of the two orientations and nothing had ever looked at it.
+
+### Fixed
+- **Two tap targets were under the WCAG 2.2 SC 2.5.8 (AA) minimum of 24x24 CSS
+  px**, on every phone, in both orientations:
+  - Practice Exams' **"← Main menu"** link was 87x21 — a 14px line of text with
+    no padding at all. It is now 103x29, with the padding negative-margined back
+    so nothing on the page moves; only the target grows.
+  - The **volume slider** in Settings was 16px tall. The track still looks the
+    same; the element now has 24px of height to aim at.
+
+### Added
+- **Landscape and tap-target checks in `scripts/a11y-audit.mjs` (35 → 45
+  checks).** Five surfaces measured at 844x390 with touch emulation: every
+  target at least 24x24, and no page scrolling sideways.
+
+  **A control's own box is not always its target.** A 16x16 checkbox inside a
+  510x43 `<label>` has the label's hit area, and failing it would be wrong — so
+  the rule takes the larger of the two. Measuring the element alone reported
+  three perfectly good Settings toggles as failures, which is how that ended up
+  written down in the file.
+
+### Not defects, after checking
+The first landscape sweep also flagged the decorative background glows as
+escaping the viewport and controls sitting below the fold. Both were the audit's
+fault: the glows live inside a `pointer-events: none`, `overflow: hidden` fixed
+layer and never widen the page, and content below the fold on a 390px-tall
+viewport is ordinary as long as the page scrolls — which it does, everywhere.
+
 ## v2.16.0 — A backup anyone will actually take (2026-09-12)
 
 The database on that VM is the only irreplaceable thing in the system: every

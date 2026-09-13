@@ -535,7 +535,10 @@ body {
 .nst-switch:focus-visible { outline: 2px solid var(--purple-light); outline-offset: 2px; }
 
 /* Slider */
-.nst-slider { flex: 1; max-width: 200px; accent-color: var(--purple); }
+/* (v2.17.0) a range input's own box was 16px tall, under the WCAG 2.2 SC 2.5.8
+   (AA) 24px minimum. The track stays visually thin; the element gets the height
+   so there is something to hit with a thumb. */
+.nst-slider { flex: 1; max-width: 200px; accent-color: var(--purple); min-height: 24px; }
 .nst-slider-val { font-size: 13px; font-weight: 700; color: var(--purple-light); font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; }
 
 /* Buttons */

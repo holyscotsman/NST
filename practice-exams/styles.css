@@ -86,7 +86,14 @@ body {
 .pe-btn-flag.on { border-color: rgba(255, 176, 32, 0.55); color: var(--warn-text); background: rgba(255, 176, 32, 0.1); }
 
 /* ---------- Entry screen ---------- */
-.pe-back { color: var(--purple-light); text-decoration: none; font-weight: 600; font-size: 14px; display: inline-block; margin-bottom: 22px; }
+/* (v2.17.0) 21px tall was under the WCAG 2.2 SC 2.5.8 (AA) 24px minimum -- a
+   14px line of text with no padding. The padding is negative-margined back so
+   nothing moves; only the target grows. */
+.pe-back {
+  color: var(--purple-light); text-decoration: none; font-weight: 600; font-size: 14px;
+  display: inline-flex; align-items: center; min-height: 24px;
+  padding: 4px 8px; margin: -4px -8px 18px;
+}
 .pe-back:hover { color: var(--purple-hover); }
 .pe-entry-title { font-family: var(--font-display); font-weight: 600; font-size: 40px; letter-spacing: -0.02em; color: var(--heading); line-height: 1.1; }
 .pe-entry-sub { color: var(--muted); margin-top: 8px; font-size: 15px; }
