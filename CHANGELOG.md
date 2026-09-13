@@ -5,6 +5,76 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.73.0 — two identical timestamps and no way to tell them apart (2026-09-13)
+
+**The root console stacks its tables on a phone and hides the header row.
+Nothing put the headings back.**
+
+The console is what the user runs their deployment from, and it had never been
+looked at on a narrow screen. Screenshotted at 390px with four real accounts:
+
+```
+akhan                          jsimmonds
+Aisha Khan                     Jason Simmonds
+USER                           USER
+never                          9/13/2026 04:46 PM
+0 active session(s)            1 active session(s)
+none                           151 B
+                               9/13/2026 04:46 PM
+```
+
+`none` is the Progress column. `never` is Last seen. And on an account that has
+actually synced, two identically-formatted timestamps sit one above the other —
+the last sign-in and the last sync — with nothing to say which is which.
+
+The cause is four lines of CSS that have been right about the layout and silent
+about the meaning:
+
+```css
+@media (max-width:620px){
+  table,thead,tbody,tr,td,th{display:block}
+  thead{display:none}
+}
+```
+
+`display:block` also strips the table semantics a screen reader would have used
+to announce the column, so on a phone the headings were gone for everyone, not
+just for people looking at the screen.
+
+Every cell in both tables now carries `data-label`, rendered above its value by
+a `::before` inside the same media query — so the wide layout keeps its real
+`<thead>` and never doubles up. Measured after the fix: at 390px the header row
+is hidden and every cell renders its heading; at 1280px the header row is back
+and every `::before` computes to `none`.
+
+server-test gains 6 checks (88 → 94), asserted against the rendered page rather
+than the source: every `<td>` in the console carries a label, both tables are
+covered, and two `[neg]` controls require the rule to be scoped to the narrow
+layout and the wide layout to still have a real header row. Stripping the labels
+turns 5 red.
+
+Two suites had to move with it, and both were worth the trip. `session-test`
+matched audit rows with a literal `<td>`, so any attribute at all broke its
+parser — widened to `<td[^>]*>`. And the attribute is `data-col`, not
+`data-label`, because `label` is one of the tokens pages-test watches for
+unescaped user text: the new markup tripped that rule by name alone. Renaming
+the attribute keeps a security rule at full strength rather than teaching it an
+exception.
+
+Also in this release, a flake of this session's own making. v2.71.0 redefined
+the exam's "answered" count to mean scoreable, and `resume-test` answers each
+question with a single keypress and then asserts six chips read answered — so
+whenever the shuffle put a multi-answer question in its first six, it got five.
+About 13% of the bank is multi-answer, so it failed perhaps one run in three and
+went red on the first PR after the change. The sitting now answers each question
+the way it asks to be answered. The product was right; the fixture was measuring
+something the change had moved.
+
+The rest of the server-rendered screens were measured at 390px and 1280px in the
+same pass and are clean: sign-in, sign-up, the failed-sign-in state and the
+console itself have no horizontal overflow, no page errors, and every visible
+input is labelled and carries an `autocomplete` attribute.
+
 ## v2.72.0 — the pass mark the bank sets and the exam ignored (2026-09-13)
 
 **`pass: 0.80` is the second line of the bank format. The launcher honoured it.
