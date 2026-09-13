@@ -5,6 +5,7 @@
  * Run: node multi-answer-test.mjs
  */
 import fs from "fs";
+import { loadRealBank } from "./real-bank.mjs";
 globalThis.window = globalThis;
 (0, eval)(fs.readFileSync(new URL("./starnix-core.js", import.meta.url), "utf8"));
 const { validateBank, DOMAINS } = globalThis.StarNix._internal;
@@ -52,16 +53,16 @@ ok("grade single match -> correct", grade(single, 1) === true);
 ok("grade single miss -> incorrect", grade(single, 0) === false);
 
 // ---- the generated bank contains valid multi questions ----
-(0, eval)(fs.readFileSync(new URL("./questions.js", import.meta.url), "utf8"));
-const bank = globalThis.STARNIX_QUESTIONS;
-ok("generated bank loaded", !!bank && Array.isArray(bank.questions));
+// (v2.51.0) the real bank, not StarNix's compiled copy of it — the copy is gone.
+const bank = loadRealBank();
+ok("the shipped bank loads through the real parser and adapter", !!bank && Array.isArray(bank.questions));
 const multiInBank = (bank.questions || []).filter((q) => Array.isArray(q.correctIndices));
-ok("generated bank contains >=1 multi question", multiInBank.length >= 1);
-ok("every multi question in the bank has >=2 distinct in-range indices",
+ok("the shipped bank contains >=1 multi question", multiInBank.length >= 1);
+ok("every multi question in the shipped bank has >=2 distinct in-range indices",
   multiInBank.every((q) => q.correctIndices.length >= 2 &&
     new Set(q.correctIndices).size === q.correctIndices.length &&
     q.correctIndices.every((i) => i >= 0 && i < q.options.length)));
-ok("generated bank validates clean", validateBank(bank).ok);
+ok("the shipped bank validates clean", validateBank(bank).ok);
 
 console.log(fails ? ("\nMULTI-ANSWER TEST: " + fails + " FAIL(S)") : "\nMULTI-ANSWER TEST: ALL GREEN");
 process.exit(fails ? 1 : 0);

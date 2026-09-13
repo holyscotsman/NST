@@ -102,7 +102,12 @@ jobs:
       # rather than a gate because the default 20 runs take ~90s; six runs is
       # ~50s and still exercises deaths, extracts and sector advances.
       - run: ARM_FUZZ_RUNS=6 node arm-fuzz.cjs
-      - run: node import-questions.mjs --check
+      # (v2.51.0) `import-questions.mjs --check` ran here, verifying that
+      # starnix/questions.js still matched starnix_questions.md. Both were StarNix's
+      # own copy of a bank the app has served from banks/ncp-mci/ncp-mci.md since the
+      # runtime bank engine landed, and the check only ever compared the copy with
+      # itself. bank-lint and multi-answer-test read the real bank now (real-bank.mjs),
+      # and scripts/bank-test.mjs gates its content.
       - run: KBB_ASSERT=1 node kbb-balance.cjs
       # (v2.5.3) property fuzz: the provider must never throw, return junk, or leak
       # an exhibit into a game pool. Pure Node, no browser.

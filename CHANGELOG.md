@@ -5,6 +5,76 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.51.0 — one bank, one copy (2026-09-13)
+
+StarNix carried its own copy of the question bank. `starnix_questions.md` (354 KB)
+compiled by `import-questions.mjs` into `questions.js` (391 KB), and StarNix's
+harnesses — `bank-lint`, `multi-answer-test`, a CI step called
+`import-questions --check` — linted **that**, while the app served
+`banks/ncp-mci/ncp-mci.md`. The drift guard compared the copy with its own source.
+Nothing compared either with the bank anyone actually answers.
+
+They matched. Measured, id by id:
+
+```
+starnix/questions.js : 255 questions
+banks/ncp-mci.md     : 255 questions
+ids only in one or the other         : 0
+shared ids with different stem       : 0
+shared ids with different options    : 0
+shared ids with different explanation: 0
+exhibit questions                    : 27 — with different alt text: 21
+```
+
+**Twenty-one.** v2.50.0 wrote those exhibit descriptions into the bank the day
+before. The compiled copy kept the old ones, and three StarNix harnesses went on
+linting text no player would ever see. That is what a duplicate does — not a loud
+divergence, a quiet one, on exactly the part somebody just took the trouble to fix.
+
+### Removed — the second copy and its toolchain
+`questions.js`, `starnix_questions.md`, `questions_authoring.md`,
+`starnix_briefing_scaffold.md`, `import-questions.mjs`. **972 KB.**
+
+### Removed — `starnix/exhibit-images/`, 34 files, 3.2 MB
+Twenty-seven are pre-WEBP originals of images that live in `banks/ncp-mci/images/`
+now; seven are orphans referenced by no live question — `a4q50.png` among them,
+which `build.mjs`'s own comment already named as dead weight.
+
+The build read all 34 on every run and inlined **none**: it filtered them against a
+reference set taken from `questions.js`, which stopped being built into the page when
+StarNix became bank-agnostic. What shipped was `window.STARNIX_EXHIBITS = {}` — an
+empty global no game, shell or page reads. Directory, global, filter and the
+"Inlining exhibits…" boot step are all gone.
+
+### The harnesses read the real bank now
+`starnix/real-bank.mjs` loads `banks/ncp-mci/ncp-mci.md` the way the browser does —
+real markdown, real parser, real StarNix adapter — for `bank-lint`,
+`multi-answer-test` and `verify-build`. Which means those harnesses now also verify
+the seam they depend on: a parser or adapter change that breaks StarNix's question
+shape fails there instead of in somebody's browser.
+
+`exhibit-check`'s third section asserted
+`Object.keys(EXH).length === 0 || Object.values(EXH).every(isDataUri)` — true whether
+the map is empty or full, a check with no failing case. It now asserts what the
+machinery was for, with a control that fails.
+
+### The rule that keeps it to one
+`bank-test.mjs`, +4 checks (85 → 89). Twelve live question ids are taken from the
+manifest's first bank and the repo is walked: a file outside `banks/` carrying three
+or more of them is a second copy. The negative control reconstructs the deleted
+`questions.js` and requires it to be caught — it reported ALL CLEAR on the first run,
+because the probe directory was named with a leading dot and the walk skips those. A
+control the rule cannot see proves nothing.
+
+### Also
+`harness-coverage.mjs` follows imports one hop (+2 checks, 25 → 27): a module
+imported by a harness CI runs is covered by it, not dark. Before this, factoring
+shared setup out of three harnesses into one module made the new module look like an
+unrun suite, and the only way to quiet it was an exclusion saying "not run" about a
+file that runs constantly.
+
+CI's StarNix job: 20 runs → 19. Repo: **−4.2 MB**.
+
 ## v2.50.0 — alt text that says nothing is not alt text (2026-09-13)
 
 The shipped NCP-MCI bank carries **27 exhibit questions**. Six of them had
