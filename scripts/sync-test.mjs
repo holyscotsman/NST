@@ -670,5 +670,153 @@ function liveSync({ records = 3, progressHandler } = {}) {
   }
 }
 
+/* ---- the envelope has to fit through the keepalive cap ---------------------
+ *
+ * The page-hide push rides `keepalive: true`, capped by the browser at 64 KB
+ * across all in-flight keepalive requests. The header of this file measured the
+ * envelope at 94% of that with ONE certification bank, and said a second would
+ * take it over. It does:
+ *
+ *     banks   envelope    gzipped
+ *       1       49.5 KB     4.6 KB   fits
+ *       2       98.4 KB     8.5 KB   OVER the cap
+ *       8      391.5 KB    32.5 KB   OVER the cap
+ *
+ * So the push compresses. These pin the three things that can go wrong with
+ * that: it has to actually compress, it has to say it did, and the page-hide
+ * path -- which cannot wait for an asynchronous CompressionStream -- must use
+ * the last one only while it still describes what is in the browser. Sending a
+ * stale compressed body would drop precisely the answers that push exists for. */
+{
+  const { gzipSync, gunzipSync } = await import('node:zlib');
+
+  /* The mock window has no CompressionStream, so give it one that behaves like
+   * the real one: asynchronous, and producing real gzip bytes. */
+  function withCompression(win) {
+    win.CompressionStream = class { constructor(fmt) { this.format = fmt; } };
+    win.Response = class {
+      constructor(src) { this._src = src; }
+      get body() { return { pipeThrough: () => ({ __gz: gzipSync(Buffer.from(String(this._src), 'utf8')) }) }; }
+      blob() {
+        const bytes = this._src && this._src.__gz ? this._src.__gz : Buffer.from(String(this._src), 'utf8');
+        return Promise.resolve({ size: bytes.length, __bytes: bytes });
+      }
+    };
+    return win;
+  }
+
+  function stack({ compress }) {
+    const sent = [];
+    const fetchImpl = (path, opts) => {
+      const method = (opts && opts.method) || 'GET';
+      if (path === '/api/me') return jsonRes({ id: 1, username: 'u1' });
+      if (path === '/api/progress' && method === 'GET') return jsonRes({ updatedAt: 0, data: null });
+      sent.push({ headers: (opts && opts.headers) || {}, body: opts && opts.body,
+                  keepalive: !!(opts && opts.keepalive) });
+      return jsonRes({ ok: true });
+    };
+    const h = makeWindow({ fetchImpl, seed: {
+      'nst.mastery.v1': JSON.stringify({ v: 1, records: Object.fromEntries(
+        Array.from({ length: 900 }, (_, i) => ['SZ-Q' + i,
+          { id: 'SZ-Q' + i, seen: 4, correct: 3, incorrect: 1, box: 3, streak: 2, lastSeen: 1 }])) }),
+    } });
+    if (compress) withCompression(h.win);
+    return { ...h, sent };
+  }
+
+  /* 1. The ordinary push compresses, and says so. */
+  {
+    const h = stack({ compress: true });
+    await h.win.NSTSync.push(true);
+    for (let i = 0; i < 8; i++) await new Promise((r) => setImmediate(r));
+    const put = h.sent[h.sent.length - 1];
+    const enc = put && (put.headers['Content-Encoding'] || put.headers['content-encoding']);
+    ok('an ordinary push is gzipped', enc === 'gzip', JSON.stringify(put && put.headers));
+    const raw = JSON.stringify(h.win.NSTBackup.envelope()).length;
+    const packed = put && put.body && put.body.size;
+    ok('and the body really is the compressed bytes, not the JSON',
+      !!packed && packed * 4 < raw, `${(raw / 1024).toFixed(1)}K -> ${packed ? (packed / 1024).toFixed(1) + 'K' : 'n/a'}`);
+    ok('the compressed body decodes back to the same envelope',
+      !!put.body.__bytes && JSON.parse(gunzipSync(put.body.__bytes).toString('utf8')).app === 'nutanix-study-tool');
+    ok('the fixture is over the keepalive cap uncompressed, which is the point',
+      raw > h.win.NSTSync.KEEPALIVE_SAFE_BYTES, (raw / 1024).toFixed(1) + 'K');
+  }
+
+  /* 2. A browser without CompressionStream still pushes, in plain JSON. */
+  {
+    const h = stack({ compress: false });
+    await h.win.NSTSync.push(true);
+    for (let i = 0; i < 8; i++) await new Promise((r) => setImmediate(r));
+    const put = h.sent[h.sent.length - 1];
+    const enc = put && (put.headers['Content-Encoding'] || put.headers['content-encoding']);
+    ok('without CompressionStream the push still goes, uncompressed',
+      !!put && !enc && typeof put.body === 'string' && put.body.includes('SZ-Q0'), String(enc));
+  }
+
+  /* 3. Page-hide uses the warm copy, and only while it is warm. */
+  {
+    const h = stack({ compress: true });
+    await h.win.NSTSync.push(true);
+    for (let i = 0; i < 8; i++) await new Promise((r) => setImmediate(r));
+    // Something changed after that push, so the cached body is now stale.
+    h.win.NSTMastery.record('SZ-AFTER', { correct: true, gate: 'always' });
+    h.sent.length = 0;
+    h.win.NSTSync.flushOnHide();
+    const stale = h.sent[h.sent.length - 1];
+    const staleEnc = stale && (stale.headers['Content-Encoding'] || stale.headers['content-encoding']);
+    ok('a page-hide push with newer data does NOT send the stale compressed copy',
+      !staleEnc, String(staleEnc));
+    ok('it sends the fresh answers instead, which is the whole point of that push',
+      typeof stale.body === 'string' && stale.body.includes('SZ-AFTER'));
+
+  }
+
+  /* 3b. The warm path, in the situation that actually produces it: a push that
+   *     FAILED. The cache is written before the request is sent, so it matches
+   *     the browser; `lastPushed` is not, because nothing was confirmed. The tab
+   *     then closes -- last chance, and now it is compressed and fits. */
+  {
+    const sent = [];
+    let failNext = true;
+    const fetchImpl = (path, opts) => {
+      const method = (opts && opts.method) || 'GET';
+      if (path === '/api/me') return jsonRes({ id: 1, username: 'u1' });
+      if (path === '/api/progress' && method === 'GET') return jsonRes({ updatedAt: 0, data: null });
+      sent.push({ headers: (opts && opts.headers) || {}, body: opts && opts.body,
+                  keepalive: !!(opts && opts.keepalive) });
+      if (failNext) return jsonRes({ error: 'nope' }, 500);
+      return jsonRes({ ok: true });
+    };
+    const h = makeWindow({ fetchImpl, seed: {
+      'nst.mastery.v1': JSON.stringify({ v: 1, records: Object.fromEntries(
+        Array.from({ length: 900 }, (_, i) => ['SZ-Q' + i,
+          { id: 'SZ-Q' + i, seen: 4, correct: 3, incorrect: 1, box: 3, streak: 2, lastSeen: 1 }])) }),
+    } });
+    withCompression(h.win);
+    await h.win.NSTSync.push(true);
+    for (let i = 0; i < 8; i++) await new Promise((r) => setImmediate(r));
+    sent.length = 0;
+    h.win.NSTSync.flushOnHide();
+    const hide = sent[sent.length - 1];
+    const enc = hide && (hide.headers['Content-Encoding'] || hide.headers['content-encoding']);
+    ok('after a failed push, the page-hide retry sends the compressed copy',
+      enc === 'gzip', JSON.stringify(hide && hide.headers));
+    ok('and it fits, so it rides keepalive rather than hoping a plain fetch survives',
+      !!hide && hide.keepalive === true && hide.body.size <= h.win.NSTSync.KEEPALIVE_SAFE_BYTES,
+      hide ? `keepalive=${hide.keepalive} size=${(hide.body.size / 1024).toFixed(1)}K` : 'nothing sent');
+  }
+
+  /* 4. [neg] the fixture's compression is real, not a passthrough. */
+  {
+    const h = stack({ compress: true });
+    const probe = JSON.stringify({ a: 'x'.repeat(20000) });
+    const gz = gzipSync(Buffer.from(probe, 'utf8'));
+    ok('[neg] the mock CompressionStream produces genuinely smaller bytes',
+      gz.length * 10 < probe.length, `${probe.length} -> ${gz.length}`);
+    ok('[neg] and a stack without it exposes no CompressionStream',
+      typeof stack({ compress: false }).win.CompressionStream === 'undefined');
+  }
+}
+
 console.log('\n' + (fail ? `SYNC: ${fail} FAILED (${pass} passed)` : `SYNC: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

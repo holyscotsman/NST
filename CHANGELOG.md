@@ -5,6 +5,92 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.62.0 — the second bank fits (2026-09-13)
+
+**A cliff the code could only warn about, reached by the next thing this
+repository is for. Plus a flaw in v2.60.0's own fix, found by measuring.**
+
+### The cliff, measured
+The page-hide push rides `keepalive: true`, which browsers cap at 64 KB across
+all in-flight keepalive requests. `sync-test.mjs` has said since v2.39.0 that the
+envelope sits at 94% of that with **one** certification bank, and that a second
+would take it over on its own. It does. With the shipped 255-question bank
+studied and duplicated per cert:
+
+| banks | questions | envelope | gzipped | keepalive |
+| --- | --- | --- | --- | --- |
+| 1 | 255 | 49.5 KB | 4.6 KB | fits |
+| **2** | 510 | **98.4 KB** | 8.5 KB | **over — falls back** |
+| 4 | 1020 | 196.1 KB | 16.3 KB | over — falls back |
+| 8 | 2040 | 391.5 KB | 32.5 KB | over — falls back |
+
+Over the cap the push falls back to an ordinary `fetch`, which the previous
+comment described honestly as *"less likely to survive the page going away"*.
+Seven more banks are planned. From the second one, every last-chance save on a
+closing tab is a coin toss.
+
+### The fix is the shape of the data
+The envelope is JSON full of identically-shaped records, so it deflates about
+twelvefold — **eight banks compressed still sit at half the cap**. Measured
+through a real browser and server: 43.6 KB → 2.3 KB, 18.6×.
+
+- **Client.** The ordinary push compresses with `CompressionStream("gzip")` and
+  sends `Content-Encoding: gzip`. A browser without it pushes plain JSON exactly
+  as before.
+- **Server.** `readBody` inflates a gzipped body — **with a ceiling.** `MAX_BODY`
+  bounds the bytes *arriving*; a compressed body's danger is what it *becomes*,
+  and 64 KB of zeros expands to 64 MB. `maxOutputLength` stops zlib at the limit
+  rather than after it: a 63.7 KB bomb that would open to 64 MB gets **413**, an
+  encoding the server does not speak gets **415**, and the process keeps serving.
+
+**Page-hide cannot compress**, because `CompressionStream` is asynchronous and
+the page is already leaving. So the ordinary push keeps its compressed body, and
+the page-hide push uses it *only while it still describes what is in the
+browser*. When something was answered inside the debounce window the cache is
+stale, and it falls back to exactly the previous behaviour — sending a stale
+compressed body would drop precisely the answers that push exists to save. The
+case where it helps most is a push that **failed**: the cache is written before
+the request, so the tab-closing retry is compressed and fits.
+
+### A flaw in v2.60.0, found by this
+`nst.sync.owner` — last cycle's stamp recording which account last synced in this
+browser — starts with `nst.`, so `NSTBackup` collected it like study data. It is
+not study data, and that bit twice:
+
+- a restore overwrote the local stamp with whichever browser last pushed, so two
+  devices would trade stamps and **clear each other's progress** — the exact
+  failure the stamp exists to prevent;
+- and because the stamp is written just *after* a push, including it made every
+  push's snapshot immediately stale, silently discarding the compressed body the
+  page-hide path depends on. That is how it surfaced: a new check failed against
+  correct code, and the reason was the stamp.
+
+`NSTBackup.LOCAL_ONLY` now names the keys that describe this browser rather than
+the study. They are read and written normally; they are only invisible to backup,
+restore and sync.
+
+### The gates
+- `server-test.mjs` 78 → 88: a gzipped body is accepted and round-trips
+  byte-for-byte; a bomb small enough to pass the arriving-bytes limit is refused
+  rather than unpacked; an unsupported encoding says 415; `identity` and plain
+  JSON both still work; the server survives all of it. Two fixture-validity
+  checks confirm the payload really compresses and the bomb really is small.
+- `sync-test.mjs` 82 → 93: the ordinary push is gzipped and the body really is
+  the compressed bytes; it decodes back to the same envelope; a browser without
+  `CompressionStream` still pushes; a page-hide with newer data does **not** send
+  the stale copy; after a failed push the retry does, and rides keepalive.
+- `backup-test.mjs` 44 → 52: the stamp is not collected, survives a
+  replace-restore and an account-switch clear, and a near-miss key like
+  `nst.sync.ownership` is still ours.
+
+Reverting each half turns its own suite red — 4 checks in backup, 4 in sync, 6 in
+server.
+
+### One more thing the module learned
+`gzipBody` reached for the bare global `Response`. Everything else in that module
+goes through `window`, and the inconsistency meant a harness could hand it a
+compressor it would then ignore. It reads `window.Response` now.
+
 ## v2.61.0 — one way to write a question (2026-09-13)
 
 **A documentation defect with real cost ahead of it. The repository told you to

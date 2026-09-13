@@ -26,6 +26,7 @@ import { tmpdir } from 'node:os';
 import { join, extname, resolve } from 'node:path';
 import { resolveWithin } from './safe-path.mjs';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync, inflateSync } from 'node:zlib';
 import * as DB from './db.mjs';
 import * as A from './auth.mjs';
 import * as P from './pages.mjs';
@@ -183,8 +184,39 @@ const sendJson = (res, code, obj, headers) =>
   send(res, code, JSON.stringify(obj), { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...headers });
 const redirect = (res, to, headers = {}) => { res.writeHead(302, { Location: to, 'Cache-Control': 'no-store', ...headers }); res.end(); };
 
+/* A gzipped request body, unpacked with a ceiling on what it may become.
+ *
+ * The progress envelope is JSON full of repeated record shapes, so it deflates
+ * about twelvefold -- measured, eight certification banks studied: 391.5 KB of
+ * JSON, 32.5 KB gzipped. That is what keeps the page-hide push inside the
+ * browser's 64 KB keepalive cap as banks are added (see shared/nst-sync.js).
+ *
+ * `limit` alone does not cover this. It bounds the bytes ARRIVING, and a
+ * compressed body's danger is what it becomes: a few hundred kilobytes of zeros
+ * expand to gigabytes and take the process with them. So the decompressed size
+ * is capped too, by the same number, and zlib stops at it rather than after. */
+function inflateBody(buf, encoding, limit) {
+  const enc = String(encoding || '').split(',')[0].trim().toLowerCase();
+  if (!enc || enc === 'identity') return buf;
+  if (enc !== 'gzip' && enc !== 'deflate') {
+    const e = new Error('unsupported content encoding');
+    e.statusCode = 415;
+    throw e;
+  }
+  try {
+    return enc === 'gzip'
+      ? gunzipSync(buf, { maxOutputLength: limit })
+      : inflateSync(buf, { maxOutputLength: limit });
+  } catch (err) {
+    // A body that expands past the ceiling, or simply is not what it claims.
+    const e = new Error('body too large');
+    e.statusCode = 413;
+    throw e;
+  }
+}
+
 async function readBody(req, limit = MAX_BODY) {
-  return new Promise((ok, fail) => {
+  const raw = await new Promise((ok, fail) => {
     let size = 0; const chunks = [];
     req.on('data', (c) => {
       size += c.length;
@@ -194,6 +226,7 @@ async function readBody(req, limit = MAX_BODY) {
     req.on('end', () => ok(Buffer.concat(chunks)));
     req.on('error', fail);
   });
+  return inflateBody(raw, req.headers['content-encoding'], limit);
 }
 function parseForm(buf) {
   const out = {};
@@ -490,7 +523,15 @@ async function handle(req, res) {
     if (method === 'PUT' || method === 'POST') {
       let body;
       try { body = await readBody(req); }
-      catch { return sendJson(res, 413, { error: 'that progress payload is too large' }); }
+      catch (e) {
+        // 415 when the body claimed an encoding this server does not speak;
+        // 413 when it was, or would become, too big. Saying which is the
+        // difference between a client that can retry uncompressed and one that
+        // keeps sending something that will never be accepted.
+        return e && e.statusCode === 415
+          ? sendJson(res, 415, { error: 'that content encoding is not supported' })
+          : sendJson(res, 413, { error: 'that progress payload is too large' });
+      }
       let parsed;
       try { parsed = JSON.parse(body.toString('utf8')); }
       catch { return sendJson(res, 400, { error: 'not valid JSON' }); }

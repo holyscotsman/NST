@@ -10,6 +10,7 @@
  * dependencies — it runs in CI. Run: node scripts/server-test.mjs
  */
 import { spawn } from 'node:child_process';
+import { gzipSync } from 'node:zlib';
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -234,6 +235,83 @@ try {
     await bob.req('/api/progress', { method: 'PUT', json: { app: 'nutanix-study-tool', format: 1, data: { 'nst.prefs': '{"bob":true}' } } });
     const aliceStill = JSON.parse((await alice.req('/api/progress')).text);
     ok("writing as one account does not touch the other's", aliceStill.data.data['nst.mastery.v1'] === envelope.data['nst.mastery.v1']);
+  }
+
+
+  /* ---- 6b. a compressed progress body ---------------------------------
+   *
+   * WHY THE SERVER HAS TO SPEAK GZIP HERE
+   * The page-hide push rides `keepalive: true`, which browsers cap at 64 KB
+   * across all in-flight keepalive requests. Measured, with the shipped
+   * 255-question bank studied and duplicated per certification:
+   *
+   *     1 bank    49.5 KB envelope   4.6 KB gzipped   fits
+   *     2 banks   98.4 KB            8.5 KB           OVER the cap
+   *     8 banks  391.5 KB           32.5 KB           OVER the cap
+   *
+   * The envelope is JSON full of identically-shaped records, so it deflates
+   * about twelvefold and eight banks compressed still sit at half the cap.
+   * Without this the second certification bank pushes every page-hide save off
+   * a cliff the code could only warn about.
+   *
+   * AND WHY THE CEILING MATTERS MORE THAN THE FLOOR
+   * `MAX_BODY` bounds the bytes ARRIVING. A compressed body's danger is what it
+   * BECOMES: 64 KB of zeros expands to 64 MB and takes the process with it. */
+  {
+    // Reuse an account that already exists: the per-address signup throttle is
+    // a real gate and this block is about encodings, not account creation.
+    const carol = makeClient();
+    const csrf = await carol.csrf();
+    const li = await carol.req('/login', { method: 'POST', form: { csrf, username: 'alice', password: 'correct-horse' } });
+    ok('the encoding block has a signed-in account to work with',
+      li.status === 302 || li.status === 303, li.status + ' ' + li.text.slice(0, 60));
+
+    // A realistically-shaped envelope: many records of the same shape.
+    const records = {};
+    for (let i = 0; i < 500; i++) {
+      records['GZ-Q' + i] = { id: 'GZ-Q' + i, seen: 4, correct: 3, incorrect: 1, box: 3, streak: 2, lastSeen: 1 };
+    }
+    const envelope = { app: 'nutanix-study-tool', format: 1,
+      data: { 'nst.mastery.v1': JSON.stringify({ v: 1, records }) } };
+    const text = JSON.stringify(envelope);
+    const packed = gzipSync(Buffer.from(text, 'utf8'));
+
+    ok('the fixture is actually compressible (a tiny one would prove nothing)',
+      text.length > 40 * 1024 && packed.length * 5 < text.length,
+      `${(text.length / 1024).toFixed(1)}K -> ${(packed.length / 1024).toFixed(1)}K`);
+
+    const put = await carol.req('/api/progress', { method: 'PUT', body: packed,
+      headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip' } });
+    ok('a gzipped progress body is accepted', put.status === 200, put.status + ' ' + put.text.slice(0, 80));
+
+    const back = JSON.parse((await carol.req('/api/progress')).text);
+    ok('and arrives byte-for-byte intact',
+      back.data && back.data.data['nst.mastery.v1'] === envelope.data['nst.mastery.v1']);
+
+    // The bomb: small on the wire, enormous once opened.
+    const bomb = gzipSync(Buffer.alloc(64 * 1024 * 1024, 0x41));
+    ok('the bomb fixture is small enough to pass the arriving-bytes limit',
+      bomb.length < 1024 * 1024, (bomb.length / 1024).toFixed(1) + 'K');
+    const boom = await carol.req('/api/progress', { method: 'PUT', body: bomb,
+      headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'gzip' } });
+    ok('a body that expands past the ceiling is refused, not unpacked',
+      boom.status === 413, boom.status);
+
+    const wrongEnc = await carol.req('/api/progress', { method: 'PUT', body: packed,
+      headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'br' } });
+    ok('an encoding the server does not speak says so, rather than mangling the body',
+      wrongEnc.status === 415, wrongEnc.status);
+
+    const identity = await carol.req('/api/progress', { method: 'PUT', body: text,
+      headers: { 'Content-Type': 'application/json', 'Content-Encoding': 'identity' } });
+    ok('an explicit "identity" encoding is still plain JSON', identity.status === 200, identity.status);
+
+    const plain = await carol.req('/api/progress', { method: 'PUT', json: envelope });
+    ok('and an uncompressed push still works, for a browser without CompressionStream',
+      plain.status === 200, plain.status);
+
+    const alive = await carol.req('/api/me');
+    ok('the server is still serving after all of that', alive.status === 200, alive.status);
   }
 
   /* ---- 7. signing out ---- */

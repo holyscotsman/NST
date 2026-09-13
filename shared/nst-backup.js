@@ -24,6 +24,23 @@
   var APP = "nutanix-study-tool";
   // Every key NST owns, by exact name or prefix. Nothing else is ever read or written.
   var OWNED_PREFIXES = ["nst.", "starnix:", "wwtbane."];
+
+  /* ...minus the bookkeeping that describes THIS BROWSER rather than the study.
+   *
+   * `nst.sync.owner` (v2.60.0) records which account last synced here, so that
+   * signing in as someone else clears their colleague's record instead of
+   * merging it. It is per-browser by definition and must not travel:
+   *
+   *   - restoring a backup would overwrite the local stamp with whichever
+   *     browser last pushed, and two devices would then trade stamps and clear
+   *     each other's progress -- the exact thing the stamp exists to prevent;
+   *   - and because the stamp is written just AFTER a push, including it made
+   *     every push's snapshot immediately stale, which silently threw away the
+   *     compressed body the page-hide push depends on.
+   *
+   * Anything here is read and written normally by the app; it is only invisible
+   * to backup, restore and sync. */
+  var LOCAL_ONLY = ["nst.sync.owner"];
   var MAX_VALUE_BYTES = 8 * 1024 * 1024;   // a single value this large is not ours
   var MAX_TOTAL_BYTES = 16 * 1024 * 1024;
 
@@ -31,6 +48,9 @@
 
   function isOwned(key) {
     if (typeof key !== "string" || !key) return false;
+    for (var j = 0; j < LOCAL_ONLY.length; j++) {
+      if (key === LOCAL_ONLY[j]) return false;
+    }
     for (var i = 0; i < OWNED_PREFIXES.length; i++) {
       if (key.indexOf(OWNED_PREFIXES[i]) === 0) return true;
     }
@@ -312,6 +332,7 @@
     FORMAT: FORMAT,
     APP: APP,
     OWNED_PREFIXES: OWNED_PREFIXES,
+    LOCAL_ONLY: LOCAL_ONLY,
     mergeValue: mergeValue, mergeAttempts: mergeAttempts,
     isOwned: isOwned,
     collect: collect,

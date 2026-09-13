@@ -338,5 +338,64 @@ const SEED = {
     JSON.parse(localStorage.getItem('nst.prefs.v1')).theme === 'new');
 }
 
+/* ---- what belongs to the browser, not to the account ----------------------
+ *
+ * `nst.sync.owner` records which account last synced in THIS browser, so that
+ * signing in as someone else clears their colleague's record rather than
+ * merging it (v2.60.0). It starts with `nst.`, so it was collected, backed up,
+ * restored and synced like study data -- and it is none of those things.
+ *
+ * Two ways that bit:
+ *   - a restore overwrote the local stamp with whichever browser last pushed,
+ *     so two devices would trade stamps and clear each other's progress: the
+ *     exact failure the stamp exists to prevent;
+ *   - the stamp is written just AFTER a push, so including it made every
+ *     push's snapshot immediately stale and silently discarded the compressed
+ *     body the page-hide push depends on (v2.62.0).
+ */
+{
+  const { B, map } = freshBoth();
+  const storage = {
+    getItem: (k) => (map.has(k) ? map.get(k) : null),
+    setItem: (k, v) => { map.set(k, String(v)); },
+  };
+  storage.setItem('nst.mastery.v1', '{"v":1,"records":{}}');
+  storage.setItem('nst.sync.owner', '42');
+  storage.setItem('starnix:profile', '{}');
+
+  const collected = B.collect();
+  ok('the owner stamp is not collected', !('nst.sync.owner' in collected),
+    Object.keys(collected).join(','));
+  ok('but the study data around it still is',
+    'nst.mastery.v1' in collected && 'starnix:profile' in collected,
+    Object.keys(collected).join(','));
+  ok('isOwned says so directly', B.isOwned('nst.sync.owner') === false);
+  ok('and the exclusion is declared rather than hidden in a regex',
+    Array.isArray(B.LOCAL_ONLY) && B.LOCAL_ONLY.indexOf('nst.sync.owner') !== -1,
+    JSON.stringify(B.LOCAL_ONLY));
+
+  // A restore must leave the stamp alone -- including a replace, which clears
+  // everything it owns on its way in.
+  const env = JSON.stringify({ app: 'nutanix-study-tool', format: 1,
+    data: { 'nst.mastery.v1': '{"v":1,"records":{"other":{}}}' } });
+  const out = B.restore(env, { mode: 'replace' });
+  ok('a replace-mode restore succeeds', out.ok === true, JSON.stringify(out).slice(0, 90));
+  ok('and does not touch this browser\'s owner stamp',
+    storage.getItem('nst.sync.owner') === '42', storage.getItem('nst.sync.owner'));
+
+  // Nor does clearing local progress on an account switch.
+  storage.setItem('nst.mastery.v1', '{"v":1,"records":{"x":{}}}');
+  B.clearLocal();
+  ok('clearing for an account switch leaves the stamp for the new one to overwrite',
+    storage.getItem('nst.sync.owner') === '42' && storage.getItem('nst.mastery.v1') === null,
+    storage.getItem('nst.sync.owner') + ' / ' + storage.getItem('nst.mastery.v1'));
+
+  /* [neg] the exclusion is specific: a near-miss key is still ours. */
+  storage.setItem('nst.sync.ownership', 'study data, despite the name');
+  ok('[neg] only the exact key is excluded, not anything that looks like it',
+    B.isOwned('nst.sync.ownership') === true && 'nst.sync.ownership' in B.collect());
+}
+
+
 console.log('\n' + (fail ? `BACKUP: ${fail} FAILED of ${pass + fail}` : `BACKUP: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);
