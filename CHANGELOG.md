@@ -63,6 +63,38 @@ first.
   *visible* `role="alert"` one that never claims the work is safe; and both
   **go away when the failure clears**.
 
+### Also: the expired-exam card, opened for the first time
+Unrelated to the warnings, found while looking for other things nobody was
+watching. `resume-test.mjs` checks the wording of the card you get when a timed
+exam's clock ran out while you were away — that it appears, that it does not say
+"Resume", that it explains why — and **never clicked it**.
+
+The card's whole promise is one sentence: *"Open it to see how the N you
+answered scored."* A resume that threw, hung, or landed on a blank screen would
+have left every one of those checks green: the exam gone, the offer to see it a
+lie, and the suite reporting ALL GREEN.
+
+The path is subtle enough to be worth walking. Resuming rebuilds the sitting and
+starts the timer; `startTimer()` calls `tick()` immediately rather than waiting a
+second; the deadline is already behind; and that first tick auto-submits. Four
+things in a row, none of them obvious from the card.
+
+**It works.** 6 checks in `resume-test.mjs` (44 → 50) now open it: no page
+error, not left on the card or a blank screen, lands on a result carrying a
+score, says "Time expired" so the score is not mistaken for a full sitting, and
+**clears the saved record** — without which the same finished exam would be
+offered again on every visit, forever.
+
+### The third event, and why it is not covered
+`nst-sync.js` also fires `nst-account`, and only the launcher listens. That is a
+deliberate difference rather than the same gap a third time: the two events
+above are **failure notifications**, and missing one means a failure nobody is
+told about. `nst-account` is informational — it names the account, it does not
+report anything going wrong — so a page that does not show it loses a label
+rather than a warning. Written down in the suite so the rule is not extended by
+rote, and so the reason is visible if `nst-account` ever starts carrying a
+failure.
+
 ### Why both halves
 The static rule stops at "listens at all", and that limit is stated rather than
 papered over. Deleting the `watchSync()` call from Practice Exams' `boot()`
