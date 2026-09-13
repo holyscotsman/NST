@@ -134,7 +134,14 @@
     if (!force && snap === state.lastPushed) return Promise.resolve({ ok: true, skipped: true });
     if (!snap || snap === "{}") return Promise.resolve({ ok: true, skipped: true });
     state.busy = true;
-    return api("/api/progress", { method: "PUT", body: JSON.stringify(B.envelope()) })
+    var text = JSON.stringify(B.envelope());
+    return gzipBody(text).then(function (gz) {
+      // Keep it for the page-hide path, which has no time to make its own.
+      if (gz) _gzipCache = { snap: snap, body: gz };
+      return api("/api/progress", gz
+        ? { method: "PUT", body: gz, headers: { "Content-Type": "application/json", "Content-Encoding": "gzip" } }
+        : { method: "PUT", body: text });
+    })
       .then(function (r) {
         state.lastPushed = snap; state.lastError = null; state.failures = 0;
         announce(); return { ok: true, at: r.updatedAt };
@@ -172,6 +179,47 @@
     try { return new Blob([text]).size; } catch (e) { return text.length; }
   }
 
+  /* GZIP, BECAUSE THE ENVELOPE OUTGROWS THE CAP AT THE SECOND CERTIFICATION
+   *
+   * The comment above was written with one bank in the repo and said a second
+   * cert's bank would take it over on its own. Measured, with the shipped
+   * 255-question bank studied and duplicated per cert:
+   *
+   *     banks   envelope    gzipped
+   *       1       49.5 KB     4.6 KB    keepalive fits
+   *       2       98.4 KB     8.5 KB    over the cap -- falls back
+   *       8      391.5 KB    32.5 KB    over the cap -- falls back
+   *
+   * The envelope is JSON full of identically-shaped records, so it deflates
+   * about twelvefold, and eight banks compressed still sit at half the cap. That
+   * is what keeps this data path off the cliff rather than merely warned about
+   * it -- and it is a twelvefold cut in what every ordinary push sends, which on
+   * a tool someone uses daily for months is worth having on its own.
+   *
+   * `CompressionStream` is asynchronous, which the ordinary push can await and
+   * the page-hide push cannot. So the ordinary push keeps the result, and
+   * flushOnHide uses it when it still matches what is in the browser -- see
+   * there for what happens when it does not. */
+  var _gzipCache = { snap: "", body: null };
+
+  // Both off `window`, not off the bare global: everything else in this module
+  // reaches the platform that way, and a harness can then hand it a compressor.
+  function canCompress() {
+    return typeof window.CompressionStream === "function" && typeof window.Response === "function";
+  }
+
+  /* Resolves to a Blob of gzipped bytes, or null if this browser cannot. */
+  function gzipBody(text) {
+    if (!canCompress()) return Promise.resolve(null);
+    try {
+      var R = window.Response;
+      var stream = new R(text).body.pipeThrough(new window.CompressionStream("gzip"));
+      return new R(stream).blob().catch(function () { return null; });
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
   /* A last-chance push as the tab goes away. */
   function flushOnHide() {
     var B = backup();
@@ -185,12 +233,28 @@
     try { if (window.NSTMastery && window.NSTMastery.flush) window.NSTMastery.flush(); } catch (e) {}
     var snap = snapshot();
     if (snap === state.lastPushed || !snap || snap === "{}") return;
-    var body = JSON.stringify(B.envelope());
-    var small = bodyBytes(body) <= KEEPALIVE_SAFE_BYTES;
+
+    /* Compressing here is not an option -- CompressionStream is asynchronous and
+     * the page is already leaving -- so use what the last ordinary push made, if
+     * it still describes what is in the browser.
+     *
+     * It usually does: a push fires 2.5s after any change and again on the 5s
+     * poll, so the cache is stale only when something was answered in the last
+     * few seconds AND the tab was closed before the debounce elapsed. That case
+     * falls back to exactly the previous behaviour -- full JSON, keepalive only
+     * if it fits -- which is no worse than before and is why the cache is used
+     * only when it matches rather than sent regardless. Sending a stale body
+     * would drop precisely the answers this push exists to save. */
+    var fresh = _gzipCache.body && _gzipCache.snap === snap;
+    var body = fresh ? _gzipCache.body : JSON.stringify(B.envelope());
+    var headers = fresh
+      ? { "Content-Type": "application/json", "Content-Encoding": "gzip" }
+      : { "Content-Type": "application/json" };
+    var small = (fresh ? body.size : bodyBytes(body)) <= KEEPALIVE_SAFE_BYTES;
     try {
       fetch("/api/progress", {
         method: "PUT", credentials: "same-origin", keepalive: small,
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: body,
       });
       // NOT marked as pushed. This request cannot be awaited -- the page is
