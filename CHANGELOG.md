@@ -5,6 +5,54 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.72.0 — the pass mark the bank sets and the exam ignored (2026-09-13)
+
+**`pass: 0.80` is the second line of the bank format. The launcher honoured it.
+Exam Mode graded every certification against a constant.**
+
+`banks/README.md`'s format section shows it as bank-level front matter,
+`bank-parser` reads it into `meta.pass`, and the launcher passes
+`bank.meta.pass` into the readiness estimate. `toStarNix()` — the only route a
+bank has into Practice Exams — dropped the field, so grading, the results
+screen's "you did not meet the N% pass bar" and the entry screen's promise all
+read `PE_CONFIG.PASS_THRESHOLD`.
+
+Measured against a bank authoring `pass: 0.70`:
+
+```
+bank authors                    0.70
+adapter carries                 (nothing — the field was not in the envelope)
+launcher readiness measures     70%
+Exam Mode grades against        80%
+```
+
+So the launcher would say "ready" at 70%, the exam would fail the same score,
+and the results screen would tell the person the bar was 80% — three surfaces,
+two numbers, one of them invented.
+
+Nothing is wrong today: neither shipped bank authors a pass mark, so both take
+the parser's 0.80 default and every surface agrees by coincidence. It goes wrong
+on the first bank that opts in, which the documented format invites and seven
+more certifications — which do not share a pass mark — make likely.
+
+The chain now carries it end to end. `toStarNix` includes `pass`;
+`engine.passMark()` reads it, validating the range and falling back to
+`PE_CONFIG.PASS_THRESHOLD` for a bank that says nothing and for harness
+fixtures that have no bank at all; `summarize()` grades against it and returns
+`passMark` alongside the verdict, so the screen reporting a result cannot name
+a different bar than the one that produced it. A mark of 0, above 1, negative or
+non-numeric falls back rather than making an exam unpassable or free.
+
+This is v2.56.0's class the other way round. That cycle closed "a field the
+pipeline cannot supply". This is a field the pipeline supplies, parses,
+documents and uses — dropped by one adapter, so the authority on pass and fail
+never saw it.
+
+engine-test gains two groups, 21 checks; adapter-test gains 2 (71 → 73). Two
+`[neg]` controls: the same 7-of-10 must pass a 70% bank and fail an 80% one, so
+the verdict is demonstrably reading the bank rather than a constant. Reverting
+the lookup turns the group red on its first check.
+
 ## v2.71.0 — four boxes ticked on a question that said "Select 2" (2026-09-13)
 
 **A question certain to be marked wrong, shown as answered on every surface of a
