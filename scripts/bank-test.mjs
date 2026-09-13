@@ -180,6 +180,22 @@ const lettersIn = (qs) => {
   }
   return hits;
 };
+/* (v2.50.0) An exhibit nothing describes. The floor is deliberately a real sentence's
+ * worth: these are Prism screenshots, CLI output and topology diagrams that questions
+ * are asked ABOUT, so the alt has to carry the values the question turns on rather than
+ * name the picture. Sixty characters will not stop someone determined to write "a
+ * screenshot", but it does stop the filename, the question id, and the empty string. */
+const ALT_MIN = 60;
+const thinAltIn = (qs) => {
+  const hits = [];
+  for (const q of qs) {
+    if (!q.image) continue;
+    const alt = typeof q.imageAlt === 'string' ? q.imageAlt.trim() : '';
+    if (alt.length < ALT_MIN) { hits.push(`${q.id} (${alt.length} chars)`); continue; }
+    if (alt.includes(q.id) || alt.includes(String(q.image))) hits.push(`${q.id} (names the id/file)`);
+  }
+  return hits;
+};
 const positionalIn = (qs) => {
   const hits = [];
   for (const q of qs) for (const o of q.options || []) if (POSITIONAL.test(o)) hits.push(q.id);
@@ -258,6 +274,16 @@ for (const b of banks) {
   }
   ok(`${label} image references resolve`, missingImages.length === 0, missingImages.slice(0, 4).join(', '));
 
+  /* An exhibit that resolves is still unusable to a screen-reader user if nothing
+   * describes it. Measured before this rule existed: the full NCP-MCI bank carried 27
+   * `image:` lines and 6 `image-alt:` lines. Practice Exams renders
+   * `q.imageAlt || ("Exhibit for question " + q.id)`, so the other 21 questions shipped
+   * an <img> whose alt read "Exhibit for question mci-networking-5gfy" — present, so
+   * axe is satisfied, and useless, so the question cannot be answered. */
+  const thinAlt = thinAltIn(qs);
+  ok(`${label} every exhibit carries alt text that describes it`, thinAlt.length === 0,
+    thinAlt.slice(0, 4).join(', '));
+
   /* Craft, reported but not fatal. */
   const singles = qs.filter((q) => !Array.isArray(q.correct) && q.options && q.options.length > 1);
   if (singles.length >= 20) {
@@ -315,6 +341,25 @@ if (!DRAFT_MODE) {
   ok('self-check: a domain outside the declared list is caught',
     strayDomainsIn(stray.questions, new Set(stray.meta.domains)).length === 1,
     JSON.stringify(strayDomainsIn(stray.questions, new Set(stray.meta.domains))));
+
+  /* The alt rule, in all three ways it can be got wrong. */
+  const imgQ = (alt) => '### e1\ndomain: storage\ndifficulty: 2\nimage: images/e1.webp\n' +
+    (alt === null ? '' : 'image-alt: ' + alt + '\n') +
+    '\nQ: What does the exhibit show?\n- [x] The right one\n- [ ] A wrong one\n\nExplain: Because.\n';
+  const noAlt = Parser.parse(head + imgQ(null));
+  ok('self-check: an exhibit with NO alt text is caught',
+    thinAltIn(noAlt.questions).length === 1, JSON.stringify(thinAltIn(noAlt.questions)));
+  const stubAlt = Parser.parse(head + imgQ('Exhibit'));
+  ok('self-check: a one-word alt is caught',
+    thinAltIn(stubAlt.questions).length === 1, JSON.stringify(thinAltIn(stubAlt.questions)));
+  const idAlt = Parser.parse(head + imgQ('Exhibit for question e1, shown in the Prism user interface as a screenshot.'));
+  ok('self-check: an alt long enough but only naming the question is caught',
+    thinAltIn(idAlt.questions).length === 1, JSON.stringify(thinAltIn(idAlt.questions)));
+  const realAlt = Parser.parse(head + imgQ('Prism Element storage container details: replication factor 1, compression off, erasure coding off.'));
+  ok('self-check: a real description passes',
+    thinAltIn(realAlt.questions).length === 0, JSON.stringify(thinAltIn(realAlt.questions)));
+  ok('self-check: a question with no exhibit is not asked for alt text',
+    thinAltIn(clean.questions).length === 0);
 }
 
 /* Skipped in draft mode: this section is about the PARSER, not about the file
