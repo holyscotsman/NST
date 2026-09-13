@@ -479,6 +479,36 @@
     try { if (s) s.removeItem(KEY); } catch (e) {}
   }
 
+  /* The debounce above is what keeps a 255-question sitting from stringifying the
+   * whole store on every single answer. Its cost is a window: for up to 400ms an
+   * answer exists only in this page's memory.
+   *
+   * A page that is going away never gets to close that window -- the pending
+   * timeout simply never fires, and the answers are gone from the browser as
+   * well as from the account. Measured: three answers recorded, the tab hidden,
+   * and nothing written at all.
+   *
+   * Nothing was flushing it. NSTSync has pagehide and visibilitychange handlers,
+   * but it only registers them when it is talking to the app server -- on GitHub
+   * Pages and file:// it stays dormant by design, so there the window never
+   * closed for anybody. The debounce belongs to this module, so the flush does
+   * too: registered here, it works on every deployment.
+   *
+   * pagehide covers a close, a navigation and bfcache; visibilitychange covers a
+   * phone backgrounding the tab, which is where the OS is most likely to kill it
+   * outright. Both fire on paths where a timer will not run again. */
+  (function bindFlush() {
+    try {
+      if (!window.addEventListener) return;
+      window.addEventListener("pagehide", flush);
+      if (window.document && window.document.addEventListener) {
+        window.document.addEventListener("visibilitychange", function () {
+          if (window.document.visibilityState === "hidden") flush();
+        });
+      }
+    } catch (e) { /* a shimmed window in a test harness: nothing to bind to */ }
+  })();
+
   window.NSTMastery = {
     KEY: KEY, FORMAT: FORMAT,
     MIN_BOX: MIN_BOX, MAX_BOX: MAX_BOX, MASTERED_BOX: MASTERED_BOX, GRADUATED_BOX: GRADUATED_BOX,

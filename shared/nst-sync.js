@@ -140,6 +140,13 @@
   function flushOnHide() {
     var B = backup();
     if (!B || !state.enabled) return;
+    // Mastery debounces its writes by 400ms, so the newest answers may still be
+    // in its memory and not yet in localStorage -- which is where the envelope
+    // below is built from. Push it through first, or this last-chance push sends
+    // a snapshot that is missing exactly the answers most at risk. Listener
+    // order between modules is not guaranteed, so do not rely on mastery's own
+    // pagehide handler having already run.
+    try { if (window.NSTMastery && window.NSTMastery.flush) window.NSTMastery.flush(); } catch (e) {}
     var snap = snapshot();
     if (snap === state.lastPushed || !snap || snap === "{}") return;
     var body = JSON.stringify(B.envelope());
