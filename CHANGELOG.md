@@ -5,6 +5,49 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.19.0 — Sync says when it isn't working (2026-09-13)
+
+Having found one silent way to lose progress, I went looking for the rest in the
+same path. Three more, none of them reported, all of them quiet by construction.
+
+### Fixed
+- **The page-hide push was about to start failing forever, silently.** A
+  `keepalive: true` request body is capped at 64 KB by the browser. Measured with
+  the full 255-question bank studied plus the game saves and exam history a
+  regular user accumulates, the envelope is **60.5 KB — 94% of the cap**, and the
+  mastery store alone is 43 KB for *one* bank. A second cert's bank takes it over
+  on its own, and over the cap the request is simply rejected with no error
+  anywhere. Oversized bodies now fall back to an ordinary fetch: less likely to
+  survive the page going away, but it either works or it does not, rather than
+  never working while appearing to.
+
+- **The page-hide push marked itself as done before knowing whether it worked.**
+  It cannot be awaited — the page is going — so a page restored from bfcache
+  carried a false "already pushed" and skipped the next real push. It no longer
+  records anything; since v2.18.0 a merge loses nothing, so re-sending is free.
+
+- **A repeatedly failing push said nothing.** The error went into a variable no
+  surface read, while someone studied for an hour with nothing reaching their
+  account and found out on the next device. Three consecutive failures now raise
+  a **Not saving** chip in the nav, explaining that the data is still safe in
+  this browser and pointing at Settings → Save backup file. It clears itself when
+  sync recovers.
+
+  One failure is a hiccup the next push covers, so it is not mentioned. The
+  all-clear fires only after real trouble — "fine" is the assumed starting state,
+  so a healthy session shows nothing at all. (It fired a spurious all-clear on
+  every successful first push until the test insisted otherwise.)
+
+### Added
+- **`scripts/sync-test.mjs` (CI-gated, 25 checks)** against a scriptable fetch:
+  the keepalive threshold, which transport each body size chooses, that a second
+  page-hide flush still sends, that one failure is quiet and three are not, and
+  that recovery is announced exactly once.
+
+Verified in a real browser against a real server: a healthy session shows
+nothing, a server returning 500 raises the chip with the reason in its tooltip,
+and recovery removes it.
+
 ## v2.18.0 — "Merge" now merges (2026-09-13)
 
 The worst kind of bug: no error, no crash, and the thing the whole app exists to
