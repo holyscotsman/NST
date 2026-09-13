@@ -329,6 +329,84 @@ bank.id = 'ncp-xx';
     JSON.stringify(win.NSTBank.toWWTBANE(noClue)[0].impossible));
 }
 
+/* ---- nothing the format can say gets lost on the way (v2.56.0) ----
+ *
+ * Twice now a feature has been guarded on authored data the pipeline could not supply.
+ * v2.52.0: WWTBANE's green room only offers a question carrying a `steveClue`, and no
+ * bank could express one — so Steve had nothing to sell, for all 255 served questions.
+ * v2.54.0: rung 30 serves an `impossible` question the first time a player reaches the
+ * final, and no bank could mark one — so that branch had never run for anybody.
+ *
+ * Both were found by reading the consuming code and asking where the data was meant to
+ * come from. This asks it from the other end, which is the end that scales: take a
+ * question carrying EVERY field the format can express, and require each one to reach
+ * at least one app. A field nobody carries is a field nobody can use — and it is the
+ * shape of a promise the format makes and the pipeline quietly breaks.
+ *
+ * A sweep of the other direction found no third instance: WWTBANE's `phoneHint` is
+ * authored, parsed and schema-validated but never rendered (so it was deliberately not
+ * given a home in v2.52.0), StarNix's `deepExplain` falls back to `explanation` right
+ * where it is read, and `source`/`review` in the core are validator clauses for fields
+ * the format cannot produce rather than features waiting on them.
+ */
+{
+  const maximal = win.NSTBankParser.parse([
+    'cert: X', 'title: T', 'pass: 0.80', 'domains: storage', '',
+    '### m1', 'domain: storage', 'difficulty: 4', 'tags: a, b', 'priority: true',
+    'impossible: true', 'reference: Ref', 'image: images/x.webp', 'image-alt: an alt line', '',
+    'Q: What?', '- [x] A', '> a note', '- [x] B', '',
+    'Explain: Because.', 'Teach: A briefing.', 'Clue: A clue.', '',
+  ].join('\n'));
+  ok('the maximal question parses', (maximal.errors || []).length === 0, JSON.stringify(maximal.errors));
+  maximal.questions.forEach((q) => { q.imageSrc = q.image ? 'http://x/banks/c/' + q.image : null; });
+
+  const parserFields = Object.keys(maximal.questions[0]);
+  const ww = new Set(Object.keys(win.NSTBank.toWWTBANE(maximal)[0]));
+  const sx = new Set(Object.keys(win.NSTBank.toStarNix(maximal).questions[0]));
+
+  /* Renames are the point of an adapter, so they are named rather than guessed. */
+  const RENAMED = {
+    teach: 'briefing',            // StarNix's commander briefing
+    clue: 'steveClue',            // WWTBANE's green room
+    correct: 'answer',            // WWTBANE's key shape
+    difficulty: 'authoredDifficulty',  // WWTBANE tiers by name, StarNix by number
+  };
+  /* And a field may be deliberately dropped — with the reason written down. */
+  const DROPPED = {};
+
+  const lost = parserFields.filter((f) => {
+    const alias = RENAMED[f];
+    if (ww.has(f) || sx.has(f)) return false;
+    if (alias && (ww.has(alias) || sx.has(alias))) return false;
+    return !Object.prototype.hasOwnProperty.call(DROPPED, f);
+  });
+  ok('every field the bank format can express reaches at least one app (' + parserFields.length + ' fields)',
+    lost.length === 0, lost.join(', ') + ' -- carry it, or list it in DROPPED with a reason');
+  ok('the sweep is not vacuous -- the maximal question really carries the whole format',
+    parserFields.length >= 15 && parserFields.includes('clue') && parserFields.includes('impossible'),
+    parserFields.join(', '));
+  ok('every DROPPED entry carries a real reason',
+    Object.values(DROPPED).every((why) => why && why.length > 30));
+
+  /* [neg] a field the format gains but no adapter learns is caught. */
+  {
+    const withNew = JSON.parse(JSON.stringify(maximal));
+    withNew.questions[0].brandNewField = 'something the format now says';
+    const fields = Object.keys(withNew.questions[0]);
+    const caught = fields.filter((f) => {
+      const alias = RENAMED[f];
+      if (ww.has(f) || sx.has(f)) return false;
+      if (alias && (ww.has(alias) || sx.has(alias))) return false;
+      return !Object.prototype.hasOwnProperty.call(DROPPED, f);
+    });
+    /* `includes`, not `length === 1`: when the rule above is legitimately red, this
+     * control must still say whether IT works. An assertion that only holds while
+     * everything else passes is a control that goes quiet exactly when it is needed. */
+    ok('[neg] a new format field that no adapter carries IS caught',
+      caught.includes('brandNewField'), caught.join(', '));
+  }
+}
+
 /* ---- neither adapter hands the app a reference into the bank ----
  *
  * Both use .slice() on every array. If one stopped, a game shuffling its own
