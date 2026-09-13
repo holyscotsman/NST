@@ -924,3 +924,18 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
   padding: 9px 14px; text-align: center;
 }
 @media (max-width: 520px) { .sync-warn { bottom: 8px; font-size: 12px; padding: 8px 11px; } }
+
+/* (v2.41.0) Storage refusing writes. Red, and above the sync banner, because
+   this is the one where the run does not survive the tab closing. If both are
+   showing, this is the one to read. */
+.store-warn {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 12px; z-index: 81; max-width: min(680px, calc(100vw - 24px));
+  font-size: 12.5px; font-weight: 600; line-height: 1.45;
+  color: #FFD7D7; background: rgba(34, 6, 6, 0.94);
+  border: 1px solid rgba(255, 96, 96, 0.55); border-radius: 10px;
+  padding: 9px 14px; text-align: center;
+}
+/* When both are up, the quieter one steps down so neither is hidden. */
+.store-warn ~ .sync-warn, .sync-warn:has(~ .store-warn) { bottom: 68px; }
+@media (max-width: 520px) { .store-warn { bottom: 8px; font-size: 12px; padding: 8px 11px; } }

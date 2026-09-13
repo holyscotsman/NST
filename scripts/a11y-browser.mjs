@@ -197,12 +197,16 @@ for (const [name, url] of [['launcher', '/index.html'], ['StarNix', '/starnix/in
  * and look again, because a warning that will not clear is its own bug.
  */
 {
+  /* Both status events, on every page that can produce them. Checking only the
+   * one that happened to be noticed is how the second gap survives the fix for
+   * the first -- WWTBANE was missing both listeners, and storage is the more
+   * serious of the two: there the work does not survive the tab closing. */
   const PAGES = [
-    ['launcher', '/index.html', 'nst-sync-warn'],
-    ['Practice Exams', '/practice-exams/index.html', 'pe-sync-warn'],
-    ['WWTBANE', '/wwtbane/index.html', 'wwt-sync-warn'],
+    ['launcher', '/index.html', 'nst-sync-warn', 'nst-store-warn'],
+    ['Practice Exams', '/practice-exams/index.html', 'pe-sync-warn', 'pe-store-warn'],
+    ['WWTBANE', '/wwtbane/index.html', 'wwt-sync-warn', 'wwt-store-warn'],
   ];
-  for (const [name, url, id] of PAGES) {
+  for (const [name, url, id, storeId] of PAGES) {
     const ctx = await browser.newContext({ viewport: { width: 1100, height: 800 } });
     const page = await ctx.newPage();
     await page.goto(B + url, { waitUntil: 'load' });
@@ -249,6 +253,37 @@ for (const [name, url] of [['launcher', '/index.html'], ['StarNix', '/starnix/in
     await page.waitForTimeout(250);
     ok(`${name}: and it goes away when sync recovers`,
       !(await page.evaluate((i) => !!document.getElementById(i), id)));
+
+    /* Storage refusing writes is the louder failure, and must read as one. */
+    ok(`${name}: a healthy session shows no storage warning`,
+      !(await page.evaluate((i) => !!document.getElementById(i), storeId)));
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('nst-storage-status',
+      { detail: { ok: false, reason: 'quota' } })));
+    await page.waitForTimeout(250);
+    const stored = await page.evaluate((i) => {
+      const e = document.getElementById(i);
+      if (!e) return null;
+      const cs = getComputedStyle(e), r = e.getBoundingClientRect();
+      return {
+        role: e.getAttribute('role'),
+        visible: r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden',
+        inViewport: r.top < window.innerHeight && r.bottom > 0,
+        says: [e.textContent, e.getAttribute('title'), e.getAttribute('aria-label')]
+          .filter(Boolean).join(' | '),
+      };
+    }, storeId);
+    ok(`${name}: a storage failure raises a VISIBLE warning`,
+      !!stored && stored.visible && stored.inViewport, JSON.stringify(stored));
+    ok(`${name}: it INTERRUPTS (role=alert) -- unlike sync, this work dies with the tab`,
+      !!stored && stored.role === 'alert', stored && stored.role);
+    ok(`${name}: and it never claims the work is still safe in this browser`,
+      !!stored && !/still safe in this browser/i.test(stored.says) &&
+      /not being saved/i.test(stored.says), stored && stored.says.slice(0, 80));
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('nst-storage-status',
+      { detail: { ok: true, reason: null } })));
+    await page.waitForTimeout(250);
+    ok(`${name}: and it goes away when storage recovers`,
+      !(await page.evaluate((i) => !!document.getElementById(i), storeId)));
     await ctx.close();
   }
 }

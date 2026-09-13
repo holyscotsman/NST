@@ -23,13 +23,26 @@ a banner above `#pe-root` for storage failures, and the comment above it says:
 last forty minutes will not survive closing the tab."* The same reasoning, the
 same page, a different failure — and it was never wired.
 
+### And then the same gap, one event over
+Writing the rule for the *class* rather than the instance found a second one
+immediately. `nst-mastery.js` fires `nst-storage-status`, all three pages load
+it, and **WWTBANE listened for that one either**.
+
+That is the worse of the two. Sync failing means the work is safe here and has
+not left yet. Storage failing means it is not being written **anywhere** — the
+run dies with the tab, and so does the copy sync would have pushed, because sync
+builds its envelope from the same storage that is refusing. WWTBANE was missing
+both warnings; this was the louder one.
+
 ### Fixed
 - **Practice Exams** gains `watchSync()`, a banner above `#pe-root` (never
   inside it — every mode replaces the contents of that element).
-- **WWTBANE** gains `_watchSync()`, a fixed banner appended to `<body>` rather
-  than into `#screen`, which is redrawn on every question and would wipe it. It
-  also mirrors the message into the game's existing `aria-live` region, since
-  WWTBANE is played from the keyboard.
+- **WWTBANE** gains `_watchSync()` **and `_watchStorage()`**, fixed banners
+  appended to `<body>` rather than into `#screen`, which is redrawn on every
+  question and would wipe them. Both mirror into the game's existing `aria-live`
+  region, since WWTBANE is played from the keyboard. When both are showing the
+  sync banner steps up so neither is hidden, and the storage one sits on top —
+  if you can only read one, it should be that.
 
 Both are **amber, not red, and `role="status"`, not `role="alert"`.** The
 launcher already draws this distinction carefully and the new banners keep it:
@@ -39,14 +52,16 @@ yet. Saying the second in the words of the first teaches people to ignore the
 first.
 
 ### Added
-- **19 checks in `sync-test.mjs` (40 → 59)** — the rule is about the class, not
-  the instance: any page that loads `nst-sync.js` must listen for the event it
-  fires, so a fourth page is covered the day it is added. Plus the wording and
-  severity split, checked in both directions.
-- **15 checks in `a11y-browser.mjs` (32 → 47)** — the real event fired in the
-  real page: a healthy session shows nothing, a failing push raises a *visible*
-  banner carrying the reason, it is `role="status"`, and it **goes away when
-  sync recovers**.
+- **27 checks in `sync-test.mjs` (40 → 67)** — the rule is about the class, not
+  the instance, and covers **both** events: a page that loads `nst-sync.js` must
+  listen for `nst-sync-status`, and one that loads `nst-mastery.js` must listen
+  for `nst-storage-status`. A fourth page is covered the day it is added. Plus
+  the wording and severity split, checked in both directions.
+- **30 checks in `a11y-browser.mjs` (32 → 62)** — both real events fired in the
+  real page. A healthy session shows nothing; a failing push raises a *visible*
+  `role="status"` banner carrying the reason; a storage failure raises a
+  *visible* `role="alert"` one that never claims the work is safe; and both
+  **go away when the failure clears**.
 
 ### Why both halves
 The static rule stops at "listens at all", and that limit is stated rather than

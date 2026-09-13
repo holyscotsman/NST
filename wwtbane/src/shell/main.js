@@ -78,6 +78,7 @@ export class Game {
 
   async boot() {
     this._watchSync();
+    this._watchStorage();
     // Dev-only FPS meter for the graphics performance budget (?fps=1 / Alt+F).
     installFpsMeter();
 
@@ -987,6 +988,37 @@ export class Game {
         + ". It's still safe in this browser.";
       document.body.appendChild(bar);
       this._announce(`Sync warning. ${bar.textContent}`);
+    });
+  }
+
+  /* (v2.41.0) Storage refusing writes, which is NOT the sync warning wearing a
+   * different hat and must not borrow its words or its colour.
+   *
+   * Sync failing means the run is safe in this browser and simply has not left.
+   * Storage failing means it is not being written ANYWHERE -- the run dies with
+   * the tab, and so does the copy sync would have pushed, because sync builds
+   * its envelope from the same storage that is refusing. That is the louder of
+   * the two by a long way, and it was the one WWTBANE was also missing.
+   *
+   * Same placement argument as the sync banner: on <body>, because #screen is
+   * redrawn on every question. */
+  _watchStorage() {
+    window.addEventListener('nst-storage-status', (ev) => {
+      const d = (ev && ev.detail) || {};
+      const existing = document.getElementById('wwt-store-warn');
+      if (d.ok) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      const bar = document.createElement('div');
+      bar.id = 'wwt-store-warn';
+      bar.className = 'store-warn';
+      bar.setAttribute('role', 'alert');
+      bar.textContent = (d.reason === 'quota'
+        ? "This browser's storage is full — your progress is not being saved."
+        : 'This browser is refusing to store data — your progress is not being saved.')
+        + ' It will be lost when you close this tab. Open the launcher and use'
+        + ' Settings → Save backup file, which writes a file instead.';
+      document.body.appendChild(bar);
+      this._announce(`Storage warning. ${bar.textContent}`);
     });
   }
 

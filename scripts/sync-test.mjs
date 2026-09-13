@@ -416,7 +416,14 @@ function liveSync({ records = 3, progressHandler } = {}) {
     ['WWTBANE', 'wwtbane/index.html', ['wwtbane/src/shell/main.js']],
   ];
 
+  /* Two events, one rule. nst-sync.js fires nst-sync-status and nst-mastery.js
+   * fires nst-storage-status, and a page that loads either module can produce
+   * the matching failure. Writing the rule for only the event that happened to
+   * be noticed is how the second gap survives the fix for the first: WWTBANE was
+   * missing BOTH, and the storage one is the more serious -- there the work does
+   * not survive the tab closing. */
   const EVENT = 'nst-sync-status';
+  const STORAGE_EVENT = 'nst-storage-status';
   /* Quote-agnostic on purpose. The launcher and Practice Exams are ES5-style
    * with double quotes; WWTBANE is a module written with single quotes. A rule
    * that only matched one of them reported WWTBANE as deaf when it was not --
@@ -427,16 +434,25 @@ function liveSync({ records = 3, progressHandler } = {}) {
   ok('and only when the state changes, so a healthy session shows nothing',
     /failures >= FAILURES_BEFORE_WARNING/.test(SYNC_SRC));
 
+  const hears = (src, ev) => new RegExp(`addEventListener\\(\\s*['"]${ev}['"]`).test(src);
+
   for (const [name, page, scripts] of pages) {
     const html = read(...page.split('/'));
-    const loadsSync = /nst-sync\.js/.test(html);
-    if (!loadsSync) {
-      console.log(`n/a  ${name} does not load nst-sync.js, so it cannot report it`);
-      continue;
-    }
     const bodies = scripts.map((f) => read(...f.split('/'))).join('\n');
-    ok(`${name} loads sync AND listens for ${EVENT}`, listens(bodies),
-      'sync runs on this page and can fail on it, with nothing to say so');
+
+    for (const [mod, ev, what] of [
+      ['nst-sync.js', EVENT, 'sync'],
+      ['nst-mastery.js', STORAGE_EVENT, 'the mastery store'],
+    ]) {
+      if (!new RegExp(mod.replace('.', '\\.')).test(html)) {
+        console.log(`n/a  ${name} does not load ${mod}, so it cannot report it`);
+        continue;
+      }
+      ok(`${name} loads ${mod} AND listens for ${ev}`, hears(bodies, ev),
+        `${what} runs on this page and can fail on it, with nothing to say so`);
+    }
+    const loadsSync = /nst-sync\.js/.test(html);
+    if (!loadsSync) continue;
 
     /* This rule stops at "listens at all", and that is a real limit rather than
      * an oversight. Deleting the watchSync() call from Practice Exams' boot()
@@ -490,6 +506,18 @@ function liveSync({ records = 3, progressHandler } = {}) {
     /_announce\(/.test(wsync));
   const wcss = read('wwtbane', 'styles', 'main.css');
   ok('WWTBANE has the style for it', /\.sync-warn\s*\{/.test(wcss));
+
+  /* WWTBANE was missing the storage warning too, and that is the louder one. */
+  const wsAt = wwt.indexOf('_watchStorage() {');
+  ok('WWTBANE defines _watchStorage (and this slice found it)', wsAt > 0, String(wsAt));
+  const wstore = wwt.slice(wsAt, wsAt + 1400);
+  ok('WWTBANE storage warning interrupts (role=alert), unlike its sync warning',
+    /role', 'alert'/.test(wstore) && /role', 'status'/.test(wsync));
+  ok('and does NOT claim the work is safe in this browser -- here it is not',
+    !/still safe in this browser/i.test(wstore) && /not being saved/i.test(wstore));
+  ok('and is also on <body>, not the screen WWTBANE redraws',
+    /document\.body\.appendChild/.test(wstore));
+  ok('WWTBANE has the style for that one too', /\.store-warn\s*\{/.test(wcss));
 
   /* Severity, not decoration: the storage banner interrupts (role=alert), the
    * sync banner informs (role=status). Getting these the same way round is how a
