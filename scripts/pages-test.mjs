@@ -25,6 +25,7 @@
  *
  * Pure Node, no browser. Run: node scripts/pages-test.mjs
  */
+import { readFileSync } from 'node:fs';
 import * as P from '../server/pages.mjs';
 
 let pass = 0, fail = 0;
@@ -173,6 +174,87 @@ const ok = (name, cond, extra) => {
   const err = P.errorPage(404, "That page isn't here.");
   ok('the error page states its code', /404/.test(err));
   ok("and escapes the apostrophe in its own message", /isn&#39;t/.test(err), err.match(/isn.{0,8}t/));
+}
+
+/* ---- the blind spot the sweep above cannot see -------------------------
+ * Feeding hostile input only exercises the branches that input reaches. This
+ * module has fourteen conditional renders; the sweep takes one side of each.
+ * Reading them showed every untaken side renders static text, so nothing is
+ * missing today -- but "today" is the whole problem, and the next branch added
+ * is not covered by a sweep written before it existed.
+ *
+ * So: a source rule instead, which does not care which branch runs. Wherever an
+ * interpolation mentions a value that carries text a user chose, that mention
+ * must sit inside esc() (or msg(), which escapes). Narrow on purpose -- a
+ * blanket "everything must be escaped" would flag all 39 unescaped
+ * interpolations here, every one of them legitimately a number, a static
+ * string, or HTML already assembled from escaped parts, and an allowlist that
+ * long stops being read.
+ */
+{
+  const src = readFileSync(new URL('../server/pages.mjs', import.meta.url), 'utf8');
+
+  // Pull every ${ ... }, matching braces so nested templates come out whole.
+  const interps = [];
+  for (let i = src.indexOf('${'); i >= 0; i = src.indexOf('${', i + 2)) {
+    let depth = 1, j = i + 2;
+    while (j < src.length && depth > 0) {
+      if (src[j] === '{') depth++;
+      else if (src[j] === '}') depth--;
+      j++;
+    }
+    interps.push(src.slice(i + 2, j - 1).trim().replace(/\s+/g, ' '));
+  }
+  ok('the module has interpolations to check', interps.length > 40, interps.length);
+
+  /* Values that carry text a person typed: their own, or another account's. */
+  const USER_TEXT = [
+    'u.username', 'u.display_name', 'me.username',
+    'a.actor', 'a.action', 'a.detail',
+    'username', 'displayName', 'error', 'notice', 'message', 'repo', 'version',
+    'label', 'from', 'to',
+  ];
+
+  /* Two things have to be stripped first, or the rule reports correct code --
+   * it did, on the first run:
+   *   - STRING LITERALS. `from`, `to`, `label` and `message` are ordinary
+   *     English words, and "Back to the study tool" is not a variable.
+   *   - COMPARISONS. `u.display_name !== u.username` mentions the username to
+   *     decide whether to render something else. A value being tested is not a
+   *     value being written out.
+   */
+  const codeOnly = (expr) => expr
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    // Backtick spans are kept, because nested ${...} inside them is real code;
+    // only their literal text is blanked.
+    .replace(/[^`$]{2,}(?=[^`]*`)/g, (t) => (/[.(){}]/.test(t) ? t : ' '));
+
+  const leaks = [];
+  for (const e of interps) {
+    const code = codeOnly(e);
+    for (const tok of USER_TEXT) {
+      // Match the token as a whole reference, not as part of a longer name.
+      const ref = new RegExp(`(^|[^.\\w])${tok.replace('.', '\\.')}(?![\\w.])`);
+      if (!ref.test(code)) continue;
+      // Mentioned only to be compared against: not rendered, nothing to escape.
+      const compared = new RegExp(`(===|!==|==|!=)\\s*${tok.replace('.', '\\.')}(?![\\w.])|${tok.replace('.', '\\.')}\\s*(===|!==|==|!=)`);
+      if (compared.test(code) && !new RegExp(`(esc|msg)\\([^()]*${tok.replace('.', '\\.')}`).test(e)) continue;
+      // It must be an argument of esc() or msg() -- String() in between is fine.
+      const wrapped = new RegExp(`(esc|msg)\\(\\s*(String\\(\\s*)?[^()]*${tok.replace('.', '\\.')}(?![\\w.])`);
+      if (!wrapped.test(e)) leaks.push(`${tok} in: ${e.slice(0, 70)}`);
+    }
+  }
+  ok('every interpolation of user-chosen text is escaped, in every branch',
+    leaks.length === 0, leaks.slice(0, 4).join(' | '));
+
+  // The rule must be able to see a leak, or it is decoration.
+  const planted = src.replace('${esc(u.username)}', '${u.username}');
+  ok('the rule is not vacuous -- it detects an unescaped one when there is one',
+    planted !== src && (() => {
+      const e = '<b>${u.username}</b>';
+      return !/(esc|msg)\(\s*(String\(\s*)?[^()]*u\.username/.test(e);
+    })());
 }
 
 console.log('\n' + (fail ? `PAGES: ${fail} FAILED (${pass} passed)` : `PAGES: ALL GREEN (${pass} checks)`));

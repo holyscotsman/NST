@@ -5,6 +5,44 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.34.0 — The branches a sweep cannot reach (2026-09-13)
+
+v2.33.0 swept every page builder with hostile input. Feeding input only
+exercises the branches that input reaches, and `server/pages.mjs` has **fourteen
+conditional renders** — the sweep takes one side of each.
+
+Reading all fourteen showed every untaken side renders static text, so nothing
+was missing. But "nothing is missing today" is the whole problem: a branch added
+next month is not covered by a sweep written before it existed, and this is the
+module where a missed escape is a script running in root's session.
+
+### Added
+- **A source rule, which does not care which branch runs (3 checks, 162 total).**
+  Every `${…}` in the module is extracted with brace matching, and wherever one
+  mentions a value carrying text a user chose — a username, a display name, an
+  audit actor or detail, an error echoed back, the repo or version on the admin
+  page — that mention must sit inside `esc()` (or `msg()`, which escapes).
+
+  Narrow on purpose. A blanket *"everything must be escaped"* would flag all 39
+  unescaped interpolations here — every one of them legitimately a number, a
+  static string, or HTML already assembled from escaped parts — and an allowlist
+  that long stops being read and becomes a rubber stamp.
+
+### It reported correct code first, twice
+- **String literals.** `from`, `to`, `label` and `message` are ordinary English
+  words: *"Back to the study tool"* is not a variable. Literals are blanked
+  before scanning.
+- **Comparisons.** `u.display_name !== u.username` mentions the username to
+  decide whether to render something *else*. A value being tested is not a value
+  being written out.
+
+### Verified
+Removing `esc()` from the username, the repo, the audit detail and the update
+page's version is caught, each naming the exact expression. And the case that
+justifies the rule existing at all: an unescaped `${username}` planted in the
+`allowSignup: false` branch — which the input sweep **provably never renders**,
+since it always passes `true` — is caught immediately.
+
 ## v2.33.0 — The 307 lines of HTML nobody tested (2026-09-13)
 
 `server/pages.mjs` builds every page the login server serves — by string
