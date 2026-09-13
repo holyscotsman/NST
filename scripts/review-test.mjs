@@ -294,5 +294,117 @@ function bank(n) {
     index.indexOf('nst-review.js') > index.indexOf('nst-mastery.js'));
 }
 
+/* ---- (v2.47.0) does the queue actually teach? ----
+ *
+ * Everything above checks the queue's MECHANICS: what counts as due, what gets
+ * capped, what order things come back in. All necessary, and none of it asks the
+ * question a learner is actually relying on:
+ *
+ *   if I keep getting a question wrong, does it come back more often than one
+ *   I keep getting right?
+ *
+ * That is the entire premise of spaced repetition and the reason this app
+ * schedules anything at all. A scheduler can satisfy every mechanical rule above
+ * and still present all 255 questions in a flat rotation -- every check green,
+ * and the learner spending equal time on what they know and what they do not.
+ *
+ * So: simulate a learner of KNOWN behaviour over simulated weeks, driving the
+ * real NSTMastery and the real dueQueue, and count how often each card is
+ * actually put in front of them.
+ *
+ * This is the same shape as the readiness calibration in v2.35.0, and for the
+ * same reason. The machinery being right is not the same as the number meaning
+ * what it says.
+ */
+{
+  const { M, R } = fresh();
+  const MIN_ = 60_000, HOUR_ = 60 * MIN_, DAY_ = 24 * HOUR_;
+
+  /* Thirty cards in three profiles. The learner is perfectly consistent, which
+   * is not realistic and is exactly what makes the result readable: any
+   * difference in exposure is the scheduler's doing, not noise. */
+  const PROFILE = {};
+  const questions = [];
+  for (let i = 0; i < 30; i++) {
+    const id = 'q' + i;
+    questions.push({ id });
+    PROFILE[id] = i < 10 ? 'always-wrong' : (i < 20 ? 'always-right' : 'mixed');
+  }
+  const answers = { 'always-wrong': () => false, 'always-right': () => true };
+  let flip = false;
+  answers.mixed = () => (flip = !flip);
+
+  /* Study every 30 minutes for three simulated weeks. A session takes whatever
+   * the queue offers, up to twenty cards. */
+  const seen = {};
+  questions.forEach((q) => { seen[q.id] = 0; });
+  let t = T0, sessions = 0;
+  const END = T0 + 21 * DAY_;
+  while (t < END) {
+    const due = R.dueQueue({ questions, mastery: M, now: t, limit: 20 });
+    if (due.questions.length) {
+      sessions++;
+      for (const q of due.questions) {
+        seen[q.id]++;
+        M.record(q.id, { correct: answers[PROFILE[q.id]](), gate: 'due', step: 1, now: t });
+      }
+    }
+    t += 30 * MIN_;
+  }
+
+  const total = (kind) => questions
+    .filter((q) => PROFILE[q.id] === kind)
+    .reduce((n, q) => n + seen[q.id], 0);
+  const wrong = total('always-wrong'), right = total('always-right'), mixed = total('mixed');
+
+  /* Printed unconditionally, not only on failure: this is the scheduler's
+   * behaviour in one line, and a drift in it is worth seeing in a CI log even
+   * while the thresholds still pass. */
+  console.log('     . ' + sessions + ' sessions over 21 simulated days -- exposures: ' +
+    'always-wrong ' + wrong + ', mixed ' + mixed + ', always-right ' + right +
+    ' (' + (wrong / right).toFixed(1) + 'x more often wrong than right)');
+  ok('the simulation actually ran sessions', sessions > 50, sessions + ' sessions');
+  ok('and put every card in front of the learner at least once',
+    questions.every((q) => seen[q.id] > 0),
+    JSON.stringify(questions.filter((q) => !seen[q.id]).map((q) => q.id)));
+
+  /* THE POINT. Ten cards always wrong against ten always right, same period. */
+  ok('a card you keep getting WRONG comes back more than one you keep getting right',
+    wrong > right, `wrong ${wrong} vs right ${right}`);
+  ok('and substantially more -- at least three times as often',
+    wrong >= right * 3, `wrong ${wrong} vs right ${right} (ratio ${(wrong / right).toFixed(1)}x)`);
+  ok('a half-right card lands between the two, not outside them',
+    mixed > right && mixed < wrong, `wrong ${wrong}, mixed ${mixed}, right ${right}`);
+
+  /* The mechanism, so a failure above is diagnosable rather than mysterious. */
+  const wrongRec = M.get('q0'), rightRec = M.get('q15');
+  ok('the card answered wrong sits in a low box', wrongRec.box <= 1, JSON.stringify(wrongRec.box));
+  ok('the card answered right has climbed', rightRec.box >= 4, JSON.stringify(rightRec.box));
+  ok('so its interval is longer, which is what spaces it out',
+    M.intervalFor(rightRec.box) > M.intervalFor(wrongRec.box),
+    `${M.intervalFor(rightRec.box)}ms vs ${M.intervalFor(wrongRec.box)}ms`);
+
+  /* Not vacuous: a flat scheduler that ignores correctness passes every
+   * mechanical check above and fails this one. Model it and show the difference. */
+  {
+    const flat = {};
+    questions.forEach((q) => { flat[q.id] = 0; });
+    let ft = T0;
+    while (ft < END) {
+      /* Every card due every time -- the failure mode this section exists for. */
+      for (const q of questions.slice(0, 20)) flat[q.id]++;
+      ft += 30 * MIN_;
+    }
+    const fWrong = questions.filter((q) => PROFILE[q.id] === 'always-wrong')
+      .reduce((n, q) => n + flat[q.id], 0);
+    const fRight = questions.filter((q) => PROFILE[q.id] === 'always-right')
+      .reduce((n, q) => n + flat[q.id], 0);
+    ok('self-check: a flat rotation shows wrong and right cards equally often',
+      fWrong === fRight, `${fWrong} vs ${fRight}`);
+    ok('self-check: and would therefore FAIL the ratio check above',
+      !(fWrong >= fRight * 3), `${fWrong} vs ${fRight}`);
+  }
+}
+
 console.log('\n' + (fail ? `REVIEW: ${fail} FAILED (${pass} passed)` : `REVIEW: ALL GREEN (${pass} checks)`));
 process.exit(fail ? 1 : 0);

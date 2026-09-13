@@ -5,6 +5,60 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.47.0 — Does the queue actually teach? (2026-09-13)
+
+**No defect. It teaches, and now there is a number for it: 100.8x.**
+
+`review-test.mjs` checked the due queue's **mechanics** — what counts as due,
+what gets capped, what order things come back in, whether a barely-started bank
+produces a 240-question "review" of material never seen. All necessary. None of
+it asks the question a learner is actually relying on:
+
+> If I keep getting a question wrong, does it come back more often than one I
+> keep getting right?
+
+That is the entire premise of spaced repetition and the reason this app schedules
+anything at all. **A scheduler can satisfy every mechanical rule in that suite
+and still present all 255 questions in a flat rotation** — every check green, and
+the learner spending equal time on what they know and what they do not.
+
+### Added — 10 checks in `review-test.mjs` (65 → 75)
+A learner of *known* behaviour, studied over simulated weeks against the real
+`NSTMastery` and the real `dueQueue`. Thirty cards in three profiles — ten always
+answered wrong, ten always right, ten alternating — studied every thirty minutes
+for twenty-one simulated days. The learner is perfectly consistent, which is not
+realistic and is exactly what makes the result readable: any difference in
+exposure is the scheduler's doing, not noise.
+
+```
+1008 sessions over 21 simulated days — exposures:
+  always-wrong 10080,  mixed 2212,  always-right 100
+  (100.8x more often wrong than right)
+```
+
+The cards you keep missing come back every single session. The ones you have
+learned recede to a hundred sightings across three weeks. The half-right cards
+land between the two, where they belong.
+
+### The threshold is deliberately loose
+The check requires **3x**, and the measured value is **100x**. A tight threshold
+would break every time the interval ladder is retuned, which is a legitimate
+thing to do; 3x is a floor that separates "the mechanism works" from "flat
+rotation" and tolerates tuning. The actual ratio is printed on every run, pass or
+fail, so a drop from 100x to 5x is visible in a CI log while still passing.
+
+### Verified
+The negative control models the failure this section exists for — a scheduler
+that ignores correctness and rotates everything equally. It shows wrong and right
+cards **exactly** as often as each other, and fails the ratio check. The
+mechanism is checked too, so a failure is diagnosable rather than mysterious: the
+always-wrong card sits in box 0 or 1, the always-right card has climbed to box 4
+or above, and its interval is longer.
+
+This is the same shape as the readiness calibration in v2.35.0, for the same
+reason. **The machinery being right is not the same as the number meaning what it
+says.**
+
 ## v2.46.0 — You had to publish a bank to check it (2026-09-13)
 
 Seven more banks are planned, and the workflow for adding one had a hole in the
