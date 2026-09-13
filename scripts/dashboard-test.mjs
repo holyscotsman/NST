@@ -435,6 +435,78 @@ const BANK = [
   ok('it does not modify the record it is given', JSON.stringify(obj) === before);
 }
 
+/* ---- an exam score belongs to the bank that produced it ----
+ *
+ * Every other figure on the panel is scoped to one bank; the history is not.
+ * Measured in a browser before the fix, with the full 255-question bank active
+ * and a 92% on the 25-question set in storage, the card read
+ *
+ *   NCP-MCI - Full bank | Mastered 0 of 255 | Seen 0 of 255 | Best exam 92% pass
+ *
+ * while the readiness panel below it said "Not enough data yet". */
+{
+  const { M, D } = fresh();
+  const FULL = 'NCP-MCI Practice Exam Question Bank';
+  const SET25 = 'NCP-MCI - 25 Question Bank';
+  const att = (pct, bank, at) => ({ pct, pass: pct >= 80, at: at || T0, bank });
+  const sum = () => M.summary(BANK, T0);
+
+  const mixed = [att(92, SET25), att(71, FULL)];
+
+  // The case that started this: the best score anywhere is not this bank's.
+  const m = D.model({ summary: sum(), history: mixed, now: T0, bank: FULL });
+  ok('"Best exam" is the best score ON THIS BANK', m.exam && m.exam.best.pct === 71, m.exam && m.exam.best.pct);
+  ok('a higher score from another bank does not become this bank\'s best',
+    m.exam && m.exam.best.pct !== 92);
+  ok('and it does not inherit the other bank\'s PASS', m.exam && m.exam.best.pass === false);
+  ok('the attempts it cannot claim are counted, not silently dropped', m.examElsewhere === 1, m.examElsewhere);
+  ok('the count it reports is of its own bank only', m.exam && m.exam.count === 1, m.exam && m.exam.count);
+
+  // [neg] the same fixtures without a bank keep the old, unscoped answer -- so
+  // the assertions above are measuring the scoping and not something else.
+  const unscoped = D.model({ summary: sum(), history: mixed, now: T0 });
+  ok('[neg] unscoped, the foreign 92% wins, which is the defect',
+    unscoped.exam.best.pct === 92 && unscoped.examElsewhere === 0);
+
+  // Nothing on this bank, something on another.
+  const only = D.model({ summary: sum(), history: [att(92, SET25)], now: T0, bank: FULL });
+  ok('an attempt on another bank is never shown as this bank\'s', only.exam === null);
+  ok('it is still acknowledged', only.examElsewhere === 1);
+
+  // ...and with nothing studied here either, the panel must say where the score
+  // went rather than going blank on someone who just passed an exam.
+  const blank = D.model({ summary: null, history: [att(92, SET25)], now: T0, bank: FULL });
+  ok('with nothing on this bank there is no picture to draw', blank.hasData === false);
+  ok('the nudge says the attempt was on a different bank', /different bank/i.test(blank.nudge), blank.nudge);
+  const blank2 = D.model({ summary: null, history: [att(92, SET25), att(60, SET25)], now: T0, bank: FULL });
+  ok('and it counts them when there is more than one', /2 recorded attempts/.test(blank2.nudge), blank2.nudge);
+
+  // An attempt saved before the bank stamp existed cannot be attributed to
+  // anything. Claiming it under this bank's heading is the same error.
+  const legacy = D.model({ summary: sum(), history: [{ pct: 88, pass: true, at: T0 }], now: T0, bank: FULL });
+  ok('an unstamped legacy attempt is not claimed by this bank', legacy.exam === null);
+  ok('but it is counted as existing elsewhere', legacy.examElsewhere === 1);
+
+  // The ordinary case must keep working: own-bank attempts are reported as before.
+  const own = D.model({ summary: sum(), history: [att(71, FULL), att(84, FULL, T0 - 1)], now: T0, bank: FULL });
+  ok('own-bank attempts still produce best and last', own.exam.best.pct === 84 && own.exam.last.pct === 71);
+  ok('with nothing elsewhere the count is zero', own.examElsewhere === 0);
+  ok('own-bank attempts alone are enough to draw the panel', own.hasData === true);
+
+  // [neg] scoping to a bank nobody has sat is not a way to always answer null.
+  const other = D.model({ summary: sum(), history: [att(71, FULL)], now: T0, bank: SET25 });
+  ok('[neg] the same attempt scoped to the OTHER bank is elsewhere',
+    other.exam === null && other.examElsewhere === 1);
+
+  // One identity function, so the stamp and the filter cannot drift.
+  const loader = read('shared', 'bank-loader.js');
+  ok('the loader owns what a bank is called', /function bankName\(/.test(loader) && /bankName: bankName/.test(loader));
+  ok('and the adapter Practice Exams stamps from uses it', /name: bankName\(bank\)/.test(loader));
+  const home = read('scripts', 'nst-home.js');
+  ok('the launcher scopes the history it passes', /bank: B && B\.bankName \? B\.bankName\(bank\) : ""/.test(home));
+  ok('and draws the attempts it cannot claim', /attempts, other banks/.test(home));
+}
+
 /* ---- and the launcher actually draws it ---- */
 {
   const home = read('scripts', 'nst-home.js');

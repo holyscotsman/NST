@@ -5,6 +5,61 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.68.0 — the score that belonged to a different bank (2026-09-13)
+
+**Every figure on the launcher's progress card is scoped to one question bank.
+The exam score was not, and it was the one with a green PASS on it.**
+
+Measured in a browser, full 255-question bank active, one 92% on the
+25-question set in storage:
+
+```
+Your progress          NCP-MCI · Full bank
+  Mastered   0 of 255
+  Seen       0 of 255
+  Due now    255
+  Best exam  92%  pass          <- earned on the 25-question set
+
+Exam readiness: Not enough data yet.
+You've seen 0 of 255 questions. 64 more and this becomes a real estimate.
+```
+
+Two figures on one panel, three lines apart, disagreeing about whether any
+evidence exists. The readiness estimate was right.
+
+The evidence needed to tell them apart was already being recorded. Practice
+Exams stamps every saved attempt with its bank — `engine.saveAttempt`, whose
+comment reads "a PASS on the 25-question bank is not the same claim as one on
+the full bank" — and prints it on every history row and on the results screen.
+The launcher, which is where people actually land, was the one surface that
+ignored it. `pendingExam` on the same panel already refuses a record from
+another bank, so the card was internally inconsistent as well as wrong.
+
+`NSTDash.model()` takes `bank` and partitions the history: attempts stamped
+with that name produce best/last/count, and everything else — including rows
+written before the stamp existed, which are genuinely unattributable — is
+counted as `examElsewhere` and never priced as this bank's. With a 92% on one
+bank and a 71% on the active one, the card now reads 71%, and says "1 attempt,
+other bank" rather than going blank on someone who has just passed an exam.
+
+`NSTBank.bankName()` is new and is the single definition of what a bank is
+called. The stamp comes from `toStarNix().name` and the filter has to produce
+the identical string; a second copy of `meta.title || meta.cert || id` is a
+silent mis-attribution waiting for the first bank that has a cert and no title.
+Both sides call the one function.
+
+This is the launcher's half of a class the user's own roadmap is about to make
+routine: seven more certification banks are planned, and every one of them
+would have inherited another cert's best score. The mastery half was already
+correct — `summary()` is built from the active bank's questions — which is
+exactly why the mixed panel looked trustworthy.
+
+dashboard-test gains 21 checks (116 → 137). Two `[neg]` controls: the same
+fixtures with no `bank` must still return the foreign 92%, so the assertions
+measure the scoping rather than something incidental; and one attempt scoped to
+the other bank must come back as elsewhere, so "always answer null" cannot
+pass. Reverting the partition turns 13 of them red.
+
 ## v2.67.0 — the backup that arrived before the answers (2026-09-13)
 
 **A coverage gap on the one client-side action that can destroy a study record,
