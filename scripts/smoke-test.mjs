@@ -164,6 +164,81 @@ const enc = await p.evaluate(async () => {
 ok('assets are compressed', enc.enc === 'br' || enc.enc === 'gzip', JSON.stringify(enc));
 ok('and Vary is set', /accept-encoding/i.test(enc.vary || ''), enc.vary);
 
+
+/* ---- two colleagues, one browser ------------------------------------------
+ *
+ * The scenario this deployment is actually for: the tool is served from one VM
+ * to a whole team, and machines get shared. Signing out deletes the server
+ * session and leaves localStorage alone -- it has to, or offline study would be
+ * impossible -- so the next person to sign in at that machine finds the previous
+ * person's study record sitting there.
+ *
+ * Sync used to merge it into whoever just signed in and force-push the result.
+ * End to end, that put all twelve of the first account's question ids into the
+ * second account, permanently, feeding its scheduler and its readiness estimate.
+ *
+ * Everything above this point already signed in as `colleague`, so this reuses
+ * that session, studies, signs out, and signs in as root in the SAME context. */
+{
+  const progress = () => p.evaluate(async () => {
+    const r = await fetch('/api/progress', { credentials: 'same-origin' });
+    return JSON.stringify(await r.json());
+  });
+  const signOut = async () => {
+    await p.evaluate(async () => {
+      let tok = (document.cookie.match(/(?:^|;\s*)nst_csrf=([^;]*)/) || [])[1] || '';
+      try { tok = decodeURIComponent(tok); } catch (e) {}
+      await fetch('/logout', { method: 'POST', credentials: 'same-origin', redirect: 'manual',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'csrf=' + encodeURIComponent(tok) });
+    });
+    await p.waitForTimeout(400);
+  };
+
+  await p.goto(`${BASE}/index.html`, { waitUntil: 'networkidle' });
+  await p.waitForFunction(() => window.NSTMastery && window.NSTSync, null, { timeout: 15000 });
+  await p.evaluate(() => {
+    for (let i = 0; i < 12; i++) window.NSTMastery.record('COLLEAGUE-ONLY-Q' + i, { correct: true, gate: 'always' });
+  });
+  await p.waitForTimeout(1200);
+  await p.evaluate(() => window.NSTSync.push(true));
+  await p.waitForTimeout(1200);
+  const theirs = await progress();
+  ok("a colleague's study record reaches their own account", /COLLEAGUE-ONLY-Q/.test(theirs));
+
+  await signOut();
+  const left = await p.evaluate(() => {
+    try { return Object.keys(localStorage).filter((k) => /^nst\./.test(k)).join(','); } catch (e) { return 'ERR'; }
+  });
+  // Not a defect -- this is what makes offline study and a static host work.
+  // It is the reason the stamp has to exist.
+  ok('signing out leaves the study record in the browser, as it must',
+    /nst\.mastery/.test(left), left);
+
+  await p.goto(`${BASE}/login`, { waitUntil: 'networkidle' });
+  await p.fill('input[name="username"]', 'root');
+  await p.fill('input[name="password"]', 'smoke-test-pw');
+  await p.click('button[type="submit"]');
+  await p.waitForTimeout(1200);
+  await p.goto(`${BASE}/index.html`, { waitUntil: 'networkidle' });
+  await p.waitForFunction(() => window.NSTSync, null, { timeout: 15000 });
+  await p.waitForTimeout(3000);
+  await p.evaluate(() => window.NSTSync.push(true));
+  await p.waitForTimeout(1200);
+
+  const mine = await p.evaluate(async () => {
+    const r = await fetch('/api/me', { credentials: 'same-origin' });
+    return (await r.json()).username;
+  });
+  const rootBlob = await progress();
+  const carried = new Set(rootBlob.match(/COLLEAGUE-ONLY-Q\d+/g) || []).size;
+  ok('the next person to sign in is who they say they are', mine === 'root', mine);
+  ok("and their account holds NONE of the previous person's questions",
+    carried === 0, carried + ' of 12 carried over');
+  ok('the browser no longer shows the previous person\'s record either',
+    !(await p.evaluate(() => (localStorage.getItem('nst.mastery.v1') || '').includes('COLLEAGUE-ONLY-Q'))));
+}
+
 ok('no page errors anywhere', errs.length === 0, errs.slice(0, 3).join(' ;; '));
 console.log('\n' + (fail ? `SMOKE: ${fail} FAILED (${pass} passed)` : `SMOKE: ALL GREEN (${pass} checks)`));
 await b.close(); child.kill('SIGKILL'); rmSync(dir, { recursive: true, force: true });

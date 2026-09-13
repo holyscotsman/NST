@@ -255,6 +255,36 @@
     return { ok: true, restored: chk.summary, mode: mode, rejected: chk.rejected };
   }
 
+  /* Remove every key this app owns, and nothing else.
+   *
+   * The account-switch path needs this and `restore("...", {mode:"replace"})`
+   * cannot provide it: replace only clears keys on its way to writing new ones,
+   * so against a brand-new account -- which has nothing stored -- `pull()`
+   * returns "nothing stored yet" and writes nothing, and the previous person's
+   * record survives in the browser. The next push then sends it up under the new
+   * name. See NSTSync.start. */
+  function clearLocal() {
+    var s = ls();
+    if (!s) return { ok: false, cleared: 0, error: "This browser isn't allowing local storage." };
+    var previous = collect();
+    var n = 0;
+    try {
+      for (var k in previous) {
+        if (Object.prototype.hasOwnProperty.call(previous, k)) { s.removeItem(k); n++; }
+      }
+    } catch (e) {
+      return { ok: false, cleared: n, error: "Local progress could not be cleared." };
+    }
+    // Same reason restore() does this: NSTMastery caches the parsed store and
+    // writes it back on its next save, so without the reload a debounced save
+    // from before the clear would put every record straight back.
+    try {
+      var M = window.NSTMastery;
+      if (M && M.load) M.load(true);
+    } catch (e) { /* the clear itself succeeded; this is a cache hint */ }
+    return { ok: true, cleared: n };
+  }
+
   /* How much storage we are using, and how close to the ceiling. */
   function estimate() {
     var ours = summarize(collect());
@@ -292,6 +322,7 @@
     download: download,
     inspect: inspect,
     restore: restore,
+    clearLocal: clearLocal,
     estimate: estimate,
     requestPersist: requestPersist,
   };
