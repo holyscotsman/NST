@@ -5,6 +5,63 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.56.0 — closing the class (2026-09-13)
+
+**No defect. One rule that generalizes the last two cycles, and a sweep that says
+there is no third instance.**
+
+Twice in a row the same bug turned up: a feature guarded on authored data the
+pipeline could not supply.
+
+- **v2.52.0** — WWTBANE's green room only offers a question carrying a `steveClue`.
+  No bank could express one, so Steve had nothing to sell, for all 255 served
+  questions.
+- **v2.54.0** — rung 30 serves an `impossible` question the first time a player ever
+  reaches the final. No bank could mark one, so that branch had never run for
+  anybody.
+
+Both were found by reading the consuming code and asking where its data was meant to
+come from. That works, and it does not scale: it finds them one at a time, after
+they ship.
+
+### The rule, asked from the other end
+`adapter-test.mjs`, +5 checks (66 → 71). Take a question carrying **every field the
+bank format can express** — all seventeen — and require each one to reach at least
+one app, by its own name or by a named rename (`teach` → `briefing`,
+`clue` → `steveClue`, `correct` → `answer`, `difficulty` → `authoredDifficulty`). A
+field nobody carries is a field nobody can use, and it is exactly the shape of a
+promise the format makes and the pipeline quietly breaks.
+
+Planting a new field in the real parser is caught by name:
+
+```
+FAIL every field the bank format can express reaches at least one app (18 fields)
+  -- hint -- carry it, or list it in DROPPED with a reason
+```
+
+### The sweep: no third instance
+The other direction, for completeness — every `q.<property>` read anywhere in the
+three apps, checked against what the adapters produce. Three candidates, none a
+defect:
+
+- **`phoneHint`** (WWTBANE) is authored, parsed and schema-validated, and **never
+  rendered** — `phoneFriend` picks an option algorithmically and the UI shows the
+  pick. It was deliberately not given a home in v2.52.0, and still should not have
+  one.
+- **`deepExplain`** (StarNix's ARM) falls back to `explanation` on the line that
+  reads it: `q.deepExplain || q.explanation || ""`. An optional enrichment that
+  degrades where it is used, not a promise broken elsewhere.
+- **`source` and `review`** (the core validator) are clauses guarding fields the
+  format cannot produce — dead validation rather than a dead feature.
+
+So the class is closed: the two found were the only two.
+
+### A note on the control
+The new control first asserted the planted field was the **only** one caught. That
+holds while everything else passes and goes quiet the moment the rule is
+legitimately red — a control that stops reporting exactly when it is needed. It
+asserts membership now.
+
 ## v2.55.0 — the shape of the study record (2026-09-13)
 
 **No defect. Two gates over behaviour that is already right, and one of them was
