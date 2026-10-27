@@ -31,7 +31,7 @@ The quiz is always DOM text over the canvas; none of this changes that.
 | Shadow map | 1024 | 1024 | 2048 |
 | Beams, motes | 4, 60 | 8, 150 | 12, 260 |
 
-**Auto never picks `high`.** It starts at `medium` at most; `high` is opt-in
+**Auto starts at `low` (v2.86.0).** `medium` and `high` are opt-in: `?quality=medium`, or Settings → Graphics quality; `high`
 (`?quality=high` or Settings) until it has been proven on real GPUs.
 
 How a tier is chosen, first match wins: `?quality=low|medium|high` in the URL,

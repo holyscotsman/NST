@@ -48,9 +48,10 @@ test('"effects off" caps the tier at low whatever the GPU is', () => {
   assert.equal(pickTier({ gl, effects: false, autoMax: 'high' }).tier.name, 'low');
 });
 
-test('Auto never picks high on its own: high is opt-in until it is proven on real GPUs', () => {
+test('Auto picks Low on its own: Medium and High are opt-in until the black area seen on a Mac at Medium is understood', () => {
   const gl = { getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1 }), getParameter: () => 'Apple M2 Pro' };
-  assert.equal(pickTier({ gl, effects: true }).tier.name, 'medium');
+  assert.equal(pickTier({ gl, effects: true }).tier.name, 'low');
+  assert.equal(pickTier({ gl, effects: true, autoMax: 'medium' }).tier.name, 'medium');
 });
 
 test('a tier remembered as broken is never picked again, nor anything above it', () => {
