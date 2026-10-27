@@ -115,6 +115,11 @@
       var mode = local.keys ? "merge" : "replace";
       var out = B.restore(JSON.stringify(res.data), { mode: mode });
       if (out.ok) state.lastPushed = snapshot();
+      // A page that keeps its own copy of its progress in memory (the NCM practice tool) has to
+      // re-read it, or its next save would write the stale copy over what was just merged in.
+      if (out.ok && out.restored && out.restored.keys) {
+        try { window.dispatchEvent(new CustomEvent("nst-sync-pulled", { detail: { keys: out.restored.keys } })); } catch (e) {}
+      }
       return { ok: !!out.ok, mode: mode, restored: out.ok ? out.restored.keys : 0, error: out.error };
     });
   }

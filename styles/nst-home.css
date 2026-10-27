@@ -235,9 +235,10 @@ body {
   gap: 24px;
   width: 100%;
   max-width: 1180px;
+  flex-wrap: wrap;
 }
 .nst-card {
-  flex: 1;
+  flex: 1 1 230px;
   display: flex;
   flex-direction: column;
   padding: 30px;
@@ -338,6 +339,9 @@ body {
 
 .nst-card--exam .nst-card-icon { background: linear-gradient(135deg, #6D5DFF, #3E23A6); box-shadow: 0 12px 30px rgba(124, 77, 255, 0.45); }
 .nst-card--exam .nst-card-cta  { background: linear-gradient(135deg, #7C4DFF, #4326A8); box-shadow: 0 10px 26px rgba(124, 77, 255, 0.4); }
+
+.nst-card--lab .nst-card-icon { background: linear-gradient(135deg, #1FB7C4, #3E23A6); box-shadow: 0 12px 30px rgba(31, 183, 196, 0.38); }
+.nst-card--lab .nst-card-cta  { background: linear-gradient(135deg, #1FA2B5, #3A2A9E); box-shadow: 0 10px 26px rgba(31, 162, 181, 0.36); }
 
 /* ================================================================ TABLET (2A) */
 @media (max-width: 1023px) {

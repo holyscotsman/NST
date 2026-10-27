@@ -12,7 +12,7 @@
 - **Hosting:** plain static site on GitHub Pages (deploy from a branch, root). No build step
   at deploy time, no server, no runtime CDN dependencies.
 - **Live:** https://holyscotsman.github.io/NST/ (once Pages is enabled).
-- **Structure:** a launcher home page routing to three tools, each in its own folder.
+- **Structure:** a launcher home page routing to four tools (WWTBANE, StarNix, Practice Exams, NCM-MCI Lab Practice), each in its own folder.
 
 ---
 

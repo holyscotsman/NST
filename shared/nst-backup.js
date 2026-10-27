@@ -105,7 +105,8 @@
       out.bytes += k.length + String(data[k]).length;
       var tool = k.indexOf("starnix:") === 0 ? "StarNix"
         : k.indexOf("wwtbane.") === 0 ? "WWTBANE"
-          : k.indexOf("nst.practice-exams") === 0 ? "Practice Exams" : "Settings";
+          : k.indexOf("nst.practice-exams") === 0 ? "Practice Exams"
+            : k.indexOf("nst.ncm-practice") === 0 ? "NCM practice" : "Settings";
       if (!seen[tool]) { seen[tool] = 1; out.tools.push(tool); }
     }
     return out;
@@ -234,6 +235,16 @@
     return JSON.stringify(out.slice(0, 50));
   }
 
+  function newerByUpdated(currentText, incomingText) {
+    try {
+      var cur = JSON.parse(currentText), inc = JSON.parse(incomingText);
+      if (!cur || typeof cur !== "object") return incomingText;
+      if (!inc || typeof inc !== "object") return currentText;
+      var c = Date.parse(cur.updated) || 0, i = Date.parse(inc.updated) || 0;
+      return i >= c ? incomingText : currentText;
+    } catch (e) { return incomingText; }
+  }
+
   /* Looked up lazily: nst-backup.js loads before nst-mastery.js, so the module
    * is not there yet at definition time -- only at restore time. If it is
    * somehow missing, fall back to the old behaviour rather than failing. */
@@ -244,6 +255,8 @@
       return incomingText;
     }
     if (key === "nst.practice-exams.history.v1") return mergeAttempts(currentText, incomingText);
+    // NCM practice keeps one small record with its own "updated" stamp: the newer one wins, never a blind overwrite.
+    if (key === "nst.ncm-practice.v1") return newerByUpdated(currentText, incomingText);
     return incomingText;
   }
 

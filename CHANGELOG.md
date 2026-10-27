@@ -5,6 +5,35 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.82.0 — NCM-MCI Lab Practice, a fourth tool (2026-10-27)
+
+**A separate section for the hands-on NCM-MCI 6.10 lab exam: seventeen lab tasks drilled
+as walkthroughs, a mock CVM terminal, command fill, recall, location, values, step order
+and traps. It sits on the launcher beside WWTBANE, StarNix and Practice Exams and shares
+nothing with them.**
+
+- `ncm-practice/` (own folder, own card). Ported from the single-file app the owner supplied
+  (`ncm-mci-guided-practice`), which was written for Netlify: inline script and style,
+  `style=""` attributes in its templates, Google Fonts, and a private sync function. NST
+  pages run under a strict CSP, so the page is split into `index.html`, `ncm.css` and
+  `ncm.js`; style attributes become a small `data-css` shim applied through the style API;
+  Montserrat (200, 300 and the variable 400-800 files) is vendored; nothing loads from outside.
+- Progress moved to `nst.ncm-practice.v1` (it was `ncm-drill-v1`). Because it now sits under
+  the `nst.` prefix, the shared backup and account sync carry it with everything else. The
+  backup merge keeps the NEWER record (it has its own `updated` stamp) instead of
+  overwriting, and a pull tells the page (`nst-sync-pulled`) to re-read, so a later save
+  cannot clobber what was just merged in. The old passphrase-sync UI and `/api/progress`
+  call are removed; sign-in sync replaces them.
+- Added the Task 7 (syslog) terminal session. The source's handoff lists it as a terminal
+  task, but the code had no session for it; it is built from the commands in that handoff.
+  The mock outputs are plausible, not captured from a real cluster.
+- Two accessibility fixes found by axe: the footer grey failed contrast (2.74:1), and a
+  scrollable code block was not keyboard-focusable. Clean at 1280 and 390 px on all four screens.
+- Docs: the original field guide, task sheet and handoff are kept under `ncm-practice/docs/`.
+- Tests: `scripts/ncm-practice-test.mjs` (31 checks, run in CI): strict-CSP compliance with no
+  outside request, every screen and drill type renders, the terminal grades a clean run, progress
+  is in the shared backup, newer-wins merge both ways, the launcher card.
+
 ## v2.81.0 — KCNA question bank (2026-10-27)
 
 **A second certification: the Kubernetes and Cloud Native Associate (KCNA), 331
