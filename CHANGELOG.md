@@ -5,6 +5,26 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.77.0 — WWTBANE graphics overhaul, stage D: moments and the green room (2026-10-27)
+
+**Wins now look like wins: paper confetti, a gold coin shower, sparks off the
+Core, and a piggy bank that squashes every time you bank. The green room is
+rebuilt to match the studio.**
+
+- `stage/fx.js`: two instanced pools (paper, coins) simulated on the CPU,
+  120-480 paper and 30-110 coins by tier. Right answer: sparks from the Core.
+  Banking: coins drop toward the piggy bank. Run win: a 7 s shower. Under
+  reduced motion every emitter is a no-op, and nothing flashes.
+- Piggy bank: eyes, nostrils, flatter ears, a quieter pedestal, and a damped
+  squash-and-wobble on each bank (snaps back under reduced motion).
+- Green room (`stage/greenRoom.js`): charcoal walls with slatted wood, an iris
+  cove light, a dressing mirror ringed with warm bulbs, rounded sofas, a rug,
+  plants, a "now on air" lamp and a live-feed monitor. Every position the
+  camera takes, the door swing, the phone and the stage manager rely on is
+  unchanged.
+- Tests: `fx.test.mjs` (empty start, burst clears itself, reduced-motion no-op,
+  show lifecycle, pool recycling, coins rest on the deck, pig bump/settle).
+
 ## v2.76.0 — WWTBANE graphics overhaul, stage C: the people (2026-10-27)
 
 **The cast were capsules with dots for eyes. They are now characters: a host in

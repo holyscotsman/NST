@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { PAL, mat, cyl, box, castShadows } from './kit.js';
 import { Accent } from './accent.js';
+import { buildFx } from './fx.js';
 import { buildLights } from './lights.js';
 import { buildFloor } from './floor.js';
 import { buildLedWall } from './ledWall.js';
@@ -70,6 +71,8 @@ export async function buildStudioSet(studio) {
 
   const core = buildCore({ accent });
   scene.add(core.group);
+  const fx = buildFx({ tier });
+  scene.add(fx.group);
 
   // ---- the hot seats, host and contestant ----
   const seatL = hotSeat(-2.1, accent), seatR = hotSeat(2.1, accent);
@@ -106,7 +109,7 @@ export async function buildStudioSet(studio) {
 
   // the piggy bank — tucked to stage right, out of the two-shot, snout to centre
   const pig = piggyBank(5.7, -0.9);
-  pig.rotation.y = Math.atan2(0.9, 5.7); pig.scale.setScalar(0.88);
+  pig.rotation.y = Math.atan2(0.9, 5.7); pig.scale.setScalar(0.88); pig.userData.baseScale = 0.88;
   scene.add(pig);
 
   // Perimeter fins framing the stage: dark metal with one thin lit edge facing
@@ -151,7 +154,7 @@ export async function buildStudioSet(studio) {
   studio._voteCards = audience.voteCards; studio._voteN = audience.seats.length; studio._vote = null;
 
   return {
-    scene, lights, floor, wall, rig, core, audience, accent,
+    scene, lights, floor, wall, rig, core, audience, accent, fx, pig,
     update(dt, t, st) {
       accent.update(dt, st.reduced);
       lights.update({ env: st.env, pulse: st.pulse, pulseColor: st.pulseColor });
@@ -159,12 +162,14 @@ export async function buildStudioSet(studio) {
       wall.update(t, dt, { level: accent.level, pulse: st.pulse, reduced: st.reduced });
       rig.update(t, { spin: st.spin, reduced: st.reduced, level: accent.level * (0.45 + 0.55 * st.env) });
       core.update(t, dt, { reduced: st.reduced });
+      fx.update(dt, st.reduced);
+      pig.userData.update(dt, st.reduced);
       if (!st.reduced && st.postFx) {
         for (let i = 1; i < mpos.length; i += 3) { mpos[i] += dt * 0.14; if (mpos[i] > 7) mpos[i] = 0.2; }
         mgeo.attributes.position.needsUpdate = true; motes.rotation.y += dt * 0.02; motes.visible = true;
       } else motes.visible = false;
     },
     resize(w, h, dpr) { floor.resize(w, h, dpr); },
-    dispose() { floor.dispose(); wall.dispose(); rig.dispose(); },
+    dispose() { floor.dispose(); wall.dispose(); rig.dispose(); fx.dispose(); },
   };
 }

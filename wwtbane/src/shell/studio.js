@@ -298,6 +298,7 @@ export class Studio {
       case 'answer:correct':
         this._flash(PAL.mantis);
         this.set.core.setTension(false); this.set.core.flash();
+        this.set.fx.sparks(40, 0, 1.9, 0, PAL.mantis);
         this._mood = { kind: 'happy', t: 2.2, total: 2.2 };
         this._lightEnv = 1; // rig flares back up on the reveal
         this._phase = 'reveal';
@@ -310,7 +311,11 @@ export class Studio {
         this._lightEnv = 1;
         this._phase = 'reveal';
         break;
+      case 'coins:bank':
+        this.set.fx.coins(36); this.set.pig.userData.bump();
+        break;
       case 'run:win':
+        this.set.fx.confetti(180); this.set.fx.coins(60); this.set.fx.show(7);
         this.set.wall.showMark(false);                         // (C6-04) hero screens carry their own wordmark
         this._setMood(PAL.gold, 1.3);
         this._spin = this.reduced ? 1 : 3;
