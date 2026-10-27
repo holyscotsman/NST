@@ -51,7 +51,7 @@ so nothing in the code can notice. v2.80.0 added two defences:
 - **Black-frame check** (`studio.js`, `_checkFrame`): in the first seconds after a
   tier is built, the studio samples rows of the real canvas. If nearly all of them
   are pure black it drops one tier, remembers the failed tier in
-  `localStorage` (`wwtbane.gfxBad`) so Auto never picks it again, and carries on.
+  `localStorage` (`wwtbane.gfxBad2`) so Auto never picks it again, and carries on.
   A person's explicit choice (`?quality=` or Settings) always wins over the memory.
 - **Pixel cap** on the post chain (table above), because huge multisampled
   half-float buffers on a large retina window are the first suspect.

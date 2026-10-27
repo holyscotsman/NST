@@ -141,8 +141,10 @@ export class Studio {
     try { f = this._blackFraction(); } catch { f = null; }
     if (f == null) return;
     H.last = f;
-    H.hits = f > 0.6 ? H.hits + 1 : 0;
-    if (H.hits >= 3 && this.tier.name !== 'low') {
+    // A dark set legitimately reads 30% pure black, and Safari's readback of the direct (Low) canvas reported 87%
+    // on a frame that was visibly fine, so only a frame that is black through and through counts, four times running.
+    H.hits = f > 0.94 ? H.hits + 1 : 0;
+    if (H.hits >= 4 && this.tier.name !== 'low') {
       const from = this.tier.name, to = from === 'high' ? 'medium' : 'low';
       console.warn(`[wwtbane] the ${from} tier is drawing a black frame on this GPU (${Math.round(f * 100)}% black) — dropping to ${to}`);
       rememberBadTier(from);
