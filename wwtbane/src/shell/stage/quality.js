@@ -110,7 +110,7 @@ export function applyOverrides(tier, search) {
 // goes above medium until a person asks for high (?quality=high or Settings):
 // "high" is the one tier that has only ever been verified in software, so it is
 // opt-in. `autoMax` lets a test (or a future, proven build) raise that cap.
-export function pickTier({ gl, effects = true, autoMax = 'medium', search = '' } = {}) {
+export function pickTier({ gl, effects = true, autoMax = 'low', search = '' } = {}) {
   const forced = readParam() || readSaved();
   let name = forced || tierFromRenderer(gpuName(gl));
   if (!forced && ORDER.indexOf(name) > ORDER.indexOf(autoMax)) name = autoMax;

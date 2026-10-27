@@ -5,6 +5,14 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.86.0 — Medium no longer shows its black start-up; Auto starts on Low (2026-10-27)
+
+**On a Mac, Medium drew black for its first seconds (the debug box read 94% black) and then filled in by itself.
+The canvas is now held invisible until a real frame is there, the render targets are rebuilt while it is still
+black (a resize is what cleared it), and the studio only drops a tier after ~6 seconds of continuous black.
+Until that is confirmed on a real Mac, Auto still starts on Low; Medium and High are one click away in Settings,
+or `?quality=medium`.**
+
 ## v2.85.0 — Stop the black-frame check from downgrading a healthy picture (2026-10-27)
 
 **Screenshots from a Mac (Safari) showed the 3D studio rendering correctly at Medium, yet the game kept
