@@ -3,7 +3,7 @@
 
 // The game version, shown on the title screen. Keep in lockstep with
 // package.json "version" (tests pin the two together).
-export const VERSION = '0.1.1';
+export const VERSION = '0.2.0';
 
 // A run is 30 questions: 10 easy / 10 medium / 9 hard / 1 extreme final.
 export const RUN_LENGTH = 30;

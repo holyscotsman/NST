@@ -16,6 +16,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { PAL, mat, cyl, box, castShadows } from './kit.js';
 import { Accent } from './accent.js';
+import { buildFx } from './fx.js';
 import { buildLights } from './lights.js';
 import { buildFloor } from './floor.js';
 import { buildLedWall } from './ledWall.js';
@@ -70,24 +71,27 @@ export async function buildStudioSet(studio) {
 
   const core = buildCore({ accent });
   scene.add(core.group);
+  const fx = buildFx({ tier });
+  scene.add(fx.group);
 
   // ---- the hot seats, host and contestant ----
   const seatL = hotSeat(-2.1, accent), seatR = hotSeat(2.1, accent);
   scene.add(seatL, seatR);
 
-  const host = person({ skin: 0xd9b48f, hair: 0x9aa3b2, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.09, seated: true });
+  const host = person({ skin: 0xd9b48f, hair: 0x8f97a6, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.03, seated: true,
+    outfit: 'jacket', hairStyle: 'swept', bow: PAL.gold, eyes: 0x4a6a8a, rim: accent.color });
   host.position.set(2.1, 0.16, 0); host.rotation.y = -0.28;
-  const bow = box(0.12, 0.055, 0.04, mat(0x1a1408, PAL.gold, 0.55)); bow.position.set(0, 1.415, 0.15); host.add(bow);
   host.userData.parts.armR.rotation.z = 1.0; // working the room — arm swept out, not across the face
   setMouth(host.userData.parts, 'smile');
   castShadows(host); scene.add(host);
 
-  const player = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true });
+  const player = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true,
+    outfit: 'hoodie', hairStyle: 'short', eyes: 0x3a2412, rim: accent.color });
   player.position.set(-2.1, 0.16, 0); player.rotation.y = 0.28;
   castShadows(player); scene.add(player);
 
   // one reusable crowd member who stands in for a seat during the random moments
-  const actor = person({ skin: 0xc9a07a, hair: 0x33271a, shirt: 0x3a3f63, pants: 0x22223a, accent: PAL.iris, glow: 0.06 });
+  const actor = person({ skin: 0xc9a07a, hair: 0x33271a, shirt: 0x3a3f63, pants: 0x22223a, accent: PAL.iris, glow: 0.06, outfit: 'tee', rim: accent.color });
   actor.visible = false; scene.add(actor);
 
   // fourth wall: broadcast pedestal cameras and an operator
@@ -96,16 +100,16 @@ export async function buildStudioSet(studio) {
     cam.position.set(cx, 0, cz); cam.rotation.y = Math.atan2(cx, cz);
     scene.add(cam);
   }
-  const operator = crewPerson();
+  const operator = crewPerson({ rim: accent.color, hairStyle: 'short' });
   operator.position.set(3.9, 0, 10.4); operator.rotation.y = Math.PI + 0.35;
   scene.add(operator);
-  const sm = crewPerson({ clipboard: true });
+  const sm = crewPerson({ clipboard: true, rim: accent.color, hairStyle: 'bun', hair: 0x2a1c3a, skin: 0xc98d64, glasses: true });
   sm.position.set(-9.2, 0, 1.4); sm.rotation.y = 1.05;
   scene.add(sm);
 
   // the piggy bank — tucked to stage right, out of the two-shot, snout to centre
   const pig = piggyBank(5.7, -0.9);
-  pig.rotation.y = Math.atan2(0.9, 5.7); pig.scale.setScalar(0.88);
+  pig.rotation.y = Math.atan2(0.9, 5.7); pig.scale.setScalar(0.88); pig.userData.baseScale = 0.88;
   scene.add(pig);
 
   // Perimeter fins framing the stage: dark metal with one thin lit edge facing
@@ -150,7 +154,7 @@ export async function buildStudioSet(studio) {
   studio._voteCards = audience.voteCards; studio._voteN = audience.seats.length; studio._vote = null;
 
   return {
-    scene, lights, floor, wall, rig, core, audience, accent,
+    scene, lights, floor, wall, rig, core, audience, accent, fx, pig,
     update(dt, t, st) {
       accent.update(dt, st.reduced);
       lights.update({ env: st.env, pulse: st.pulse, pulseColor: st.pulseColor });
@@ -158,12 +162,14 @@ export async function buildStudioSet(studio) {
       wall.update(t, dt, { level: accent.level, pulse: st.pulse, reduced: st.reduced });
       rig.update(t, { spin: st.spin, reduced: st.reduced, level: accent.level * (0.45 + 0.55 * st.env) });
       core.update(t, dt, { reduced: st.reduced });
+      fx.update(dt, st.reduced);
+      pig.userData.update(dt, st.reduced);
       if (!st.reduced && st.postFx) {
         for (let i = 1; i < mpos.length; i += 3) { mpos[i] += dt * 0.14; if (mpos[i] > 7) mpos[i] = 0.2; }
         mgeo.attributes.position.needsUpdate = true; motes.rotation.y += dt * 0.02; motes.visible = true;
       } else motes.visible = false;
     },
     resize(w, h, dpr) { floor.resize(w, h, dpr); },
-    dispose() { floor.dispose(); wall.dispose(); rig.dispose(); },
+    dispose() { floor.dispose(); wall.dispose(); rig.dispose(); fx.dispose(); },
   };
 }

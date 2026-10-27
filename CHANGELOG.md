@@ -5,6 +5,84 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.79.0 — WWTBANE graphics overhaul, stage F: docs and release (2026-10-27)
+
+**The overhaul is documented, flagged for a real-hardware look, and WWTBANE moves
+to 0.2.0.**
+
+- `wwtbane/docs/GRAPHICS.md`: the layers, the tier table, how a tier is chosen,
+  reduced motion, what is tested and what cannot be (real frame times).
+- `wwtbane/FLAGS.md` 4b: asks the owner to open `?quality=high|medium|low` on real
+  hardware, and to confirm gold as a game-only extension of the design system.
+- WWTBANE `0.1.1` to `0.2.0` (`package.json` and `config.js`, kept in lockstep).
+
+## v2.78.0 — WWTBANE graphics overhaul, stage E: the interface (2026-10-27)
+
+**The quiz overlay now follows the Nutanix Design System instead of a generic
+neon-glass look: flat 4 px cards, pill buttons, the real X ident, the notched
+rule, light-weight titles, drawn icons in place of emoji.**
+
+Rules taken from the "Nutanix Design System" artifact (README and tokens):
+Montserrat only, sentence case, flat fills, a #A89EF6 hairline on dark cards,
+iris #7855FA as the action colour (hover #4B00AA), coral #FF9178 for danger.
+The game keeps gold for money and the lock-in beat (a documented game-only
+extension) and keeps the stage's light; only the DOM panels go flat.
+
+- Answers are rounded 4 px cards (the hexagonal lozenge is gone); the focus ring
+  is now a real outline, because the clip-path that clipped it is gone.
+- Panels, HUD, ladder, question card, lifeline results: flat charcoal, no blur,
+  no drop shadow. Tracked all-caps labels are sentence case ("Money ladder",
+  "Coins earned", "Safe haven — 500 banked").
+- Title screen: the official X ident, a light-weight white title (no gradient
+  fill), the notched rule. The LED wall wordmark follows the same rules.
+- Buttons: pills. Iris primary, outlined secondary, gold only for "Final answer".
+- Emoji replaced by drawn SVG icons (`ui/icons.js`): coin, shield, phone,
+  audience, trophy, sound, menu.
+- Settings: "Graphics quality" (Auto / Low / Medium / High), applied on next load.
+- `PAL.peach` and the brief move to the design system's coral #FF9178.
+- Tests: `designrules.test.mjs` (no emoji, no hexagonal answers, flat title,
+  ident asset shape). a11y, mobile, palette, smoke and e2e suites all pass.
+
+## v2.77.0 — WWTBANE graphics overhaul, stage D: moments and the green room (2026-10-27)
+
+**Wins now look like wins: paper confetti, a gold coin shower, sparks off the
+Core, and a piggy bank that squashes every time you bank. The green room is
+rebuilt to match the studio.**
+
+- `stage/fx.js`: two instanced pools (paper, coins) simulated on the CPU,
+  120-480 paper and 30-110 coins by tier. Right answer: sparks from the Core.
+  Banking: coins drop toward the piggy bank. Run win: a 7 s shower. Under
+  reduced motion every emitter is a no-op, and nothing flashes.
+- Piggy bank: eyes, nostrils, flatter ears, a quieter pedestal, and a damped
+  squash-and-wobble on each bank (snaps back under reduced motion).
+- Green room (`stage/greenRoom.js`): charcoal walls with slatted wood, an iris
+  cove light, a dressing mirror ringed with warm bulbs, rounded sofas, a rug,
+  plants, a "now on air" lamp and a live-feed monitor. Every position the
+  camera takes, the door swing, the phone and the stage manager rely on is
+  unchanged.
+- Tests: `fx.test.mjs` (empty start, burst clears itself, reduced-motion no-op,
+  show lifecycle, pool recycling, coins rest on the deck, pig bump/settle).
+
+## v2.76.0 — WWTBANE graphics overhaul, stage C: the people (2026-10-27)
+
+**The cast were capsules with dots for eyes. They are now characters: a host in
+a jacket and bow tie, a contestant in a hoodie, and a crew in headsets, each
+with a face that looks at things.**
+
+- Figures (`stage/people.js`) rebuilt: egg-shaped head with a jaw, eyes with
+  whites, iris, pupil and catch-light, brows, nose and ears; five hair styles;
+  jacket / tee / hoodie / stage outfits; tapered limbs with an elbow bend;
+  optional glasses. Geometry is built once and shared; a full figure is 3-4k
+  triangles (the old one drew about 10k).
+- Every figure is rim-lit in the live mood colour, so talent separates from the
+  dark room.
+- Life pass: eyes saccade between targets, brows lift on stress and happiness
+  and drop on a wrong answer, the host nods on the beat of speech and gestures
+  with the free hand. All allocation-free, and paused under reduced motion (the
+  gfx suite still proves two frames identical).
+- Tests: `people.test.mjs` (part contract, crowd stand-in contract, triangle
+  budget, hair styles, shared geometry).
+
 ## v2.75.0 — WWTBANE graphics overhaul, stage B: the set (2026-10-27)
 
 **The studio was a stage built from primitives and a rainbow mosaic. It is now a

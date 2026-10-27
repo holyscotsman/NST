@@ -939,3 +939,114 @@ body.reduced-motion *, body.reduced-motion *::before, body.reduced-motion *::aft
 /* When both are up, the quieter one steps down so neither is hidden. */
 .store-warn ~ .sync-warn, .sync-warn:has(~ .store-warn) { bottom: 68px; }
 @media (max-width: 520px) { .store-warn { bottom: 8px; font-size: 12px; padding: 8px 11px; } }
+
+/* ======================================================================
+   Nutanix Design System pass (stage E of the graphics overhaul)
+   The rules, from the "Nutanix Design System" artifact (README + tokens):
+   Montserrat only, light weights for big type, sentence case (no tracked
+   capitals), flat fills (no gradient text, no glass), 4 px outlined cards on
+   dark with a #A89EF6 hairline, pill buttons, iris #7855FA as the action
+   colour, coral #FF9178 for danger, real X ident, no emoji. The game keeps its
+   own gold for money and "locked in" (a documented game-only extension), and
+   the stage keeps its light — only the DOM panels go flat. Declared last so it
+   wins by source order; the earlier rules remain the structural base.
+   ====================================================================== */
+:root {
+  --peach: #FF9178;
+  --ink: #131313;
+  --outline: #A89EF6;
+  --card: rgba(19, 19, 19, 0.88);
+  --card-line: rgba(168, 158, 246, 0.42);
+  --iris-hover: #4B00AA;
+  --panel: rgba(19, 19, 19, 0.88);
+  --panel-2: rgba(19, 19, 19, 0.82);
+  --line: rgba(168, 158, 246, 0.3);
+}
+.ico { width: 1em; height: 1em; vertical-align: -0.14em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---- flat 4 px cards on dark: no blur, no drop shadow ---- */
+.panel, .coins, .ladder, .q-card, .reveal, .help-screen, .settings-screen, .seed-box,
+.green-room .panel, .audience, .phone-call, .wallet, .pause-btn, .cine-box, .speech {
+  background: var(--card); border: 1px solid var(--card-line); border-radius: 4px;
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.wallet, .badge { border-radius: 999px; }
+.green-room .wallet { color: var(--gold); }
+
+/* ---- type: sentence case, light weights, no tracked capitals ---- */
+.coins .coins-head, .coin-label, .ll-name, .ladder-head, .ll-title, .sc-name, .steve-status,
+.reveal-label, .cine-host, .speech-who, .preview-label {
+  text-transform: none; letter-spacing: 0.01em;
+}
+.coins .coins-head { font-size: 12px; font-weight: 600; }
+.coin-label { font-size: 12px; }
+.ll-name { font-size: 11px; }
+.ladder-head { font-size: 12px; height: 18px; font-weight: 600; }
+.ll-title { font-size: 13px; }
+.brand-pre { text-transform: none; letter-spacing: 0.02em; font-size: 20px; font-weight: 300; color: #C6BEFE; }
+.brand-main { background: none; -webkit-background-clip: border-box; background-clip: border-box; color: #fff; font-weight: 300; filter: none; }
+.brand-x { display: block; height: 34px; width: auto; margin: 0 auto 14px; }
+.brand-sub { color: #E6E7F5; }
+/* the notched rule under the title — the DS's signature ornament */
+.brand::after {
+  content: ""; display: block; height: 22px; width: min(460px, 80%); margin: 18px auto 0;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 872 22' preserveAspectRatio='none'><path d='M0 1H416L436 21L456 1H872' fill='none' stroke='%23AC9BFD' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>") center / 100% 100% no-repeat;
+}
+.screen-title, h2.screen-title { font-weight: 300; }
+
+/* ---- buttons: pills. Iris is the action colour; gold is reserved for the
+   lock-in beat, where it means "this is final". ---- */
+.primary {
+  background: var(--iris); color: #fff; font-weight: 600; border-radius: 999px;
+  box-shadow: none; transition: background 0.12s ease-out, transform 0.12s ease-out;
+}
+.primary.big { border-radius: 999px; box-shadow: none; padding: 15px 36px; font-size: 17px; }
+.primary:hover:not(:disabled) { background: var(--iris-hover); transform: none; box-shadow: none; }
+.secondary, .ghost {
+  background: transparent; border: 1px solid var(--outline); color: #fff; border-radius: 999px; font-weight: 600;
+}
+.secondary:hover:not(:disabled), .ghost:hover:not(:disabled) { background: rgba(168, 158, 246, 0.16); }
+.lock-btn {
+  background: var(--gold); color: #2a1400; font-weight: 700; border-radius: 999px;
+  box-shadow: none; padding: 13px 34px; transition: background 0.12s ease-out, opacity 0.2s;
+}
+.lock-btn:hover:not(:disabled) { background: #ffd57e; transform: none; box-shadow: none; }
+.lock-btn:disabled { opacity: 1; background: rgba(255, 200, 87, 0.22); color: #d9c48f; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
+
+/* ---- answers: rounded 4 px cards, not hexagonal lozenges ---- */
+.option {
+  clip-path: none; border-radius: 4px;
+  background: rgba(19, 19, 19, 0.84); box-shadow: inset 0 0 0 1px rgba(168, 158, 246, 0.5);
+}
+.option:hover:not(:disabled) { background: rgba(31, 221, 233, 0.1); box-shadow: inset 0 0 0 1.5px var(--aqua); }
+.opt-letter { border-radius: 50%; background: rgba(120, 85, 250, 0.35); }
+.option.selected { background: rgba(31, 221, 233, 0.14); box-shadow: inset 0 0 0 2px var(--aqua); }
+.option.locked-in { background: rgba(255, 200, 87, 0.14); box-shadow: inset 0 0 0 2px var(--gold); }
+.lock-glow { clip-path: none; border-radius: 4px; box-shadow: inset 0 0 0 2px var(--gold); }
+.option.is-correct { background: rgba(146, 221, 35, 0.16); box-shadow: inset 0 0 0 2px var(--mantis); }
+.option.is-wrong { background: rgba(255, 145, 120, 0.16); box-shadow: inset 0 0 0 2px var(--peach); }
+.option.is-wrong .opt-letter { background: var(--peach); color: #2a0b06; }
+.option:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; box-shadow: inset 0 0 0 1.5px var(--gold); }
+body.high-contrast .option { box-shadow: inset 0 0 0 2px #fff; }
+
+/* ---- small glyphs ---- */
+.ll-glyph { display: grid; place-items: center; }
+.ll-glyph .ico { width: 20px; height: 20px; stroke-width: 1.7; }
+.coin-amt.banked .shield .ico { width: 13px; height: 13px; }
+.rung-safe .ico { width: 9px; height: 9px; }
+.haven-shield .ico { width: 1.1em; height: 1.1em; }
+.phone-tag .ico { width: 15px; height: 15px; }
+.sc-phone .ico { width: 28px; height: 28px; }
+.result-emblem .ico { width: 72px; height: 72px; stroke-width: 1.3; color: var(--gold); }
+.wallet .ico, .badge .ico { margin-right: 2px; }
+
+/* ---- the last gradients and glass: title card, continue/result buttons, bars ---- */
+.brand { border-radius: 4px; background: var(--card); border: 1px solid var(--card-line); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.continue-btn, .result-screen.lose .primary.big { background: var(--iris); color: #fff; border-radius: 999px; box-shadow: none; font-weight: 600; }
+.continue-btn:hover:not(:disabled), .result-screen.lose .primary.big:hover:not(:disabled) { background: var(--iris-hover); }
+.result-screen.win .primary.big { background: var(--gold); color: #2a1400; border-radius: 999px; box-shadow: none; font-weight: 700; }
+.result-screen.win .primary.big:hover:not(:disabled) { background: #ffd57e; }
+.aud-bar { background: var(--iris); }
+.aud-bar.top { background: var(--mantis); }
+.option.is-correct .opt-letter { background: var(--mantis); }

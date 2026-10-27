@@ -47,22 +47,20 @@ export function screenTexture() {
 // Montserrat loads silently falls back to a system sans and the title is wrong
 // for the whole session.
 export async function wallMarkTexture() {
-  try { if (document.fonts && document.fonts.load) await Promise.all([document.fonts.load('800 190px Montserrat'), document.fonts.load('600 52px Montserrat')]); } catch { /* fall back */ }
+  try { if (document.fonts && document.fonts.load) await Promise.all([document.fonts.load('300 200px Montserrat')]); } catch { /* fall back */ }
   const W = 2048, H = 660;
   const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
   x.clearRect(0, 0, W, H);
   x.textAlign = 'center'; x.textBaseline = 'alphabetic';
-  x.fillStyle = '#eef0ff';
-  x.font = '600 54px Montserrat, sans-serif';
-  if ('letterSpacing' in x) x.letterSpacing = '14px';
-  x.fillText('WHO WANTS TO BE A', W / 2, 190);
-  if ('letterSpacing' in x) x.letterSpacing = '0px';
-  const g = x.createLinearGradient(160, 0, W - 160, 0);
-  g.addColorStop(0, '#1FDDE9'); g.addColorStop(0.5, '#9a7bff'); g.addColorStop(1, '#92DD23');
-  x.fillStyle = g;
-  x.font = '800 196px Montserrat, sans-serif';
-  x.fillText('NUTANIX', W / 2, 400);
-  x.fillText('ENGINEER?', W / 2, 590);
+  // Brand type: light weights, sentence case, one flat colour per line — no
+  // gradient fill and no tracked capitals (the Nutanix Design System rules).
+  x.fillStyle = '#C6BEFE';
+  x.font = '300 64px Montserrat, sans-serif';
+  x.fillText('Who wants to be a', W / 2, 188);
+  x.fillStyle = '#ffffff';
+  x.font = '300 200px Montserrat, sans-serif';
+  x.fillText('Nutanix', W / 2, 402);
+  x.fillText('Engineer?', W / 2, 592);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.generateMipmaps = true;
   return t;

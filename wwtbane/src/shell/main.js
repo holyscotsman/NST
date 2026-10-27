@@ -25,6 +25,7 @@ import { Cinematic } from './ui/cinematic.js';
 import { playSteveCutscene } from './ui/steveCutscene.js';
 import { TitleScreen, GreenRoom, ResultScreen, HelpScreen, SettingsScreen } from './ui/screens.js';
 import { h, clear, money } from './ui/dom.js';
+import { icon } from './ui/icons.js';
 
 // (NST) Questions are loaded at runtime from the bank chosen in the launcher (see
 // _loadRuntimeBank) — nothing is baked into the app, and there is no compiled
@@ -119,7 +120,7 @@ export class Game {
     // The listeners are PERMANENT: a context can re-suspend (backgrounded tab,
     // mobile route change), and a once-only unlock left the game silent for
     // good — every later gesture now re-resumes a suspended context.
-    const hint = h('div', { class: 'sound-hint' }, '🔊 Click anywhere for sound');
+    const hint = h('div', { class: 'sound-hint' }, icon('sound'), ' Click anywhere for sound');
     if (this.save.settings.music !== false || this.save.settings.sound) document.body.append(hint);
     const kick = () => {
       hint.remove();
@@ -324,7 +325,7 @@ export class Game {
         // branded wipe and rebuilt the whole screen for a label change.
         if (btn) {
           const on = this.save.settings.music !== false;
-          btn.textContent = on ? '🔊 Music on' : '🔇 Music off';
+          btn.replaceChildren(icon(on ? 'sound' : 'mute'), on ? ' Music on' : ' Music off');
           btn.setAttribute('aria-pressed', String(on));
         } else this.showTitle();
       },
@@ -727,7 +728,7 @@ export class Game {
       this.devJumpTo(n);
     };
     return h('div', { class: 'dev-tools' },
-      h('b', {}, '🛠 Developer'),
+      h('b', {}, 'Developer'),
       walletLabel,
       h('div', { class: 'dev-row' },
         h('button', { class: 'secondary small', type: 'button', onclick: () => addCoins(1000) }, '+1,000 coins'),

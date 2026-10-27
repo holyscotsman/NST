@@ -6,6 +6,7 @@
 //   → reveal (mantis stamp / peach shake, correct lights 200ms later).
 
 import { h, clear } from './dom.js';
+import { icon } from './icons.js';
 import { letter } from '../../core/lifelines.js';
 import { DOMAIN_LABEL, TIER_LABEL } from './labels.js';
 import { readoutPacing } from '../hostLines.js';
@@ -321,7 +322,7 @@ export class QuizScreen {
           pct) };
       });
       this.lifelinePanel.append(h('div', { class: 'audience', 'aria-label': 'Audience poll: ' + summary },
-        h('div', { class: 'll-title' }, '👥 Ask the audience'),
+        h('div', { class: 'll-title' }, icon('audience'), ' Ask the audience'),
         ...rows.map((r) => r.row)));
       // bars grow via transition (staggered); percentages count up alongside
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -358,7 +359,7 @@ export class QuizScreen {
       h('span', { class: 'pa-head' }), h('span', { class: 'pa-body' }));
     const bubble = h('p', { class: 'phone-bubble' }, '');
     const panel = h('div', { class: 'phone-call', 'aria-live': 'polite', 'aria-label': 'Phone a friend' },
-      h('div', { class: 'll-title' }, '📞 Phone a friend'),
+      h('div', { class: 'll-title' }, icon('phone'), ' Phone a friend'),
       h('div', { class: 'phone-stage' }, avatar, bubble));
     this.lifelinePanel.append(panel);
 
@@ -373,7 +374,7 @@ export class QuizScreen {
       const btn = this.optionsEl.querySelector(`.option[data-i="${pick}"]`);
       if (btn && !this.removed.has(pick)) {
         btn.classList.add('phone-pick');
-        if (!btn.querySelector('.phone-tag')) btn.append(h('span', { class: 'phone-tag', 'aria-hidden': 'true' }, '📞'));
+        if (!btn.querySelector('.phone-tag')) btn.append(h('span', { class: 'phone-tag', 'aria-hidden': 'true' }, icon('phone')));
       }
     };
 
@@ -485,8 +486,8 @@ export class QuizScreen {
 
     const label = result.won ? 'Collect your winnings' : 'Next question';
     const fb = h('div', { class: 'feedback good', role: 'status' },
-      h('div', { class: 'fb-head' }, result.won ? '🏆 You did it!' : '✓ Correct'),
-      result.boundary ? h('div', { class: 'fb-bank' }, `🛡 Banked ${result.banked.toLocaleString('en-US')} coins — that's yours to keep.`) : null,
+      h('div', { class: 'fb-head' }, result.won ? [icon('trophy'), ' You did it!'] : '✓ Correct'),
+      result.boundary ? h('div', { class: 'fb-bank' }, [icon('shield'), ` Banked ${result.banked.toLocaleString('en-US')} coins — that's yours to keep.`]) : null,
       h('p', { class: 'fb-exp' }, result.explanation),
       optionNotesPanel(result.q, correctSet),
       result.q && result.q.reference ? h('p', { class: 'fb-ref' }, 'Reference: ' + result.q.reference) : null,

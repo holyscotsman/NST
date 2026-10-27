@@ -88,6 +88,16 @@ ship, but each wants a human before it's "done" per `the project design rules`.
 - The WebGL studio is **code-complete, visual-pending**. It passes structural
   and interaction tests but needs a human's eyes. Tracked in `BROWSER_QA.md`.
 
+## 4b. Graphics overhaul — needs a look on real hardware
+- v2.74.0 to v2.79.0 rebuilt the studio, people, effects and interface (see
+  `docs/GRAPHICS.md`). It is verified in software rendering only, so frame times
+  on a real laptop and a real desktop GPU are unmeasured. Please open it with
+  `?quality=high`, `?quality=medium` and `?quality=low` and say which, if any,
+  stutters. Auto should pick correctly and step down by itself.
+- The interface follows the Nutanix Design System artifact. Gold (money and the
+  lock-in beat) is not in that system; it is kept as a game-only extension.
+  Confirm, or say what to use instead.
+
 ## 5. Exam version scope
 - Content targets **AOS 6.x / Prism / AHV** (broad NCP-MCI). If you want to pin a
   specific exam blueprint version, say which and the bank can be curated to it.

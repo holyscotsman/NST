@@ -3,6 +3,7 @@
 // gold-tinted green room, gold-takeover win / subdued loss results.
 
 import { h, money } from './dom.js';
+import { icon } from './icons.js';
 import { LIFELINE_TYPES, LIFELINE_META, LIFELINE_MAX_SLOTS, SHOP, VERSION, activeLadder } from '../../core/config.js';
 import { letter } from '../../core/lifelines.js';
 import { MUSIC_STYLES } from '../music.js';
@@ -21,20 +22,21 @@ export function TitleScreen(ctx) {
   });
   return h('section', { class: 'screen title-screen' },
     h('div', { class: 'brand' },
+      h('img', { class: 'brand-x', src: 'assets/nutanix-x-white.svg', alt: '', 'aria-hidden': 'true' }),
       h('p', { class: 'brand-pre' }, 'Who wants to be a'),
       h('h1', { class: 'brand-main' }, 'Nutanix Engineer?'),
       h('p', { class: 'brand-sub' }, `A game-show quiz to learn and drill the Nutanix NCP-MCI exam. Answer ${activeLadder().runLength} in a row to win.`),
     ),
     h('div', { class: 'wallet-row' },
-      h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins`),
-      ctx.stats.wins ? h('span', { class: 'badge' }, `🏆 ${ctx.stats.wins} win${ctx.stats.wins > 1 ? 's' : ''}`) : null,
+      h('span', { class: 'wallet' }, icon('coin'), ` ${money(ctx.wallet)} coins`),
+      ctx.stats.wins ? h('span', { class: 'badge' }, icon('trophy'), ` ${ctx.stats.wins} win${ctx.stats.wins > 1 ? 's' : ''}`) : null,
       ctx.stats.bestPayout ? h('span', { class: 'badge' }, `Best: ${money(ctx.stats.bestPayout)}`) : null,
     ),
     h('div', { class: 'menu' },
       h('button', { class: 'primary big', type: 'button', onclick: () => ctx.onStart('mastery', null) }, 'Start new game'),
       // (C4-10) main.js always passed onGreenRoom but the title never rendered it —
       // returning players with banked coins had to lose a run to reach the shop.
-      h('button', { class: 'secondary', type: 'button', onclick: () => ctx.onGreenRoom() }, '🛋 Green room'),
+      h('button', { class: 'secondary', type: 'button', onclick: () => ctx.onGreenRoom() }, 'Green room'),
       h('button', { class: 'secondary', type: 'button', onclick: () => { window.location.href = '../'; } }, '← Main menu'),
     ),
     h('details', { class: 'seed-box' },
@@ -51,7 +53,7 @@ export function TitleScreen(ctx) {
       h('button', {
         class: 'link', type: 'button', 'aria-pressed': String(!!ctx.music),
         onclick: (e) => ctx.onToggleMusic && ctx.onToggleMusic(e.currentTarget),   // (C5-10) in-place update
-      }, ctx.music ? '🔊 Music on' : '🔇 Music off'),
+      }, icon(ctx.music ? 'sound' : 'mute'), ctx.music ? ' Music on' : ' Music off'),
       h('span', { class: 'version' }, `v${VERSION}`),
     ),
   );
@@ -63,7 +65,7 @@ export function GreenRoom(ctx) {
   if (ctx.reveal) {
     const r = ctx.reveal;
     return h('section', { class: 'screen green-room' },
-      h('h2', { class: 'screen-title' }, r.impossibleFinal ? '🎭 The impossible final' : 'Back in the green room'),
+      h('h2', { class: 'screen-title' }, r.impossibleFinal ? 'The impossible final' : 'Back in the green room'),
       h('p', { class: 'muted' }, r.impossibleFinal
         ? 'You reached the final — and almost nobody wins it the first time. That was by design. Here is the answer it was hiding:'
         : `Question ${r.reached} got you. It happens to every contestant — here is the one that did it:`),
@@ -73,7 +75,7 @@ export function GreenRoom(ctx) {
         r.explanation ? h('p', { class: 'reveal-exp' }, r.explanation) : null,
         r.pickedNote ? h('p', { class: 'reveal-picked' }, h('b', {}, 'Your pick: '), r.pickedNote) : null,
       ),
-      h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, `🛡 ${money(r.banked)} coins banked this run`)),
+      h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, icon('shield'), ` ${money(r.banked)} coins banked this run`)),
       h('p', { class: 'muted', style: { textAlign: 'center', maxWidth: '52ch', margin: '0 auto' } },
         'The run is over — the climb isn’t. Every question you just faced sharpened your mastery, and the ones you missed will come back until they stick. Champions are the ones who go again.'),
       h('div', { class: 'menu' },
@@ -88,7 +90,7 @@ export function GreenRoom(ctx) {
     const canBuySlot = l.slots < LIFELINE_MAX_SLOTS;
     const slotAfford = ctx.wallet >= SHOP.lifelineSlot;
     return h('div', { class: 'shop-row' },
-      h('span', { class: 'shop-ll' }, `${meta.glyph} ${meta.name}`),
+      h('span', { class: 'shop-ll' }, meta.name),
       h('span', { class: `shop-slots${l.charges === 0 ? ' empty' : ''}` }, `${l.charges}/${l.slots} charged`),
       canBuySlot
         ? h('button', { class: 'secondary small', id: `shop-slot-${type}`, type: 'button', disabled: !slotAfford,
@@ -104,14 +106,14 @@ export function GreenRoom(ctx) {
     // (v2.4.4) The heading sits over the lit 3D lounge — without a scrim the
     // subtitle washed out against the lamp. Same legibility card the title screen uses.
     h('div', { class: 'gr-head' },
-      h('h2', { class: 'screen-title' }, '🛋 The green room'),
+      h('h2', { class: 'screen-title' }, 'The green room'),
       h('p', { class: 'muted' }, 'Between runs. Spend your banked coins on lifelines, or let Steve tip you off about a hard question coming up.')),
     // First visit: one clear hint about the loop — earn coins on the ladder, spend them
     // here on lifelines, then head back out. Shown once; the flag is latched by the shell.
     ctx.firstVisit ? h('div', { class: 'green-hint' },
       h('b', {}, 'New here? '),
       'Coins you bank at safe havens are spent in this room — recharge or expand your lifelines below, then hit “Start next round” when you’re ready.') : null,
-    h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins`)),
+    h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, icon('coin'), ` ${money(ctx.wallet)} coins`)),
 
     h('div', { class: 'green-grid' },
       h('div', { class: 'panel shop' },
@@ -130,7 +132,7 @@ export function GreenRoom(ctx) {
           h('div', { class: 'steve-portrait', 'aria-hidden': 'true' },
             h('span', { class: 'head' }), h('span', { class: 'torso' })),
           h('div', {},
-            h('h3', {}, '☎ Steve, the insider'),
+            h('h3', {}, icon('phone'), ' Steve, the insider'),
             h('div', { class: 'steve-status' }, steve.question ? '● On the line' : '○ Unavailable')),
         ),
         steve.question
@@ -176,7 +178,7 @@ export function ResultScreen(ctx) {
     win && !reduced() ? confettiLayer() : null,
     h('div', { class: 'result-emblem-wrap' },
       win && !reduced() ? h('span', { class: 'result-ring', 'aria-hidden': 'true' }) : null,
-      h('div', { class: 'result-emblem' }, win ? '🏆' : (ctx.impossibleFinal ? '🎭' : '💥'))),
+      h('div', { class: 'result-emblem' }, icon(win ? 'trophy' : 'burst'))),
     h('h2', { class: 'screen-title' }, win ? 'You are a Nutanix Engineer!' : (ctx.impossibleFinal ? 'The impossible final' : 'Run over')),
 
     win
@@ -197,8 +199,8 @@ export function ResultScreen(ctx) {
     // wallet total.
     win
       ? h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' },
-          `🏆 ${money(ctx.payout)} coin payout` + (ctx.wins ? ` · win #${ctx.wins}` : '')))
-      : h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, `🪙 ${money(ctx.wallet)} coins total`)),
+          [icon('trophy'), ` ${money(ctx.payout)} coin payout` + (ctx.wins ? ` · win #${ctx.wins}` : '')]))
+      : h('div', { class: 'wallet-row' }, h('span', { class: 'wallet' }, icon('coin'), ` ${money(ctx.wallet)} coins total`)),
 
     h('div', { class: 'menu' },
       win
@@ -273,6 +275,15 @@ export function SettingsScreen(ctx) {
       h('span', {}, h('b', {}, 'Music style'), h('span', { class: 'muted small' }, 'Pick an arrangement — the change is audible right away. Same original score, different voice.'))),
     ctx.audioStatus ? h('p', { class: 'muted small audio-status' }, ctx.audioStatus) : null,
     toggle('postFx', 'Cinematic effects', 'Bloom, vignette, film grain, and a subtle handheld camera drift. Turn off for a flatter, cheaper image.'),
+    // Graphics quality (stage/quality.js reads this at load; ?quality= in the URL wins).
+    h('label', { class: 'setting' },
+      h('select', { class: 'motion-select', 'aria-label': 'Graphics quality',
+        onchange: (e) => { try { if (e.target.value === 'auto') localStorage.removeItem('wwtbane.quality'); else localStorage.setItem('wwtbane.quality', e.target.value); } catch { /* storage blocked: stays Auto */ } } },
+        ...[['auto', 'Auto (recommended)'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']].map(([v, t]) => {
+          let cur = 'auto'; try { cur = localStorage.getItem('wwtbane.quality') || 'auto'; } catch { /* Auto */ }
+          return h('option', { value: v, selected: cur === v }, t);
+        })),
+      h('span', {}, h('b', {}, 'Graphics quality'), h('span', { class: 'muted small' }, 'Auto picks from your graphics card and steps down by itself if the game runs slowly. Applies the next time the game loads.'))),
     toggle('extraTime', 'No timers', 'There is never a countdown; this keeps it that way if timers are ever added.'),
     h('div', { class: 'save-transfer' },
       h('b', {}, 'Move progress between devices'),
@@ -284,7 +295,7 @@ export function SettingsScreen(ctx) {
       h('span', { class: 'muted small' }, 'Start over as a first-time player: wipes mastery, coins, lifelines, and history, and the intro plays again on your next game.')),
     h('label', { class: 'setting' },
       h('input', { type: 'checkbox', checked: !!ctx.dev, onchange: (e) => ctx.onChange('dev', e.target.checked) }),
-      h('span', {}, h('b', {}, '🛠 Developer tools'), h('span', { class: 'muted small' }, 'Playtesting only: add coins and jump straight to any question (here, and from the pause menu mid-run).'))),
+      h('span', {}, h('b', {}, 'Developer tools'), h('span', { class: 'muted small' }, 'Playtesting only: add coins and jump straight to any question (here, and from the pause menu mid-run).'))),
     ctx.dev ? DevPanel(ctx) : null,
     h('button', { class: 'primary', type: 'button', onclick: ctx.onClose }, 'Close'),
   );
@@ -300,7 +311,7 @@ function DevPanel(ctx) {
     if (Number.isFinite(n)) ctx.onDevStartAt(n);
   };
   return h('div', { class: 'dev-tools' },
-    h('b', {}, '🛠 Developer'),
+    h('b', {}, 'Developer'),
     h('span', { class: 'muted small' }, `Wallet: ${money(ctx.wallet)} coins`),
     h('div', { class: 'dev-row' },
       h('button', { class: 'secondary small', type: 'button', onclick: () => ctx.onDevAddCoins(1000) }, '+1,000 coins'),
