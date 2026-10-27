@@ -105,6 +105,7 @@ async function boot(tier, { size = [1280, 800], motion = 'full' } = {}) {
   await page.waitForSelector('.brand-main', { timeout: 60000 });
   // the studio initialises asynchronously; wait until it reports in
   await page.waitForFunction(() => window.__wwt && window.__wwt.gfx && window.__wwt.gfx(), null, { timeout: 90000 });
+  await page.waitForFunction(() => window.__wwt.studio && !window.__wwt.studio()._veil, null, { timeout: 240000 }); // the canvas is held back until a real frame is there
   await page.waitForTimeout(2500); // let a few frames land
   return { ctx, page };
 }

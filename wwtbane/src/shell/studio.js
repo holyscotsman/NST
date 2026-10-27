@@ -103,6 +103,10 @@ export class Studio {
       onTier: (t) => this._changeTier(t),
     });
     this._health = { t: 0, next: 1.2, checks: 0, hits: 0, last: null, done: false, fellBack: null };
+    // Safari/Apple GPUs draw the post chain black for its first seconds, then recover on their own.
+    // Keep the canvas invisible until a frame is really there (or 8 s pass), so the player never sees it.
+    this._veil = this.tier.name !== 'low';
+    if (this._veil) { const d = renderer.domElement; d.style.opacity = '0'; d.style.transition = 'opacity .6s ease'; this._veilTimer = setTimeout(() => this._unveil(), 8000); }
     this._setupDiagnostics();
     window.addEventListener('resize', this._onResize);
     renderer.setAnimationLoop(this._tick);
@@ -141,18 +145,35 @@ export class Studio {
     try { f = this._blackFraction(); } catch { f = null; }
     if (f == null) return;
     H.last = f;
+    if (this._veil && (f < 0.85 || H.t > 8)) this._unveil();
+    // Recreate the render targets while the frame is still black: a resize is what clears it on its own.
+    if (this._veil && f >= 0.85 && (H.checks === 2 || H.checks === 5)) this._kickTargets();
     // A dark set legitimately reads 30% pure black, and Safari's readback of the direct (Low) canvas reported 87%
     // on a frame that was visibly fine, so only a frame that is black through and through counts, four times running.
-    H.hits = f > 0.94 ? H.hits + 1 : 0;
-    if (H.hits >= 4 && this.tier.name !== 'low') {
+    H.hits = f > 0.85 ? H.hits + 1 : 0;
+    if (H.hits >= 8 && this.tier.name !== 'low') {
       const from = this.tier.name, to = from === 'high' ? 'medium' : 'low';
       console.warn(`[wwtbane] the ${from} tier is drawing a black frame on this GPU (${Math.round(f * 100)}% black) — dropping to ${to}`);
       rememberBadTier(from);
       H.fellBack = `${from}->${to}`;
+      this._unveil();
       H.t = 0; H.next = 1.2; H.checks = 0; H.hits = 0;
       if (this.governor) { this.governor.tier = { ...TIERS[to] }; this.governor.scale = 1; }
       this._changeTier({ ...TIERS[to] });
     } else if (H.checks > 14) H.done = true;
+  }
+
+  _unveil() {
+    if (!this._veil) return;
+    this._veil = false;
+    clearTimeout(this._veilTimer);
+    this.renderer.domElement.style.opacity = '1';
+  }
+
+  _kickTargets() {
+    if (!this.pipe) return;
+    const w = window.innerWidth, h = window.innerHeight;
+    try { this.pipe.setSize(w + 2, h); this.pipe.setSize(w, h); } catch { /* the check below decides */ }
   }
 
   // ?debug=gfx shows what this machine is really running, so a bug report is a
