@@ -375,5 +375,17 @@ jobs:
       # module is well covered; the path a person takes was not, because the
       # confirm only appears after a file is chosen.
       - run: node scripts/restore-test.mjs
+      # (v2.74.0) The 3D studio is the part of WWTBANE people actually look at,
+      # and none of it was gated. The unit job covers the game's rules; its
+      # e2e runs with the GPU path switched off for speed; modules-parse only
+      # proves the studio PARSES. So the studio could fail to build, drop to the
+      # CSS backdrop, or draw a black rectangle with every suite green. This
+      # boots it at each quality tier, checks the chain each one promises, and
+      # decodes the actual pixels. The two below are the game's own browser
+      # suites, which existed but had never run in CI -- and one of them had
+      # quietly gone stale (a 50:50 check written for the single-answer bank).
+      - run: node scripts/wwtbane-gfx-test.mjs
+      - run: node wwtbane/tests/smoke.mjs
+      - run: node wwtbane/tests/e2e.mjs
       # smoke-test starts its own server and its own throwaway database.
       - run: node scripts/smoke-test.mjs

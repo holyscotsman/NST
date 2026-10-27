@@ -5,6 +5,68 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.74.0 — WWTBANE graphics overhaul, stage A: the render foundation (2026-10-27)
+
+**The 3D studio had an engine and no pipeline: no real anti-aliasing, no quality
+tiers, shots framed on the middle of a screen the quiz card then covered, and a
+browser path nothing in CI exercised.**
+
+This is the first of six stages in rebuilding WWTBANE's look (set, characters,
+effects, overlay, QA follow). The game's code stays; what it is drawn with
+changes. Stage A is plumbing, and everything after it depends on it.
+
+Baseline, captured at 1440x900 before touching anything: the contestant clipped
+at the left edge, the host small and distant, a prop the size of a person on
+the right, the studio sign half behind the HUD, jagged edges, flat unlit
+colour. All of it sat under the question card, because shots were framed on the
+centre of the viewport.
+
+**Quality tiers** (`src/shell/stage/quality.js`). Three tiers, chosen from the
+GPU's own name, overridable with `?quality=low|medium|high` or a saved choice:
+
+| | DPR | MSAA | bloom | AO | mirror floor |
+|---|---|---|---|---|---|
+| low (software, "effects off") | 1 | - | - | - | - |
+| medium (integrated, mobile) | 1.5 | 4x | yes | - | - |
+| high (discrete, Apple silicon) | 2 | 4x | yes | yes | yes |
+
+A governor watches frame time and steps down — resolution first, then a whole
+tier — never up, ignoring the warm-up seconds, single hitches and backgrounded
+tabs. A software renderer is never promised the full chain.
+
+**The pipeline** (`stage/post.js`). The scene renders into a multisampled
+half-float target (MSAA is the anti-aliasing: sharp, and no extra pass), then
+optional ambient occlusion, bloom at half resolution, tone mapping, and ONE
+grade pass: contrast, split-toning, edge-only chromatic aberration, vignette,
+grain and a dither that removes the banding dark gradients get on 8-bit output.
+The old hand-rolled bloom/grain setup is gone.
+
+**Safe-frame composition.** The studio measures the real rectangles of the
+money ladder and the question card and shifts the projection (`setViewOffset`)
+so the subject sits in the middle of the free area instead of behind the card.
+It eases in over about a second and snaps under reduced motion. A narrow window
+widens the vertical field of view to keep a minimum horizontal one, so a phone
+in portrait sees the two-shot rather than one person's shoulder.
+
+**Gated, for the first time.** `scripts/wwtbane-gfx-test.mjs` (45 checks) boots
+the real studio at every tier, asserts the chain each one promises from the
+studio's own `gfxInfo()`, and decodes the screenshot with a dependency-free PNG
+reader to prove the picture is not black, not white and not a flat fill. It
+also checks the safe-frame shift on the question screen and its absence on the
+title. Two mutants — skip rendering; disable the shift — turn 11 checks red.
+`tests/quality.test.mjs` adds 17 unit checks on tier selection and the
+governor, with negative controls (60 fps is never touched; it never steps up).
+
+WWTBANE's own browser suites (`smoke`, `e2e`) existed but had never run in CI.
+They do now. Wiring them in found that `smoke` had rotted: it asserted 50:50
+removes "exactly two" options, true of the original single-answer bank and
+false for a multi-answer question with two distractors, where the documented
+rule (up to two, always leave one standing) allows one. The game was right; the
+test is fixed to assert the rule. It failed identically on untouched `main`.
+
+New vendored three.js r160 addons (GTAO, Reflector, geometry utilities), loaded
+lazily and only on the tiers that use them.
+
 ## v2.73.0 — two identical timestamps and no way to tell them apart (2026-09-13)
 
 **The root console stacks its tables on a phone and hides the header row.
