@@ -255,6 +255,8 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
         <td data-col="What">${esc(a.action)}${a.detail ? ` <span class="muted">${esc(a.detail)}</span>` : ''}</td></tr>`).join('')}</tbody>
     </table>` : '';
 
+  // hostedNote escapes its own arguments; assembled here so the template mentions only the result.
+  const updateSection = hosted ? hostedNote(hosted, version) : backup;
   return shell('Accounts', `
 <div class="wrap">
   <div class="bar">
@@ -277,7 +279,7 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
     <tbody>${rows}</tbody>
   </table>
   <p class="alt"><a href="/account/password">Change your own password</a></p>
-  ${hosted ? hostedNote(hosted, version) : backup}
+  ${updateSection}
   ${hosted ? '' : update}
   ${log}
 </div>`, { wide: true });

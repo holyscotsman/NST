@@ -92,6 +92,7 @@ const ok = (name, cond, extra) => {
       audit: [{ at: Date.now(), actor: evil + 'ACTOR', action: evil + 'ACTION', detail: evil + 'DETAIL' }],
       version: evil + 'VER', repo: evil + 'REPO',
     }],
+    setupPage: [{ csrf: evil + 'CSRF', error: evil + 'ERR', minPassword: 12 }],
     updatedPage: [{ from: evil + 'FROM', to: evil + 'TO', copied: 3 }],
     errorPage: [500, evil + 'MSG'],
   });
