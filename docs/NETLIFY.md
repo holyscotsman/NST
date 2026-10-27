@@ -1,6 +1,6 @@
 # Hosting on Netlify
 
-Site: <https://nutanix-starnix-training.netlify.app>. Static pages come from `dist/` (built by
+Site: <https://nutanix-study-tool.netlify.app>. Static pages come from `dist/` (built by
 `scripts/netlify-build.mjs`, which publishes a whitelist only). Accounts run as a Netlify Function
 (`netlify/functions/app.mjs`) on Netlify Database (Postgres). An edge function (`netlify/edge-functions/ncm-gate.mjs`)
 gates `/ncm-practice/*` to signed-in users and fails closed.

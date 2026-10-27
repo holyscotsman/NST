@@ -253,6 +253,35 @@
   var _navBadgeUpdate = null;   // set by renderNavBadge; called when the active bank changes
   var _certRefresh = null;      // set by the hero chooser; re-syncs its tiles + the badge
 
+  /* The three question-bank tools (WWTBANE, StarNix, Practice Exams) stay locked until a certification is
+   * chosen: they all study one bank, so opening one with none selected only shows an empty state. The
+   * lab tool has its own content and is not gated. The lock is applied before the manifest loads, so a
+   * first visit never flashes unlocked cards. */
+  function setToolLock(locked) {
+    var cards = document.getElementById("nst-cards"); if (!cards) return;
+    cards.classList.toggle("nst-locked", locked);
+    [].forEach.call(cards.querySelectorAll("[data-needs-cert]"), function (a) {
+      if (locked) { a.setAttribute("aria-disabled", "true"); a.setAttribute("tabindex", "-1"); }
+      else { a.removeAttribute("aria-disabled"); a.removeAttribute("tabindex"); }
+    });
+    var sub = document.getElementById("nst-sub");
+    if (sub) sub.textContent = locked
+      ? "Step 1: choose the certification you are studying for. Step 2: pick how to practise."
+      : "Step 2: pick how to practise.";
+  }
+  function wireToolLock() {
+    var cards = document.getElementById("nst-cards"); if (!cards) return;
+    cards.addEventListener("click", function (e) {
+      var a = e.target.closest ? e.target.closest("[data-needs-cert]") : null;
+      if (!a || a.getAttribute("aria-disabled") !== "true") return;
+      e.preventDefault();
+      var t = document.querySelector(".nst-cert");
+      if (t && t.scrollIntoView) t.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    var Bank = window.NSTBank;
+    setToolLock(!(Bank && Bank.active && Bank.active()));
+  }
+
   var VARIANT_LABEL = { "25": "25 questions", "full": "Full bank" };
 
   function renderCertSelector() {
@@ -316,6 +345,7 @@
           tile.classList.toggle("active", !!tile.querySelector(".nst-certvar.on"));
         });
         wrap.classList.toggle("empty", !own);
+        setToolLock(!own);
         // A synthetic bank-like object for the nav badge (cert + variant).
         var badge = own ? { cert: own.cert.code, id: active,
           title: own.cert.code + " · " + VARIANT_LABEL[own.variant] } : null;
@@ -1205,6 +1235,7 @@
     var help = document.getElementById("nst-help-btn");
     if (help) help.addEventListener("click", buildHelpModal);
     renderNavBadge();
+    wireToolLock();
     renderCertSelector();
     renderLastVisited();
   }

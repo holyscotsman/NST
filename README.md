@@ -1,6 +1,6 @@
 # Nutanix Study Tool (NST)
 
-### 🔗 **Play it now: [nutanix-starnix-training.netlify.app](https://nutanix-starnix-training.netlify.app/)**
+### 🔗 **Play it now: [nutanix-study-tool.netlify.app](https://nutanix-study-tool.netlify.app/)**
 
 No install, no signup, no cost — it's a static site, so that link just works in any browser,
 including on your phone. Bookmark it.

@@ -5,6 +5,16 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.84.0 — Choose your certification first; site renamed (2026-10-27)
+
+**The launcher now asks which certification you are studying for before it lets you in. WWTBANE, StarNix
+and Practice Exams stay locked (greyed, "Choose an exam first") until an exam is chosen; the lab tool is
+not gated. The site moved to <https://nutanix-study-tool.netlify.app>.**
+
+- Locked cards are `aria-disabled`, leave the tab order, and a click scrolls to the exam chooser instead.
+- The lock is applied before the exam list loads, so a first visit never flashes unlocked cards.
+- Covered by four new checks in `scripts/ncm-practice-test.mjs`.
+
 ## v2.83.0 — Hosted on Netlify, with accounts that save your progress (2026-10-27)
 
 **NST now runs at <https://nutanix-starnix-training.netlify.app> on Netlify, with a Postgres database

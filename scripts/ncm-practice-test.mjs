@@ -158,6 +158,19 @@ await page.goto(`${BASE}/`, { waitUntil: 'load' });
 const card = await page.$('a.nst-card--lab[href="./ncm-practice/"]');
 ok('the launcher shows an NCM-MCI Lab Practice card', !!card);
 
+// the certification gate: the three bank tools stay locked until an exam is chosen; the lab tool does not
+await page.evaluate(() => { try { localStorage.removeItem('nst.activeBank'); } catch (e) {} });
+await page.goto(`${BASE}/`, { waitUntil: 'load' });
+await page.waitForSelector('.nst-certvar', { timeout: 15000 });
+const locked = await page.$$eval('[data-needs-cert]', (a) => a.map((x) => x.getAttribute('aria-disabled')));
+ok('with no exam chosen, WWTBANE, StarNix and Practice Exams are locked', locked.length === 3 && locked.every((v) => v === 'true'), locked.join(','));
+ok('the lab tool is not gated', (await page.$eval('.nst-card--lab', (a) => a.getAttribute('aria-disabled'))) === null);
+await page.click('a[data-tool="StarNix"]', { force: true }); await page.waitForTimeout(300);
+ok('[neg] clicking a locked tool does not leave the launcher', new URL(page.url()).pathname === '/', page.url());
+await page.click('.nst-certvar >> nth=0'); await page.waitForTimeout(300);
+const unlocked = await page.$$eval('[data-needs-cert]', (a) => a.map((x) => x.getAttribute('aria-disabled')));
+ok('choosing an exam unlocks all three', unlocked.every((v) => v === null), unlocked.join(','));
+
 await browser.close();
 server.kill('SIGKILL');
 console.log('\n' + (fail ? `NCM PRACTICE: ${fail} FAILED of ${pass + fail}` : `NCM PRACTICE: ALL GREEN (${pass} checks)`));
