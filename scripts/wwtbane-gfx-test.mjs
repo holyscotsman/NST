@@ -238,7 +238,7 @@ function diffFraction(a, b) {
     s.pipe.render = () => { s.renderer.setRenderTarget(null); s.renderer.setClearColor(0x000000, 1); s.renderer.clear(); };
   });
   await page.waitForFunction(() => window.__wwt.gfx().tier === 'low', null, { timeout: 90000 }).catch(() => {});
-  const after = await page.evaluate(() => ({ tier: window.__wwt.gfx().tier, bad: localStorage.getItem('wwtbane.gfxBad') }));
+  const after = await page.evaluate(() => ({ tier: window.__wwt.gfx().tier, bad: localStorage.getItem('wwtbane.gfxBad2') }));
   ok('[neg] a frame forced black makes the studio drop a tier by itself', after.tier === 'low', after.tier);
   ok('and it remembers which tier failed, so the next visit does not repeat it', after.bad === 'medium', String(after.bad));
   await ctx.close();

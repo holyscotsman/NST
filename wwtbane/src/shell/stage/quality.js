@@ -86,10 +86,10 @@ export function gpuName(gl) {
 // The tier a previous visit proved broken on this machine (see studio.js, the
 // black-frame check). Auto never picks it, or anything above it, again.
 function readBad() {
-  try { const v = localStorage.getItem('wwtbane.gfxBad'); return ORDER.includes(v) ? v : null; } catch { return null; }
+  try { const v = localStorage.getItem('wwtbane.gfxBad2'); return ORDER.includes(v) ? v : null; } catch { return null; }
 }
 export function rememberBadTier(name) {
-  try { localStorage.setItem('wwtbane.gfxBad', name); } catch { /* storage blocked: the fallback still holds for this visit */ }
+  try { localStorage.setItem('wwtbane.gfxBad2', name); } catch { /* storage blocked: the fallback still holds for this visit */ }
 }
 
 // Feature switches for diagnosing a machine: ?ao=0 ?mirror=0 ?msaa=0 ?bloom=0

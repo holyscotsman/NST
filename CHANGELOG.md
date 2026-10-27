@@ -5,6 +5,16 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.85.0 — Stop the black-frame check from downgrading a healthy picture (2026-10-27)
+
+**Screenshots from a Mac (Safari) showed the 3D studio rendering correctly at Medium, yet the game kept
+dropping itself to Low because its own black-frame check misfired: a dark set reads ~30% pure black, and
+Safari's readback of the Low canvas reported 87% on a frame that was visibly fine.**
+
+- The check now only trips on a frame that is more than 94% black, four checks in a row.
+- The remembered "bad tier" moved to a new storage key (`wwtbane.gfxBad2`), so a downgrade recorded by the
+  old, over-eager check is forgotten and Auto can use Medium again.
+
 ## v2.84.0 — Choose your certification first; site renamed (2026-10-27)
 
 **The launcher now asks which certification you are studying for before it lets you in. WWTBANE, StarNix
