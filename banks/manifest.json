@@ -5,6 +5,7 @@
       "name": "Multicloud Infrastructure",
       "banks": { "25": "ncp-mci-25", "full": "ncp-mci" }
     },
+    { "code": "KCNA", "name": "Kubernetes and Cloud Native Associate", "banks": { "full": "kcna" } },
     { "code": "NCP-AI",  "name": "Artificial Intelligence", "comingSoon": true },
     { "code": "NCP-CN",  "name": "Cloud Native",            "comingSoon": true },
     { "code": "NCP-CI",  "name": "Cloud Integration",       "comingSoon": true },
@@ -25,6 +26,12 @@
       "cert": "NCP-MCI",
       "title": "NCP-MCI Practice Exam Question Bank",
       "file": "ncp-mci/ncp-mci.md"
+    },
+    {
+      "id": "kcna",
+      "cert": "KCNA",
+      "title": "KCNA Practice Question Bank",
+      "file": "kcna/kcna.md"
     }
   ]
 }

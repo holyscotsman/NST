@@ -89,7 +89,7 @@ ship, but each wants a human before it's "done" per `the project design rules`.
   and interaction tests but needs a human's eyes. Tracked in `BROWSER_QA.md`.
 
 ## 4b. Graphics overhaul — needs a look on real hardware
-- v2.74.0 to v2.80.0 rebuilt the studio, people, effects and interface (see
+- v2.74.0 to v2.81.0 rebuilt the studio, people, effects and interface (see
   `docs/GRAPHICS.md`). It is verified in software rendering only, so frame times
   on a real laptop and a real desktop GPU are unmeasured. Please open it with
   `?quality=high`, `?quality=medium` and `?quality=low` and say which, if any,

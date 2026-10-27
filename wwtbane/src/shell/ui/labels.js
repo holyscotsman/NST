@@ -6,6 +6,9 @@ export const DOMAIN_LABEL = {
   networking: 'Networking', lifecycle: 'Lifecycle & upgrades', monitoring: 'Monitoring',
   migration: 'Migration', unifiedstorage: 'Files / Objects / Volumes', security: 'Security',
   performance: 'Performance', foundation: 'Foundation',
+  // KCNA (Kubernetes and Cloud Native Associate)
+  architecture: 'Architecture', workloads: 'Workloads', scheduling: 'Scheduling & autoscaling',
+  observability: 'Observability', delivery: 'Helm & delivery', 'cloud-native': 'Cloud native',
 };
 
 export const TIER_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', extreme: 'Final' };

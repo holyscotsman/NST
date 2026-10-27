@@ -312,6 +312,7 @@ export class Game {
     this._swap(TitleScreen({
       wallet: this.save.wallet,
       stats: this.save.stats,
+      examName: this._examName || 'Nutanix NCP-MCI',
       music: this.save.settings.music !== false,
       onStart: (mode, seed) => this.startRun(mode, seed),
       onGreenRoom: () => this.showGreenRoom(),
@@ -1040,7 +1041,13 @@ export class Game {
     try {
       if (window.NSTBank && typeof window.NSTBank.load === 'function') {
         const bank = await window.NSTBank.load();
-        if (bank && bank.questions && bank.questions.length) return window.NSTBank.toWWTBANE(bank);
+        if (bank && bank.questions && bank.questions.length) {
+          // What the title screen says the game is drilling: the bank's own cert code
+          // (Nutanix certs read "Nutanix NCP-MCI"; anything else reads as itself).
+          const cert = String((bank.meta && bank.meta.cert) || '').trim();
+          this._examName = cert ? (/^NCP-/i.test(cert) ? `Nutanix ${cert}` : cert) : '';
+          return window.NSTBank.toWWTBANE(bank);
+        }
         // (v2.48.0) load() resolves rather than rejects when the MANIFEST is what failed,
         // so the resolved-empty case has to consult the loader too.
         if (window.NSTBank.manifestError && window.NSTBank.manifestError()) this._bankError = 'manifest';
