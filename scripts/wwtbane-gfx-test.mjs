@@ -91,13 +91,13 @@ function stats({ w, h, bpp, data }) {
 const browser = await chromium.launch(launchOptions());
 const errs = [];
 
-async function boot(tier, { size = [1280, 800] } = {}) {
+async function boot(tier, { size = [1280, 800], motion = 'full' } = {}) {
   const ctx = await browser.newContext({ viewport: { width: size[0], height: size[1] } });
-  await ctx.addInitScript(() => { try {
+  await ctx.addInitScript((m) => { try {
     localStorage.setItem('wwtbane.e2e', '1');
     localStorage.setItem('nst.activeBank', 'ncp-mci');
-    localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } }));
-  } catch { /* storage blocked */ } });
+    localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: m, music: false, sound: false } }));
+  } catch { /* storage blocked */ } }, motion);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errs.push(`[${tier}] pageerror: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error') errs.push(`[${tier}] console.error: ${m.text().slice(0, 160)}`); });
@@ -140,6 +140,18 @@ for (const tier of ['low', 'medium', 'high']) {
     !!document.querySelector('#studio-root canvas') && document.getElementById('backdrop-fallback').classList.contains('hidden')));
   ok(`${tier}: it never renders above its tier's resolution cap`, g.dpr <= { low: 1, medium: 1.5, high: 2 }[tier] + 1e-9, g.dpr);
 
+  /* Work budgets. A GPU cost is a number, so pin it: not to fix today's figure
+   * but so a change that quietly multiplies the scene (an unscaled crowd, a
+   * second copy of the set) fails here instead of on somebody's laptop. They are
+   * deliberately loose -- roughly 1.5x what each tier draws today, measured in
+   * the studio's own frame counter, and high pays three scene passes (the
+   * picture, the mirror and the AO depth pass). The drawn-at-all check is the
+   * other half: a render that draws nothing has a budget of zero. */
+  const BUDGET = { low: [380, 340000], medium: [420, 450000], high: [1300, 1500000] }[tier];
+  ok(`${tier}: it actually drew something`, g.calls > 20 && g.triangles > 10000, `${g.calls} calls, ${g.triangles} triangles`);
+  ok(`${tier}: draw calls are within budget`, g.calls <= BUDGET[0], `${g.calls} > ${BUDGET[0]}`);
+  ok(`${tier}: triangles are within budget`, g.triangles <= BUDGET[1], `${g.triangles} > ${BUDGET[1]}`);
+
   const s = await pictureOf(page);
   ok(`${tier}: the studio is not a black frame`, s.mean > 8, `mean luminance ${s.mean.toFixed(1)}`);
   ok(`${tier}: nor blown out to white`, s.mean < 190, `mean luminance ${s.mean.toFixed(1)}`);
@@ -158,6 +170,39 @@ for (const tier of ['low', 'medium', 'high']) {
   const q = await page.evaluate(() => window.__wwt.gfx());
   ok(`${tier}: with the question card up, the shot is shifted UP into the free area`, q.view.dy < -40, JSON.stringify(q.view));
   ok(`${tier}: and LEFT of the money ladder`, q.view.dx < -40, JSON.stringify(q.view));
+  await ctx.close();
+}
+
+/* Reduced motion means STILL. The set has a lot that moves -- aurora on the wall,
+ * sweeping beams, a rotating core, drifting dust, a breathing crowd, film grain --
+ * and every one of them has to stop, not slow down. This takes two frames 800 ms
+ * apart and requires them to be identical; the negative control is the same
+ * comparison with motion on, which must differ (otherwise "identical" proves only
+ * that the picture never changes at all). */
+async function frame(page) {
+  await page.evaluate(() => {
+    for (const id of ['ui-root', 'announce']) { const e = document.getElementById(id); if (e) e.style.visibility = 'hidden'; }
+    document.querySelectorAll('.sound-hint').forEach((e) => e.remove());
+  });
+  return decodePng(await page.screenshot());
+}
+function diffFraction(a, b) {
+  let d = 0, n = 0;
+  for (let i = 0; i < a.data.length; i += 4 * 7) { n++; if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 6) d++; }
+  return d / n;
+}
+{
+  const { ctx, page } = await boot('medium', { motion: 'reduced' });
+  const a = await frame(page); await page.waitForTimeout(800); const b = await frame(page);
+  const still = diffFraction(a, b);
+  ok('reduced motion: two frames 800 ms apart are identical', still < 0.0005, `${(still * 100).toFixed(3)}% of sampled pixels changed`);
+  await ctx.close();
+}
+{
+  const { ctx, page } = await boot('medium', { motion: 'full' });
+  const a = await frame(page); await page.waitForTimeout(800); const b = await frame(page);
+  const moving = diffFraction(a, b);
+  ok('[neg] with motion ON the same two frames differ, so "identical" above means something', moving > 0.002, `${(moving * 100).toFixed(3)}% changed`);
   await ctx.close();
 }
 

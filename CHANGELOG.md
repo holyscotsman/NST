@@ -5,6 +5,57 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.75.0 — WWTBANE graphics overhaul, stage B: the set (2026-10-27)
+
+**The studio was a stage built from primitives and a rainbow mosaic. It is now a
+designed set with a colour script, a glass deck, a real LED wall and light you
+can see in the air.**
+
+Stage A built the pipeline; this builds what runs through it. The 320-line
+`_buildStudio` is gone, replaced by `stage/studioSet.js` assembling seven focused
+modules. What the screenshots said was wrong, and what replaced it:
+
+| was | now |
+|---|---|
+| the KEY light tinted purple/aqua, so every face was washed in a saturated wash | the key is a clean warm white and never tinted; the mood colours everything BEHIND the talent through one eased `Accent` (wall, deck inlays, rim lights, beams) |
+| a flat dark disc with a texture | **the deck**: black glass with light inlaid in a shader — rings, a dashed gold track, spokes, and a ring of twelve "cluster nodes". On the high tier it is a real-time mirror (half-res, blurred with a 9-tap disc and brushed so it reads as polished glass, not a bathroom tile); elsewhere the same shader fakes the sheen from the accent colour |
+| a wall of random bright squares — the loudest thing in the room | a calm LED wall: slow aurora ribbons, a physical pixel mask, rare data sparks, the wordmark as part of the display. Low contrast on purpose, so what is in front of it pops |
+| four flat translucent cones at 3% opacity | volumetric beams that are brightest at the lens, fade as they spread, have soft edges (you look *through* the cone) and a little dust; each fixture is a real object that turns to aim, with a pool of light where the beam meets the deck |
+| 168 identical bobble-heads in full-saturation shirts | a denser, darker crowd (spacing is constant, so outer tiers hold more people), dark muted clothing, a thin fresnel rim, riser fascias lit in a dim accent line, and a few phones glowing |
+| a tall pole with two grid monitors dead centre, blocking the two-shot | **the Core**: a low plinth, three interlocking rings, orbiting nodes, a column of light that fades upward, and two glass panels. It has a job: the rings tighten at lock-in, pulse on a reveal, and the panels power down on 50:50 — the beat the camera was already looking at the old monitors for, which then did nothing |
+| solid slabs of emissive colour as perimeter fins | dark metal with one thin lit edge |
+| hard white squares for dust | soft round sprites |
+
+The crowd rim and the contrast were wrong at first sight and are worth recording:
+the first render of the new set was a flat cyan wash with the crowd outlined like
+ghosts and the beams as fat funnels. A contrast pass (ambient 0.55 to 0.22, the
+wash light 46 to 14, bloom 0.42 to 0.30 with a higher threshold, crowd rim 0.55
+to 0.2) put the darkness back that the accents need to read against.
+
+Found by looking, not testing: the wordmark on the wall rendered **mirrored**.
+Viewed from inside a back-faced cylinder, U runs backwards; the shader now flips it.
+
+**Takes retuned** for the new geometry: the overhead pan settles on the two
+chairs instead of the floor behind them, the piggy-bank take follows the bank to
+stage right (it moved out of the two-shot), and one audience pan no longer starts
+with a contestant's face in the foreground.
+
+**Crowd geometry scales with the tier** (a person is a handful of facets at low;
+nobody is ever closer than ten metres). Low: 431k to 228k triangles. The figures
+themselves still cost about 70k and are rebuilt in stage C.
+
+New tests: `accent.test.mjs` (13) — every mood has a distinct partner, easing
+arrives and does not jump, reduced motion snaps, tracked materials follow the
+mood, and the colour objects stay stable references because shaders hold them as
+uniforms. `wwtbane-gfx-test.mjs` grows to 56: **work budgets** per tier (draw
+calls and triangles, measured by the studio's own per-frame counter, loose enough
+to be stable and tight enough to catch an unscaled crowd or a second copy of the
+set), and **reduced motion means still** — two frames 800 ms apart must be
+identical, with a negative control (the same comparison with motion on must
+differ). Unit tests can now import modules that import three: a small resolver
+hook maps the browser import map's specifiers onto the vendored build, so the
+unit job still installs nothing.
+
 ## v2.74.0 — WWTBANE graphics overhaul, stage A: the render foundation (2026-10-27)
 
 **The 3D studio had an engine and no pipeline: no real anti-aliasing, no quality

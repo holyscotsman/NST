@@ -108,7 +108,7 @@ run starts and the show cuts to the studio.
 ### ✏️ 50:50 — `fifty` (→ returns)
 | # | Take | Duration |
 |---|---|---|
-| 1 | Overhead on the console, tilting down as two screens go dark | 3s |
+| 1 | Overhead on the Core hologram, tilting down as its two side panels power down | 3s |
 
 ### ✏️ Phone a friend — `phoneFriend` (→ returns)
 | # | Take | Duration |
@@ -159,6 +159,16 @@ longer triggered — the `hostWelcome` beat fronts every run instead)
   pedestal at stage right, the **stage manager** (headset + clipboard) in the
   wings, and the **sketchy guy** (long coat, wide-brim hat) by the green-room
   doors. All original art drawn in code.
+- **Framing is UI-aware.** The studio measures the question card and the money
+  ladder and shifts the projection (`Studio._measureSafeFrame`) so whatever a
+  take centres lands in the free area above the card. Author a take for the whole
+  screen; do not compensate for the card by hand. The shift eases in, and snaps
+  under reduced motion.
+- **The Core** (a low plinth with three interlocking rings and two glass panels)
+  replaced the old console pole at centre stage, which sat directly between the
+  host and the contestant and blocked the two-shot. The `fifty` beat is now real:
+  the panels power down on 50:50. The **piggy bank** moved to stage right
+  (`[5.7, 1.3, -0.9]`), out of the two-shot.
 - **Reduced motion:** every take becomes a locked-off cut (held at its mid
   pose) for its duration — no orbits, pans, or zooms.
 - The CSS backdrop (no-WebGL fallback) keeps its own simpler mood/camera-push

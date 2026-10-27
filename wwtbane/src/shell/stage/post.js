@@ -100,7 +100,7 @@ export async function createPipeline({ renderer, scene, camera, tier, width, hei
 
   let bloom = null;
   if (tier.bloom) {
-    bloom = new UnrealBloomPass(new THREE.Vector2(Math.max(2, width >> 1), Math.max(2, height >> 1)), 0.42, 0.5, 0.32);
+    bloom = new UnrealBloomPass(new THREE.Vector2(Math.max(2, width >> 1), Math.max(2, height >> 1)), 0.30, 0.45, 0.62);
     composer.addPass(bloom);
   }
 

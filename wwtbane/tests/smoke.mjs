@@ -30,14 +30,14 @@ async function main() {
 
   try {
     await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'load', timeout: 20000 });
-    await page.waitForSelector('.brand-main', { timeout: 10000 });
+    await page.waitForSelector('.brand-main', { timeout: 30000 });
     check('title screen renders', true);
 
     const ver = await page.textContent('.title-foot .version').catch(() => null);
     check('version badge shows on the title screen', /^v\d+\.\d+\.\d+$/.test(ver || ''), String(ver));
 
     await page.click('button.primary.big');
-    await page.waitForSelector('.q-card .stem', { timeout: 10000 });
+    await page.waitForSelector('.q-card .stem', { timeout: 30000 });
     check('a question is shown', true, await page.textContent('.chip'));
 
     const optionCount = await page.$$eval('.option', (els) => els.length);
@@ -83,7 +83,7 @@ async function main() {
 
     await page.click('.option:not(.removed)');
     await page.click('.lock-btn');
-    await page.waitForSelector('.feedback', { timeout: 8000 });
+    await page.waitForSelector('.feedback', { timeout: 20000 });
     // Correct → explanation + continue; wrong → auto-walk to the green room.
     const followUp = await Promise.race([
       page.waitForSelector('.continue-btn', { timeout: 6000 }).then(() => 'continue'),

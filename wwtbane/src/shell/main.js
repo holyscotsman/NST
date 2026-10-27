@@ -233,6 +233,7 @@ export class Game {
       number: () => (this.rc ? this.rc.current().number : null),
       won: () => (this.rc ? this.rc.won : false),
       gfx: () => (this.studio && this.studio.gfxInfo ? this.studio.gfxInfo() : null),
+      studio: () => this.studio, // look-dev / tests: aim the camera, read the set
     };
   }
 
