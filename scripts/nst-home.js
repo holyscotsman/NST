@@ -1127,8 +1127,9 @@
      * (GitHub Pages, file://) the request is a 404 and nothing is added. */
     try {
       fetch("/api/me", { credentials: "same-origin" }).then(function (r) {
-        if (r.status !== 401) return null;
-        return r.json().catch(function () { return null; });
+        // Always read the body (an unread one keeps the request open); only a 401 means signed out.
+        var out = r.status === 401;
+        return r.json().catch(function () { return null; }).then(function (j) { return out ? j : null; });
       }).then(function (j) {
         if (!j || !j.accounts) return;
         var utils = document.querySelector(".nst-nav-utils");
