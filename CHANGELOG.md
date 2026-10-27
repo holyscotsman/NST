@@ -5,6 +5,25 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.83.0 — Hosted on Netlify, with accounts that save your progress (2026-10-27)
+
+**NST now runs at <https://nutanix-starnix-training.netlify.app> on Netlify, with a Postgres database
+(Netlify Database) behind optional username-and-password accounts. Signed-in users' progress syncs
+across devices; signed-out use still works exactly as before, in the browser.**
+
+- Accounts: `/login`, `/signup`, `/logout`, `/account/password`, `/admin`, and `/api/me` + `/api/progress`
+  (what `shared/nst-sync.js` already spoke to). Passwords are scrypt-hashed, sessions are hashed tokens,
+  forms are CSRF-protected, and throttling lives in the database so it holds across function instances.
+- No default password. The administrator is created once at `/setup` using the `NST_SETUP_TOKEN` environment
+  variable; the page disappears after the first administrator exists.
+- NCM-MCI Lab Practice is for signed-in users only, enforced by an edge function that checks the session in
+  the database and fails closed.
+- Launcher shows a "Sign in" link when signed out.
+- Build: `netlify.toml` + `scripts/netlify-build.mjs` publish a whitelist (no tests or tooling).
+- Tests: `scripts/netlify-app-test.mjs` (74 checks, real Postgres) and `scripts/netlify-site-test.mjs` (17).
+- The old `ncm-mci-guided-practice` site, its sync function and passphrase sync no longer exist. Its legacy
+  `progress` table is left untouched. GitHub Pages is no longer needed.
+
 ## v2.82.0 — NCM-MCI Lab Practice, a fourth tool (2026-10-27)
 
 **A separate section for the hands-on NCM-MCI 6.10 lab exam: seventeen lab tasks drilled

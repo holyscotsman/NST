@@ -1,0 +1,8 @@
+{
+  "name": "nutanix-study-tool",
+  "private": true,
+  "description": "Nutanix Study Tool. The site itself is plain static files with no build or dependencies; this file exists only because the Netlify functions in netlify/ need the Netlify database client.",
+  "dependencies": {
+    "@netlify/database": "^2.0.1"
+  }
+}

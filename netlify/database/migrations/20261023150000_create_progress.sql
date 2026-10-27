@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS progress (
+  user_key   TEXT PRIMARY KEY,
+  data       JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

@@ -1092,6 +1092,29 @@
     // When the tool is served from the app server (server/server.mjs) rather than a
     // static host, show who is signed in and give them a way out. NSTSync tells us
     // asynchronously, and on a static host the event never fires, so nothing renders.
+    /* Signed OUT on a host that has accounts (Netlify): offer the way in.
+     * The sync module deliberately stays silent on a 401, so this asks /api/me itself. On a static host
+     * (GitHub Pages, file://) the request is a 404 and nothing is added. */
+    try {
+      fetch("/api/me", { credentials: "same-origin" }).then(function (r) {
+        if (r.status !== 401) return null;
+        return r.json().catch(function () { return null; });
+      }).then(function (j) {
+        if (!j || !j.accounts) return;
+        var utils = document.querySelector(".nst-nav-utils");
+        if (utils && !document.getElementById("nst-signin-link")) {
+          var a = el("a", "nst-account-link", "Sign in");
+          a.id = "nst-signin-link";
+          a.href = "/login";
+          a.title = "Sign in to save your progress to your account";
+          utils.insertBefore(a, utils.firstChild);
+        }
+        // The NCM practice section is for signed-in people only; say so before the click.
+        var lab = document.querySelector(".nst-card--lab .nst-card-tag");
+        if (lab && !lab.dataset.locked) { lab.dataset.locked = "1"; lab.textContent = "LAB · SIGN IN"; }
+      }).catch(function () { /* no account service here: stay quiet */ });
+    } catch (e) { /* no fetch */ }
+
     window.addEventListener("nst-account", function (ev) {
       var me = ev && ev.detail;
       if (!me || document.getElementById("nst-account-chip")) return;

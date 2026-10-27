@@ -1,6 +1,6 @@
 # Nutanix Study Tool (NST)
 
-### 🔗 **Play it now: [holyscotsman.github.io/NST](https://holyscotsman.github.io/NST/)**
+### 🔗 **Play it now: [nutanix-starnix-training.netlify.app](https://nutanix-starnix-training.netlify.app/)**
 
 No install, no signup, no cost — it's a static site, so that link just works in any browser,
 including on your phone. Bookmark it.
@@ -128,6 +128,7 @@ NST/
 ├── starnix/            # StarNix (built single-file app)
 ├── practice-exams/     # Practice Exams
 ├── ncm-practice/       # NCM-MCI 6.10 lab practice (its own tool: drills for the 17 lab tasks)
+├── netlify/            # hosted accounts: function, edge gate, DB migrations (see docs/NETLIFY.md)
 ├── server/             # optional login + accounts server (see below)
 ├── scripts/            # the shared test suites and audits
 ├── docs/               # BANK_FORMAT.md, knowledge base
@@ -189,7 +190,7 @@ node scripts/auth-test.mjs         # passwords, sessions, throttling, cookie par
 …and a dozen more beside them (sync, backup, readiness, review, dashboard, compression,
 path safety, robustness). These need nothing installed.
 
-Fourteen further suites need a real browser and are the fourth CI job:
+Sixteen further suites need a real browser and are the fourth CI job:
 
 ```bash
 npm install --no-save playwright axe-core && npx playwright install chromium
@@ -204,6 +205,8 @@ node scripts/bankfail-test.mjs                   # a 404'd bank, said plainly, w
 node scripts/restore-test.mjs                    # back up, study on, restore — through the buttons
 node scripts/wwtbane-gfx-test.mjs                 # the 3D studio at every quality tier, pixels decoded
 node scripts/smoke-test.mjs                      # a real server and login, end to end
+node scripts/netlify-app-test.mjs                # the hosted account system (needs @netlify/database-dev)
+node scripts/netlify-site-test.mjs               # what the Netlify build publishes
 ```
 
 The same job also runs WWTBANE's own `smoke` and `e2e` (`node wwtbane/tests/smoke.mjs`).
@@ -212,8 +215,5 @@ into a failure — a suite that runs nothing must not report success.
 
 ## Deploy
 
-Plain static site, no pipeline — GitHub Pages serves the files from a branch. In **Settings → Pages**,
-set **Source: Deploy from a branch**, pick the branch containing the site and `/ (root)`, and save.
-The launcher is live at <https://holyscotsman.github.io/NST/>, with each tool at
-`/NST/wwtbane/`, `/NST/starnix/`, and `/NST/practice-exams/`. The root `.nojekyll` serves everything
-as-is; the only workflow (`ci.yml`) runs tests and does not deploy.
+Hosted on Netlify with Netlify Database; see [docs/NETLIFY.md](docs/NETLIFY.md) for how it works, the
+environment variables, the one-time `/setup`, and how to deploy. GitHub Pages is no longer used.
