@@ -102,7 +102,7 @@ const BRAND = `<div class="brand"><span class="dot"></span><b>Nutanix Study Tool
 
 function msg(kind, text) { return text ? `<div class="msg ${kind}">${esc(text)}</div>` : ''; }
 
-export function loginPage({ error, notice, username = '', csrf, allowSignup = true }) {
+export function loginPage({ error, notice, username = '', csrf, allowSignup = true, next = '' }) {
   return shell('Sign in', `
 <main class="card">
   ${BRAND}
@@ -110,7 +110,8 @@ export function loginPage({ error, notice, username = '', csrf, allowSignup = tr
   <p class="sub">Your progress is saved to your account, so it follows you to any browser or device.</p>
   ${msg('err', error)}${msg('ok', notice)}
   <form method="POST" action="/login" autocomplete="on">
-    <input type="hidden" name="csrf" value="${esc(csrf)}" />
+    <input type="hidden" name="csrf" value="${esc(csrf)}" />${next ? `
+    <input type="hidden" name="next" value="${esc(next)}" />` : ''}
     <label for="u">Username</label>
     <input id="u" name="username" type="text" value="${esc(username)}" autocomplete="username"
            autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus />
@@ -118,11 +119,11 @@ export function loginPage({ error, notice, username = '', csrf, allowSignup = tr
     <input id="p" name="password" type="password" autocomplete="current-password" required />
     <button type="submit">Sign in</button>
   </form>
-  ${allowSignup ? '<p class="alt">No account yet? <a href="/signup">Create one</a></p>' : ''}
+  ${allowSignup ? `<p class="alt">No account yet? <a href="/signup${next ? '?next=' + encodeURIComponent(next) : ''}">Create one</a></p>` : ''}
 </main>`);
 }
 
-export function signupPage({ error, username = '', displayName = '', csrf, minPassword }) {
+export function signupPage({ error, username = '', displayName = '', csrf, minPassword, next = '' }) {
   return shell('Create account', `
 <main class="card">
   ${BRAND}
@@ -130,7 +131,8 @@ export function signupPage({ error, username = '', displayName = '', csrf, minPa
   <p class="sub">Pick a username and password. Nothing else is needed — there is no email and no verification.</p>
   ${msg('err', error)}
   <form method="POST" action="/signup" autocomplete="on">
-    <input type="hidden" name="csrf" value="${esc(csrf)}" />
+    <input type="hidden" name="csrf" value="${esc(csrf)}" />${next ? `
+    <input type="hidden" name="next" value="${esc(next)}" />` : ''}
     <label for="u">Username</label>
     <input id="u" name="username" type="text" value="${esc(username)}" autocomplete="username"
            autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus />
@@ -144,7 +146,7 @@ export function signupPage({ error, username = '', displayName = '', csrf, minPa
     <input id="p2" name="password2" type="password" autocomplete="new-password" required />
     <button type="submit">Create account</button>
   </form>
-  <p class="alt">Already have one? <a href="/login">Sign in</a></p>
+  <p class="alt">Already have one? <a href="/login${next ? '?next=' + encodeURIComponent(next) : ''}">Sign in</a></p>
 </main>`);
 }
 
@@ -182,7 +184,7 @@ function bytes(n) {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(1)} KB`;
 }
 
-export function adminPage({ me, users, csrf, error, notice, defaultRootPassword, audit = [], version, repo }) {
+export function adminPage({ me, users, csrf, error, notice, defaultRootPassword, audit = [], version, repo, hosted = '' }) {
   const rows = users.map((u) => {
     const isMe = u.id === me.id;
     const act = (action, label, cls, confirmText) => `
@@ -253,6 +255,8 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
         <td data-col="What">${esc(a.action)}${a.detail ? ` <span class="muted">${esc(a.detail)}</span>` : ''}</td></tr>`).join('')}</tbody>
     </table>` : '';
 
+  // hostedNote escapes its own arguments; assembled here so the template mentions only the result.
+  const updateSection = hosted ? hostedNote(hosted, version) : backup;
   return shell('Accounts', `
 <div class="wrap">
   <div class="bar">
@@ -275,10 +279,47 @@ export function adminPage({ me, users, csrf, error, notice, defaultRootPassword,
     <tbody>${rows}</tbody>
   </table>
   <p class="alt"><a href="/account/password">Change your own password</a></p>
-  ${backup}
-  ${update}
+  ${updateSection}
+  ${hosted ? '' : update}
   ${log}
 </div>`, { wide: true });
+}
+
+/* On Netlify there is no database file to download and no self-update: the data lives in Netlify Database
+   (which takes its own snapshots) and a new version is a new deploy. Say so instead of offering buttons that
+   would do nothing. */
+function hostedNote(host, version) {
+  return `
+    <h1 style="font-size:18px;margin-top:34px">Hosting</h1>
+    <p class="sub">Running <b>v${esc(version || 'unknown')}</b> on <b>${esc(host)}</b>.</p>
+    <p class="hint">Accounts and progress are stored in the project&rsquo;s Netlify Database. Take or restore a
+      snapshot from the Netlify dashboard (Database &rarr; Snapshots), and update the app by deploying a new version.</p>`;
+}
+
+/* The one-time page that creates the first administrator on a hosted deployment. It is only reachable with
+   the NST_SETUP_TOKEN secret, and disappears for good once a root account exists. */
+export function setupPage({ error, csrf, token = '', minPassword }) {
+  return shell('Set up', `
+<main class="card">
+  ${BRAND}
+  <h1>Create the administrator</h1>
+  <p class="sub">This page exists once. It creates the first administrator account, then goes away.</p>
+  ${msg('err', error)}
+  <form method="POST" action="/setup" autocomplete="on">
+    <input type="hidden" name="csrf" value="${esc(csrf)}" />
+    <label for="t">Setup token</label>
+    <input id="t" name="token" type="password" value="${esc(token)}" autocomplete="off" required />
+    <label for="u">Administrator username</label>
+    <input id="u" name="username" type="text" value="root" autocomplete="username"
+           autocapitalize="none" autocorrect="off" spellcheck="false" required />
+    <label for="p">Password</label>
+    <input id="p" name="password" type="password" autocomplete="new-password" required />
+    <div class="hint">At least ${minPassword} characters.</div>
+    <label for="p2">Confirm password</label>
+    <input id="p2" name="password2" type="password" autocomplete="new-password" required />
+    <button type="submit">Create administrator</button>
+  </form>
+</main>`);
 }
 
 /* Shown directly (not via a redirect) after an update installs.

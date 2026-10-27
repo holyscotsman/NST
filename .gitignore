@@ -11,3 +11,7 @@ Thumbs.db
 # Server runtime data (SQLite database + WAL). Never committed: it holds real
 # account credentials and per-user progress.
 server/data/
+
+# Netlify: the linked-site state and the built site
+.netlify/
+dist/

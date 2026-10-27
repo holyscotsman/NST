@@ -15,4 +15,11 @@ if (mV[1] !== mC[1]) {
   console.error(`version-check: shared/nst-version.js says ${mV[1]} but CHANGELOG.md's top entry is v${mC[1]}`);
   process.exit(1);
 }
-console.log(`version-check: v${mV[1]} consistent (shared/nst-version.js == CHANGELOG top entry)`);
+// The Netlify administrator console shows its own copy (a function cannot import a browser global).
+const nl = readFileSync(new URL("../netlify/lib/version.mjs", import.meta.url), "utf8");
+const mN = nl.match(/NST_VERSION = '(\d+\.\d+\.\d+)'/);
+if (!mN || mN[1] !== mV[1]) {
+  console.error(`version-check: netlify/lib/version.mjs says ${mN ? mN[1] : "nothing"} but shared/nst-version.js says ${mV[1]}`);
+  process.exit(1);
+}
+console.log(`version-check: v${mV[1]} consistent (shared/nst-version.js == CHANGELOG top entry == netlify/lib/version.mjs)`);

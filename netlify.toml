@@ -1,0 +1,27 @@
+# Netlify configuration for the Nutanix Study Tool.
+#
+# The site is static files plus a few functions:
+#   - netlify/functions/app.mjs         sign in, sign up, sign out, change password, the administrator console,
+#                                       the one-time /setup, and /api/me + /api/progress (progress sync)
+#   - netlify/edge-functions/ncm-gate   keeps /ncm-practice/ for signed-in people
+#   - netlify/database/migrations/      the Postgres schema, applied automatically on deploy
+#
+# The publish folder is built, not the repository root, so tests, the VM server and scratch files are never public.
+
+[build]
+  command = "node scripts/netlify-build.mjs"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Headers apply to static files only; the functions set their own in code.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "frame-ancestors 'none'"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

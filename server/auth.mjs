@@ -189,8 +189,10 @@ export function parseCookies(header) {
   return out;
 }
 
-export function cookieHeader(name, value, { maxAge, secure, expire } = {}) {
+export function cookieHeader(name, value, { maxAge, secure, expire, sameSite } = {}) {
   const bits = [`${name}=${encodeURIComponent(value)}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
+  // Strict unless a caller asks for Lax (the hosted site, where people arrive from outside links).
+  if (sameSite === 'Lax') bits[3] = 'SameSite=Lax';
   if (secure) bits.push('Secure');
   if (expire) bits.push('Max-Age=0', 'Expires=Thu, 01 Jan 1970 00:00:00 GMT');
   else if (maxAge) bits.push(`Max-Age=${Math.floor(maxAge / 1000)}`);
