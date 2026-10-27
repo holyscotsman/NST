@@ -21,21 +21,21 @@
 export const TIERS = {
   low: {
     name: 'low',
-    dpr: 1, msaa: 0,
+    dpr: 1, msaa: 0, maxPixels: 0,
     bloom: false, ao: false, mirror: false, grade: false,
     shadowMap: 1024, shadowType: 'basic',
     beams: 4, motes: 60, crowdDetail: 0, rimLight: false,
   },
   medium: {
     name: 'medium',
-    dpr: 1.5, msaa: 4,
+    dpr: 1.5, msaa: 4, maxPixels: 2600000,
     bloom: true, ao: false, mirror: false, grade: true,
     shadowMap: 1024, shadowType: 'pcfsoft',
     beams: 8, motes: 150, crowdDetail: 1, rimLight: true,
   },
   high: {
     name: 'high',
-    dpr: 2, msaa: 4,
+    dpr: 2, msaa: 4, maxPixels: 4000000,
     bloom: true, ao: true, mirror: true, grade: true,
     shadowMap: 2048, shadowType: 'pcfsoft',
     beams: 12, motes: 260, crowdDetail: 2, rimLight: true,
@@ -83,13 +83,42 @@ export function gpuName(gl) {
   } catch { return ''; }
 }
 
+// The tier a previous visit proved broken on this machine (see studio.js, the
+// black-frame check). Auto never picks it, or anything above it, again.
+function readBad() {
+  try { const v = localStorage.getItem('wwtbane.gfxBad'); return ORDER.includes(v) ? v : null; } catch { return null; }
+}
+export function rememberBadTier(name) {
+  try { localStorage.setItem('wwtbane.gfxBad', name); } catch { /* storage blocked: the fallback still holds for this visit */ }
+}
+
+// Feature switches for diagnosing a machine: ?ao=0 ?mirror=0 ?msaa=0 ?bloom=0
+// ?grade=0 ?dpr=1.25 turn one thing off (or cap the pixel ratio) on top of the
+// tier, so "which feature breaks it" is a URL away instead of a code change.
+export function applyOverrides(tier, search) {
+  let q; try { q = new URLSearchParams(search); } catch { return tier; }
+  const t = { ...tier };
+  for (const k of ['ao', 'mirror', 'bloom', 'grade']) if (q.get(k) === '0') t[k] = false;
+  if (q.get('msaa') === '0') t.msaa = 0;
+  const dpr = parseFloat(q.get('dpr'));
+  if (dpr > 0.4 && dpr <= 3) t.dpr = Math.min(t.dpr, dpr);
+  return t;
+}
+
 // Pick the starting tier. `effects` false ("effects off" in Settings) caps it
-// at low, preserving what that switch has always meant.
-export function pickTier({ gl, effects = true } = {}) {
+// at low, preserving what that switch has always meant. An AUTOMATIC choice never
+// goes above medium until a person asks for high (?quality=high or Settings):
+// "high" is the one tier that has only ever been verified in software, so it is
+// opt-in. `autoMax` lets a test (or a future, proven build) raise that cap.
+export function pickTier({ gl, effects = true, autoMax = 'medium', search = '' } = {}) {
   const forced = readParam() || readSaved();
   let name = forced || tierFromRenderer(gpuName(gl));
+  if (!forced && ORDER.indexOf(name) > ORDER.indexOf(autoMax)) name = autoMax;
+  const bad = readBad();
+  if (!forced && bad && ORDER.indexOf(name) >= ORDER.indexOf(bad)) name = ORDER[Math.max(0, ORDER.indexOf(bad) - 1)];
   if (effects === false) name = 'low';
-  return { tier: { ...TIERS[name] }, source: forced ? 'override' : 'detected', gpu: gpuName(gl) };
+  const tier = applyOverrides({ ...TIERS[name] }, search || (typeof window !== 'undefined' ? window.location.search : ''));
+  return { tier, source: forced ? 'override' : 'detected', gpu: gpuName(gl) };
 }
 
 // Watches frame time and asks for a step down when the GPU is clearly behind.

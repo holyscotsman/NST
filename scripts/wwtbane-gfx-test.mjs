@@ -222,6 +222,28 @@ function diffFraction(a, b) {
   await ctx.close();
 }
 
+/* A GPU can accept every command and still return a black frame (this happened
+ * on real hardware: medium and high drew black, low did not). Nothing throws, so
+ * the studio looks at its own canvas. Prove both halves: a healthy frame is NOT
+ * flagged, and a frame forced black IS, dropping the tier and remembering it. */
+{
+  const { ctx, page } = await boot('medium');
+  await page.evaluate(() => { const h = window.__wwt.studio()._health; h.next = 0; h.t = 1; });
+  await page.waitForFunction(() => window.__wwt.studio()._health.last != null, null, { timeout: 60000 });
+  const healthy = await page.evaluate(() => ({ last: window.__wwt.studio()._health.last, tier: window.__wwt.gfx().tier, fb: window.__wwt.studio()._health.fellBack }));
+  ok('a healthy frame reads as mostly not black and is left alone', healthy.last < 0.3 && healthy.tier === 'medium' && !healthy.fb, `${Math.round(healthy.last * 100)}% black, tier ${healthy.tier}`);
+  await page.evaluate(() => {
+    const s = window.__wwt.studio(); const h = s._health;
+    h.done = false; h.checks = 0; h.t = 0; h.next = 0.2; h.hits = 0;
+    s.pipe.render = () => { s.renderer.setRenderTarget(null); s.renderer.setClearColor(0x000000, 1); s.renderer.clear(); };
+  });
+  await page.waitForFunction(() => window.__wwt.gfx().tier === 'low', null, { timeout: 90000 }).catch(() => {});
+  const after = await page.evaluate(() => ({ tier: window.__wwt.gfx().tier, bad: localStorage.getItem('wwtbane.gfxBad') }));
+  ok('[neg] a frame forced black makes the studio drop a tier by itself', after.tier === 'low', after.tier);
+  ok('and it remembers which tier failed, so the next visit does not repeat it', after.bad === 'medium', String(after.bad));
+  await ctx.close();
+}
+
 ok('no page errors or console errors at any tier', errs.length === 0, errs.slice(0, 3).join(' | '));
 
 await browser.close();
