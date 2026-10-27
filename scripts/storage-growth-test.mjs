@@ -228,7 +228,7 @@ function studyYear(record) {
     const store = quotaStore(BANK * 6 + 4096);
     const NB = loader(store);
     let n = 0;
-    try { for (; n < 40; n++) store.setItem('nst.bankcache:live' + n, body(1000 + n)); } catch (e) {}
+    try { for (; n < 40; n++) store.setItem('nst.bankcache:live' + n, body(200000 - n * 10000)); } catch (e) {}
     ok('the store fills at a realistic number of banks', n >= 5 && n <= 7, n);
     const before = NB._cacheKeys().length;
     const wrote = NB._cachePut('nst.bankcache:active', body(0));
