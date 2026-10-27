@@ -1,7 +1,7 @@
 # Graphics
 
 How the studio is drawn, what changes between a workstation and a locked-down
-laptop, and how to look at it. (The graphics overhaul, v2.74.0 to v2.80.0.)
+laptop, and how to look at it. (The graphics overhaul, v2.74.0 to v2.81.0.)
 
 ## Layers
 

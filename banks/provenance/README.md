@@ -8,6 +8,7 @@ not banks, they are not in `manifest.json`, and the apps never read them.
 | --- | --- |
 | `ncp-mci-e1.md` | the interchange export the NCP-MCI bank was built from |
 | `ncp-mci-e1-review.md` | the review pass over that export |
+| `kcna-pool-source.json` | the 333-question pool `banks/kcna/kcna.md` was converted from (2 duplicate stems dropped, so 331 shipped). The pool carried no difficulty ratings; the bank's are estimated from stem and option length, scenario and code cues, topic area and the pool's own "community vote is split" notes. |
 
 ## One copy, and which one (v2.63.0)
 

@@ -5,6 +5,28 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.81.0 — KCNA question bank (2026-10-27)
+
+**A second certification: the Kubernetes and Cloud Native Associate (KCNA), 331
+questions across nine topic areas, playable in WWTBANE, StarNix and Practice Exams.**
+
+- `banks/kcna/kcna.md`, registered as cert `KCNA` (pass mark 75 percent). Converted
+  from the 333-question pool the owner supplied; two duplicate stems dropped. Ids are
+  `kcna-001`..`kcna-333` so they cannot collide with another bank's mastery records.
+- The source had no difficulty ratings, so they are estimated (stem and option length,
+  scenario and code cues, topic area, and the pool's own "community vote is split"
+  notes) to give 20 percent at difficulty 1, 20 at 2, 32 at 3, 25 at 4 and 3 percent at 5 (finals):
+  a person should review them. The ladder can be filled
+  (a test keeps it that way).
+- The pool's "community vote" notes are kept, as "Study note:" lines in the
+  explanation, with their option letters removed (options are shuffled at runtime).
+- WWTBANE: the title screen names the active bank's exam instead of always "Nutanix
+  NCP-MCI", and the six new topic areas have proper chip labels.
+- Provenance: `banks/provenance/kcna-pool-source.json` keeps the source for checking
+  answer keys.
+- Tests: `kcna-bank.test.mjs` (parses clean, 4 options and one key each, the ladder can
+  be filled); the repo-wide bank checker covers the rest.
+
 ## v2.80.0 — WWTBANE: survive GPUs that draw a black frame (2026-10-27)
 
 **On real hardware the studio's upper two-thirds drew black at medium and high

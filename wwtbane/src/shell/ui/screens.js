@@ -25,7 +25,7 @@ export function TitleScreen(ctx) {
       h('img', { class: 'brand-x', src: 'assets/nutanix-x-white.svg', alt: '', 'aria-hidden': 'true' }),
       h('p', { class: 'brand-pre' }, 'Who wants to be a'),
       h('h1', { class: 'brand-main' }, 'Nutanix Engineer?'),
-      h('p', { class: 'brand-sub' }, `A game-show quiz to learn and drill the Nutanix NCP-MCI exam. Answer ${activeLadder().runLength} in a row to win.`),
+      h('p', { class: 'brand-sub' }, `A game-show quiz to learn and drill the ${ctx.examName || 'Nutanix NCP-MCI'} exam. Answer ${activeLadder().runLength} in a row to win.`),
     ),
     h('div', { class: 'wallet-row' },
       h('span', { class: 'wallet' }, icon('coin'), ` ${money(ctx.wallet)} coins`),
