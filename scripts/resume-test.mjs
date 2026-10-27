@@ -56,7 +56,18 @@ async function sitting(n = 6) {
   await page.click('.pe-modecard-exam');
   await page.waitForTimeout(600);
   for (let i = 0; i < n; i++) {
-    await page.keyboard.press('abcd'[i % 4]);
+    /* (v2.73.0) Answer the question the way it ASKS to be answered. One keypress
+     * per question left a "Choose two" holding one choice, which v2.71.0 correctly
+     * stopped counting as answered -- so this loop's six answers became five
+     * whenever the shuffle put a multi-answer question in the first six. About
+     * 13% of the bank is multi-answer, so it failed perhaps one run in three:
+     * an intermittency that looks exactly like a flake and is not one, which is
+     * the same trap the comment further down already records. */
+    const need = await page.evaluate(() => {
+      const chip = document.querySelector('.pe-chip-multi');
+      return chip ? Number((chip.textContent.match(/\d+/) || [1])[0]) : 1;
+    });
+    for (let k = 0; k < need; k++) await page.keyboard.press('abcd'[(i + k) % 4]);
     if (i === 2) await page.keyboard.press('f');
     await page.keyboard.press('ArrowRight');
   }

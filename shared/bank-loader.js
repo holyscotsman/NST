@@ -225,6 +225,12 @@
     return {
       id: bank.meta.cert || bank.id,
       name: bankName(bank),
+      // (v2.72.0) The pass mark is bank-level front matter ("pass: 0.80", the
+      // first thing banks/README.md's format section shows) and this adapter is
+      // the only route it has into Practice Exams. It was not carried, so the
+      // exam graded every certification against one hardcoded number while the
+      // launcher's readiness estimate honoured the bank's.
+      pass: bank.meta.pass,
       domains: bank.meta.domains.slice(),
       questions: bank.questions.map(function (q) {
         var o = {

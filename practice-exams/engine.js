@@ -51,7 +51,39 @@
     var b = normalizeBank();
     var domains = {};
     b.forEach(function (q) { domains[q.domain] = (domains[q.domain] || 0) + 1; });
-    return { total: b.length, domains: domains, name: (window.STARNIX_QUESTIONS && window.STARNIX_QUESTIONS.name) || "Nutanix Practice Exam" };
+    return {
+      total: b.length,
+      domains: domains,
+      name: (window.STARNIX_QUESTIONS && window.STARNIX_QUESTIONS.name) || "Nutanix Practice Exam",
+      pass: passMark(),
+    };
+  }
+
+  /* (v2.72.0) What THIS bank passes at.
+   *
+   * "pass: 0.80" is bank-level front matter, documented in the format section of
+   * banks/README.md, parsed by bank-parser, and already honoured by the
+   * launcher's readiness estimate (nst-home.js passes bank.meta.pass). Exam Mode
+   * did not have it: toStarNix dropped the field, so grading, the results
+   * screen's "you did not meet the N% pass bar" and the entry screen's promise
+   * all read one hardcoded number.
+   *
+   * Nothing is wrong today -- neither shipped bank authors a pass mark, so both
+   * take the parser's 0.80 default and every surface agrees by coincidence. It
+   * goes wrong on the first bank that sets its own, which the format invites and
+   * the roadmap (seven more certifications, which do not share a pass mark)
+   * makes likely: the launcher would promise readiness at 70% while the exam
+   * failed the same score and told the person the bar was 80%.
+   *
+   * PE_CONFIG.PASS_THRESHOLD stays as the fallback, for a bank that says nothing
+   * and for the harness fixtures that have no bank at all. */
+  function passMark() {
+    var cfg = window.PE_CONFIG || {};
+    var authored = window.STARNIX_QUESTIONS && window.STARNIX_QUESTIONS.pass;
+    var n = Number(authored);
+    if (isFinite(n) && n > 0 && n <= 1) return n;
+    var d = Number(cfg.PASS_THRESHOLD);
+    return isFinite(d) && d > 0 && d <= 1 ? d : 0.8;
   }
 
   /* ---- randomness ---------------------------------------------------------- */
@@ -243,7 +275,10 @@
       // rounding up printed "80%" on a failing 79.6% sitting (203/255) right next
       // to "80% to pass". Flooring can never claim a threshold you did not reach.
       pct: Math.floor(frac * 100),
-      pass: n > 0 && frac >= cfg.PASS_THRESHOLD,
+      pass: n > 0 && frac >= passMark(),
+      // The bar this sitting was judged against, so the screen that reports the
+      // verdict cannot name a different one.
+      passMark: passMark(),
       byDomain: byDomain,
       wrong: wrong,
       results: results,
@@ -295,6 +330,7 @@
     questionById: questionById,
     resetCache: resetCache,
     bankMeta: bankMeta,
+    passMark: passMark,
     rng: rng,
     shuffle: shuffle,
     isMulti: isMulti,

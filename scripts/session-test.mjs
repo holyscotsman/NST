@@ -340,7 +340,7 @@ try {
       const page = (await root.req('/admin')).text;
       const start = page.indexOf('Recent activity');
       if (start < 0) return [];
-      return [...page.slice(start).matchAll(/<tr><td>[^<]*<\/td><td>([^<]*)<\/td>\s*<td>([a-z-]+)(?:\s*<span class="muted">([^<]*)<\/span>)?/g)]
+      return [...page.slice(start).matchAll(/<tr><td[^>]*>[^<]*<\/td><td[^>]*>([^<]*)<\/td>\s*<td[^>]*>([a-z-]+)(?:\s*<span class="muted">([^<]*)<\/span>)?/g)]
         .map((m) => ({ actor: m[1].trim(), action: m[2], detail: (m[3] || '').trim() }));
     };
 

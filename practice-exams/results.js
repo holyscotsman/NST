@@ -13,7 +13,9 @@
     container.innerHTML = "";
     var root = el("div", "pe-results");
 
-    var passN = Math.round(window.PE_CONFIG.PASS_THRESHOLD * 100);
+    // (v2.72.0) The bar this sitting was actually judged against -- summary
+    // carries it, so the sentence and the verdict cannot name different numbers.
+    var passN = Math.round((summary && summary.passMark ? summary.passMark : engine.passMark()) * 100);
     var outcome = el("div", "pe-outcome " + (summary.pass ? "pass" : "fail"));
     outcome.appendChild(el("div", "pe-outcome-badge", summary.pass ? ui.ICONS.check : ui.ICONS.x));
     var head = el("div", "pe-outcome-head");

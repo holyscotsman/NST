@@ -284,4 +284,72 @@ group = 'selection-surfaces';
 pass();
 
 
+// ---- the pass mark belongs to the bank --------------------------------------
+// "pass: 0.80" is bank-level front matter, the first thing the format section of
+// banks/README.md shows. bank-parser reads it and the launcher's readiness
+// estimate honours it. toStarNix dropped it, so Exam Mode graded every
+// certification against PE_CONFIG.PASS_THRESHOLD and the results screen told the
+// person the bar was that number. Measured on a bank authoring 0.70: readiness
+// said ready at 70%, the exam failed the same score and named 80%.
+group = 'pass-mark';
+{
+  const original = window.STARNIX_QUESTIONS.pass;
+  const at = (p) => { window.STARNIX_QUESTIONS.pass = p; return E.passMark(); };
+
+  check('an authored pass mark is what the exam grades against', at(0.7) === 0.7);
+  check('a different one is honoured too', at(0.65) === 0.65);
+  check('bankMeta reports the same number', (window.STARNIX_QUESTIONS.pass = 0.7, E.bankMeta().pass === 0.7));
+
+  // A bank that says nothing falls back to the global, which is what every
+  // shipped bank does today -- so this change moves nothing until one opts in.
+  check('no authored mark falls back to PE_CONFIG', at(undefined) === window.PE_CONFIG.PASS_THRESHOLD);
+  check('and so does a null one', at(null) === window.PE_CONFIG.PASS_THRESHOLD);
+
+  // Junk must not be able to make an exam unpassable or trivially passable.
+  check('a nonsense mark falls back', at('most of them') === window.PE_CONFIG.PASS_THRESHOLD);
+  check('zero falls back rather than passing everyone', at(0) === window.PE_CONFIG.PASS_THRESHOLD);
+  check('above 1 falls back rather than failing everyone', at(1.5) === window.PE_CONFIG.PASS_THRESHOLD);
+  check('negative falls back', at(-0.5) === window.PE_CONFIG.PASS_THRESHOLD);
+  check('exactly 1 is allowed -- a bank may demand every question', at(1) === 1);
+
+  // The verdict itself, which is the thing a person reads.
+  // 10 results, `n` of them correct, shaped as summarize() expects.
+  const eight = (n) => {
+    const rows = [];
+    for (let i = 0; i < 10; i++) rows.push({ correct: i < n, q: { domain: 'alpha' }, chosen: 0 });
+    return rows;
+  };
+  window.STARNIX_QUESTIONS.pass = 0.7;
+  check('7 of 10 passes a 70% bank', E.summarize(eight(7)).pass === true);
+  check('6 of 10 does not', E.summarize(eight(6)).pass === false);
+  window.STARNIX_QUESTIONS.pass = 0.8;
+  check('[neg] the same 7 of 10 fails an 80% bank', E.summarize(eight(7)).pass === false);
+  check('[neg] so the verdict really is reading the bank, not a constant',
+    E.summarize(eight(7)).pass !== (window.STARNIX_QUESTIONS.pass = 0.7, E.summarize(eight(7)).pass));
+
+  window.STARNIX_QUESTIONS.pass = 0.7;
+  check('the summary carries the bar it used', E.summarize(eight(7)).passMark === 0.7);
+  check('so the screen reporting the verdict cannot name a different one',
+    Math.round(E.summarize(eight(7)).passMark * 100) === 70);
+
+  window.STARNIX_QUESTIONS.pass = original;
+}
+pass();
+
+// ---- and the surfaces read it ----------------------------------------------
+group = 'pass-mark-surfaces';
+{
+  const res = readFileSync(join(here, 'results.js'), 'utf8');
+  check('the results screen names the bar the sitting was judged against',
+    /summary && summary\.passMark \? summary\.passMark : engine\.passMark\(\)/.test(res));
+  check('it no longer reads the global directly', !/PE_CONFIG\.PASS_THRESHOLD/.test(res));
+  const app = readFileSync(join(here, 'app.js'), 'utf8');
+  check('the entry screen promises this bank\'s bar', /engine\.passMark\(\)/.test(app));
+  check('and no longer the global', !/cfg\.PASS_THRESHOLD/.test(app));
+  const loader = readFileSync(join(here, '..', 'shared', 'bank-loader.js'), 'utf8');
+  check('the adapter carries the field at all', /pass: bank\.meta\.pass/.test(loader));
+}
+pass();
+
+
 console.log('engine-test: all groups green');

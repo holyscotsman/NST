@@ -42,7 +42,7 @@
     var meta = engine.bankMeta();
     var hasQ = meta.total > 0;
     var randomCount = Math.min(cfg.EXAM_QUESTION_COUNT, meta.total);
-    var passN = Math.round(cfg.PASS_THRESHOLD * 100);
+    var passN = Math.round(engine.passMark() * 100);   // (v2.72.0) this bank's bar, not a global one
     var useFull = loadPrefs().useFull === true;   // question-set choice, remembered across visits
     container.innerHTML = "";
     var root = el("div", "pe-entry");

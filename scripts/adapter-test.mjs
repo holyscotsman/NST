@@ -129,6 +129,13 @@ bank.id = 'ncp-xx';
     JSON.stringify(sx.domains) === JSON.stringify(['storage', 'networking']),
     JSON.stringify({ id: sx.id, name: sx.name, domains: sx.domains }));
   ok('StarNix: every question survived the conversion', sx.questions.length === 2, sx.questions.length);
+  /* (v2.72.0) The pass mark is bank-level front matter and this adapter is its
+   * only route into Practice Exams. It was dropped here, so the exam graded
+   * every certification against one hardcoded number while the launcher's
+   * readiness estimate honoured the bank's own. */
+  ok('StarNix: the bank envelope carries the pass mark', sx.pass === bank.meta.pass, sx.pass);
+  ok('and it is the number the bank authored, not a default',
+    typeof sx.pass === 'number' && isFinite(sx.pass), sx.pass);
 
   const s = sx.questions.find((q) => q.id === 's1');
   const m = sx.questions.find((q) => q.id === 'm1');
