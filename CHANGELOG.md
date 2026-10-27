@@ -5,6 +5,27 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.80.0 — WWTBANE: survive GPUs that draw a black frame (2026-10-27)
+
+**On real hardware the studio's upper two-thirds drew black at medium and high
+quality, in Safari and Chrome, while low (which skips the post chain) was fine.
+CI cannot see it: it renders in software.**
+
+- The studio now looks at its own canvas. If nearly every sampled pixel is pure
+  black in the first seconds of a tier, it drops one tier by itself and remembers
+  the failed tier on that machine (`wwtbane.gfxBad`).
+- Auto never picks `high` any more (it starts at `medium` at most); `high` is
+  opt-in until proven on real GPUs.
+- The post chain's pixel count is capped (medium 2.6 M, high 4 M) so a large
+  retina window does not allocate hundreds of megabytes of multisampled buffers.
+- Diagnostics: `?debug=gfx` overlay; `?ao=0 ?mirror=0 ?msaa=0 ?bloom=0 ?grade=0
+  ?dpr=N` switch one feature off on top of a tier.
+- Tests: three new quality tests (Auto cap, remembered tier, overrides) and three
+  gfx checks (a healthy frame is left alone; a frame forced black drops the tier;
+  the failed tier is remembered).
+- Root cause NOT yet identified (it does not reproduce in software rendering);
+  this release contains the damage and adds the tools to find it.
+
 ## v2.79.0 — WWTBANE graphics overhaul, stage F: docs and release (2026-10-27)
 
 **The overhaul is documented, flagged for a real-hardware look, and WWTBANE moves

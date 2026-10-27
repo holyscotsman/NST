@@ -4,7 +4,7 @@
 // or flaps on a single hitch. So these tests are about decisions.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TIERS, tierFromRenderer, pickTier, Governor } from '../src/shell/stage/quality.js';
+import { TIERS, tierFromRenderer, pickTier, applyOverrides, rememberBadTier, Governor } from '../src/shell/stage/quality.js';
 
 test('software rasterisers are never given more than the low tier', () => {
   for (const r of [
@@ -44,8 +44,33 @@ test('[neg] a discrete GPU name is not mistaken for software just because it say
 
 test('"effects off" caps the tier at low whatever the GPU is', () => {
   const gl = { getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1 }), getParameter: () => 'NVIDIA GeForce RTX 4090' };
-  assert.equal(pickTier({ gl, effects: true }).tier.name, 'high');
-  assert.equal(pickTier({ gl, effects: false }).tier.name, 'low');
+  assert.equal(pickTier({ gl, effects: true, autoMax: 'high' }).tier.name, 'high');
+  assert.equal(pickTier({ gl, effects: false, autoMax: 'high' }).tier.name, 'low');
+});
+
+test('Auto never picks high on its own: high is opt-in until it is proven on real GPUs', () => {
+  const gl = { getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1 }), getParameter: () => 'Apple M2 Pro' };
+  assert.equal(pickTier({ gl, effects: true }).tier.name, 'medium');
+});
+
+test('a tier remembered as broken is never picked again, nor anything above it', () => {
+  const store = {};
+  globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = v; }, removeItem: (k) => { delete store[k]; } };
+  try {
+    const gl = { getExtension: () => ({ UNMASKED_RENDERER_WEBGL: 1 }), getParameter: () => 'NVIDIA GeForce RTX 4090' };
+    rememberBadTier('medium');
+    assert.equal(pickTier({ gl, effects: true, autoMax: 'high' }).tier.name, 'low');
+    store['wwtbane.quality'] = 'high'; // a person's explicit choice still wins
+    assert.equal(pickTier({ gl, effects: true }).tier.name, 'high');
+  } finally { delete globalThis.localStorage; }
+});
+
+test('diagnostic URL switches turn single features off without touching the tier', () => {
+  const t = applyOverrides({ ...TIERS.high }, '?ao=0&mirror=0&msaa=0&bloom=0&grade=0&dpr=1.25');
+  assert.equal(t.ao, false); assert.equal(t.mirror, false); assert.equal(t.msaa, 0);
+  assert.equal(t.bloom, false); assert.equal(t.grade, false); assert.equal(t.dpr, 1.25);
+  assert.deepEqual(applyOverrides({ ...TIERS.medium }, '?foo=1'), TIERS.medium, 'unrelated params change nothing');
+  assert.equal(applyOverrides({ ...TIERS.low }, '?dpr=2').dpr, TIERS.low.dpr, 'a dpr switch only ever lowers');
 });
 
 test('every tier carries the full set of knobs, and they only ever increase', () => {

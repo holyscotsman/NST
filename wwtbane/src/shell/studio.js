@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { Director } from './director.js';
 import { ballotFromBars } from '../core/lifelines.js';
 import { VOTE_COLORS } from '../core/config.js';
-import { pickTier, Governor } from './stage/quality.js';
+import { TIERS, pickTier, rememberBadTier, Governor } from './stage/quality.js';
 import { createPipeline } from './stage/post.js';
 import { PAL } from './stage/kit.js';
 import { setMouth } from './stage/people.js';
@@ -102,14 +102,92 @@ export class Studio {
       onResolution: (k) => this._applyResolution(k),
       onTier: (t) => this._changeTier(t),
     });
+    this._health = { t: 0, next: 1.2, checks: 0, hits: 0, last: null, done: false, fellBack: null };
+    this._setupDiagnostics();
     window.addEventListener('resize', this._onResize);
     renderer.setAnimationLoop(this._tick);
+  }
+
+  // ---- is the picture actually there? ----
+  // A GPU/driver combination can accept every command and still hand back a
+  // mostly black frame (a half-float or multisampled target it cannot really
+  // use). Nothing throws, so nothing in the code can notice. This looks: a few
+  // times in the first seconds after a tier is built, sample rows of the real
+  // canvas, and if nearly every sample is pure black, drop one tier and remember
+  // it, so the next visit does not repeat the mistake.
+  _blackFraction() {
+    const gl = this.renderer.getContext();
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+    if (!w || !h) return null;
+    if (!this._row || this._row.length < w * 4) this._row = new Uint8Array(w * 4);
+    this.renderer.setRenderTarget(null);
+    let dark = 0, n = 0;
+    for (let r = 0; r < 10; r++) {
+      const y = Math.min(h - 1, Math.floor(h * (0.05 + 0.9 * r / 9)));
+      gl.readPixels(0, y, w, 1, gl.RGBA, gl.UNSIGNED_BYTE, this._row);
+      for (let x = 0; x < w; x += 24) { const i = x * 4; n++; if (this._row[i] + this._row[i + 1] + this._row[i + 2] <= 3) dark++; }
+    }
+    return n ? dark / n : null;
+  }
+
+  _checkFrame(dt) {
+    const H = this._health;
+    if (!H || H.done || this.disposed) return;
+    H.t += dt;
+    if (H.t < H.next) return;
+    H.next = H.t + 0.7; H.checks++;
+    if (document.visibilityState !== 'visible') return;
+    let f = null;
+    try { f = this._blackFraction(); } catch { f = null; }
+    if (f == null) return;
+    H.last = f;
+    H.hits = f > 0.6 ? H.hits + 1 : 0;
+    if (H.hits >= 3 && this.tier.name !== 'low') {
+      const from = this.tier.name, to = from === 'high' ? 'medium' : 'low';
+      console.warn(`[wwtbane] the ${from} tier is drawing a black frame on this GPU (${Math.round(f * 100)}% black) — dropping to ${to}`);
+      rememberBadTier(from);
+      H.fellBack = `${from}->${to}`;
+      H.t = 0; H.next = 1.2; H.checks = 0; H.hits = 0;
+      if (this.governor) { this.governor.tier = { ...TIERS[to] }; this.governor.scale = 1; }
+      this._changeTier({ ...TIERS[to] });
+    } else if (H.checks > 14) H.done = true;
+  }
+
+  // ?debug=gfx shows what this machine is really running, so a bug report is a
+  // screenshot instead of a description.
+  _setupDiagnostics() {
+    const dom = this.renderer.domElement;
+    this._errors = [];
+    dom.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this._errors.push('context lost'); });
+    this.renderer.debug.onShaderError = (gl, prog, vs, fs) => { this._errors.push('shader: ' + String(gl.getProgramInfoLog(prog) || '').slice(0, 160)); };
+    let on = false; try { on = new URLSearchParams(window.location.search).get('debug') === 'gfx'; } catch { /* no URL */ }
+    if (!on) return;
+    const el = document.createElement('pre');
+    Object.assign(el.style, { position: 'fixed', left: '8px', bottom: '8px', zIndex: '99', margin: '0', padding: '8px 10px', font: '11px/1.35 ui-monospace, Menlo, monospace', color: '#cfe', background: 'rgba(0,0,0,0.78)', border: '1px solid #4a6', maxWidth: '60ch', whiteSpace: 'pre-wrap', pointerEvents: 'none' });
+    document.body.appendChild(el);
+    this._debugTimer = setInterval(() => {
+      const g = this.gfxInfo(), gl = this.renderer.getContext(), H = this._health;
+      el.textContent = [
+        `tier ${g.tier}  pipe ${g.pipe}  ao ${g.ao}  bloom ${g.bloom}  grade ${g.grade}  msaa ${g.msaa}`,
+        `gpu ${g.gpu}`,
+        `canvas ${gl.drawingBufferWidth}x${gl.drawingBufferHeight}  dpr ${g.dpr}  maxTex ${gl.getParameter(gl.MAX_TEXTURE_SIZE)}`,
+        `calls ${g.calls}  tris ${g.triangles}  fov ${g.fov}  view ${g.view.dx},${g.view.dy}`,
+        `black-frame check: ${H.last == null ? 'pending' : Math.round(H.last * 100) + '% black'}${H.fellBack ? '  FELL BACK ' + H.fellBack : ''}`,
+        this._errors.length ? 'errors: ' + this._errors.slice(-3).join(' | ') : 'errors: none',
+      ].join('\n');
+    }, 500);
   }
 
   // Resolution is the first thing the governor trades away: scale the pixel
   // ratio, keeping the canvas CSS size untouched.
   _applyResolution(scale) {
-    const dpr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, this.tier.dpr) * scale);
+    let dpr = Math.min(window.devicePixelRatio || 1, this.tier.dpr);
+    // The post chain keeps several multisampled half-float buffers, each pixel
+    // costing 8 bytes x 4 samples. On a large retina window that is hundreds of
+    // megabytes, which some GPUs/drivers hand back as black. Cap the pixel count
+    // (the 3D is soft glow and the quiz text is DOM, so nothing visible is lost).
+    if (this.tier.maxPixels) dpr = Math.min(dpr, Math.sqrt(this.tier.maxPixels / Math.max(1, window.innerWidth * window.innerHeight)));
+    dpr = Math.max(0.5, dpr * scale);
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     if (this.pipe) { this.pipe.setPixelRatio(dpr); this.pipe.setSize(window.innerWidth, window.innerHeight); }
@@ -368,6 +446,7 @@ export class Studio {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    if (this._debugTimer) clearInterval(this._debugTimer);
     window.removeEventListener('resize', this._onResize);
     if (this.renderer) {
       this.renderer.setAnimationLoop(null);
@@ -523,6 +602,7 @@ export class Studio {
     }
     const ri = this.renderer.info.render;
     this._stats = { calls: ri.calls, triangles: ri.triangles };
+    this._checkFrame(dt);
   };
 
   _onResize = () => {

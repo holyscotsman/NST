@@ -1,7 +1,7 @@
 # Graphics
 
 How the studio is drawn, what changes between a workstation and a locked-down
-laptop, and how to look at it. (The graphics overhaul, v2.74.0 to v2.79.0.)
+laptop, and how to look at it. (The graphics overhaul, v2.74.0 to v2.80.0.)
 
 ## Layers
 
@@ -23,12 +23,16 @@ The quiz is always DOM text over the canvas; none of this changes that.
 | | low | medium | high |
 | --- | --- | --- | --- |
 | Pixel ratio | 1 | up to 1.5 | up to 2 |
+| Pixel cap (post chain) | none | 2.6 M | 4 M |
 | Antialiasing | none | 4x MSAA | 4x MSAA |
 | Bloom, grade | off | on | on |
 | Ambient occlusion | off | off | on |
 | Mirror floor | off | off | on |
 | Shadow map | 1024 | 1024 | 2048 |
 | Beams, motes | 4, 60 | 8, 150 | 12, 260 |
+
+**Auto never picks `high`.** It starts at `medium` at most; `high` is opt-in
+(`?quality=high` or Settings) until it has been proven on real GPUs.
 
 How a tier is chosen, first match wins: `?quality=low|medium|high` in the URL,
 then Settings, Graphics quality (stored as `wwtbane.quality`), then the GPU's own
@@ -38,6 +42,27 @@ Apple silicon `high`). "Cinematic effects" off in Settings caps the tier at `low
 After that a governor watches frame time and only ever steps **down**: first the
 render resolution (to 60 percent), then a whole tier. It ignores the first
 seconds, single hitches and backgrounded tabs.
+
+## When the picture is black (and how it recovers)
+
+A GPU can accept every command and still hand back a black frame; nothing throws,
+so nothing in the code can notice. v2.80.0 added two defences:
+
+- **Black-frame check** (`studio.js`, `_checkFrame`): in the first seconds after a
+  tier is built, the studio samples rows of the real canvas. If nearly all of them
+  are pure black it drops one tier, remembers the failed tier in
+  `localStorage` (`wwtbane.gfxBad`) so Auto never picks it again, and carries on.
+  A person's explicit choice (`?quality=` or Settings) always wins over the memory.
+- **Pixel cap** on the post chain (table above), because huge multisampled
+  half-float buffers on a large retina window are the first suspect.
+
+To find out *why* on a given machine:
+
+- `?debug=gfx` prints the tier, GPU, canvas size, draw calls, the black-frame
+  reading and any shader or context errors in a corner of the screen.
+- Switch one feature off at a time on top of a tier: `?ao=0`, `?mirror=0`,
+  `?msaa=0`, `?bloom=0`, `?grade=0`, `?dpr=1.25` (lowers the pixel ratio).
+  Example: `?quality=high&ao=0&mirror=0`.
 
 ## Reduced motion
 
