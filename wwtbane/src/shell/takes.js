@@ -15,11 +15,14 @@
 //   { type:'static', dur, p:[x,y,z], t:[x,y,z] }
 //       — locked-off shot
 //
-// Stage geography (see studio.js): stage center [0,~1,0]; console at center;
-// HOST seated at [2.1, ~1.5, 0]; CONTESTANT (hot seat) at [-2.1, ~1.5, 0];
-// audience arc on the -z side (radius 11–16, heights 0.2–3.6); wordmark panel
-// at z=-12; PIGGY BANK pedestal at [4.2, ~1.0, 2.2]; STAGE MANAGER in the
-// wings at [-6.5, 0, 3]. Green room: sofa ~[0.4, 0, -4.8]; phone on the table
+// Stage geography (see stage/studioSet.js): stage center [0,~1,0]; the Core
+// hologram at center; HOST seated at [2.1, ~1.5, 0]; CONTESTANT (hot seat) at
+// [-2.1, ~1.5, 0]; audience arc on the -z side (radius 11–16, heights 0.2–3.6);
+// the LED wall (carrying the wordmark) above the audience at y 5.3–9.9; PIGGY
+// BANK pedestal at stage right [5.7, ~1.3, -0.9]; STAGE MANAGER in the wings at
+// [-9.2, 0, 1.4]. Shots are framed by the studio's safe-frame shift (it measures
+// the question card and money ladder), so a subject centred in the take lands in
+// the free area above the card — frame for the whole screen, not the leftovers. Green room: sofa ~[0.4, 0, -4.8]; phone on the table
 // at [0.1, 0.63, -3.1]; SKETCHY GUY by the doors at [-3.5, 0, -6.55]; the
 // hinged door swings at [-2.0, 1.7, -6.9] (manager beat).
 
@@ -77,13 +80,13 @@ export const SCENES = {
       // 3. slow pan left→right across the audience — 14s, narrower sweep
       { type: 'pan', dur: 14, p: [0, 2.6, 2.5], from: [-5, 2.3, -9.5], to: [5, 2.3, -9.5] },
       // 4. above host + contestant, a slow settling tilt — 12s
-      { type: 'pan', dur: 12, p: [0, 10.5, 4.5], from: [0, 3.6, -3.4], to: [0, 1.6, -0.9] },
+      { type: 'pan', dur: 12, p: [0, 10.5, 4.5], from: [0, 1.9, -2.2], to: [0, 0.9, -0.3] },
       // 5. the piggy bank, unhurried push — 14s
       { type: 'dolly', dur: 14,
-        from: { p: [7.3, 2.4, 5.8], t: [4.2, 1.4, 2.2] },
-        to:   { p: [6.6, 2.1, 5.0], t: [4.2, 1.4, 2.2] } },
+        from: { p: [9.4, 2.3, 3.4], t: [5.7, 1.3, -0.9] },
+        to:   { p: [8.5, 2.0, 2.6], t: [5.7, 1.3, -0.9] } },
       // 6. the other side of the audience, watching the contestant — 16s
-      { type: 'pan', dur: 16, p: [-1.5, 2.7, 2.2], from: [6.5, 2.3, -9.8], to: [-1.5, 2.4, -10.6] },
+      { type: 'pan', dur: 16, p: [1.0, 2.8, 4.0], from: [6.5, 2.3, -9.8], to: [-2.5, 2.4, -10.6] },
       // 7. wideshot — host/contestant centered, the whole room visible — 16s*
       { type: 'static', dur: 16, p: [0, 5.4, 15.5], t: [0, 1.7, -1] },
       // 8. slow drift on the intensity of the contestant — 12s

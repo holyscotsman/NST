@@ -58,6 +58,8 @@ const EXCLUDED = {
   'starnix/kbb-headless.cjs':     'library — same for KBB; its own header says "run nothing directly"',
   'wwtbane/tests/_harness.mjs':   'library — serves the repo and resolves Playwright for the e2e runs',
   'wwtbane/tests/fixtures.mjs':   'library — shared question/save fixtures',
+  'wwtbane/tests/_three.mjs':     'library — registers the resolver hook so a unit test can import a module that imports three',
+  'wwtbane/tests/_three-hook.mjs': 'library — maps the browser import map\'s three specifiers onto the vendored build',
 
   // --- tools that produce something rather than assert something ---
   'starnix/render-kbb-sprites.mjs': 'asset generator — writes sprite PNGs, run when the art changes',
