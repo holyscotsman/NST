@@ -75,6 +75,8 @@ There's a **reduced-motion** mode, a **high-contrast** mode, and there are
   filmed by a data-driven camera director (`src/shell/takes.js` — see
   `docs/CINEMATIC_TAKES.md`, previewable via `?scene=<name>`); if WebGL isn't
   available, the game falls back to a CSS studio and plays exactly the same.
+  The graphics are tiered (low / medium / high, chosen from the GPU, with a
+  runtime governor) — see `docs/GRAPHICS.md`.
 - **All audio is synthesized at runtime** — original compositions in WebAudio,
   no audio files, nothing licensed.
 - **The quiz is always DOM**, layered over the 3D canvas, which is what keeps it

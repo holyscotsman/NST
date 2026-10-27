@@ -5,6 +5,17 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.79.0 — WWTBANE graphics overhaul, stage F: docs and release (2026-10-27)
+
+**The overhaul is documented, flagged for a real-hardware look, and WWTBANE moves
+to 0.2.0.**
+
+- `wwtbane/docs/GRAPHICS.md`: the layers, the tier table, how a tier is chosen,
+  reduced motion, what is tested and what cannot be (real frame times).
+- `wwtbane/FLAGS.md` 4b: asks the owner to open `?quality=high|medium|low` on real
+  hardware, and to confirm gold as a game-only extension of the design system.
+- WWTBANE `0.1.1` to `0.2.0` (`package.json` and `config.js`, kept in lockstep).
+
 ## v2.78.0 — WWTBANE graphics overhaul, stage E: the interface (2026-10-27)
 
 **The quiz overlay now follows the Nutanix Design System instead of a generic
