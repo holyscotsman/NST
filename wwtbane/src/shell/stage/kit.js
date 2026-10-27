@@ -2,7 +2,7 @@
 // the stage shares. Nothing here knows about the studio.
 import * as THREE from 'three';
 
-export const PAL = { iris: 0x7855FA, aqua: 0x1FDDE9, mantis: 0x92DD23, peach: 0xFF6B5B, gold: 0xFFC857 };
+export const PAL = { iris: 0x7855FA, aqua: 0x1FDDE9, mantis: 0x92DD23, peach: 0xFF9178, gold: 0xFFC857 };
 
 export function mat(color, emissive, ei = 0, rough = 0.6, metal = 0.1) {
   return new THREE.MeshStandardMaterial({ color, emissive: emissive ?? 0x000000, emissiveIntensity: ei, roughness: rough, metalness: metal });

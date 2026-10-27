@@ -5,6 +5,7 @@
 // Colorblind-safe: every state carries a glyph or text, never color alone.
 
 import { h, clear, money } from './dom.js';
+import { icon } from './icons.js';
 import { activeLadder, LIFELINE_TYPES, LIFELINE_META } from '../../core/config.js';
 import { positionTier } from '../../core/runController.js';
 
@@ -39,7 +40,7 @@ export class Hud {
 
   _buildCluster() {
     this.bankedVal = h('span', { class: 'coin-amt banked' },
-      h('span', { class: 'shield', 'aria-hidden': 'true' }, '🛡'), h('span', { class: 'num' }, '0'));
+      h('span', { class: 'shield', 'aria-hidden': 'true' }, icon('shield')), h('span', { class: 'num' }, '0'));
     this.playingVal = h('span', { class: 'coin-amt playing' }, '0');
     this.hintEl = h('div', { class: 'coin-hint' }, '');
     this.coinsEl = h('div', { class: 'coins' },
@@ -58,7 +59,7 @@ export class Hud {
         class: `lifeline ll-${type}`, type: 'button', title: meta.hint,
         onclick: () => this.handlers.onLifeline && this.handlers.onLifeline(type),
       },
-        h('span', { class: 'll-glyph', 'aria-hidden': 'true' }, meta.glyph),
+        h('span', { class: 'll-glyph', 'aria-hidden': 'true' }, type === 'fifty' ? meta.glyph : icon(type === 'audience' ? 'audience' : 'phone')),
         h('span', { class: 'll-sweep', 'aria-hidden': 'true' },
           h('span', { style: { animationDelay: (i * 0.5) + 's' } })),
         pip,
@@ -72,7 +73,7 @@ export class Hud {
     this.pauseBtn = h('button', {
       class: 'pause-btn', type: 'button', 'aria-label': 'Pause menu',
       onclick: () => this.handlers.onPause && this.handlers.onPause(),
-    }, '☰ Menu');
+    }, icon('menu'), ' Menu');
 
     this.cluster = h('div', { class: 'hud', role: 'region', 'aria-label': 'Game status' },
       this.coinsEl, this.lifelinesEl, this.pauseBtn);
@@ -94,7 +95,7 @@ export class Hud {
         h('span', { class: 'rung-num' }, `Q${i + 1}`),
         h('span', { class: 'rung-glyph', 'aria-hidden': 'true' }, TIER_GLYPH[tier]),
         h('span', { class: 'rung-val' }, money(LADDER[i])),
-        h('span', { class: 'rung-safe', 'aria-hidden': 'true' }, '🛡'),
+        h('span', { class: 'rung-safe', 'aria-hidden': 'true' }, icon('shield')),
       );
       this.rungs[i] = li;
       this.track.append(li);
@@ -225,8 +226,8 @@ export class Hud {
     const ladder = activeLadder().ladder;
     const amount = ladder[justClearedIndex] != null ? money(ladder[justClearedIndex]) : null;
     const banner = h('div', { class: 'haven-banner', 'aria-hidden': 'true' },
-      h('span', { class: 'haven-shield' }, '🛡'),
-      h('span', {}, `SAFE HAVEN${amount ? ` — ${amount} BANKED` : ''}`));
+      h('span', { class: 'haven-shield' }, icon('shield')),
+      h('span', {}, `Safe haven${amount ? ` — ${amount} banked` : ''}`));
     this.el.append(banner);
     setTimeout(() => banner.remove(), reduced() ? 1400 : 2100);
     if (!reduced()) {

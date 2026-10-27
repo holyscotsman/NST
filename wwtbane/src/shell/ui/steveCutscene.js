@@ -11,6 +11,7 @@
 // underneath, so screen-reader users are never gated on the timed bubbles.
 
 import { h } from './dom.js';
+import { icon } from './icons.js';
 import { splitIntoParts } from '../../core/textSplit.js';
 
 export const STEVE_OPENER = 'So. You came looking for that good info. Smart. I only say this once — lean in.';
@@ -25,7 +26,7 @@ function stevePortrait() {
       h('span', { class: 'sc-shades' }),
       h('span', { class: 'sc-smirk' })),
     h('span', { class: 'sc-collar' }),
-    h('span', { class: 'sc-phone' }, '📞'));
+    h('span', { class: 'sc-phone' }, icon('phone')));
 }
 
 function youPortrait() {
@@ -34,7 +35,7 @@ function youPortrait() {
       h('span', { class: 'sc-eye l' }), h('span', { class: 'sc-eye r' }),
       h('span', { class: 'sc-mouth' })),
     h('span', { class: 'sc-collar' }),
-    h('span', { class: 'sc-phone' }, '📞'));
+    h('span', { class: 'sc-phone' }, icon('phone')));
 }
 
 // Plays the cutscene into `root`. Returns a skip() that finishes it early.

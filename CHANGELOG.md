@@ -5,6 +5,33 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.78.0 — WWTBANE graphics overhaul, stage E: the interface (2026-10-27)
+
+**The quiz overlay now follows the Nutanix Design System instead of a generic
+neon-glass look: flat 4 px cards, pill buttons, the real X ident, the notched
+rule, light-weight titles, drawn icons in place of emoji.**
+
+Rules taken from the "Nutanix Design System" artifact (README and tokens):
+Montserrat only, sentence case, flat fills, a #A89EF6 hairline on dark cards,
+iris #7855FA as the action colour (hover #4B00AA), coral #FF9178 for danger.
+The game keeps gold for money and the lock-in beat (a documented game-only
+extension) and keeps the stage's light; only the DOM panels go flat.
+
+- Answers are rounded 4 px cards (the hexagonal lozenge is gone); the focus ring
+  is now a real outline, because the clip-path that clipped it is gone.
+- Panels, HUD, ladder, question card, lifeline results: flat charcoal, no blur,
+  no drop shadow. Tracked all-caps labels are sentence case ("Money ladder",
+  "Coins earned", "Safe haven — 500 banked").
+- Title screen: the official X ident, a light-weight white title (no gradient
+  fill), the notched rule. The LED wall wordmark follows the same rules.
+- Buttons: pills. Iris primary, outlined secondary, gold only for "Final answer".
+- Emoji replaced by drawn SVG icons (`ui/icons.js`): coin, shield, phone,
+  audience, trophy, sound, menu.
+- Settings: "Graphics quality" (Auto / Low / Medium / High), applied on next load.
+- `PAL.peach` and the brief move to the design system's coral #FF9178.
+- Tests: `designrules.test.mjs` (no emoji, no hexagonal answers, flat title,
+  ident asset shape). a11y, mobile, palette, smoke and e2e suites all pass.
+
 ## v2.77.0 — WWTBANE graphics overhaul, stage D: moments and the green room (2026-10-27)
 
 **Wins now look like wins: paper confetti, a gold coin shower, sparks off the

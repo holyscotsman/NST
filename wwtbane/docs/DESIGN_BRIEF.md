@@ -22,8 +22,9 @@ Design the **overlay UI and its animation choreography**. The 3D studio behind i
   | Iris | `#7855FA` | primary brand, easy/medium ambience, glows |
   | Aqua | `#1FDDE9` | interactive highlights, selection, medium tier |
   | Mantis | `#92DD23` | correct / banked / success |
-  | Peach | `#FF6B5B` | wrong / danger, hard tier |
+  | Peach | `#FF9178` | wrong / danger, hard tier |
   | Gold | `#FFC857` | money, the final question, "locked in" suspense |
+  - **Superseded in v2.78.0 (stage E):** panels are now flat 4 px charcoal cards (`rgba(19,19,19,0.88)`, 1px `#A89EF6` hairline at 42%, no blur, no drop shadow), answers are rounded cards (no hexagonal lozenge), buttons are pills, titles are light-weight sentence case, and emoji are drawn SVG icons — per the Nutanix Design System artifact. The glass description below is the original brief, kept for history.
   - Background base: `#04040a`. Panels: translucent dark glass (`rgba(12,12,26,0.72)` + `backdrop-filter: blur`), 1px `rgba(255,255,255,0.12)` borders, soft outer glow in the accent color where it matters.
 - **Typography:** Montserrat only (400/600/700/800). **Sentence case everywhere** — never Title Case, ALL CAPS only for tiny letter-spaced labels (like "banked").
 - **Original identity only.** Evoke "big-money quiz show" through light, glass, and gold — but do **not** copy any real show's trade dress: no hexagonal answer lozenges, no recreations of the Millionaire look, logo, or music. Rounded-rectangle geometry, our palette, our wordmark.
