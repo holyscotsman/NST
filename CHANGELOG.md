@@ -5,6 +5,26 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.76.0 — WWTBANE graphics overhaul, stage C: the people (2026-10-27)
+
+**The cast were capsules with dots for eyes. They are now characters: a host in
+a jacket and bow tie, a contestant in a hoodie, and a crew in headsets, each
+with a face that looks at things.**
+
+- Figures (`stage/people.js`) rebuilt: egg-shaped head with a jaw, eyes with
+  whites, iris, pupil and catch-light, brows, nose and ears; five hair styles;
+  jacket / tee / hoodie / stage outfits; tapered limbs with an elbow bend;
+  optional glasses. Geometry is built once and shared; a full figure is 3-4k
+  triangles (the old one drew about 10k).
+- Every figure is rim-lit in the live mood colour, so talent separates from the
+  dark room.
+- Life pass: eyes saccade between targets, brows lift on stress and happiness
+  and drop on a wrong answer, the host nods on the beat of speech and gestures
+  with the free hand. All allocation-free, and paused under reduced motion (the
+  gfx suite still proves two frames identical).
+- Tests: `people.test.mjs` (part contract, crowd stand-in contract, triangle
+  budget, hair styles, shared geometry).
+
 ## v2.75.0 — WWTBANE graphics overhaul, stage B: the set (2026-10-27)
 
 **The studio was a stage built from primitives and a rainbow mosaic. It is now a

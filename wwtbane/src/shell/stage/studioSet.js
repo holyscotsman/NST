@@ -75,19 +75,20 @@ export async function buildStudioSet(studio) {
   const seatL = hotSeat(-2.1, accent), seatR = hotSeat(2.1, accent);
   scene.add(seatL, seatR);
 
-  const host = person({ skin: 0xd9b48f, hair: 0x9aa3b2, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.09, seated: true });
+  const host = person({ skin: 0xd9b48f, hair: 0x8f97a6, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.03, seated: true,
+    outfit: 'jacket', hairStyle: 'swept', bow: PAL.gold, eyes: 0x4a6a8a, rim: accent.color });
   host.position.set(2.1, 0.16, 0); host.rotation.y = -0.28;
-  const bow = box(0.12, 0.055, 0.04, mat(0x1a1408, PAL.gold, 0.55)); bow.position.set(0, 1.415, 0.15); host.add(bow);
   host.userData.parts.armR.rotation.z = 1.0; // working the room — arm swept out, not across the face
   setMouth(host.userData.parts, 'smile');
   castShadows(host); scene.add(host);
 
-  const player = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true });
+  const player = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true,
+    outfit: 'hoodie', hairStyle: 'short', eyes: 0x3a2412, rim: accent.color });
   player.position.set(-2.1, 0.16, 0); player.rotation.y = 0.28;
   castShadows(player); scene.add(player);
 
   // one reusable crowd member who stands in for a seat during the random moments
-  const actor = person({ skin: 0xc9a07a, hair: 0x33271a, shirt: 0x3a3f63, pants: 0x22223a, accent: PAL.iris, glow: 0.06 });
+  const actor = person({ skin: 0xc9a07a, hair: 0x33271a, shirt: 0x3a3f63, pants: 0x22223a, accent: PAL.iris, glow: 0.06, outfit: 'tee', rim: accent.color });
   actor.visible = false; scene.add(actor);
 
   // fourth wall: broadcast pedestal cameras and an operator
@@ -96,10 +97,10 @@ export async function buildStudioSet(studio) {
     cam.position.set(cx, 0, cz); cam.rotation.y = Math.atan2(cx, cz);
     scene.add(cam);
   }
-  const operator = crewPerson();
+  const operator = crewPerson({ rim: accent.color, hairStyle: 'short' });
   operator.position.set(3.9, 0, 10.4); operator.rotation.y = Math.PI + 0.35;
   scene.add(operator);
-  const sm = crewPerson({ clipboard: true });
+  const sm = crewPerson({ clipboard: true, rim: accent.color, hairStyle: 'bun', hair: 0x2a1c3a, skin: 0xc98d64, glasses: true });
   sm.position.set(-9.2, 0, 1.4); sm.rotation.y = 1.05;
   scene.add(sm);
 

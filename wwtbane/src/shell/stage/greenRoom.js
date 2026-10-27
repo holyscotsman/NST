@@ -73,7 +73,7 @@ export function buildGreen(studio) {
   studio._greenSM = gsm;
 
   // The contestant, waiting on the sofa between runs (same outfit as on stage).
-  const you = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.04, seated: true });
+  const you = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.04, seated: true, outfit: 'hoodie', hairStyle: 'short' });
   you.position.set(0.4, 0.06, -4.8); you.rotation.y = 0.2;
   s.add(you);
 

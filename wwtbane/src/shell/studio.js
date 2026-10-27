@@ -570,6 +570,14 @@ export class Studio {
         blink = 1 - Math.sin(((bt - 0.22) / 0.12) * Math.PI) * 0.9; // the second flick of a double blink
       }
       P.eyeL.scale.y = blink; P.eyeR.scale.y = blink;
+      // Gaze: the eyes jump to a new spot every ~1.6 s (a saccade) and hold, as
+      // real eyes do; the crowd of cameras and the other talent are the targets.
+      const gk = Math.floor(t / 1.6 + ph);
+      const gh = Math.sin(gk * 12.9898 + ph * 78.233) * 43758.5453;
+      const gx = ((gh - Math.floor(gh)) - 0.5) * 0.011, gy = (((gh * 7.13) - Math.floor(gh * 7.13)) - 0.5) * 0.006;
+      P.irisL.position.x = P.irisR.position.x = gx;
+      P.irisL.position.y = P.irisR.position.y = gy;
+      let brow = 0; // + raised, - lowered
       // idle arm sway around the posed base, layered for a looser feel (the crowd
       // actor's arms belong to the crowd-moment animation while one is running)
       const actorBusy = a.role === 'extra' && this._crowd && this._crowd.event;
@@ -589,6 +597,7 @@ export class Studio {
         // ease the reaction in over the first 0.35s and out over the last 0.35s
         const env = Math.max(0, Math.min(1, mood.t / 0.35, (mood.total - mood.t) / 0.35));
         P.head.rotation.x += (mood.kind === 'happy' ? -0.06 : 0.22) * env; // lift / drop
+        brow = (mood.kind === 'happy' ? 1 : -0.7) * env;
         if (mood.kind === 'happy' && a.role === 'player') {
           // arms up in relief — smoothly in and back down with the envelope.
           // Each arm pivots from its own shoulder (armPivot.rotation.z=0 hangs
@@ -601,9 +610,17 @@ export class Studio {
         }
       } else if (this._talk > 0 && a.role === talker) {
         setMouth(P, Math.sin(t * 11) > -0.2 ? 'open' : 'flat');
+        // talking: small nods on the beat of the speech, a raised brow on
+        // stress, and the free hand gestures
+        const beat = Math.max(0, Math.sin(t * 5.3 + ph));
+        P.head.rotation.x += beat * 0.05;
+        brow = beat * 0.5;
+        if (a.role === 'host') P.armR.rotation.z = a.armR + Math.sin(t * 2.4) * 0.22 + beat * 0.12;
       } else {
         setMouth(P, a.role === 'host' ? 'smile' : 'flat');
       }
+      P.browL.position.y = P.browR.position.y = 0.058 + brow * 0.009;
+      P.browL.rotation.z = 0.1 - brow * 0.06; P.browR.rotation.z = -0.1 + brow * 0.06;
     }
   }
 
