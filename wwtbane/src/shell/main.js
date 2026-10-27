@@ -232,6 +232,7 @@ export class Game {
       answer: () => (this.rc ? this.rc.current().q.answer.slice() : null),
       number: () => (this.rc ? this.rc.current().number : null),
       won: () => (this.rc ? this.rc.won : false),
+      gfx: () => (this.studio && this.studio.gfxInfo ? this.studio.gfxInfo() : null),
     };
   }
 

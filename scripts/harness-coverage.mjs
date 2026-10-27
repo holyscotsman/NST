@@ -78,8 +78,6 @@ const EXCLUDED = {
     'opt-in — needs PERF=1 AND a Chromium. It was a CI step without either, so it ' +
     'exited 0 having run nothing; removed in v2.40.0 rather than left as a green ' +
     'step that tested air. Run it before a release: cd starnix && PERF=1 node perf-smoke.mjs',
-  'wwtbane/tests/e2e.mjs':    'opt-in — needs a browser; the browser job covers this ground end to end',
-  'wwtbane/tests/smoke.mjs':  'opt-in — needs a browser, same',
 
   // --- build, not test ---
   'starnix/build.mjs': 'the build itself — CI runs it as `node build.mjs`, matched separately',

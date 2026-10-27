@@ -17,6 +17,7 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1100, height: 800 } });
   // Skip the first-run intro cinematic; it has its own e2e coverage.
   await context.addInitScript(() => { try {
+    localStorage.setItem('wwtbane.e2e', '1'); // exposes window.__wwt (the answer key, the graphics snapshot)
     localStorage.setItem('nst.activeBank', 'ncp-mci'); // runtime bank (post-NST-consolidation boot needs one selected; the 30-rung classic ladder this smoke test expects)
     localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true } }));
   } catch {} });
@@ -67,10 +68,18 @@ async function main() {
     const rungs = await page.$$eval('.rung', (els) => els.length);
     check('money ladder has 30 rungs', rungs === 30, `${rungs} rungs`);
 
+    // The rule (core/lifelines.js, docs/LIFELINES.md): remove up to TWO
+    // distractors, never a correct option, always leave at least one standing.
+    // "Exactly two" was true of the original single-answer bank; a multi-answer
+    // question with two distractors can only give up one. So assert the rule.
+    const shape = await page.evaluate(() => ({ n: document.querySelectorAll('.option').length, correct: window.__wwt.answer().length }));
     await page.click('.lifeline.ll-fifty');
     await page.waitForTimeout(200);
     const removed = await page.$$eval('.option.removed', (els) => els.length);
-    check('50:50 removes exactly two options', removed === 2, `${removed} removed`);
+    const distractors = shape.n - shape.correct;
+    const expected = Math.min(2, Math.max(0, distractors - 1));
+    check('50:50 removes up to two distractors and leaves one standing', removed === expected,
+      `${removed} removed, expected ${expected} (${shape.n} options, ${shape.correct} correct)`);
 
     await page.click('.option:not(.removed)');
     await page.click('.lock-btn');

@@ -10,6 +10,8 @@ import * as THREE from 'three';
 import { Director } from './director.js';
 import { ballotFromBars } from '../core/lifelines.js';
 import { VOTE_COLORS } from '../core/config.js';
+import { pickTier, Governor } from './stage/quality.js';
+import { createPipeline } from './stage/post.js';
 
 const PAL = { iris: 0x7855FA, aqua: 0x1FDDE9, mantis: 0x92DD23, peach: 0xFF6B5B, gold: 0xFFC857 };
 
@@ -31,7 +33,12 @@ export class Studio {
     this.onError = opts.onError || (() => {});
     this.beams = [];
     this.disposed = false;
-    this.useBloom = false;
+    this.pipe = null;      // the post chain (stage/post.js); null = direct render
+    this.tier = null;      // active quality tier (stage/quality.js)
+    this.governor = null;  // steps resolution / tier down if the GPU cannot keep up
+    this._view = { dx: 0, dy: 0 };    // current framing shift, px (eased)
+    this._viewTarget = { dx: 0, dy: 0 };
+    this._measureAt = 0;
     this.mood = { key: PAL.iris, intensity: 1 };
     this.pulse = { color: null, active: false, t: 0, dur: 0.7 };
     this._look = new THREE.Vector3();
@@ -48,15 +55,25 @@ export class Studio {
   }
 
   async init() {
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    // Pick the quality tier BEFORE building the renderer: whether the default
+    // framebuffer needs its own antialiasing depends on it.
+    let probe = null;
+    try { probe = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl'); } catch { /* none */ }
+    const picked = pickTier({ gl: probe, effects: this.postFx });
+    try { const lose = probe && probe.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); } catch { /* ignore */ }
+    this.tier = picked.tier;
+    this.gpu = picked.gpu;
+
+    // With the composer the scene is anti-aliased by the multisampled render
+    // target, so the canvas itself only needs MSAA on the direct-render path.
+    const renderer = new THREE.WebGLRenderer({ antialias: this.tier.msaa === 0, powerPreference: 'high-performance' });
+    this.renderer = renderer;
+    this._applyResolution(1);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.92; // keep the stage moody, not blown out
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // soft-edged contact shadows
-    this.renderer = renderer;
+    renderer.shadowMap.type = this.tier.shadowType === 'pcfsoft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.container.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('aria-hidden', 'true');
 
@@ -71,46 +88,93 @@ export class Studio {
     this.active = this.studio;
 
     this._setupEnvironment(); // PMREM env so metals/gloss have something to reflect
-    await this._setupBloom();
+    await this._buildPipeline();
+    this._fitCamera();
+    this.governor = new Governor({
+      tier: this.tier,
+      enabled: this.tier.name !== 'low' || this.tier.dpr > 0,
+      onResolution: (k) => this._applyResolution(k),
+      onTier: (t) => this._changeTier(t),
+    });
     window.addEventListener('resize', this._onResize);
     renderer.setAnimationLoop(this._tick);
   }
 
-  async _setupBloom() {
+  // Resolution is the first thing the governor trades away: scale the pixel
+  // ratio, keeping the canvas CSS size untouched.
+  _applyResolution(scale) {
+    const dpr = Math.max(0.5, Math.min(window.devicePixelRatio || 1, this.tier.dpr) * scale);
+    this.renderer.setPixelRatio(dpr);
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    if (this.pipe) { this.pipe.setPixelRatio(dpr); this.pipe.setSize(window.innerWidth, window.innerHeight); }
+  }
+
+  async _buildPipeline() {
+    if (this.pipe) { this.pipe.dispose(); this.pipe = null; }
+    if (!this.tier.bloom && !this.tier.ao && !this.tier.grade && !this.tier.msaa) return; // low: direct render
     try {
-      const { EffectComposer } = await import('three/addons/postprocessing/EffectComposer.js');
-      const { RenderPass } = await import('three/addons/postprocessing/RenderPass.js');
-      const { UnrealBloomPass } = await import('three/addons/postprocessing/UnrealBloomPass.js');
-      const { OutputPass } = await import('three/addons/postprocessing/OutputPass.js');
-      const { ShaderPass } = await import('three/addons/postprocessing/ShaderPass.js');
-      this.composer = new EffectComposer(this.renderer);
-      this.composer.addPass(new RenderPass(this.active, this.camera));
-      // gentle bloom: strong bloom washed out the host/contestant/audience
-      this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.42, 0.45, 0.34));
-      this.composer.addPass(new OutputPass());
-      // Final grade: a soft vignette + very subtle animated film grain, applied
-      // in display space (last pass). Blacks stay black; only edges darken.
-      this._grainPass = new ShaderPass({
-        uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uGrain: { value: 0.045 } },
-        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-        fragmentShader: [
-          'uniform sampler2D tDiffuse; uniform float uTime; uniform float uGrain; varying vec2 vUv;',
-          'float rand(vec2 c){ return fract(sin(dot(c, vec2(12.9898,78.233))) * 43758.5453); }',
-          'void main(){',
-          '  vec4 col = texture2D(tDiffuse, vUv);',
-          '  vec2 d = vUv - 0.5;',
-          '  float vig = smoothstep(0.86, 0.32, dot(d,d) * 2.4);', // radial darkening toward corners
-          '  col.rgb *= mix(0.62, 1.0, vig);',
-          '  float g = (rand(vUv + fract(uTime)) - 0.5) * uGrain;',
-          '  col.rgb += g;',
-          '  gl_FragColor = col;',
-          '}',
-        ].join('\n'),
+      this.pipe = await createPipeline({
+        renderer: this.renderer, scene: this.active, camera: this.camera,
+        tier: this.tier, width: window.innerWidth, height: window.innerHeight,
       });
-      this.composer.addPass(this._grainPass);
-      this.useBloom = true;
-    } catch {
-      this.useBloom = false; // graceful: direct render still looks good
+      this.pipe.setPixelRatio(this.renderer.getPixelRatio());
+      this.pipe.setSize(window.innerWidth, window.innerHeight);
+    } catch (e) {
+      console.warn('[wwtbane] post chain unavailable — rendering directly', e);
+      this.pipe = null; // graceful: direct render still looks good
+    }
+  }
+
+  // The governor decided this GPU cannot carry the current tier.
+  async _changeTier(t) {
+    this.tier = t;
+    this.renderer.shadowMap.type = t.shadowType === 'pcfsoft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+    this.renderer.shadowMap.needsUpdate = true;
+    this._applyResolution(1);
+    await this._buildPipeline();
+  }
+
+  // Wide shots must survive a tall, narrow window. Keep a minimum HORIZONTAL
+  // field of view (what a 16:10 screen shows at 50 degrees vertical) so a phone
+  // in portrait sees the two-shot, not one person's shoulder.
+  _fitCamera() {
+    const aspect = window.innerWidth / window.innerHeight;
+    const base = 50 * Math.PI / 180;
+    let vfov = base;
+    if (aspect < 1.6) {
+      const hMin = 2 * Math.atan(Math.tan(base / 2) * 1.6);
+      vfov = Math.min(84 * Math.PI / 180, 2 * Math.atan(Math.tan(hMin / 2) / aspect));
+    }
+    this.camera.fov = vfov * 180 / Math.PI;
+    this.camera.aspect = aspect;
+    this.camera.updateProjectionMatrix();
+  }
+
+  // Where is there room to see the studio? The quiz card, money ladder and HUD
+  // cover most of the screen during a question, so a shot framed on the centre
+  // of the viewport puts the host behind the card. Measure the free rectangle
+  // and shift the projection so the subject sits in the middle of THAT.
+  _measureSafeFrame() {
+    const W = window.innerWidth, H = window.innerHeight;
+    let x1 = W, y1 = H;
+    const ladder = document.querySelector('.ladder');
+    if (ladder) { const r = ladder.getBoundingClientRect(); if (r.width > 0 && r.left > W * 0.5) x1 = Math.min(x1, r.left); }
+    const card = document.querySelector('.q-card-wrap');
+    if (card) { const r = card.getBoundingClientRect(); if (r.height > 0 && r.top > H * 0.3) y1 = Math.min(y1, r.top - 10); }
+    this._viewTarget = { dx: (x1 - W) / 2, dy: (y1 - H) / 2 };
+  }
+
+  _applyFrameShift(dt) {
+    const T = this._viewTarget, V = this._view;
+    const k = this.reduced ? 1 : Math.min(1, dt * 3.2);
+    V.dx += (T.dx - V.dx) * k; V.dy += (T.dy - V.dy) * k;
+    if (Math.abs(T.dx - V.dx) < 0.25) V.dx = T.dx;
+    if (Math.abs(T.dy - V.dy) < 0.25) V.dy = T.dy;
+    const W = window.innerWidth, H = window.innerHeight;
+    if (Math.abs(V.dx) < 0.5 && Math.abs(V.dy) < 0.5) {
+      if (this.camera.view && this.camera.view.enabled) { this.camera.clearViewOffset(); }
+    } else {
+      this.camera.setViewOffset(W, H, -V.dx, -V.dy, W, H);
     }
   }
 
@@ -152,7 +216,7 @@ export class Studio {
     const target = name === 'green' ? this.green : this.studio;
     if (this.active === target) return;
     this.active = target;
-    if (this.useBloom && this.composer) this.composer.passes[0].scene = this.active;
+    if (this.pipe) this.pipe.setScene(this.active);
   }
 
   // Freeze on a named pose (used by the intro tutorial's tour).
@@ -250,19 +314,32 @@ export class Studio {
 
   resize() { this._onResize(); }
 
+  // A read-only snapshot of what the renderer is actually doing — the e2e hook
+  // exposes it so a browser test can prove each quality tier builds the chain it
+  // promises, rather than trusting that the flag was honoured.
+  gfxInfo() {
+    const pipe = this.pipe;
+    return {
+      tier: this.tier ? this.tier.name : null,
+      gpu: this.gpu || '',
+      pipe: !!pipe,
+      ao: !!(pipe && pipe.aoPass),
+      bloom: !!(pipe && pipe.bloom),
+      grade: !!(pipe && pipe.grade),
+      msaa: this.tier ? this.tier.msaa : 0,
+      dpr: this.renderer ? this.renderer.getPixelRatio() : 0,
+      view: { dx: Math.round(this._view.dx), dy: Math.round(this._view.dy) },
+      fov: this.camera ? Math.round(this.camera.fov * 10) / 10 : 0,
+    };
+  }
+
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
     window.removeEventListener('resize', this._onResize);
     if (this.renderer) {
       this.renderer.setAnimationLoop(null);
-      if (this.composer) {
-        // EffectComposer.dispose() only frees its own two render targets + copy
-        // pass — the added passes (bloom's FBO chain, output + grain materials)
-        // own GPU resources it never touches, so dispose each of them too.
-        this.composer.passes.forEach((p) => { if (p && typeof p.dispose === 'function') p.dispose(); });
-        if (this.composer.dispose) this.composer.dispose();
-      }
+      if (this.pipe) { this.pipe.dispose(); this.pipe = null; }
       if (this._envRT) this._envRT.dispose();
       this.renderer.dispose();
       [this.studio, this.green].forEach((sc) => sc && sc.traverse((o) => {
@@ -307,7 +384,11 @@ export class Studio {
     if (this.disposed) return;
     // (PH) delta-time audit: clamp the frame delta so a backgrounded tab doesn't return
     // with a multi-second dt that teleports camera moves and mood envelopes.
-    const dt = Math.min(0.05, this.clock.getDelta());
+    const rawDt = this.clock.getDelta();
+    const dt = Math.min(0.05, rawDt);
+    if (this.governor) this.governor.sample(rawDt);
+    if ((this._measureAt -= dt) <= 0) { this._measureAt = 0.25; this._measureSafeFrame(); }
+    this._applyFrameShift(dt);
     this.director.reduced = this.reduced;
     const pose = this.director.update(dt);
     if (pose) {
@@ -414,12 +495,12 @@ export class Studio {
       if (k >= 1) { this.pulse.active = false; this._pulseLight.intensity = 14; }
     }
 
-    if (this.useBloom && this.composer && this.postFx) {
-      // Freeze the grain field under reduced motion — advancing uTime reshuffles
-      // per-pixel noise every frame, which is continuous motion.
-      if (this._grainPass && !this.reduced) this._grainPass.uniforms.uTime.value = this.clock.elapsedTime;
-      try { this.composer.render(); }
-      catch { this.useBloom = false; this.renderer.render(this.active, this.camera); }
+    if (this.pipe) {
+      // Freeze the grain field under reduced motion — advancing the time uniform
+      // reshuffles per-pixel noise every frame, which is continuous motion.
+      this.pipe.update({ time: this.clock.elapsedTime, animateGrain: !this.reduced });
+      try { this.pipe.render(); }
+      catch { this.pipe.dispose(); this.pipe = null; this.renderer.render(this.active, this.camera); }
     } else {
       // effects off (or unavailable): flat direct render
       this.renderer.render(this.active, this.camera);
@@ -428,10 +509,9 @@ export class Studio {
 
   _onResize = () => {
     if (!this.camera) return;
-    this.camera.aspect = window.innerWidth / window.innerHeight;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    if (this.composer) this.composer.setSize(window.innerWidth, window.innerHeight);
+    this._fitCamera();
+    this._applyResolution(this.governor ? this.governor.scale : 1);
+    this._measureSafeFrame();
   };
 
   /* ---------- the life pass: idle motion, faces, crowd moments ---------- */

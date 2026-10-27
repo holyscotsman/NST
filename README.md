@@ -176,7 +176,7 @@ node scripts/auth-test.mjs         # passwords, sessions, throttling, cookie par
 …and a dozen more beside them (sync, backup, readiness, review, dashboard, compression,
 path safety, robustness). These need nothing installed.
 
-Twelve further suites need a real browser and are the fourth CI job:
+Thirteen further suites need a real browser and are the fourth CI job:
 
 ```bash
 npm install --no-save playwright axe-core && npx playwright install chromium
@@ -188,9 +188,11 @@ node scripts/resume-test.mjs                     # an exam surviving a discarded
 node scripts/palette-test.mjs                    # the question strip following the sitting
 node scripts/bankfail-test.mjs                   # a 404'd bank, said plainly, with a retry
 node scripts/restore-test.mjs                    # back up, study on, restore — through the buttons
+node scripts/wwtbane-gfx-test.mjs                 # the 3D studio at every quality tier, pixels decoded
 node scripts/smoke-test.mjs                      # a real server and login, end to end
 ```
 
+The same job also runs WWTBANE's own `smoke` and `e2e` (`node wwtbane/tests/smoke.mjs`).
 They skip cleanly without a browser. CI sets `NST_REQUIRE_BROWSER=1`, which turns that skip
 into a failure — a suite that runs nothing must not report success.
 
