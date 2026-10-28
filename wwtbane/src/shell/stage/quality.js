@@ -93,13 +93,14 @@ export function rememberBadTier(name) {
 }
 
 // Feature switches for diagnosing a machine: ?ao=0 ?mirror=0 ?msaa=0 ?bloom=0
-// ?grade=0 ?dpr=1.25 turn one thing off (or cap the pixel ratio) on top of the
+// ?grade=0 ?rt=8 (8-bit targets instead of half-float) ?dpr=1.25 turn one thing off (or cap the pixel ratio) on top of the
 // tier, so "which feature breaks it" is a URL away instead of a code change.
 export function applyOverrides(tier, search) {
   let q; try { q = new URLSearchParams(search); } catch { return tier; }
   const t = { ...tier };
   for (const k of ['ao', 'mirror', 'bloom', 'grade']) if (q.get(k) === '0') t[k] = false;
   if (q.get('msaa') === '0') t.msaa = 0;
+  if (q.get('rt') === '8') t.rt8 = true;
   const dpr = parseFloat(q.get('dpr'));
   if (dpr > 0.4 && dpr <= 3) t.dpr = Math.min(t.dpr, dpr);
   return t;

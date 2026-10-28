@@ -191,7 +191,7 @@ export class Studio {
     this._debugTimer = setInterval(() => {
       const g = this.gfxInfo(), gl = this.renderer.getContext(), H = this._health;
       el.textContent = [
-        `tier ${g.tier}  pipe ${g.pipe}  ao ${g.ao}  bloom ${g.bloom}  grade ${g.grade}  msaa ${g.msaa}`,
+        `tier ${g.tier}  pipe ${g.pipe}  ao ${g.ao}  bloom ${g.bloom}  grade ${g.grade}  msaa ${g.msaa}  rt ${this.tier.rt8 ? 8 : 16}`,
         `gpu ${g.gpu}`,
         `canvas ${gl.drawingBufferWidth}x${gl.drawingBufferHeight}  dpr ${g.dpr}  maxTex ${gl.getParameter(gl.MAX_TEXTURE_SIZE)}`,
         `calls ${g.calls}  tris ${g.triangles}  fov ${g.fov}  view ${g.view.dx},${g.view.dy}`,

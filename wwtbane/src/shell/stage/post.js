@@ -77,7 +77,11 @@ export async function createPipeline({ renderer, scene, camera, tier, width, hei
     import('three/addons/postprocessing/ShaderPass.js'),
   ]);
 
-  const composer = new EffectComposer(renderer);
+  // ?rt=8 swaps the half-float ping-pong targets for plain 8-bit ones: half-float + multisampling is the
+  // combination Apple's WebGL has been seen to draw black, so this is the switch to try first on a Mac.
+  const composer = tier.rt8
+    ? new EffectComposer(renderer, new THREE.WebGLRenderTarget(Math.max(1, width), Math.max(1, height), { type: THREE.UnsignedByteType }))
+    : new EffectComposer(renderer);
   // MSAA on the ping-pong targets. Must be set before first use.
   composer.renderTarget1.samples = tier.msaa;
   composer.renderTarget2.samples = tier.msaa;
