@@ -5,6 +5,12 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.87.0 — `?rt=8`: a diagnostic switch for the Mac black screen (2026-10-28)
+
+**Medium still draws black for some people on Apple GPUs. Half-float render targets combined with multisampling
+is the prime suspect, so `?rt=8` swaps them for ordinary 8-bit targets (`/wwtbane/?quality=medium&rt=8`).
+The debug box (`?debug=gfx`) now also prints `rt 8` or `rt 16`.**
+
 ## v2.86.0 — Medium no longer shows its black start-up; Auto starts on Low (2026-10-27)
 
 **On a Mac, Medium drew black for its first seconds (the debug box read 94% black) and then filled in by itself.
