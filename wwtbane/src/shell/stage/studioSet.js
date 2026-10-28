@@ -24,6 +24,7 @@ import { buildRig } from './rig.js';
 import { buildAudience } from './audience.js';
 import { buildCore } from './core.js';
 import { person, setMouth, crewPerson } from './people.js';
+import { loadActorKit, createActor } from './actors.js';
 import { studioCamera, piggyBank } from './props.js';
 import { screenTexture, wallMarkTexture, softDotTexture } from './textures.js';
 
@@ -78,17 +79,20 @@ export async function buildStudioSet(studio) {
   const seatL = hotSeat(-2.1, accent), seatR = hotSeat(2.1, accent);
   scene.add(seatL, seatR);
 
-  const host = person({ skin: 0xd9b48f, hair: 0x8f97a6, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.03, seated: true,
+  // The capsule people (people.js) go in first so the set is complete at once. When the skeletal kit (actors.js:
+  // ~3 MB of bodies, hair and animation) has loaded, the two on the hot seats are swapped for rigged ones. With
+  // ?people=procedural, or if the kit cannot load, the capsule people stay.
+  const host0 = person({ skin: 0xd9b48f, hair: 0x8f97a6, shirt: 0x2b2b40, pants: 0x20202f, accent: PAL.gold, glow: 0.03, seated: true,
     outfit: 'jacket', hairStyle: 'swept', bow: PAL.gold, eyes: 0x4a6a8a, rim: accent.color });
-  host.position.set(2.1, 0.16, 0); host.rotation.y = -0.28;
-  host.userData.parts.armR.rotation.z = 1.0; // working the room — arm swept out, not across the face
-  setMouth(host.userData.parts, 'smile');
-  castShadows(host); scene.add(host);
+  host0.position.set(2.1, 0.16, 0); host0.rotation.y = -0.28;
+  host0.userData.parts.armR.rotation.z = 1.0; // working the room — arm swept out, not across the face
+  setMouth(host0.userData.parts, 'smile');
+  castShadows(host0); scene.add(host0);
 
-  const player = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true,
+  const player0 = person({ skin: 0xc98d64, hair: 0x2a1c10, shirt: 0x3e6b2d, pants: 0x2b3340, accent: PAL.mantis, glow: 0.09, seated: true,
     outfit: 'hoodie', hairStyle: 'short', eyes: 0x3a2412, rim: accent.color });
-  player.position.set(-2.1, 0.16, 0); player.rotation.y = 0.28;
-  castShadows(player); scene.add(player);
+  player0.position.set(-2.1, 0.16, 0); player0.rotation.y = 0.28;
+  castShadows(player0); scene.add(player0);
 
   // one reusable crowd member who stands in for a seat during the random moments
   const actor = person({ skin: 0xc9a07a, hair: 0x33271a, shirt: 0x3a3f63, pants: 0x22223a, accent: PAL.iris, glow: 0.06, outfit: 'tee', rim: accent.color });
@@ -148,15 +152,40 @@ export async function buildStudioSet(studio) {
   scene.add(motes);
 
   // ---- hand the studio what its life pass, crowd and vote code read ----
-  const parts = (g, role, phase) => ({ g, parts: g.userData.parts, role, phase, armL: g.userData.parts.armL.rotation.z, armR: g.userData.parts.armR.rotation.z });
-  studio._studioPeople = [parts(host, 'host', 0.0), parts(player, 'player', 1.7), parts(sm, 'crew', 3.1), parts(operator, 'crew', 4.6), parts(actor, 'extra', 2.3)];
+  const parts = (g, role, phase) => g.userData.skeletal ? { g, skeletal: true, role, phase } : ({ g, parts: g.userData.parts, role, phase, armL: g.userData.parts.armL.rotation.z, armR: g.userData.parts.armR.rotation.z });
+  studio._studioPeople = [parts(host0, 'host', 0.0), parts(player0, 'player', 1.7), parts(sm, 'crew', 3.1), parts(operator, 'crew', 4.6), parts(actor, 'extra', 2.3)];
   studio._crowd = { meshes: audience.meshes, chairs: audience.chairs, seats: audience.seats, actor, event: null, nextAt: 7, restoreIdx: -1, restoreAt: 0 };
   studio._voteCards = audience.voteCards; studio._voteN = audience.seats.length; studio._vote = null;
 
+  const skeletal = [];
+  const swapInSkeletal = async () => {
+    let kit = null;
+    try { if (!/[?&]people=procedural/.test(window.location.search)) kit = await loadActorKit(); } catch { kit = null; }
+    if (!kit) return;
+    // `seatY` seats the pelvis on a cushion; without it the figure stands on the deck where the old one stood
+    const make = (old, opts, seatY) => {
+      const g = createActor(kit, opts);
+      g.position.set(old.position.x, 0, old.position.z + (seatY ? 0.1 : 0)); g.rotation.y = old.rotation.y;
+      if (seatY) g.userData.seatOn(seatY);
+      scene.remove(old); scene.add(g); skeletal.push(g);
+      const entry = studio._studioPeople.find((e) => e.g === old);
+      if (entry) { entry.g = g; entry.skeletal = true; entry.parts = null; }
+    };
+    make(host0, { sex: 'm', tone: 1.3, seated: true, hair: { style: 'Hair_SimpleParted', color: 0x9aa1b0 },
+      outfit: { top: 'jacket', topColor: 0x25263a, innerColor: 0xeceef7, bottomColor: 0x1b1c2b, shoeColor: 0x0c0c10 } }, 0.93);
+    make(player0, { sex: 'f', tone: 1.05, seated: true, hair: { style: 'Hair_Buns', color: 0x2a1c10 },
+      outfit: { top: 'hoodie', topColor: 0x3e6b2d, bottomColor: 0x2b3340, shoeColor: 0x15151a } }, 0.93);
+    make(operator, { sex: 'm', tone: 1.0, hair: { style: 'Hair_Buzzed', color: 0x1a140e },
+      outfit: { top: 'tee', topColor: 0x20202c, bottomColor: 0x1c1c24, shoeColor: 0x0c0c10 } }, 0);
+    make(sm, { sex: 'f', tone: 1.05, hair: { style: 'Hair_Long', color: 0x2a1c3a },
+      outfit: { top: 'shirt', topColor: 0x2c3a52, bottomColor: 0x1d1d28, shoeColor: 0x0c0c10 } }, 0);
+  };
+  swapInSkeletal();
   return {
     scene, lights, floor, wall, rig, core, audience, accent, fx, pig,
     update(dt, t, st) {
       accent.update(dt, st.reduced);
+      for (const a of skeletal) a.userData.update(st.reduced ? 0 : dt);
       lights.update({ env: st.env, pulse: st.pulse, pulseColor: st.pulseColor });
       floor.update(t, { level: accent.level, pulse: st.pulse });
       wall.update(t, dt, { level: accent.level, pulse: st.pulse, reduced: st.reduced });

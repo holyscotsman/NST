@@ -23,7 +23,7 @@ export const PUBLISH = [
 ];
 
 /* Inside a published folder, never ship tests, scratch output or dev-only material. */
-const EXCLUDE_DIRS = new Set(['tests', 'test', 'shots', 'node_modules', 'drafts', 'provenance', '.git']);
+const EXCLUDE_DIRS = new Set(['tests', 'test', 'tools', 'shots', 'node_modules', 'drafts', 'provenance', '.git']);
 const EXCLUDE_FILE = /(\.test\.m?js|\.cjs|\.map|\.md\.tmp|\.DS_Store)$/;
 
 export function build(out = OUT) {

@@ -79,7 +79,8 @@ a trustworthy study tool and must survive any future change:
    quiz text for screen readers.
 5. **Determinism.** Gameplay randomness flows through a seeded, forkable RNG — never
    `Math.random` in gameplay paths (StarNix enforces this with a gate allowlist).
-6. **Original art & audio only** — drawn/synthesized in code; no imported models, no licensed
+6. **Original art & audio only** — drawn/synthesized in code; imported models and textures only as the owner-approved
+   CC0 exception (2026-10-28: `wwtbane/assets/people/`, sources in its `ATTRIBUTIONS.md`); no licensed
    music, the Nutanix wordmark used unaltered on title screens only.
 7. **Pure static hosting** — no server, no runtime dependency except vendored Three.js.
 8. **Test gate with negative controls** — headless GREEN is the minimum ship gate, and every

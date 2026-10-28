@@ -647,6 +647,10 @@ export class Studio {
     const talker = this.active === this.studio ? 'host' : 'greenSM'; // depends only on the set
     for (const a of list) {
       if (!a.g.visible) continue;
+      if (a.skeletal) {
+        a.g.userData.react({ t, phase: a.phase, talking: this._talk > 0 && a.role === talker, mood: a.role === 'host' || a.role === 'player' ? mood : null, glance: a.role === 'crew' ? 0.3 : 0.13 });
+        continue;
+      }
       const ph = a.phase;
       const P = a.parts;
       // Breathing: two layered sines make an organic in/out (not a metronome);
