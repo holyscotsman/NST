@@ -7,14 +7,17 @@ it is the right thing to do and because the project keeps a record of where ever
 |---|---|---|---|
 | `body_f/`, `body_m/` | Rigged base bodies (Superhero Female / Male) with eyes and brows | Quaternius, *Universal Base Characters [Standard]* <https://quaternius.itch.io/universal-base-characters> | CC0 1.0 |
 | `Hair_*/`, `Eyebrows_*/` | Hair styles and brows, rigged to the head bone | same pack, `Hairstyles/Rigged to Head Bone` | CC0 1.0 |
-| `anims.glb` | Five animation clips (Idle_Loop, Idle_Talking_Loop, Sitting_Idle_Loop, Sitting_Talking_Loop, Dance_Loop) | Quaternius, *Universal Animation Library [Standard]* <https://quaternius.itch.io/universal-animation-library> | CC0 1.0 |
+| `anims.glb` | Seven clips: Idle_Loop, Idle_Talking_Loop, Sitting_Idle_Loop, Sitting_Talking_Loop, Dance_Loop, Interact, Walk_Formal_Loop | Quaternius, *Universal Animation Library [Standard]* <https://quaternius.itch.io/universal-animation-library> | CC0 1.0 |
+| `anims2.glb` | Five clips: Yes, Idle_No_Loop, Idle_FoldArms_Loop, Idle_TalkingPhone_Loop, Idle_Rail_Call | Quaternius, *Universal Animation Library 2 [Standard]* <https://quaternius.itch.io/universal-animation-library-2> | CC0 1.0 |
+| `crowd/` | The audience: a seated, dressed body (m / f) baked into static geometry and simplified, in two detail levels (`_lo` for the weakest tier) | derived from the body, hair and `Sitting_Idle_Loop` above, by `wwtbane/tools/bake-crowd*.{html,mjs}` and `simplify-crowd.mjs` | CC0 1.0 (derivative of the above) |
 
 ## What was changed
 
 Only what shrinks them for the web (see `wwtbane/tools/optimize-people.mjs`):
 
 - textures resized (1024 px bodies, 512 px hair) and re-encoded as WebP;
-- the animation file cut down to the five clips above, with the keyframes resampled;
+- the animation files cut down to the clips listed above, with the keyframes resampled;
+- (crowd) the people were posed, flattened to static meshes and simplified to roughly 0.4k–1k triangles per part;
 - two texture file names the original `.gltf` files referenced but did not ship (`T_Eye_Normal_png.png`,
   `T_Hair_1_Normal_png.png`) were pointed at the files that were shipped (`T_Eye_Normal.png`, `T_Hair_1_Normal.png`).
 

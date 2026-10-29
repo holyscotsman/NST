@@ -601,7 +601,7 @@ export class Studio {
         this._phase = 'thinking';
         this._lightEnv = 0.84;
       }
-      this._animatePeople(this.clock.elapsedTime);
+      this._animatePeople(this.clock.elapsedTime, dt);
     }
 
     // Green-room door swing (green:manager) — eased open over ~1.1s; reduced
@@ -640,7 +640,7 @@ export class Studio {
   // Drives every registered person on the ACTIVE set. Pure trig on stored
   // refs — no allocation. Each person gets a phase offset so the room never
   // moves in lockstep.
-  _animatePeople(t) {
+  _animatePeople(t, dt) {
     const list = this.active === this.studio ? this._studioPeople : this._greenPeople;
     if (!list) return;
     const mood = this._mood;
@@ -648,7 +648,8 @@ export class Studio {
     for (const a of list) {
       if (!a.g.visible) continue;
       if (a.skeletal) {
-        a.g.userData.react({ t, phase: a.phase, talking: this._talk > 0 && a.role === talker, mood: a.role === 'host' || a.role === 'player' ? mood : null, glance: a.role === 'crew' ? 0.3 : 0.13 });
+        a.g.userData.react({ t, phase: a.phase, talking: this._talk > 0 && a.role === talker, mood: a.role === 'host' || a.role === 'player' ? mood : null, glance: a.role === 'crew' ? 0.3 : 0.13, cheers: a.role === 'player' });
+        a.g.userData.update(dt); // advance the animation clip (the life pass is skipped entirely under reduced motion)
         continue;
       }
       const ph = a.phase;
@@ -750,7 +751,11 @@ export class Studio {
 
   // Set one seat's instance matrix across every audience mesh (body/head/hair).
   _seatSet(idx, matrix) {
-    for (const m of this._crowd.meshes) { m.setMatrixAt(idx, matrix); m.instanceMatrix.needsUpdate = true; }
+    for (const m of this._crowd.meshes) {
+      const li = m.userData.map ? m.userData.map[idx] : idx; // each body type has its own instance numbering
+      if (li < 0) continue;
+      m.setMatrixAt(li, matrix); m.instanceMatrix.needsUpdate = true;
+    }
   }
 
   _crowdTick(dt, t) {
@@ -776,7 +781,8 @@ export class Studio {
         // positive: swings the (right) arm up and outward, clear of the head —
         // the negative angle used here previously swung the hand up and across
         // the face instead (see the armL/armR fix note above)
-        c.actor.userData.parts.armR.rotation.z = 2.0 + Math.sin(ev.t * 7) * 0.5;
+        if (c.actor.userData.skeletal) c.actor.userData.pose(-1, -0.45 + Math.sin(ev.t * 7) * 0.3, 1, 0.2);
+        else c.actor.userData.parts.armR.rotation.z = 2.0 + Math.sin(ev.t * 7) * 0.5;
         if (ev.t >= 2.8) {
           c.actor.visible = false;
           this._seatSet(ev.idx, this._seatMatrix(seat, seat.scale));
@@ -786,7 +792,7 @@ export class Studio {
         // shuffle away from the stage, up the aisle, with a little walk-bob
         const r = Math.hypot(seat.x, seat.z) || 1;
         const dist = ev.t * 0.85;
-        c.actor.position.set(seat.x + (seat.x / r) * dist, seat.y + Math.abs(Math.sin(ev.t * 9)) * 0.04, seat.z + (seat.z / r) * dist);
+        c.actor.position.set(seat.x + (seat.x / r) * dist, seat.y + (c.actor.userData.skeletal ? 0 : Math.abs(Math.sin(ev.t * 9)) * 0.04), seat.z + (seat.z / r) * dist);
         if (ev.t >= 3.4) {
           c.actor.visible = false;
           c.restoreIdx = ev.idx; c.restoreAt = t + 22; // their seat sits empty a while
@@ -809,14 +815,23 @@ export class Studio {
       // the stand-in doesn't pop (torso.material is shared by torso+arms; head's
       // by head/nose/ears/hands; hairM is the exposed hair cap material).
       this._seatSet(idx, this._hiddenMat);
-      const P = c.actor.userData.parts;
-      P.torso.material.color.setHex(seat.shirt);
-      P.head.material.color.setHex(seat.skin);
-      if (P.hairM) P.hairM.color.setHex(seat.hair);
-      c.actor.position.set(seat.x, seat.y, seat.z);
-      c.actor.rotation.y = seat.rotY;
+      if (c.actor.userData.skeletal) {
+        const A = c.actor.userData;
+        A.recolor({ top: seat.shirt, hair: seat.hair, tone: 0.55 + 0.5 * ((seat.skin >> 16) & 255) / 255 }); // darker/lighter skin, roughly as the seat's
+        A.play(kind === 'leave' ? 'Walk_Formal_Loop' : 'Idle_Loop', 0);
+        c.actor.position.set(seat.x, seat.y, seat.z);
+        // a wave faces the stage (as the seat does); a leaver turns and walks up the aisle
+        c.actor.rotation.y = kind === 'leave' ? Math.atan2(seat.x, seat.z) : seat.rotY;
+      } else {
+        const P = c.actor.userData.parts;
+        P.torso.material.color.setHex(seat.shirt);
+        P.head.material.color.setHex(seat.skin);
+        if (P.hairM) P.hairM.color.setHex(seat.hair);
+        c.actor.position.set(seat.x, seat.y, seat.z);
+        c.actor.rotation.y = seat.rotY;
+        c.actor.userData.parts.armR.rotation.z = kind === 'wave' ? 2.0 : c.actor.userData.parts.armR.rotation.z;
+      }
       c.actor.scale.setScalar(seat.scale * 0.97);
-      c.actor.userData.parts.armR.rotation.z = kind === 'wave' ? 2.0 : c.actor.userData.parts.armR.rotation.z;
       c.actor.visible = true;
     }
   }

@@ -1,0 +1,38 @@
+<!-- Dev-only (not published): bakes one seated, dressed, posed actor into static geometry (CPU-skinned, world space),
+     skin sunk 1.4 cm and clothes raised 0.8 cm so simplification cannot let skin poke through cloth. Served from a
+     folder where ./stage -> src/shell/stage and /vendor, /assets -> wwtbane/vendor, wwtbane/assets.
+     Capture with bake-crowd-capture.mjs, simplify with simplify-crowd.mjs. See assets/people/ATTRIBUTIONS.md. -->
+<!doctype html><script type="importmap">{"imports":{"three":"/vendor/three/build/three.module.min.js","three/addons/":"/vendor/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { loadActorKit, createActor } from './stage/actors.js';
+const kit = await loadActorKit();
+const q = new URLSearchParams(location.search);
+const a = createActor(kit, { sex: q.get('sex') || 'm', seated: true, tone: 1, hair: { style: q.get('hair') || 'Hair_SimpleParted', color: 0x222222 }, outfit: { top: 'tee', topColor: 0x444444, bottomColor: 0x333333, shoeColor: 0x111111 } });
+a.userData.seatOn(0.795); a.userData.update(0.01); a.updateMatrixWorld(true);
+const parts = { skin: [], clothes: [], hair: [] };
+const v = new THREE.Vector3(), n = new THREE.Vector3();
+a.traverse((o) => {
+  if (!o.isSkinnedMesh) return;
+  let group = null;
+  if (o === a.userData.body) group = 'skin';
+  else if (o.material.alphaTest > 0 || /Hair|Eyebrows/i.test(o.name) || (o.material.map && /Hair/i.test(o.material.map.name || ''))) group = 'hair';
+  else if (o.name === 'Eyes') group = null;
+  else group = 'clothes';
+  if (!group) return;
+  const g = o.geometry, pos = g.attributes.position, nor = g.attributes.normal, idx = g.index;
+  const P = [], N = [], I = [];
+  const m = o.matrixWorld;
+  const nm = new THREE.Matrix3().getNormalMatrix(m);
+  for (let i = 0; i < pos.count; i++) {
+    o.getVertexPosition(i, v); v.applyMatrix4(m);
+    n.fromBufferAttribute(nor, i); n.applyMatrix3(nm).normalize();
+    // skin sinks a little and clothes rise a little, so simplification cannot let the skin poke through the cloth
+    const off = group === 'skin' ? -0.014 : group === 'clothes' ? 0.008 : 0; v.addScaledVector(n, off);
+    P.push(v.x, v.y, v.z); N.push(n.x, n.y, n.z);
+  }
+  if (idx) for (let i = 0; i < idx.count; i++) I.push(idx.getX(i)); else for (let i = 0; i < pos.count; i++) I.push(i);
+  parts[group].push({ name: o.name, P, N, I });
+});
+window.__parts = parts; window.__done = true;
+</script>

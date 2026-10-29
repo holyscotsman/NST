@@ -1,0 +1,11 @@
+import { loadChromium, launchOptions } from '/home/user/NST/scripts/browser-env.mjs';
+import fs from 'node:fs';
+const c = await loadChromium(); const b = await c.launch(launchOptions());
+const p = await b.newPage();
+p.on('pageerror', e => console.log('ERR', e.message.slice(0,200)));
+await p.goto('http://127.0.0.1:8130/prev/bake.html?sex=' + (process.argv[3] || 'm') + '&hair=' + (process.argv[4] || 'Hair_SimpleParted'));
+await p.waitForFunction(() => window.__done, null, { timeout: 120000 });
+const parts = await p.evaluate(() => window.__parts);
+fs.writeFileSync(process.argv[2], JSON.stringify(parts));
+for (const k of Object.keys(parts)) console.log(k, parts[k].map(m => m.name + ':' + m.P.length / 3 + 'v/' + m.I.length / 3 + 't').join(' '));
+await b.close();

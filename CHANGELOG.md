@@ -5,6 +5,19 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.89.0 — A crowd of people, the green room, and cheering (2026-10-29)
+
+**The audience is now a crowd of people (two body types, simplified to ~1.3k triangles each on the weakest tier,
+~2.3k above), the stand-in who waves and walks out of the crowd is a rigged figure, the green room has its contestant
+and stage manager as rigged people too, and the contestant throws their arms up when an answer is right.**
+
+- `assets/people/crowd/`: six small baked meshes in two detail levels (~0.3 MB in all). The audience starts as the
+  old capsules and swaps in place when they load; `?people=procedural` keeps the capsules.
+- Seven more animation clips (`anims.glb`, `anims2.glb`): crew fold their arms, the green-room manager calls out.
+- Two body types share the crowd, each with its own instance numbering, so a seat is still addressed by its global index.
+- The graphics suite's triangle ceilings were raised on purpose and the measured figures are written next to them;
+  it now waits for the finished set (rigged people and crowd) before measuring.
+
 ## v2.88.0 — Real people on the stage (2026-10-28)
 
 **The host, the contestant and both crew are now rigged human figures with real animation, instead of capsule

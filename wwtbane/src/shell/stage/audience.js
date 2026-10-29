@@ -11,10 +11,15 @@
 //   - riser fascias lit in a dim accent line, so the tiers read as architecture
 //   - phones: a small percentage of seats hold a glowing screen
 //
-// Bodies, heads, hair and chairs are four instanced meshes (four draw calls for
-// the whole room). Per-person variation is per-instance colour on a white base.
+// A person is three instanced meshes (clothes, skin, hair) per body type, plus the chairs. Per-person variation
+// is per-instance colour on a white base. The people start as capsule stand-ins and are upgraded to simplified,
+// baked-pose human shapes (assets/people/crowd/, about 1.5k triangles each; see ATTRIBUTIONS.md) once those small
+// files load: upgrade() swaps the geometry in place, so nothing else has to know.
 import * as THREE from 'three';
 import { PAL, mat, mergeGeos, rimLit } from './kit.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const CROWD_ROOT = new URL('../../../assets/people/crowd/', import.meta.url).href;
 
 export function buildAudience({ tier, accent }) {
   const group = new THREE.Group();
@@ -44,11 +49,20 @@ export function buildAudience({ tier, accent }) {
   const chairGeoBack = new THREE.BoxGeometry(0.36, 0.55, 0.07); chairGeoBack.translate(0, 1.02, -0.16);
   const chairMat = mat(0x0d0d1c, 0x000000, 0, 0.75, 0.2);
 
-  const audBody = new THREE.InstancedMesh(mergeGeos(bTorso, bLap, bArmL, bArmR), bodyMat, total);
-  const audHead = new THREE.InstancedMesh(headGeo, headMat, total);
-  const audHair = new THREE.InstancedMesh(hairGeo, hairMat, total);
+  // Two body types (m/f). Each seat belongs to one, and `userData.map` on every mesh turns a global seat index into
+  // that mesh's own instance index (-1: not this body type), so callers can keep addressing seats globally.
+  const isF = (i, t) => ((i * 7 + t * 3) % 5) < 2;
+  const nF = (() => { let n = 0, k = 0; for (let t = 0; t < tiers; t++) for (let i = 0; i < perTier[t]; i++, k++) if (isF(i, t)) n++; return n; })();
+  const variants = {};
+  for (const [v, n] of [['m', total - nF], ['f', nF]]) {
+    const body = new THREE.InstancedMesh(mergeGeos(bTorso, bLap, bArmL, bArmR), bodyMat, n);
+    const head = new THREE.InstancedMesh(headGeo, headMat, n);
+    const hair = new THREE.InstancedMesh(hairGeo, hairMat, n);
+    for (const m of [body, head, hair]) { m.userData.map = new Int32Array(total).fill(-1); m.userData.variant = v; }
+    variants[v] = { body, head, hair, n: 0 };
+  }
   const chairs = new THREE.InstancedMesh(mergeGeos(chairGeoSeat, chairGeoBack), chairMat, total);
-  const meshes = [audBody, audHead, audHair];
+  const meshes = ['m', 'f'].flatMap((v) => [variants[v].body, variants[v].head, variants[v].hair]);
 
   // dark, muted palettes — the room is mostly silhouette
   const shirtCols = [0x23263f, 0x2d2236, 0x1f3030, 0x3a3018, 0x26262e, 0x25301d, 0x35222f, 0x1d2740, 0x2b2b3a];
@@ -74,14 +88,15 @@ export function buildAudience({ tier, accent }) {
       o.position.set(Math.cos(a) * R, Y, Math.sin(a) * R); o.rotation.y = Math.PI * 1.5 - a;
       o.scale.setScalar(1); o.updateMatrix(); chairs.setMatrixAt(count, o.matrix);
       o.scale.setScalar(scale); o.updateMatrix();
-      audBody.setMatrixAt(count, o.matrix); audHead.setMatrixAt(count, o.matrix); audHair.setMatrixAt(count, o.matrix);
+      const v = isF(i, t) ? 'f' : 'm', V = variants[v], li = V.n++;
+      for (const m of [V.body, V.head, V.hair]) { m.setMatrixAt(li, o.matrix); m.userData.map[count] = li; }
       const shirt = shirtCols[(i * 7 + t * 29) % shirtCols.length];
       const skin = skinCols[(i * 5 + t * 11) % skinCols.length];
       const hair = hairCols[(i * 3 + t * 7) % hairCols.length];
-      audBody.setColorAt(count, col.setHex(shirt));
-      audHead.setColorAt(count, col.setHex(skin));
-      audHair.setColorAt(count, col.setHex(hair));
-      seats.push({ x: o.position.x, y: Y, z: o.position.z, rotY: o.rotation.y, scale, shirt, skin, hair });
+      V.body.setColorAt(li, col.setHex(shirt));
+      V.head.setColorAt(li, col.setHex(skin));
+      V.hair.setColorAt(li, col.setHex(hair));
+      seats.push({ x: o.position.x, y: Y, z: o.position.z, rotY: o.rotation.y, scale, shirt, skin, hair, v });
       count++;
     }
   }
@@ -122,5 +137,20 @@ export function buildAudience({ tier, accent }) {
   voteCards.visible = false;
   group.add(voteCards);
 
-  return { group, meshes, chairs, seats, voteCards, total, phones };
+  // Swap the capsule stand-ins for the baked human shapes. Resolves to false (and leaves the capsules) on any failure.
+  async function upgrade() {
+    const lod = tier.crowdDetail === 0 ? '_lo' : ''; // the weakest tier gets a ~1k-triangle person instead of ~2.3k
+    try {
+      const L = new GLTFLoader();
+      const load = async (v, k) => { const g = await L.loadAsync(`${CROWD_ROOT}crowd_${v}_${k}${lod}.glb`); let geo = null; g.scene.traverse((o) => { if (o.isMesh && !geo) geo = o.geometry; }); return geo; };
+      const got = {};
+      for (const v of ['m', 'f']) got[v] = { body: await load(v, 'clothes'), head: await load(v, 'skin'), hair: await load(v, 'hair') };
+      for (const v of ['m', 'f']) for (const k of ['body', 'head', 'hair']) {
+        const mesh = variants[v][k]; const old = mesh.geometry; mesh.geometry = got[v][k]; old.dispose();
+      }
+      return true;
+    } catch (e) { console.warn('[wwtbane] baked crowd unavailable — keeping the capsule crowd', e); return false; }
+  }
+
+  return { group, meshes, chairs, seats, voteCards, total, phones, upgrade };
 }

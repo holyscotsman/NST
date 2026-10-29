@@ -106,6 +106,9 @@ async function boot(tier, { size = [1280, 800], motion = 'full' } = {}) {
   // the studio initialises asynchronously; wait until it reports in
   await page.waitForFunction(() => window.__wwt && window.__wwt.gfx && window.__wwt.gfx(), null, { timeout: 90000 });
   await page.waitForFunction(() => window.__wwt.studio && !window.__wwt.studio()._veil, null, { timeout: 240000 }); // the canvas is held back until a real frame is there
+  // the work budgets below are for the finished set: rigged people and the baked crowd arrive a moment after the stage
+  await page.waitForFunction(() => window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 5, null, { timeout: 240000 });
+  await page.evaluate(() => window.__wwt.studio()._crowdReady);
   await page.waitForTimeout(2500); // let a few frames land
   return { ctx, page };
 }
@@ -148,7 +151,10 @@ for (const tier of ['low', 'medium', 'high']) {
    * the studio's own frame counter, and high pays three scene passes (the
    * picture, the mirror and the AO depth pass). The drawn-at-all check is the
    * other half: a render that draws nothing has a budget of zero. */
-  const BUDGET = { low: [380, 340000], medium: [420, 450000], high: [1300, 1500000] }[tier];
+  // v2.88.0 raised the triangle ceilings on purpose: rigged people (~24k triangles each, five of them) and a baked
+  // human crowd (1.3k per person on low, 2.3k above) replaced capsules. Measured then: low 537k, medium 771k, high
+  // 1.94M (the mirror draws the room twice); the ceilings sit ~15% above that.
+  const BUDGET = { low: [380, 620000], medium: [420, 890000], high: [1300, 2230000] }[tier];
   ok(`${tier}: it actually drew something`, g.calls > 20 && g.triangles > 10000, `${g.calls} calls, ${g.triangles} triangles`);
   ok(`${tier}: draw calls are within budget`, g.calls <= BUDGET[0], `${g.calls} > ${BUDGET[0]}`);
   ok(`${tier}: triangles are within budget`, g.triangles <= BUDGET[1], `${g.triangles} > ${BUDGET[1]}`);
@@ -254,7 +260,7 @@ function diffFraction(a, b) {
   const failed = [];
   page.on('requestfailed', (r) => failed.push(r.url()));
   page.on('response', (r) => { if (r.status() >= 400) failed.push(r.status() + ' ' + r.url()); });
-  await page.waitForFunction(() => window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 4, null, { timeout: 240000 });
+  await page.waitForFunction(() => window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 5, null, { timeout: 240000 });
   const info = await page.evaluate(() => {
     const s = window.__wwt.studio(); const out = {};
     for (const e of s._studioPeople.filter((x) => x.skeletal)) {
@@ -264,7 +270,7 @@ function diffFraction(a, b) {
     }
     return out;
   });
-  ok('the host, the contestant and both crew are swapped for rigged people', Object.keys(info).length === 4, JSON.stringify(info));
+  ok('the host, the contestant, both crew and the crowd stand-in are swapped for rigged people', Object.keys(info).length === 5, JSON.stringify(info));
   ok('the host sits (a sitting clip, head above the cushion)', /Sitting/.test(info.host.clip) && info.host.headY > 1.2 && info.host.headY < 2.1, JSON.stringify(info.host));
   ok('the crew stand (a standing clip, head at standing height)', /^Idle/.test(info.crew.clip) && info.crew.headY > 1.3 && info.crew.headY < 2.0, JSON.stringify(info.crew));
   const before = await page.evaluate(() => window.__wwt.studio()._studioPeople.find((e) => e.role === 'host').g.getObjectByName('hand_l').matrixWorld.elements.slice(12, 15).join(','));

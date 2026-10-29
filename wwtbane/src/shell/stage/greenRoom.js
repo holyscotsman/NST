@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { PAL, mat, cyl, box, sph, pos, rimLit } from './kit.js';
 import { person, crewPerson } from './people.js';
+import { loadActorKit, createActor } from './actors.js';
 import { screenTexture } from './textures.js';
 
 const rbox = (w, h, d, m, r = 0.05) => new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, r), m);
@@ -149,6 +150,26 @@ export function buildGreen(studio) {
     { g: you, parts: you.userData.parts, role: 'player', phase: 0.9, armL: you.userData.parts.armL.rotation.z, armR: you.userData.parts.armR.rotation.z },
     { g: gsm, parts: gsm.userData.parts, role: 'greenSM', phase: 2.2, armL: gsm.userData.parts.armL.rotation.z, armR: gsm.userData.parts.armR.rotation.z },
   ];
+
+  // Swap the capsule people for rigged ones once the kit has loaded (see studioSet.js; same people, same outfits).
+  (async () => {
+    let kit = null;
+    try { if (!/[?&]people=procedural/.test(window.location.search)) kit = await loadActorKit(); } catch { kit = null; }
+    if (!kit) return;
+    const swap = (old, opts, seatY) => {
+      const g = createActor(kit, opts);
+      g.position.set(old.position.x, 0, old.position.z + (seatY ? 0.1 : 0)); g.rotation.y = old.rotation.y; g.visible = old.visible;
+      if (seatY) g.userData.seatOn(seatY);
+      s.remove(old); s.add(g);
+      const entry = studio._greenPeople.find((e) => e.g === old);
+      if (entry) { entry.g = g; entry.skeletal = true; entry.parts = null; }
+      return g;
+    };
+    swap(you, { sex: 'f', tone: 1.05, seated: true, hair: { style: 'Hair_Buns', color: 0x2a1c10 },
+      outfit: { top: 'hoodie', topColor: 0x3e6b2d, bottomColor: 0x2b3340, shoeColor: 0x15151a } }, 0.8);
+    studio._greenSM = swap(gsm, { sex: 'm', tone: 1.0, hair: { style: 'Hair_Buzzed', color: 0x1a140e },
+      outfit: { top: 'tee', topColor: 0x20202c, bottomColor: 0x1c1c24, shoeColor: 0x0c0c10 }, rest: 'Idle_Rail_Call', talk: 'Idle_Rail_Call' }, 0);
+  })();
 
   // The sketchy guy — Steve's man, loitering by the doors in a long coat and
   // a wide-brim hat. The "sketchyCall" scene finds him (takes.js).
