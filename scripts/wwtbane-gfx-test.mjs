@@ -291,6 +291,29 @@ function diffFraction(a, b) {
   await ctx2.close();
 }
 
+/* The CSS film look (bloom, grade, vignette, grain) stands in for the post chain on the direct-render tier: it must
+ * be on there, off where the real chain runs, off with ?film=0, and it must never block clicks on the page. */
+{
+  const { ctx, page } = await boot('low');
+  const low = await page.evaluate(() => ({ canvas: document.querySelector('#studio-root canvas').classList.contains('film-graded'), layers: [...document.querySelectorAll('#studio-root .film-bloom.film-on, #studio-root .film-vignette.film-on, #studio-root .film-grain.film-on')].length, events: [...document.querySelectorAll('#studio-root .film-bloom, #studio-root .film-vignette, #studio-root .film-grain')].map((e) => getComputedStyle(e).pointerEvents) }));
+  ok('on the direct-render tier the film look is on (graded canvas, three layers)', low.canvas && low.layers === 3, JSON.stringify(low));
+  ok('and its layers let every click through to the page', low.events.length === 3 && low.events.every((v) => v === 'none'), low.events.join(','));
+  await ctx.close();
+  const m = await boot('medium');
+  const med = await m.page.evaluate(() => document.querySelector('#studio-root canvas').classList.contains('film-graded'));
+  ok('[neg] where the real post chain runs, the film look is off (no double bloom)', med === false, String(med));
+  await m.ctx.close();
+  const ctx3 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx3.addInitScript(() => { try { localStorage.setItem('wwtbane.e2e', '1'); localStorage.setItem('nst.activeBank', 'ncp-mci'); localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } })); } catch { /* storage blocked */ } });
+  const p3 = await ctx3.newPage();
+  await p3.goto(`${B}/wwtbane/?quality=low&film=0`, { waitUntil: 'load', timeout: 90000 });
+  await p3.waitForFunction(() => window.__wwt && window.__wwt.gfx && window.__wwt.gfx(), null, { timeout: 90000 });
+  await p3.waitForTimeout(3000);
+  const off = await p3.evaluate(() => ({ g: document.querySelector('#studio-root canvas').classList.contains('film-graded'), n: document.querySelectorAll('#studio-root .film-bloom, #studio-root .film-vignette, #studio-root .film-grain').length }));
+  ok('[neg] ?film=0 turns it off and adds no layers', off.g === false && off.n === 0, JSON.stringify(off));
+  await ctx3.close();
+}
+
 ok('no page errors or console errors at any tier', errs.length === 0, errs.slice(0, 3).join(' | '));
 
 await browser.close();

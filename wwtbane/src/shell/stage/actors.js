@@ -48,9 +48,10 @@ function bindPositions(skeleton) {
 
 // A garment: the part of `body` inside every plane in `planes` ({ axis: 0|1|2, max } or { axis, min }), clipped
 // exactly at the plane so hems and cuffs are straight lines, minus the region where `hole(x, y, z)` is negative (the
-// neck opening; triangles that straddle its edge are subdivided so the edge is round, not a saw), pushed out by
-// `inflate` metres along the normals and skinned like the body.
-export function garment(body, planes, hole, inflate, material) {
+// neck opening, clipped along its zero line so the edge is a smooth curve), pushed out by
+// `inflate` metres along the normals and skinned like the body. `smooth` relaxation passes soften the body's muscle
+// detail into cloth (open edges stay put).
+export function garment(body, planes, hole, inflate, material, { smooth = 0, lambda = 0.5 } = {}) {
   const g = body.geometry, pos = g.attributes.position, nor = g.attributes.normal, idx = g.index;
   const si = g.attributes.skinIndex, sw = g.attributes.skinWeight, uv = g.attributes.uv;
   const vert = (i) => ({
@@ -72,40 +73,73 @@ export function garment(body, planes, hole, inflate, material) {
     return out;
   };
   const tests = planes.map((pl) => (pl.max !== undefined ? (v) => v.p[pl.axis] - pl.max : (v) => pl.min - v.p[pl.axis]));
+  // the opening is clipped like a plane, along the zero line of hole(x, y, z) (kept where it is >= 0), so its edge is a smooth curve
+  if (hole) tests.push((v) => -hole(v.p[0], v.p[1], v.p[2]));
   const tris = [];
-  const mid = (a, b) => lerp(a, b, 0.5);
-  const emit = (tri, depth) => {
-    if (!hole) { tris.push(tri); return; }
-    const d = tri.map((v) => hole(v.p[0], v.p[1], v.p[2]));
-    if (d[0] < 0 && d[1] < 0 && d[2] < 0) return;
-    if (d[0] >= 0 && d[1] >= 0 && d[2] >= 0) { tris.push(tri); return; }
-    if (depth > 0) {
-      const [a, b, c] = tri, ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
-      emit([a, ab, ca], depth - 1); emit([ab, b, bc], depth - 1); emit([ca, bc, c], depth - 1); emit([ab, bc, ca], depth - 1);
-      return;
-    }
-    const cx = (tri[0].p[0] + tri[1].p[0] + tri[2].p[0]) / 3, cy = (tri[0].p[1] + tri[1].p[1] + tri[2].p[1]) / 3, cz = (tri[0].p[2] + tri[1].p[2] + tri[2].p[2]) / 3;
-    if (hole(cx, cy, cz) >= 0) tris.push(tri);
-  };
   for (let t = 0; t < idx.count; t += 3) {
     let poly = [vert(idx.getX(t)), vert(idx.getX(t + 1)), vert(idx.getX(t + 2))];
     for (const d of tests) { poly = clip(poly, d); if (poly.length < 3) break; }
     if (poly.length < 3) continue;
-    for (let k = 1; k + 1 < poly.length; k++) emit([poly[0], poly[k], poly[k + 1]], 4);
+    for (let k = 1; k + 1 < poly.length; k++) tris.push([poly[0], poly[k], poly[k + 1]]);
   }
-  const n = tris.length * 3;
-  const P = new Float32Array(n * 3), N = new Float32Array(n * 3), UV = new Float32Array(n * 2), SI = new Uint16Array(n * 4), SW = new Float32Array(n * 4);
-  let i = 0;
+  // Weld vertices that share a position (to 0.01 mm) so the shell is one surface: it can then be smoothed like cloth
+  // and shaded smoothly, instead of carrying the body's muscle detail.
+  const key = (v) => `${Math.round(v.p[0] * 1e5)},${Math.round(v.p[1] * 1e5)},${Math.round(v.p[2] * 1e5)}`;
+  const slot = new Map(), verts = [], I = [];
   for (const tri of tris) for (const v of tri) {
-    for (let k = 0; k < 3; k++) { P[i * 3 + k] = v.p[k] + v.n[k] * inflate; N[i * 3 + k] = v.n[k]; }
+    const k = key(v); let id = slot.get(k);
+    if (id === undefined) { id = verts.length; slot.set(k, id); verts.push(v); }
+    I.push(id);
+  }
+  const n = verts.length;
+  const P = new Float32Array(n * 3);
+  verts.forEach((v, i) => { P[i * 3] = v.p[0]; P[i * 3 + 1] = v.p[1]; P[i * 3 + 2] = v.p[2]; });
+  if (smooth > 0 && n) {
+    // vertices on an open edge (hems, cuffs, the neck) stay put; the rest relax toward the average of their neighbours
+    const edgeUse = new Map(), nb = Array.from({ length: n }, () => new Set());
+    for (let t = 0; t < I.length; t += 3) for (let e = 0; e < 3; e++) {
+      const a = I[t + e], b = I[t + (e + 1) % 3]; if (a === b) continue;
+      const ek = a < b ? `${a}_${b}` : `${b}_${a}`; edgeUse.set(ek, (edgeUse.get(ek) || 0) + 1);
+      nb[a].add(b); nb[b].add(a);
+    }
+    const fixed = new Uint8Array(n);
+    for (const [ek, c] of edgeUse) if (c === 1) { const [a, b] = ek.split('_'); fixed[+a] = 1; fixed[+b] = 1; }
+    const Q = new Float32Array(P.length);
+    for (let it = 0; it < smooth; it++) {
+      for (let i = 0; i < n; i++) {
+        if (fixed[i] || !nb[i].size) { Q[i * 3] = P[i * 3]; Q[i * 3 + 1] = P[i * 3 + 1]; Q[i * 3 + 2] = P[i * 3 + 2]; continue; }
+        let x = 0, y = 0, z = 0; for (const j of nb[i]) { x += P[j * 3]; y += P[j * 3 + 1]; z += P[j * 3 + 2]; }
+        const k = 1 / nb[i].size;
+        Q[i * 3] = P[i * 3] + (x * k - P[i * 3]) * lambda; Q[i * 3 + 1] = P[i * 3 + 1] + (y * k - P[i * 3 + 1]) * lambda; Q[i * 3 + 2] = P[i * 3 + 2] + (z * k - P[i * 3 + 2]) * lambda;
+      }
+      P.set(Q);
+    }
+  }
+  // smoothing pulls the shell in at the body's bulges (chest, shoulders), so it is pushed out a little further
+  inflate += Math.min(0.016, smooth * 0.0016);
+  // normals from the (smoothed) surface, then the shell is pushed out along them
+  const N = new Float32Array(n * 3);
+  for (let t = 0; t < I.length; t += 3) {
+    const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+    const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const o of [a, b, c]) { N[o] += nx; N[o + 1] += ny; N[o + 2] += nz; }
+  }
+  for (let i = 0; i < n; i++) {
+    const l = Math.hypot(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]) || 1;
+    N[i * 3] /= l; N[i * 3 + 1] /= l; N[i * 3 + 2] /= l;
+    P[i * 3] += N[i * 3] * inflate; P[i * 3 + 1] += N[i * 3 + 1] * inflate; P[i * 3 + 2] += N[i * 3 + 2] * inflate;
+  }
+  const UV = new Float32Array(n * 2), SI = new Uint16Array(n * 4), SW = new Float32Array(n * 4);
+  verts.forEach((v, i) => {
     UV[i * 2] = v.uv[0]; UV[i * 2 + 1] = v.uv[1];
     for (let k = 0; k < 4; k++) { SI[i * 4 + k] = v.si[k]; SW[i * 4 + k] = v.sw[k]; }
-    i++;
-  }
+  });
   const ng = new THREE.BufferGeometry();
   ng.setAttribute('position', new THREE.BufferAttribute(P, 3)); ng.setAttribute('normal', new THREE.BufferAttribute(N, 3));
   ng.setAttribute('uv', new THREE.BufferAttribute(UV, 2));
   ng.setAttribute('skinIndex', new THREE.BufferAttribute(SI, 4)); ng.setAttribute('skinWeight', new THREE.BufferAttribute(SW, 4));
+  ng.setIndex(I);
   const m = new THREE.SkinnedMesh(ng, material);
   m.bind(body.skeleton, body.bindMatrix);
   m.frustumCulled = false; m.castShadow = true;
@@ -166,10 +200,17 @@ export function createActor(kit, opts = {}) {
     // a shirt collar standing up out of the neckline
     pieces.push(garment(body, [{ axis: 1, min: neck - 0.07 }, { axis: 1, max: neck + 0.04 }], (cx, cy, cz) => 0.092 - Math.hypot(cx, cz + 0.04), 0.016, fabric(outfit.innerColor ?? 0xe9ecf5, 0.8)));
   }
-  pieces.push(garment(body, [{ axis: 1, min: waist - hem }, headCut, { axis: 0, max: sleeve }, { axis: 0, min: -sleeve }], neckHole, inflate, topMat));
-  pieces.push(garment(body, [{ axis: 1, min: ankle + 0.015 }, { axis: 1, max: waist + 0.09 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.026, fabric(outfit.bottomColor ?? 0x20202f, 0.8)));
-  pieces.push(garment(body, [{ axis: 1, max: ankle + 0.015 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.02, fabric(outfit.shoeColor ?? 0x0e0e12, 0.45)));
+  pieces.push(garment(body, [{ axis: 1, min: waist - hem }, headCut, { axis: 0, max: sleeve }, { axis: 0, min: -sleeve }], neckHole, inflate, topMat, { smooth: top === 'tee' ? 5 : 9 }));
+  pieces.push(garment(body, [{ axis: 1, min: ankle - 0.005 }, { axis: 1, max: waist + 0.09 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.026, fabric(outfit.bottomColor ?? 0x20202f, 0.8), { smooth: 7 }));
   for (const p of pieces) root.add(p);
+
+  // Shoes: the foot's own shell, relaxed hard so the toes merge into one rounded shape, and pushed out. Skinned like
+  // the rest, so it follows the foot exactly (a block parented to the foot bone drifted off the foot).
+  root.add(garment(body, [{ axis: 1, max: ankle + 0.012 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.03, fabric(outfit.shoeColor ?? 0x0e0e12, 0.4), { smooth: 12, lambda: 0.5 }));
+
+  // a build: the base bodies are heroic; slim them (it narrows clothes, arms and all, in one go)
+  const build = opts.build ?? (sex === 'm' ? 0.9 : 0.96);
+  root.scale.set(build, 1, build);
 
   const hairMeshes = [];
   root.traverse((o) => { if (o.isSkinnedMesh && o.name === 'Eyebrows') hairMeshes.push(o); });

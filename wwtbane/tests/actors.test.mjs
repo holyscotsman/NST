@@ -8,8 +8,8 @@ const THREE = await import('three');
 const { garment } = await import('../src/shell/stage/actors.js');
 
 // A tall tube (radius 0.2, y from 0 to 2) standing in for a torso, skinned to one bone.
-function tube() {
-  const geo = new THREE.CylinderGeometry(0.2, 0.2, 2, 24, 8, true); geo.translate(0, 1, 0);
+function tube(segments = 8) {
+  const geo = new THREE.CylinderGeometry(0.2, 0.2, 2, 24, segments, true); geo.translate(0, 1, 0);
   const n = geo.attributes.position.count;
   geo.setAttribute('skinIndex', new THREE.BufferAttribute(new Uint16Array(n * 4), 4));
   const sw = new Float32Array(n * 4); for (let i = 0; i < n; i++) sw[i * 4] = 1;
@@ -20,7 +20,8 @@ function tube() {
   return mesh;
 }
 const yRange = (m) => { const p = m.geometry.attributes.position; let lo = Infinity, hi = -Infinity; for (let i = 0; i < p.count; i++) { lo = Math.min(lo, p.getY(i)); hi = Math.max(hi, p.getY(i)); } return [lo, hi]; };
-const count = (m) => m.geometry.attributes.position.count / 3;
+const count = (m) => m.geometry.index.count / 3;
+const triPoint = (m, t, k) => { const p = m.geometry.attributes.position, i = m.geometry.index.getX(t * 3 + k); return [p.getX(i), p.getY(i), p.getZ(i)]; };
 
 test('a hem is cut exactly on its plane, not at the nearest triangle edge', () => {
   const body = tube();
@@ -52,23 +53,34 @@ test('inflating pushes the shell out along the normals', () => {
 });
 
 const area = (m) => {
-  const p = m.geometry.attributes.position; let A = 0; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
-  for (let i = 0; i < p.count; i += 3) { a.fromBufferAttribute(p, i); b.fromBufferAttribute(p, i + 1); c.fromBufferAttribute(p, i + 2); A += b.sub(a).cross(c.sub(a)).length() / 2; }
+  let A = 0; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let t = 0; t < count(m); t++) { a.fromArray(triPoint(m, t, 0)); b.fromArray(triPoint(m, t, 1)); c.fromArray(triPoint(m, t, 2)); A += b.sub(a).cross(c.sub(a)).length() / 2; }
   return A;
 };
 
 test('the neck opening removes the surface inside it and keeps the rest', () => {
-  const whole = garment(tube(), [], null, 0, new THREE.MeshBasicMaterial());
-  const holed = garment(tube(), [], (x, y) => Math.hypot(x, y - 1) - 0.15, 0, new THREE.MeshBasicMaterial());
-  // (the opening is subdivided along its edge, so compare area rather than triangle count)
-  assert.ok(area(holed) < area(whole) * 0.95, `${area(holed)} vs ${area(whole)}`);
+  // (a fine mesh, as the real body is: the edge is found by interpolating along triangle edges, so its error is about
+  // the square of the edge length)
+  const whole = garment(tube(80), [], null, 0, new THREE.MeshBasicMaterial());
+  const holed = garment(tube(80), [], (x, y) => Math.hypot(x, y - 1) - 0.15, 0, new THREE.MeshBasicMaterial());
+  assert.ok(area(holed) < area(whole) * 0.97, `${area(holed)} vs ${area(whole)}`);
   assert.ok(area(holed) > area(whole) * 0.6, 'but not most of the garment');
+  // nothing may remain inside the opening: every vertex is outside it (the edge is clipped along its curve)
   const p = holed.geometry.attributes.position; let inside = 0;
-  for (let i = 0; i < p.count; i += 3) {
-    const cx = (p.getX(i) + p.getX(i + 1) + p.getX(i + 2)) / 3, cy = (p.getY(i) + p.getY(i + 1) + p.getY(i + 2)) / 3;
-    if (Math.hypot(cx, cy - 1) < 0.1) inside++;
-  }
-  assert.equal(inside, 0, 'no triangle survives deep inside the opening');
+  for (let i = 0; i < p.count; i++) if (Math.hypot(p.getX(i), p.getY(i) - 1) < 0.15 - 2e-3) inside++;
+  assert.equal(inside, 0, 'no vertex survives inside the opening');
+});
+
+test('smoothing softens a bumpy surface but leaves its open edges where they were', () => {
+  // a tube with a bump in the middle: smoothing must reduce the bump, never move the cut edges
+  const bump = tube(); const pos = bump.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) { if (Math.abs(pos.getY(i) - 1) < 0.2) { const k = 1.25; pos.setX(i, pos.getX(i) * k); pos.setZ(i, pos.getZ(i) * k); } }
+  const raw = garment(bump, [{ axis: 1, min: 0.3 }, { axis: 1, max: 1.7 }], null, 0, new THREE.MeshBasicMaterial());
+  const soft = garment(bump, [{ axis: 1, min: 0.3 }, { axis: 1, max: 1.7 }], null, 0, new THREE.MeshBasicMaterial(), { smooth: 8 });
+  const maxR = (m) => { const p = m.geometry.attributes.position; let r = 0; for (let i = 0; i < p.count; i++) r = Math.max(r, Math.hypot(p.getX(i), p.getZ(i))); return r; };
+  assert.ok(maxR(soft) < maxR(raw) - 0.005, `${maxR(raw)} -> ${maxR(soft)}`);
+  const lo = (m) => { const p = m.geometry.attributes.position; let y = Infinity; for (let i = 0; i < p.count; i++) y = Math.min(y, p.getY(i)); return y; };
+  assert.ok(Math.abs(lo(soft) - 0.3) < 0.02, 'the hem stayed within the extra inflate of where it was cut (it is not pulled in by smoothing)');
 });
 
 test('a plane that excludes the whole body leaves an empty garment rather than throwing', () => {

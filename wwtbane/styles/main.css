@@ -81,6 +81,21 @@ summary:focus-visible, .option:focus-visible {
 #studio-root { position: fixed; inset: 0; z-index: 0; }
 #studio-root canvas { display: block; }
 
+/* ---- film look (src/shell/stage/film.js): bloom, grade, vignette and grain without touching the GPU pipeline ---- */
+#studio-root canvas.film-graded { filter: contrast(1.07) saturate(1.14) brightness(1.03); }
+.film-bloom, .film-vignette, .film-grain { position: absolute; inset: 0; width: 100%; height: 100%; display: none; pointer-events: none; }
+.film-bloom.film-on, .film-vignette.film-on, .film-grain.film-on { display: block; }
+/* contrast() acts as the brightness threshold (darks fall to black and add nothing when screen-blended), blur spreads it */
+.film-bloom { mix-blend-mode: screen; opacity: .8; filter: contrast(2.6) brightness(.8) saturate(1.5) blur(14px); }
+.film-vignette { background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(4, 3, 14, .6) 100%); }
+.film-grain {
+  opacity: .075; mix-blend-mode: overlay; background-size: 160px 160px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+}
+.film-grain[data-step="1"] { background-position: 37px 91px; }
+.film-grain[data-step="2"] { background-position: 113px 23px; }
+.film-grain[data-step="3"] { background-position: 71px 139px; }
+
 #backdrop-fallback {
   position: fixed; inset: 0; z-index: 0; overflow: hidden;
   background: linear-gradient(180deg, #05050d 0%, #04040a 55%, #060610 100%);
