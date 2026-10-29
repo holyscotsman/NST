@@ -245,6 +245,46 @@ function diffFraction(a, b) {
   await ctx.close();
 }
 
+/* The people. The set is built with capsule people and, once the ~3 MB kit (rigged bodies, hair, animation clips,
+ * all CC0 -- see wwtbane/assets/people/ATTRIBUTIONS.md) has loaded, the host, the contestant and the two crew are
+ * swapped for rigged ones. Prove the swap happens, that they stand where the set expects, that they are really
+ * animating, and that ?people=procedural keeps the old ones. */
+{
+  const { ctx, page } = await boot('low');
+  const failed = [];
+  page.on('requestfailed', (r) => failed.push(r.url()));
+  page.on('response', (r) => { if (r.status() >= 400) failed.push(r.status() + ' ' + r.url()); });
+  await page.waitForFunction(() => window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 4, null, { timeout: 240000 });
+  const info = await page.evaluate(() => {
+    const s = window.__wwt.studio(); const out = {};
+    for (const e of s._studioPeople.filter((x) => x.skeletal)) {
+      const head = e.g.getObjectByName('Head'); head.updateWorldMatrix(true, false);
+      const y = head.matrixWorld.elements[13];
+      out[e.role + (out[e.role] ? '2' : '')] = { clip: e.g.userData.clip, headY: +y.toFixed(2) };
+    }
+    return out;
+  });
+  ok('the host, the contestant and both crew are swapped for rigged people', Object.keys(info).length === 4, JSON.stringify(info));
+  ok('the host sits (a sitting clip, head above the cushion)', /Sitting/.test(info.host.clip) && info.host.headY > 1.2 && info.host.headY < 2.1, JSON.stringify(info.host));
+  ok('the crew stand (a standing clip, head at standing height)', /^Idle/.test(info.crew.clip) && info.crew.headY > 1.3 && info.crew.headY < 2.0, JSON.stringify(info.crew));
+  const before = await page.evaluate(() => window.__wwt.studio()._studioPeople.find((e) => e.role === 'host').g.getObjectByName('hand_l').matrixWorld.elements.slice(12, 15).join(','));
+  await page.waitForTimeout(1500);
+  const after = await page.evaluate(() => { const h = window.__wwt.studio()._studioPeople.find((e) => e.role === 'host').g.getObjectByName('hand_l'); h.updateWorldMatrix(true, false); return h.matrixWorld.elements.slice(12, 15).join(','); });
+  ok('they are animating: the host\'s hand has moved', before !== after, `${before} -> ${after}`);
+  ok('every asset request succeeded', failed.length === 0, failed.slice(0, 3).join(' | '));
+  await ctx.close();
+
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx2.addInitScript(() => { try { localStorage.setItem('wwtbane.e2e', '1'); localStorage.setItem('nst.activeBank', 'ncp-mci'); localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } })); } catch { /* storage blocked */ } });
+  const p2 = await ctx2.newPage();
+  await p2.goto(`${B}/wwtbane/?quality=low&people=procedural`, { waitUntil: 'load', timeout: 90000 });
+  await p2.waitForFunction(() => window.__wwt && window.__wwt.gfx && window.__wwt.gfx(), null, { timeout: 90000 });
+  await p2.waitForTimeout(8000);
+  const n = await p2.evaluate(() => window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length);
+  ok('[neg] ?people=procedural keeps the capsule people', n === 0, n);
+  await ctx2.close();
+}
+
 ok('no page errors or console errors at any tier', errs.length === 0, errs.slice(0, 3).join(' | '));
 
 await browser.close();

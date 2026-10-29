@@ -5,6 +5,22 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.88.0 — Real people on the stage (2026-10-28)
+
+**The host, the contestant and both crew are now rigged human figures with real animation, instead of capsule
+people. Free-to-use (CC0) models and motion by Quaternius, dressed in code. The owner signed off on imported CC0
+assets for this overhaul (2026-10-28).**
+
+- `assets/people/`: two bodies, six hair styles and five animation clips (about 3 MB, lazy-loaded; sources and licences
+  in `ATTRIBUTIONS.md`). The capsule people go in first and are swapped when the kit arrives, so a slow connection
+  never delays the stage; `?people=procedural`, or any load failure, keeps them.
+- Clothes are made at load time: each garment is a shell cut from the body mesh, clipped exactly at hem, cuff and
+  neckline and skinned to the same bones, so it moves with the animation.
+- The host and contestant sit and talk (the talking clip plays while the host reads out), the crew stand and glance
+  about; reactions lift or drop the head.
+- Tests: `actors.test.mjs` (the garment cutter, with controls) and five new checks in the graphics suite (the swap,
+  placement, real animation, no failed asset requests, and the fallback).
+
 ## v2.87.0 — `?rt=8`: a diagnostic switch for the Mac black screen (2026-10-28)
 
 **Medium still draws black for some people on Apple GPUs. Half-float render targets combined with multisampling

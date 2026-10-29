@@ -102,7 +102,10 @@ ship, but each wants a human before it's "done" per `the project design rules`.
 - Content targets **AOS 6.x / Prism / AHV** (broad NCP-MCI). If you want to pin a
   specific exam blueprint version, say which and the bank can be curated to it.
 
-## 6. Character models — code-built upgrade shipped; imports need a rules change
+## 6. Character models — imported CC0 people approved (2026-10-28)
+- **Update:** the owner has signed off on imported CC0 models/textures, sourced by Claude, and the host,
+  contestant and crew are now rigged Quaternius figures (`src/shell/stage/actors.js`). The capsule people below
+  remain as the fallback. The text that follows is the earlier position, kept for the record.
 - The owner asked twice about using "a 3D digital asset" for the people. The
   shipped answer: **proportioned capsule-built people** (skin/hair/clothes/
   faces, posable arms, readable hot seats) drawn in code — because the brand

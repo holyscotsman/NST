@@ -72,7 +72,8 @@ and the gfx test proves two frames 800 ms apart are identical.
 
 ## Brand rules
 
-Original art in code (no model files, no imported textures), Montserrat only, the
+Original art in code, with one owner-approved exception (since v2.88.0): **CC0** models, textures and animation
+from `assets/people/` (recorded in `assets/people/ATTRIBUTIONS.md`; nothing else may be imported). Montserrat only, the
 palette in `DESIGN_BRIEF.md`, and, since v2.78.0, the Nutanix Design System rules
 for the DOM. Nothing flashes faster than 3 Hz.
 
