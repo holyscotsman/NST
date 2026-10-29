@@ -14,6 +14,7 @@ import { TIERS, pickTier, rememberBadTier, Governor } from './stage/quality.js';
 import { createPipeline } from './stage/post.js';
 import { PAL } from './stage/kit.js';
 import { setMouth } from './stage/people.js';
+import { createFilm } from './stage/film.js';
 import { buildGreen } from './stage/greenRoom.js';
 import { Accent } from './stage/accent.js';
 import { buildStudioSet } from './stage/studioSet.js';
@@ -81,6 +82,9 @@ export class Studio {
     renderer.shadowMap.type = this.tier.shadowType === 'pcfsoft' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.container.appendChild(renderer.domElement);
     renderer.domElement.setAttribute('aria-hidden', 'true');
+    // the CSS film look (bloom, grade, vignette, grain) for when the real post chain is not running; ?film=0 turns it off
+    let filmOk = true; try { filmOk = new URLSearchParams(window.location.search).get('film') !== '0'; } catch { /* no URL */ }
+    this.film = filmOk ? createFilm({ canvas: renderer.domElement, container: this.container, reduced: this.reduced }) : null;
 
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
     // The camera director owns every shot (takes.js); it swaps 3D sets as its
@@ -95,6 +99,7 @@ export class Studio {
 
     this._setupEnvironment(); // PMREM env so metals/gloss have something to reflect
     await this._buildPipeline();
+    if (this.film) this.film.setEnabled(!this.pipe && this.postFx);
     this._fitCamera();
     this.governor = new Governor({
       tier: this.tier,
@@ -215,6 +220,7 @@ export class Studio {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     if (this.pipe) { this.pipe.setPixelRatio(dpr); this.pipe.setSize(window.innerWidth, window.innerHeight); }
     if (this.set) this.set.resize(window.innerWidth, window.innerHeight, dpr);
+    if (this.film) this.film.resize();
   }
 
   async _buildPipeline() {
@@ -241,6 +247,7 @@ export class Studio {
     this._applyResolution(1);
     await this._rebuildSet();
     await this._buildPipeline();
+    if (this.film) this.film.setEnabled(!this.pipe && this.postFx);
   }
 
   // The set bakes the tier in (beam count, the mirror pass, shadow-map size), so a
@@ -625,6 +632,7 @@ export class Studio {
     }
     const ri = this.renderer.info.render;
     this._stats = { calls: ri.calls, triangles: ri.triangles };
+    if (this.film) this.film.frame(dt);
     this._checkFrame(dt);
   };
 

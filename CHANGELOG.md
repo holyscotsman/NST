@@ -5,6 +5,21 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.90.0 — A film look at the default tier, and better-dressed people (2026-10-29)
+
+**Feedback on v2.89: "better, but weird… it still feels like it was made in the 90s." Two causes, two fixes.**
+
+- **The film look.** The default tier draws straight to the canvas (the real post chain is what some Macs draw black),
+  so it had no glow, no grade, no vignette. `stage/film.js` puts them back with the browser's compositor instead of
+  the GPU pipeline: a tiny copy of the frame is thresholded by a CSS contrast curve, blurred and screen-blended for
+  bloom; one CSS filter grades the canvas; a vignette and a stepped grain tile finish it. No WebGL state is touched.
+  It is off wherever the real chain runs (no double bloom) and with `?film=0`.
+- **The people.** Slimmed (the base bodies are heroic), clothes smoothed into cloth instead of carrying the body's muscle
+  detail, the neck opening clipped along its curve (a round neckline, not a saw edge), and real shoes (the foot's own
+  shell, relaxed into one shape) instead of toes under a coat of paint.
+- Tests: three film checks in the graphics suite (on, off where the chain runs, off with `?film=0`, never blocks clicks),
+  two new garment tests (smoothing leaves open edges alone; the opening is clipped along its curve).
+
 ## v2.89.0 — A crowd of people, the green room, and cheering (2026-10-29)
 
 **The audience is now a crowd of people (two body types, simplified to ~1.3k triangles each on the weakest tier,
