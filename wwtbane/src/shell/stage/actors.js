@@ -51,7 +51,7 @@ function bindPositions(skeleton) {
 // neck opening, clipped along its zero line so the edge is a smooth curve), pushed out by
 // `inflate` metres along the normals and skinned like the body. `smooth` relaxation passes soften the body's muscle
 // detail into cloth (open edges stay put).
-export function garment(body, planes, hole, inflate, material, { smooth = 0, lambda = 0.5 } = {}) {
+export function garment(body, planes, hole, inflate, material, { smooth = 0, lambda = 0.5, flatten = null } = {}) {
   const g = body.geometry, pos = g.attributes.position, nor = g.attributes.normal, idx = g.index;
   const si = g.attributes.skinIndex, sw = g.attributes.skinWeight, uv = g.attributes.uv;
   const vert = (i) => ({
@@ -94,6 +94,26 @@ export function garment(body, planes, hole, inflate, material, { smooth = 0, lam
   const n = verts.length;
   const P = new Float32Array(n * 3);
   verts.forEach((v, i) => { P[i * 3] = v.p[0]; P[i * 3 + 1] = v.p[1]; P[i * 3 + 2] = v.p[2]; });
+  if (flatten && n) {
+    // Cloth hangs straight: it does not follow pecs, abs or breasts. Within the torso band every front (and back) vertex
+    // is pulled toward the outermost depth of its height slice (the chest tip), so cloth never sinks into the body, strongest down the middle, so the chest reads as a loose
+    // shirt instead of a moulded one.
+    const { yLo, yHi, halfW, amount } = flatten, bins = 128, step = (yHi - yLo) / bins;
+    const sum = [new Float64Array(bins), new Float64Array(bins)], cnt = [new Float64Array(bins), new Float64Array(bins)];
+    const bin = (y) => Math.floor((y - yLo) / step);
+    for (let i = 0; i < n; i++) {
+      const b = bin(P[i * 3 + 1]); if (b < 0 || b >= bins || Math.abs(P[i * 3]) > halfW) continue;
+      const side = P[i * 3 + 2] >= 0 ? 0 : 1, z = P[i * 3 + 2]; if (!cnt[side][b] || (side === 0 ? z > sum[side][b] : z < sum[side][b])) sum[side][b] = z; cnt[side][b] = 1;
+    }
+    const prof = sum.map((a, side) => { const m = Array.from(a, (v, b) => (cnt[side][b] ? v : NaN)); return m.map((v, b) => { let t = 0, c = 0; for (let k = -4; k <= 4; k++) { const w = m[b + k]; if (w === undefined || Number.isNaN(w)) continue; t += w; c++; } return c ? t / c : NaN; }); });
+    const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+    for (let i = 0; i < n; i++) {
+      const y = P[i * 3 + 1], b = bin(y); if (b < 0 || b >= bins) continue;
+      const side = P[i * 3 + 2] >= 0 ? 0 : 1, target = prof[side][b]; if (Number.isNaN(target)) continue;
+      const w = amount * (1 - ss(halfW * 0.55, halfW, Math.abs(P[i * 3]))) * ss(0, 0.02, y - yLo) * ss(0, 0.05, yHi - y);
+      P[i * 3 + 2] += (target - P[i * 3 + 2]) * w;
+    }
+  }
   if (smooth > 0 && n) {
     // vertices on an open edge (hems, cuffs, the neck) stay put; the rest relax toward the average of their neighbours
     const edgeUse = new Map(), nb = Array.from({ length: n }, () => new Set());
@@ -116,7 +136,7 @@ export function garment(body, planes, hole, inflate, material, { smooth = 0, lam
     }
   }
   // smoothing pulls the shell in at the body's bulges (chest, shoulders), so it is pushed out a little further
-  inflate += Math.min(0.016, smooth * 0.0016);
+  inflate += Math.min(0.05, smooth * 0.0016);
   // normals from the (smoothed) surface, then the shell is pushed out along them
   const N = new Float32Array(n * 3);
   for (let t = 0; t < I.length; t += 3) {
@@ -188,9 +208,9 @@ export function createActor(kit, opts = {}) {
   const sleeveShort = x('upperarm_l') + (x('lowerarm_l') - x('upperarm_l')) * 0.62, sleeveLong = x('hand_l') - 0.03;
   const top = outfit.top || 'tee';
   const topMat = fabric(outfit.topColor ?? 0x3a3f63, top === 'jacket' ? 0.7 : 0.9);
-  const inflate = { jacket: 0.024, hoodie: 0.03, tee: 0.012, shirt: 0.012 }[top] ?? 0.014;
+  const inflate = { jacket: 0.03, hoodie: 0.038, tee: 0.02, shirt: 0.022 }[top] ?? 0.014;
   const long = top === 'jacket' || top === 'hoodie' || top === 'shirt';
-  const hem = { jacket: 0.16, hoodie: 0.14, tee: 0.03, shirt: 0.06 }[top] ?? 0.05; // how far below the hip joint the hem falls
+  const hem = { jacket: 0.07, hoodie: 0.07, tee: 0.04, shirt: 0.05 }[top] ?? 0.05; // how far below the hip joint the hem falls
   const pieces = [];
   const sleeve = long ? sleeveLong : sleeveShort;
   const headCut = { axis: 1, max: neck + 0.05 };            // nothing above the neck: the face is bare
@@ -200,8 +220,8 @@ export function createActor(kit, opts = {}) {
     // a shirt collar standing up out of the neckline
     pieces.push(garment(body, [{ axis: 1, min: neck - 0.07 }, { axis: 1, max: neck + 0.04 }], (cx, cy, cz) => 0.092 - Math.hypot(cx, cz + 0.04), 0.016, fabric(outfit.innerColor ?? 0xe9ecf5, 0.8)));
   }
-  pieces.push(garment(body, [{ axis: 1, min: waist - hem }, headCut, { axis: 0, max: sleeve }, { axis: 0, min: -sleeve }], neckHole, inflate, topMat, { smooth: top === 'tee' ? 5 : 9 }));
-  pieces.push(garment(body, [{ axis: 1, min: ankle - 0.005 }, { axis: 1, max: waist + 0.09 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.026, fabric(outfit.bottomColor ?? 0x20202f, 0.8), { smooth: 7 }));
+  pieces.push(garment(body, [{ axis: 1, min: waist - hem }, headCut, { axis: 0, max: sleeve }, { axis: 0, min: -sleeve }], neckHole, inflate, topMat, { smooth: top === 'tee' ? 10 : 14, flatten: { yLo: waist - hem - 0.03, yHi: neck - 0.04, halfW: 0.2, amount: 0.85 } }));
+  pieces.push(garment(body, [{ axis: 1, min: ankle - 0.005 }, { axis: 1, max: waist + 0.015 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.018, fabric(outfit.bottomColor ?? 0x20202f, 0.8), { smooth: 6 }));
   for (const p of pieces) root.add(p);
 
   // Shoes: the foot's own shell, relaxed hard so the toes merge into one rounded shape, and pushed out. Skinned like
@@ -209,7 +229,7 @@ export function createActor(kit, opts = {}) {
   root.add(garment(body, [{ axis: 1, max: ankle + 0.012 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.03, fabric(outfit.shoeColor ?? 0x0e0e12, 0.4), { smooth: 12, lambda: 0.5 }));
 
   // a build: the base bodies are heroic; slim them (it narrows clothes, arms and all, in one go)
-  const build = opts.build ?? (sex === 'm' ? 0.9 : 0.96);
+  const build = opts.build ?? (sex === 'm' ? 0.86 : 0.9);
   root.scale.set(build, 1, build);
 
   const hairMeshes = [];
