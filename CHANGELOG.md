@@ -5,6 +5,18 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.91.0 — Medium is the default again; people are no longer built like bodybuilders (2026-10-29)
+
+**Feedback on v2.90: "the models look janky… why are they all so buff? And what's with the tight shirts?" and the black area was confirmed gone with 8-bit targets.**
+
+- **Medium by default.** `?rt=8` removed the black area on the reporter's Mac, so the medium tier now always renders its
+  post chain into 8-bit targets (`rt8: true`), and automatic selection may choose medium (it was capped at low). High
+  stays opt-in and keeps half-float targets. Low is unchanged and keeps the CSS film look.
+- **Loose clothes.** The clothes were shells hugging the body, so every pec and ab showed through. Tops now flatten
+  toward the outermost depth of their height slice (`flatten` in `garment()`), so cloth hangs from the chest tip
+  instead of following the muscle, are cut at the hips instead of covering the thighs, and sit looser (more inflate,
+  trousers tighter than the shirt so they never poke through it). Bodies are slimmer again (men 0.86, women 0.9).
+
 ## v2.90.0 — A film look at the default tier, and better-dressed people (2026-10-29)
 
 **Feedback on v2.89: "better, but weird… it still feels like it was made in the 90s." Two causes, two fixes.**

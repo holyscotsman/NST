@@ -24,7 +24,7 @@ export const TIERS = {
     dpr: 1, msaa: 0, maxPixels: 0,
     bloom: false, ao: false, mirror: false, grade: false,
     shadowMap: 1024, shadowType: 'basic',
-    beams: 4, motes: 60, crowdDetail: 0, rimLight: false,
+    beams: 4, motes: 60, crowdDetail: 0, rimLight: false, rt8: false,
   },
   medium: {
     name: 'medium',
@@ -32,13 +32,14 @@ export const TIERS = {
     bloom: true, ao: false, mirror: false, grade: true,
     shadowMap: 1024, shadowType: 'pcfsoft',
     beams: 8, motes: 150, crowdDetail: 1, rimLight: true,
+    rt8: true, // 8-bit post targets: half-float ones drew black on some Macs (confirmed fixed by ?rt=8)
   },
   high: {
     name: 'high',
     dpr: 2, msaa: 4, maxPixels: 4000000,
     bloom: true, ao: true, mirror: true, grade: true,
     shadowMap: 2048, shadowType: 'pcfsoft',
-    beams: 12, motes: 260, crowdDetail: 2, rimLight: true,
+    beams: 12, motes: 260, crowdDetail: 2, rimLight: true, rt8: false,
   },
 };
 

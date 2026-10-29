@@ -64,7 +64,7 @@ export class Studio {
     // framebuffer needs its own antialiasing depends on it.
     let probe = null;
     try { probe = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl'); } catch { /* none */ }
-    const picked = pickTier({ gl: probe, effects: this.postFx });
+    const picked = pickTier({ gl: probe, effects: this.postFx, autoMax: 'medium' });
     try { const lose = probe && probe.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); } catch { /* ignore */ }
     this.tier = picked.tier;
     this.gpu = picked.gpu;
