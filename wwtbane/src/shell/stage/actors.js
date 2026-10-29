@@ -27,11 +27,11 @@ export function loadActorKit() {
     kitPromise = (async () => {
       const L = new GLTFLoader();
       const load = (p) => L.loadAsync(ROOT + p);
-      const [f, m, an, ...hs] = await Promise.all([
-        load('body_f/body_f.gltf'), load('body_m/body_m.gltf'), load('anims.glb'),
+      const [f, m, an, an2, ...hs] = await Promise.all([
+        load('body_f/body_f.gltf'), load('body_m/body_m.gltf'), load('anims.glb'), load('anims2.glb'),
         ...HAIR_STYLES.map((h) => load(`${h}/${h}.gltf`)),
       ]);
-      const clips = {}; for (const c of an.animations) clips[c.name] = c;
+      const clips = {}; for (const c of [...an.animations, ...an2.animations]) clips[c.name] = c;
       const hair = {}; HAIR_STYLES.forEach((h, i) => { hair[h] = hs[i].scene; });
       return { bodies: { f: f.scene, m: m.scene }, hair, clips };
     })().catch((e) => { console.warn('[wwtbane] skeletal people unavailable — using the procedural ones', e); return null; });
@@ -132,7 +132,8 @@ function headPiece(body, scene, tint) {
 const fabric = (color, rough = 0.86) => new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0 });
 
 // opts: sex 'f'|'m'; tone (skin brightness, 0.7–1.7); hair {style, color}; seated; outfit {top, topColor, innerColor,
-//       bottomColor, shoeColor}; rim (accent colour). top: 'jacket' | 'tee' | 'hoodie' | 'shirt'.
+//       bottomColor, shoeColor}; rim (accent colour); rest / talk (clip names that replace the default idle and
+//       talking clips). top: 'jacket' | 'tee' | 'hoodie' | 'shirt'.
 export function createActor(kit, opts = {}) {
   const { sex = 'f', tone = 1, hair = null, seated = false, outfit = {} } = opts;
   const root = SkeletonUtils.clone(kit.bodies[sex]);
@@ -170,7 +171,9 @@ export function createActor(kit, opts = {}) {
   pieces.push(garment(body, [{ axis: 1, max: ankle + 0.015 }, { axis: 0, max: 0.5 }, { axis: 0, min: -0.5 }], null, 0.02, fabric(outfit.shoeColor ?? 0x0e0e12, 0.45)));
   for (const p of pieces) root.add(p);
 
-  if (hair && kit.hair[hair.style]) for (const m of headPiece(body, kit.hair[hair.style], hair.color ?? 0x2a1c10)) root.add(m);
+  const hairMeshes = [];
+  root.traverse((o) => { if (o.isSkinnedMesh && o.name === 'Eyebrows') hairMeshes.push(o); });
+  if (hair && kit.hair[hair.style]) for (const m of headPiece(body, kit.hair[hair.style], hair.color ?? 0x2a1c10)) { root.add(m); hairMeshes.push(m); }
 
   // ---- motion ----
   const mixer = new THREE.AnimationMixer(root);
@@ -184,27 +187,50 @@ export function createActor(kit, opts = {}) {
     if (current) current.crossFadeTo(next, fade, false);
     current = next; g.userData.clip = name;
   };
-  const rest = seated ? 'Sitting_Idle_Loop' : 'Idle_Loop', talk = seated ? 'Sitting_Talking_Loop' : 'Idle_Talking_Loop';
+  const rest = opts.rest || (seated ? 'Sitting_Idle_Loop' : 'Idle_Loop'), talk = opts.talk || (seated ? 'Sitting_Talking_Loop' : 'Idle_Talking_Loop');
   play(rest, 0);
   mixer.update(0.01); root.updateMatrixWorld(true);
 
   const head = { y: 0, x: 0, z: 0 };
+  const armBones = { l: [root.getObjectByName('upperarm_l'), root.getObjectByName('lowerarm_l'), root.getObjectByName('hand_l')], r: [root.getObjectByName('upperarm_r'), root.getObjectByName('lowerarm_r'), root.getObjectByName('hand_r')] };
+  let armsUp = 0;
+  let armPose = null; // { side: 1|-1, x, y, z, amount } for one arm, in the figure's own frame; cleared each update
+  const _p0 = new THREE.Vector3(), _p1 = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3();
+  const _qd = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qw = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qg = new THREE.Quaternion();
+  // Swing a bone (and so the limb beneath it) until it points along `target` (world space), by `amount` of the way.
+  const aim = (bone, child, target, amount) => {
+    bone.updateWorldMatrix(true, true);
+    bone.getWorldPosition(_p0); child.getWorldPosition(_p1); _d.subVectors(_p1, _p0).normalize();
+    _qd.setFromUnitVectors(_d, target); _qd.slerp(_qi.identity(), 1 - amount);
+    bone.getWorldQuaternion(_qw); _qw.premultiply(_qd);
+    bone.parent.getWorldQuaternion(_qp); bone.quaternion.copy(_qp.invert().multiply(_qw));
+    bone.updateWorldMatrix(false, true);
+  };
   const api = {
     skeletal: true, mixer, actions, play, rest, talk, body, root, parts: null, bind: bp,
     // sit the pelvis on a seat: `seatY` is the cushion's top in the parent's space
+    // hold one arm along a direction (the figure's own frame: x to its left, y up, z forward) on the next update
+    pose(side, x, y, z, amount = 1) { armPose = { side, x, y, z, amount }; },
+    // recolour for a stand-in: the top, the skin tone multiplier and the hair
+    recolor({ top, tone, hair: hairColor } = {}) {
+      if (top !== undefined) topMat.color.setHex(top);
+      if (tone !== undefined) body.material.color.setRGB(tone, tone * 0.97, tone * 0.94);
+      if (hairColor !== undefined) for (const m of hairMeshes) m.material.color.setHex(hairColor);
+    },
     seatOn(seatY) {
       const pel = root.getObjectByName('pelvis'); pel.updateWorldMatrix(true, false);
       const wy = new THREE.Vector3().setFromMatrixPosition(pel.matrixWorld).y;
       g.position.y += seatY + 0.07 - wy;
     },
     // the life pass calls this each frame with the mood and whether this person is the one talking
-    react({ t, phase = 0, talking = false, mood = null, glance = 0.13 }) {
+    react({ t, phase = 0, talking = false, mood = null, glance = 0.13, cheers = false }) {
       let want = talking ? talk : rest;
       let lift = 0;
       if (mood) {
         const env = Math.max(0, Math.min(1, mood.t / 0.35, (mood.total - mood.t) / 0.35));
-        if (mood.kind === 'happy') { want = talk; lift = -0.1 * env; } else lift = 0.22 * env;
-      }
+        if (mood.kind === 'happy') { want = talk; lift = -0.1 * env; armsUp = cheers ? env : 0; } else lift = 0.22 * env;
+      } else armsUp = 0;
+      if (opts.setArmsUp !== undefined) armsUp = opts.setArmsUp; // look-dev hook
       if (want !== g.userData.clip) play(want);
       head.y = Math.sin(t * 0.35 + phase) * glance + Math.sin(t * 1.27 + phase * 2) * 0.02;
       head.x = Math.sin(t * 0.29 + phase * 2) * 0.04 + lift;
@@ -212,6 +238,19 @@ export function createActor(kit, opts = {}) {
     },
     update(dt) {
       mixer.update(dt);
+      if (armsUp > 0.001) { // arms thrown up and out, both sides (cheering): aim each arm along a world direction
+        g.getWorldQuaternion(_qg);
+        for (const [side, bones] of [[1, armBones.l], [-1, armBones.r]]) {
+          _t.set(side * 0.42, 1, 0.12).normalize().applyQuaternion(_qg);
+          aim(bones[0], bones[1], _t, armsUp); aim(bones[1], bones[2], _t, armsUp);
+        }
+      }
+      if (armPose) {
+        g.getWorldQuaternion(_qg); const bones = armPose.side > 0 ? armBones.l : armBones.r;
+        _t.set(armPose.x, armPose.y, armPose.z).normalize().applyQuaternion(_qg);
+        aim(bones[0], bones[1], _t, armPose.amount); aim(bones[1], bones[2], _t, armPose.amount);
+        armPose = null;
+      }
       if (headBone) { headBone.rotation.y += head.y; headBone.rotation.x += head.x; headBone.rotation.z += head.z; }
     },
     dispose() { mixer.stopAllAction(); root.traverse((o) => { if (o.isMesh) { o.geometry.dispose?.(); } }); },
