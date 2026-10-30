@@ -5,6 +5,23 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.92.0 — HD-2D: pixel-art people in the 3D studio (2026-10-30)
+
+**Direction change after the v2.91 feedback: instead of making realistic 3D humans look good, the people become pixel art standing in the lit 3D set (the "HD-2D" look of Octopath Traveler).**
+
+- **Pixel-art people.** `stage/spriteActors.js` draws the host, contestant, two crew and the crowd stand-in as cards that
+  always face the camera, lit by the studio's lights and casting shadows. The art (five looks x five poses: idle, talk,
+  cheer, wave, worry) is drawn as code with the pxl pixel-art tool (`tools/hd2d/people.px.js`, built into
+  `assets/hd2d/people/*.png`, about 1.4 KB each by `tools/hd2d/build-people.mjs`; dev-only, not published). A sprite
+  actor has exactly the interface of the 3D actors, so `studio.js`, the green room and every scene are unchanged.
+- **Pixel-art audience.** The 3D crowd becomes one instanced card per seat (same seat map as before, so the wave,
+  cough and walk-out moments work unchanged), each tinted by its seat colour, flipping between two frames out of step.
+- **Tilt-shift.** The top and bottom bands of the frame are blurred (compositor `backdrop-filter`, no GPU post chain) so
+  only a middle band is sharp, the depth of field that carries most of the HD-2D look. It is part of the film look
+  (`?film=0` removes it).
+- **Choice of people.** `?people=3d` brings back the rigged bodies of v2.89-2.91, `?people=procedural` the capsules.
+  Gameplay, questions, scoring and the HUD are untouched.
+
 ## v2.91.0 — Medium is the default again; people are no longer built like bodybuilders (2026-10-29)
 
 **Feedback on v2.90: "the models look janky… why are they all so buff? And what's with the tight shirts?" and the black area was confirmed gone with 8-bit targets.**

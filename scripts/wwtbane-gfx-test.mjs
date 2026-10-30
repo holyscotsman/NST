@@ -251,10 +251,11 @@ function diffFraction(a, b) {
   await ctx.close();
 }
 
-/* The people. The set is built with capsule people and, once the ~3 MB kit (rigged bodies, hair, animation clips,
- * all CC0 -- see wwtbane/assets/people/ATTRIBUTIONS.md) has loaded, the host, the contestant and the two crew are
- * swapped for rigged ones. Prove the swap happens, that they stand where the set expects, that they are really
- * animating, and that ?people=procedural keeps the old ones. */
+/* The people. The set is built with capsule people and, once the sprite sheets (a few KB of pixel art drawn with pxl, see
+ * wwtbane/tools/hd2d/) have loaded, the host, the contestant, the two crew and the crowd stand-in become pixel-art
+ * cards that face the camera, and the audience becomes pixel-art cards too. Prove the swap happens, that they stand
+ * where the set expects, that they animate, and that ?people=3d (rigged bodies) and ?people=procedural (capsules)
+ * still work. */
 {
   const { ctx, page } = await boot('low');
   const failed = [];
@@ -263,22 +264,35 @@ function diffFraction(a, b) {
   await page.waitForFunction(() => window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 5, null, { timeout: 240000 });
   const info = await page.evaluate(() => {
     const s = window.__wwt.studio(); const out = {};
-    for (const e of s._studioPeople.filter((x) => x.skeletal)) {
-      const head = e.g.getObjectByName('Head'); head.updateWorldMatrix(true, false);
-      const y = head.matrixWorld.elements[13];
-      out[e.role + (out[e.role] ? '2' : '')] = { clip: e.g.userData.clip, headY: +y.toFixed(2) };
-    }
+    for (const e of s._studioPeople.filter((x) => x.skeletal)) out[e.role + (out[e.role] ? '2' : '')] = { sprite: !!e.g.userData.sprite, look: e.g.userData.look, y: +e.g.position.y.toFixed(2) };
     return out;
   });
-  ok('the host, the contestant, both crew and the crowd stand-in are swapped for rigged people', Object.keys(info).length === 5, JSON.stringify(info));
-  ok('the host sits (a sitting clip, head above the cushion)', /Sitting/.test(info.host.clip) && info.host.headY > 1.2 && info.host.headY < 2.1, JSON.stringify(info.host));
-  ok('the crew stand (a standing clip, head at standing height)', /^Idle/.test(info.crew.clip) && info.crew.headY > 1.3 && info.crew.headY < 2.0, JSON.stringify(info.crew));
-  const before = await page.evaluate(() => window.__wwt.studio()._studioPeople.find((e) => e.role === 'host').g.getObjectByName('hand_l').matrixWorld.elements.slice(12, 15).join(','));
-  await page.waitForTimeout(1500);
-  const after = await page.evaluate(() => { const h = window.__wwt.studio()._studioPeople.find((e) => e.role === 'host').g.getObjectByName('hand_l'); h.updateWorldMatrix(true, false); return h.matrixWorld.elements.slice(12, 15).join(','); });
-  ok('they are animating: the host\'s hand has moved', before !== after, `${before} -> ${after}`);
+  ok('the host, the contestant, both crew and the crowd stand-in are swapped for pixel-art people', Object.keys(info).length === 5 && Object.values(info).every((v) => v.sprite), JSON.stringify(info));
+  ok('the host sits on the cushion and has the host sheet', info.host.look === 'host' && info.host.y > 0.8 && info.host.y < 1.1, JSON.stringify(info.host));
+  ok('the crew stand on the deck', info.crew.y === 0, JSON.stringify(info.crew));
+  const frames = await page.evaluate(async () => {
+    const m = window.__wwt.studio()._studioPeople.find((e) => e.role === 'crew').g.children[0]; const seen = new Set();
+    for (let i = 0; i < 12; i++) { seen.add(m.material.map.offset.x + ',' + m.material.map.offset.y); await new Promise((r) => setTimeout(r, 250)); }
+    return [...seen];
+  });
+  ok('they are animating: a crew member shows more than one frame over three seconds', frames.length > 1, frames.join(' | '));
+  const crowd = await page.evaluate(async () => { const s = window.__wwt.studio(); await s._crowdReady; return { geo: s._crowd.meshes[0].geometry.type, count: s._crowd.meshes[0].count }; });
+  ok('the audience is pixel-art cards, one per seat', crowd.geo === 'PlaneGeometry' && crowd.count > 50, JSON.stringify(crowd));
   ok('every asset request succeeded', failed.length === 0, failed.slice(0, 3).join(' | '));
   await ctx.close();
+
+  const ctx3d = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctx3d.addInitScript(() => { try { localStorage.setItem('wwtbane.e2e', '1'); localStorage.setItem('nst.activeBank', 'ncp-mci'); localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } })); } catch { /* storage blocked */ } });
+  const p3d = await ctx3d.newPage();
+  await p3d.goto(`${B}/wwtbane/?quality=low&people=3d`, { waitUntil: 'load', timeout: 90000 });
+  await p3d.waitForFunction(() => window.__wwt && window.__wwt.studio && window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 5, null, { timeout: 240000 });
+  const rig = await p3d.evaluate(() => {
+    const s = window.__wwt.studio(); const out = {};
+    for (const e of s._studioPeople.filter((x) => x.skeletal)) { const head = e.g.getObjectByName('Head'); head.updateWorldMatrix(true, false); out[e.role + (out[e.role] ? '2' : '')] = { clip: e.g.userData.clip, headY: +head.matrixWorld.elements[13].toFixed(2) }; }
+    return out;
+  });
+  ok('?people=3d still brings the rigged bodies: the host sits, the crew stand', /Sitting/.test(rig.host.clip) && rig.host.headY > 1.2 && /^Idle/.test(rig.crew.clip) && rig.crew.headY > 1.3, JSON.stringify(rig));
+  await ctx3d.close();
 
   const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await ctx2.addInitScript(() => { try { localStorage.setItem('wwtbane.e2e', '1'); localStorage.setItem('nst.activeBank', 'ncp-mci'); localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } })); } catch { /* storage blocked */ } });
@@ -295,9 +309,9 @@ function diffFraction(a, b) {
  * be on there, off where the real chain runs, off with ?film=0, and it must never block clicks on the page. */
 {
   const { ctx, page } = await boot('low');
-  const low = await page.evaluate(() => ({ canvas: document.querySelector('#studio-root canvas').classList.contains('film-graded'), layers: [...document.querySelectorAll('#studio-root .film-bloom.film-on, #studio-root .film-vignette.film-on, #studio-root .film-grain.film-on')].length, events: [...document.querySelectorAll('#studio-root .film-bloom, #studio-root .film-vignette, #studio-root .film-grain')].map((e) => getComputedStyle(e).pointerEvents) }));
-  ok('on the direct-render tier the film look is on (graded canvas, three layers)', low.canvas && low.layers === 3, JSON.stringify(low));
-  ok('and its layers let every click through to the page', low.events.length === 3 && low.events.every((v) => v === 'none'), low.events.join(','));
+  const low = await page.evaluate(() => ({ canvas: document.querySelector('#studio-root canvas').classList.contains('film-graded'), layers: [...document.querySelectorAll('#studio-root .film-bloom.film-on, #studio-root .film-vignette.film-on, #studio-root .film-grain.film-on, #studio-root .film-tilt.film-on')].length, events: [...document.querySelectorAll('#studio-root .film-bloom, #studio-root .film-vignette, #studio-root .film-grain, #studio-root .film-tilt')].map((e) => getComputedStyle(e).pointerEvents) }));
+  ok('on the direct-render tier the film look is on (graded canvas, five layers: bloom, two tilt-shift bands, vignette, grain)', low.canvas && low.layers === 5, JSON.stringify(low));
+  ok('and its layers let every click through to the page', low.events.length === 5 && low.events.every((v) => v === 'none'), low.events.join(','));
   await ctx.close();
   const m = await boot('medium');
   const med = await m.page.evaluate(() => document.querySelector('#studio-root canvas').classList.contains('film-graded'));
@@ -309,7 +323,7 @@ function diffFraction(a, b) {
   await p3.goto(`${B}/wwtbane/?quality=low&film=0`, { waitUntil: 'load', timeout: 90000 });
   await p3.waitForFunction(() => window.__wwt && window.__wwt.gfx && window.__wwt.gfx(), null, { timeout: 90000 });
   await p3.waitForTimeout(3000);
-  const off = await p3.evaluate(() => ({ g: document.querySelector('#studio-root canvas').classList.contains('film-graded'), n: document.querySelectorAll('#studio-root .film-bloom, #studio-root .film-vignette, #studio-root .film-grain').length }));
+  const off = await p3.evaluate(() => ({ g: document.querySelector('#studio-root canvas').classList.contains('film-graded'), n: document.querySelectorAll('#studio-root .film-bloom, #studio-root .film-vignette, #studio-root .film-grain, #studio-root .film-tilt').length }));
   ok('[neg] ?film=0 turns it off and adds no layers', off.g === false && off.n === 0, JSON.stringify(off));
   await ctx3.close();
 }

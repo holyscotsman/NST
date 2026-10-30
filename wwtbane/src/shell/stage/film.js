@@ -8,6 +8,8 @@
 //   bloom      a tiny copy of the frame, thresholded by a CSS contrast curve, blurred by CSS and screen-blended
 //              over the picture (bright neon bleeds, darks stay dark)
 //   grade      one CSS filter on the canvas: contrast and saturation
+//   tilt-shift the top and bottom bands of the frame blurred (backdrop-filter) so only a middle band is sharp: the
+//              depth-of-field of a diorama, which is most of the HD-2D look
 //   vignette   a radial gradient
 //   grain      a tiled noise image, overlay-blended, stepped a few times a second
 //
@@ -17,8 +19,9 @@ export function createFilm({ canvas, container, reduced = false }) {
   const mk = (cls, tag = 'div') => { const e = document.createElement(tag); e.className = cls; e.setAttribute('aria-hidden', 'true'); return e; };
   const bloom = mk('film-bloom', 'canvas');
   const vignette = mk('film-vignette');
+  const tiltTop = mk('film-tilt film-tilt-top'), tiltBot = mk('film-tilt film-tilt-bot');
   const grain = mk('film-grain');
-  container.append(bloom, vignette, grain);
+  container.append(bloom, tiltTop, tiltBot, vignette, grain);
   let bctx = null; try { bctx = bloom.getContext('2d', { alpha: false }); } catch { bctx = null; }
   let on = false, skip = 0, steps = 0, t = 0, failed = false;
 
@@ -34,7 +37,7 @@ export function createFilm({ canvas, container, reduced = false }) {
     setEnabled(v) {
       on = !!v && !!bctx && !failed;
       canvas.classList.toggle('film-graded', on);
-      for (const e of [bloom, vignette, grain]) e.classList.toggle('film-on', on);
+      for (const e of [bloom, vignette, grain, tiltTop, tiltBot]) e.classList.toggle('film-on', on);
     },
     resize: fit,
     // Call once per frame, right after the scene has been rendered.
@@ -46,7 +49,7 @@ export function createFilm({ canvas, container, reduced = false }) {
       try { bctx.drawImage(canvas, 0, 0, bloom.width, bloom.height); }
       catch { failed = true; film.setEnabled(false); } // a browser that refuses to copy a WebGL canvas just goes without
     },
-    dispose() { bloom.remove(); vignette.remove(); grain.remove(); canvas.classList.remove('film-graded'); },
+    dispose() { bloom.remove(); vignette.remove(); grain.remove(); tiltTop.remove(); tiltBot.remove(); canvas.classList.remove('film-graded'); },
   };
   return film;
 }
