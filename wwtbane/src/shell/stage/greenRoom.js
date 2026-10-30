@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { PAL, mat, cyl, box, sph, pos, rimLit } from './kit.js';
 import { person, crewPerson } from './people.js';
-import { loadActorKit, createActor } from './actors.js';
+import { loadPeople } from './spriteActors.js';
 import { screenTexture } from './textures.js';
 
 const rbox = (w, h, d, m, r = 0.05) => new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, r), m);
@@ -153,11 +153,11 @@ export function buildGreen(studio) {
 
   // Swap the capsule people for rigged ones once the kit has loaded (see studioSet.js; same people, same outfits).
   (async () => {
-    let kit = null;
-    try { if (!/[?&]people=procedural/.test(window.location.search)) kit = await loadActorKit(); } catch { kit = null; }
-    if (!kit) return;
+    let people = null;
+    try { people = await loadPeople(); } catch { people = null; }
+    if (!people) return;
     const swap = (old, opts, seatY) => {
-      const g = createActor(kit, opts);
+      const g = people.create(opts);
       g.position.set(old.position.x, 0, old.position.z + (seatY ? 0.1 : 0)); g.rotation.y = old.rotation.y; g.visible = old.visible;
       if (seatY) g.userData.seatOn(seatY);
       s.remove(old); s.add(g);

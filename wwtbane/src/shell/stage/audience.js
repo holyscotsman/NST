@@ -18,6 +18,7 @@
 import * as THREE from 'three';
 import { PAL, mat, mergeGeos, rimLit } from './kit.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { crowdSprites } from './spriteActors.js';
 
 const CROWD_ROOT = new URL('../../../assets/people/crowd/', import.meta.url).href;
 
@@ -68,7 +69,7 @@ export function buildAudience({ tier, accent }) {
   const shirtCols = [0x23263f, 0x2d2236, 0x1f3030, 0x3a3018, 0x26262e, 0x25301d, 0x35222f, 0x1d2740, 0x2b2b3a];
   const skinCols = [0xa98265, 0xbf9670, 0x8d6342, 0x6f452d, 0xc9a98a, 0x84553a];
   const hairCols = [0x1a140e, 0x0c0907, 0x2c1f12, 0x45454e, 0x1e1815];
-  const o = new THREE.Object3D(), col = new THREE.Color();
+  const o = new THREE.Object3D(), col = new THREE.Color(), white = new THREE.Color(0xffffff);
   const seats = [];
   let count = 0;
 
@@ -125,7 +126,7 @@ export function buildAudience({ tier, accent }) {
   const cardGeo = new THREE.PlaneGeometry(0.16, 0.22);
   const cardMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
   const voteCards = new THREE.InstancedMesh(cardGeo, cardMat, total);
-  const cardO = new THREE.Object3D(), white = new THREE.Color(0xffffff);
+  const cardO = new THREE.Object3D();
   for (let i = 0; i < seats.length; i++) {
     const st = seats[i], dl = Math.hypot(st.x, st.z) || 1, ux = -st.x / dl, uz = -st.z / dl;
     cardO.position.set(st.x + ux * 0.28, st.y + 1.34 * st.scale, st.z + uz * 0.28);
@@ -152,5 +153,26 @@ export function buildAudience({ tier, accent }) {
     } catch (e) { console.warn('[wwtbane] baked crowd unavailable — keeping the capsule crowd', e); return false; }
   }
 
-  return { group, meshes, chairs, seats, voteCards, total, phones, upgrade };
+  // HD-2D crowd: the body instances become pixel-art cards (same matrices, same seat map, so the studio's wave / cough /
+  // leave code is untouched); the separate head and hair instances are not needed any more.
+  let spriteBob = null;
+  function useSprites(kit) {
+    if (!kit) return false;
+    try {
+      const looks = { m: 'fan', f: 'stage' }, flips = [];
+      for (const v of ['m', 'f']) {
+        const V = variants[v], cs = crowdSprites(kit, looks[v]);
+        const old = V.body.geometry; V.body.geometry = cs.geometry; V.body.material = cs.material; old.dispose();
+        // tint: the seat's muted shirt colour, lifted so the sprite's own colours still show
+        seats.forEach((st, i) => { const k = V.body.userData.map[i]; if (st.v === v && k >= 0) V.body.setColorAt(k, col.setHex(st.shirt).multiplyScalar(3.4)); });
+        if (V.body.instanceColor) V.body.instanceColor.needsUpdate = true;
+        V.head.visible = false; V.hair.visible = false;
+        flips.push(cs.flip);
+      }
+      spriteBob = (t) => { flips[0](Math.floor(t * 1.1) & 1); flips[1](Math.floor(t * 1.1 + 0.5) & 1); };
+      return true;
+    } catch (e) { console.warn('[wwtbane] sprite crowd unavailable', e); return false; }
+  }
+
+  return { group, meshes, chairs, seats, voteCards, total, phones, upgrade, useSprites, bob: (t) => spriteBob && spriteBob(t) };
 }
