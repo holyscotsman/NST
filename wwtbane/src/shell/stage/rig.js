@@ -11,6 +11,7 @@
 // turns to point at where its beam lands, and a soft pool of light is laid on
 // the deck where the beam meets it (and, on the mirror tier, doubled in the glass).
 import * as THREE from 'three';
+import { pbr } from './pbr.js';
 import { PAL } from './kit.js';
 
 const BEAM_VERT = [
@@ -53,7 +54,7 @@ const POOL_VERT = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projec
 
 export function buildRig({ tier, accent, radius = 8, y = 6.4 }) {
   const group = new THREE.Group();
-  const dark = new THREE.MeshStandardMaterial({ color: 0x14151d, metalness: 0.85, roughness: 0.42 });
+  const dark = pbr(new THREE.MeshStandardMaterial({ color: 0x14151d, metalness: 0.85, roughness: 0.42 }), 'steel', { repeat: [3, 1], color: 0x6a6a76, rough: 1, metal: 0.9 });
 
   // ---- truss: two chords and a lattice of diagonals between them ----
   const chordGeo = (yy) => { const g = new THREE.TorusGeometry(radius, 0.06, 8, 96); g.rotateX(Math.PI / 2); g.translate(0, yy, 0); return g; };

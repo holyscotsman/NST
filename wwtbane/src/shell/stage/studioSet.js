@@ -25,6 +25,7 @@ import { buildAudience } from './audience.js';
 import { buildCore } from './core.js';
 import { person, setMouth, crewPerson } from './people.js';
 import { loadPeople, loadSpriteKit } from './spriteActors.js';
+import { pbr } from './pbr.js';
 import { studioCamera, piggyBank } from './props.js';
 import { screenTexture, wallMarkTexture, softDotTexture } from './textures.js';
 
@@ -32,10 +33,10 @@ import { screenTexture, wallMarkTexture, softDotTexture } from './textures.js';
 // footrest ring. Cushion top sits at y = 0.93 so the seated figures keep their pose.
 function hotSeat(x, accent) {
   const g = new THREE.Group();
-  const shell = new THREE.MeshStandardMaterial({ color: 0x15162a, metalness: 0.55, roughness: 0.38 });
+  const shell = pbr(new THREE.MeshStandardMaterial({ color: 0x15162a, metalness: 0.55, roughness: 0.38 }), 'leather', { repeat: [1.6, 1.6], color: 0x6a6a92, rough: 0.9, metal: 0.25, normalScale: 1.1 });
   const trim = accent.track(new THREE.MeshStandardMaterial({ color: 0x000000, emissiveIntensity: 1 }), 2.4, true);
-  const post = cyl(0.07, 0.09, 0.8, mat(0x0d0e18, 0x000000, 0, 0.3, 0.9)); post.position.y = 0.4; g.add(post);
-  const base = cyl(0.34, 0.38, 0.06, mat(0x0d0e18, 0x000000, 0, 0.3, 0.9)); base.position.y = 0.03; g.add(base);
+  const post = cyl(0.07, 0.09, 0.8, pbr(mat(0x0d0e18, 0x000000, 0, 0.3, 0.9), 'steel', { repeat: [1, 2], color: 0x70707c, rough: 1, metal: 0.95 })); post.position.y = 0.4; g.add(post);
+  const base = cyl(0.34, 0.38, 0.06, pbr(mat(0x0d0e18, 0x000000, 0, 0.3, 0.9), 'steel', { repeat: [3, 1], color: 0x70707c, rough: 1, metal: 0.95 })); base.position.y = 0.03; g.add(base);
   const baseRing = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.014, 8, 48), trim); baseRing.rotation.x = Math.PI / 2; baseRing.position.y = 0.065; g.add(baseRing);
   const cushion = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.14, 0.58, 4, 0.05), shell); cushion.position.y = 0.86; g.add(cushion);
   const back = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.98, 0.11, 4, 0.05), shell); back.position.set(0, 1.4, -0.3); back.rotation.x = -0.1; g.add(back);

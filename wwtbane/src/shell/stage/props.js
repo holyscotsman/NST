@@ -1,12 +1,13 @@
 // props.js — set dressing that is neither a person nor architecture.
 import * as THREE from 'three';
 import { PAL, mat, cyl, box, sph } from './kit.js';
+import { pbr } from './pbr.js';
 
 // A broadcast pedestal camera for the fourth wall — body, lens, red tally
 // light, and a little operator monitor on the back.
 export function studioCamera(screenMat) {
   const g = new THREE.Group();
-  const dark = mat(0x14141f, 0x000000, 0, 0.5, 0.5);
+  const dark = pbr(mat(0x14141f, 0x000000, 0, 0.5, 0.5), 'carbon', { repeat: [2, 2], color: 0x8a8aa0, rough: 0.9, metal: 0.4 });
   const ped = cyl(0.09, 0.14, 1.3, dark); ped.position.y = 0.65; g.add(ped);
   const base = cyl(0.3, 0.34, 0.08, dark); base.position.y = 0.04; g.add(base);
   const body = box(0.42, 0.34, 0.62, mat(0x1b1b2a, PAL.aqua, 0.08, 0.5, 0.5)); body.position.y = 1.45; g.add(body);
@@ -22,7 +23,7 @@ export function studioCamera(screenMat) {
 // An original piggy bank on a lit pedestal — the show's coin vault mascot.
 export function piggyBank(x, z) {
   const g = new THREE.Group();
-  const pedestal = cyl(0.5, 0.62, 1.0, mat(0x101020, 0x1FDDE9, 0.08, 0.4, 0.6)); pedestal.position.y = 0.5; g.add(pedestal);
+  const pedestal = cyl(0.5, 0.62, 1.0, pbr(mat(0x101020, 0x1FDDE9, 0.08, 0.4, 0.6), 'onyx', { repeat: [2, 1], color: 0x9a9ab8, rough: 0.8, metal: 0.3 })); pedestal.position.y = 0.5; g.add(pedestal);
   const top = cyl(0.56, 0.5, 0.08, mat(0x000000, 0xFFC857, 0.35)); top.position.y = 1.02; g.add(top);
   const goldM = mat(0xffc857, 0xFFC857, 0.28, 0.35, 0.35);
   const body = sph(0.42, goldM); body.scale.set(1.18, 0.92, 1); body.position.y = 1.48; g.add(body);
