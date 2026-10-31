@@ -9,9 +9,10 @@
 // with ?people=3d, the original procedural capsules with ?people=procedural.
 import * as THREE from 'three';
 import { loadActorKit, createActor } from './actors.js';
+import { LOOKS, pickLook } from './looks.js';
+import { loadVoxelKit, createVoxelActor } from './voxelActors.js';
 
 const ROOT = new URL('../../../assets/hd2d/people/', import.meta.url).href;
-export const LOOKS = ['host', 'player', 'op', 'stage', 'fan'];
 const POSES = ['idle', 'talk', 'cheer', 'wave', 'worry'];
 const FRAMES = { idle: 2, talk: 2, cheer: 2, wave: 2, worry: 1 };
 const FPS = { idle: 2, talk: 6, cheer: 6, wave: 6, worry: 1 };
@@ -37,16 +38,6 @@ export function loadSpriteKit() {
     })().catch((e) => { console.warn('[wwtbane] sprite people unavailable', e); return null; });
   }
   return kitPromise;
-}
-
-// Which sheet a person uses: an explicit opts.look, else a guess from the outfit and sex the 3D actors were given.
-function pickLook(opts) {
-  if (opts.look && LOOKS.includes(opts.look)) return opts.look;
-  const top = opts.outfit?.top;
-  if (top === 'jacket') return 'host';
-  if (top === 'hoodie') return 'player';
-  if (top === 'shirt') return 'stage';
-  return opts.sex === 'f' ? 'stage' : 'op';
 }
 
 const _p = new THREE.Vector3();
@@ -135,16 +126,20 @@ export function crowdSprites(kit, look) {
   return { geometry, material, flip };
 }
 
-// The people a set builder should use: { create(opts) } or null (use the procedural capsules).
+// The people a set builder should use: { kind, create(opts) } or null (use the procedural capsules).
+//   default             voxel people (assets/voxel/people, built with kiln)
+//   ?people=sprite      pixel-art cards (assets/hd2d/people)
+//   ?people=3d          the rigged bodies of v2.89-2.91
+//   ?people=procedural  the original capsules
 export async function loadPeople() {
   const q = typeof window !== 'undefined' ? window.location.search : '';
   if (/[?&]people=procedural/.test(q)) return null;
-  if (/[?&]people=3d/.test(q)) {
-    const kit = await loadActorKit();
-    return kit ? { kind: '3d', create: (o) => createActor(kit, o) } : null;
-  }
-  const kit = await loadSpriteKit();
-  if (kit) return { kind: 'sprite', create: (o) => createSpriteActor(kit, o) };
-  const kit3 = await loadActorKit();                      // sprites unavailable: fall back to the 3D people
-  return kit3 ? { kind: '3d', create: (o) => createActor(kit3, o) } : null;
+  const rigged = async () => { const kit = await loadActorKit(); return kit ? { kind: '3d', create: (o) => createActor(kit, o) } : null; };
+  if (/[?&]people=3d/.test(q)) return rigged();
+  if (/[?&]people=sprite/.test(q)) { const kit = await loadSpriteKit(); return kit ? { kind: 'sprite', create: (o) => createSpriteActor(kit, o) } : rigged(); }
+  const vox = await loadVoxelKit();
+  if (vox) return { kind: 'voxel', create: (o) => createVoxelActor(vox, o) };
+  const sprites = await loadSpriteKit();                  // voxels unavailable: fall back to sprites, then the 3D people
+  if (sprites) return { kind: 'sprite', create: (o) => createSpriteActor(sprites, o) };
+  return rigged();
 }
