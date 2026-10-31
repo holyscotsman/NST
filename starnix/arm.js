@@ -355,9 +355,12 @@
     function drawSprite(im, sizePx) {
       // assumes the caller has already translated/rotated into the actor's local frame
       c2d.save(); c2d.rotate(SPRITE_FACE);
+      c2d.imageSmoothingEnabled = false;   // the ship art is pixel art (drawn at 64px, see tools/hd2d/): keep it crisp
       c2d.drawImage(im, -sizePx / 2, -sizePx / 2, sizePx, sizePx);
       c2d.restore();
     }
+    // a pixel-art sprite drawn crisp, without disturbing the smoothing the painted backdrops use
+    function pxImg() { c2d.imageSmoothingEnabled = false; c2d.drawImage.apply(c2d, arguments); c2d.imageSmoothingEnabled = true; }
 
     /* ---------------------------------------------------------------------- */
     /* mastery / telemetry passthrough (guarded; never throws to gameplay)    */
@@ -1277,7 +1280,7 @@
           var bob = rm ? 0 : Math.sin(T * 1.4) * 6;
           if (stationOK) {
             c2d.save(); c2d.globalAlpha = stIn; c2d.shadowColor = COL.aqua; c2d.shadowBlur = 28;
-            c2d.drawImage(SPR.station, stCx - stSize / 2, stCy - stSize / 2 + bob, stSize, stSize);
+            pxImg(SPR.station, stCx - stSize / 2, stCy - stSize / 2 + bob, stSize, stSize);
             c2d.restore(); c2d.shadowBlur = 0;
           } else { drawStationVector(stCx, stCy + bob, stSize * 0.4, stIn); }
           var chg = clamp((T - (bFire - 1.0)) / 1.0, 0, 1);     // Disruptor charging at the source
@@ -1311,7 +1314,7 @@
               var fy = stCy + fdy * dcell * 0.5 + fdy * fly - shatter * shatter * 28;
               c2d.save(); c2d.globalAlpha = Math.max(0, 1 - shatter * 1.05);
               c2d.translate(fx, fy); c2d.rotate(shatter * (fdx - fdy + 0.5) * 1.1);
-              c2d.drawImage(SPR.station, gx * scell, gy * scell, scell, scell, -dcell / 2, -dcell / 2, dcell, dcell);
+              pxImg(SPR.station, gx * scell, gy * scell, scell, scell, -dcell / 2, -dcell / 2, dcell, dcell);
               c2d.restore();
             }
             c2d.globalAlpha = 1;
@@ -1357,7 +1360,7 @@
           for (var e = 0; e < 3; e++) {
             var ex = W * (0.3 + e * 0.2) + Math.sin(T * 2 + e) * 12, ey = diveY - 26 + (e % 2) * 22 - dv * 16, es = 30 + (e % 2) * 6;
             c2d.save(); c2d.translate(ex, ey); c2d.rotate(Math.PI); c2d.shadowColor = COL.peach; c2d.shadowBlur = 8;
-            c2d.drawImage(SPR.dive, -es / 2, -es / 2, es, es); c2d.restore(); c2d.shadowBlur = 0;
+            pxImg(SPR.dive, -es / 2, -es / 2, es, es); c2d.restore(); c2d.shadowBlur = 0;
           }
         }
         drawShipAt(W * 0.5, diveY + 8, Math.PI / 2, 1.2);                     // the player, diving after them
@@ -3048,7 +3051,7 @@
       }
       if (spriteReady(SPR.boss)) {
         var dw = Math.min(W * 0.62, 460), dh = dw * (SPR.boss.naturalHeight / SPR.boss.naturalWidth);
-        c2d.drawImage(SPR.boss, -dw / 2, -dh / 2, dw, dh);     // as-authored: prow points down at the player
+        pxImg(SPR.boss, -dw / 2, -dh / 2, dw, dh);     // as-authored: prow points down at the player
         if (!reducedMotion) {                                  // (v0.76.0) running lights sweep the hull
           var sw76 = ((now() / 1000) * 0.55) % 1;
           c2d.shadowBlur = 10; c2d.shadowColor = COL.gold; c2d.fillStyle = COL.gold;
@@ -3144,7 +3147,7 @@
         } else if (landmark.kind === 'derelict') {
           c2d.translate(lx, ly); c2d.rotate(landmark.rot);
           c2d.globalAlpha = 0.35 * nbAlpha;
-          if (spriteReady(SPR.station)) c2d.drawImage(SPR.station, -landmark.r, -landmark.r, landmark.r * 2, landmark.r * 2);
+          if (spriteReady(SPR.station)) pxImg(SPR.station, -landmark.r, -landmark.r, landmark.r * 2, landmark.r * 2);
           else { c2d.fillStyle = 'rgba(154,154,173,0.35)'; c2d.fillRect(-landmark.r * 0.8, -landmark.r * 0.25, landmark.r * 1.6, landmark.r * 0.5); }
         } else {
           c2d.translate(lx, ly); c2d.rotate(landmark.rot);
@@ -3455,7 +3458,7 @@
       c2d.save(); c2d.globalCompositeOperation = "lighter"; c2d.fillStyle = rg;
       c2d.beginPath(); c2d.arc(cx, NOZ_Y, bloomR, 0, TAU); c2d.fill(); c2d.restore();
       c2d.save(); c2d.shadowBlur = 18; c2d.shadowColor = COL.iris;          // soft iris rim lifts the hull off the streaks
-      c2d.drawImage(SPR.warp, cx - w / 2, sy - h / 2, w, h);               // forward (vertical) stretch only; width stays w
+      pxImg(SPR.warp, cx - w / 2, sy - h / 2, w, h);               // forward (vertical) stretch only; width stays w
       c2d.restore(); c2d.shadowBlur = 0;
     }
     function drawBackdrop() {
