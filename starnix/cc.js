@@ -1052,7 +1052,7 @@
     this._wasJump = false; this._landT = 0; this._landDip = 0;   // landing squash + camera dip
 
     var renderer = this.renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: false, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(0.34);   // HD-2D: draw the canyon at about a third of the screen resolution and let the browser scale it up with hard edges (see .cc-canvas) so the 3D scene reads as chunky pixel art, like the sprites
+    renderer.setPixelRatio(Math.min(typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1, 2));
     if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.setClearColor(0x1a1326, 1);
     if (renderer.shadowMap) { renderer.shadowMap.enabled = true; if (THREE.PCFSoftShadowMap) renderer.shadowMap.type = THREE.PCFSoftShadowMap; }   // (Jason) shadows — depth cue so overhead arches read differently from ground rocks (guarded: headless mock renderer has no shadowMap)
@@ -1215,7 +1215,6 @@
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repX, repY);
     if (srgb && THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
     t.anisotropy = 16;   // max; kills distance shimmer/strobe on the scrolling rock
-    if (srgb && THREE.NearestFilter) { t.magFilter = THREE.NearestFilter; if (THREE.NearestMipmapLinearFilter) t.minFilter = THREE.NearestMipmapLinearFilter; }   // the colour textures are pixel art now (tools/hd2d/): crisp texels at every distance, mips still stop far shimmer
     this._disposables.push(t);
     return t;
   };
@@ -1576,7 +1575,6 @@
     if (A.ccShip) {
       // (04 task 6) rear-view billboard on a camera-facing plane — recommended over a 3D model for the fixed chase cam.
       var tex = this._tex(A.ccShip, 1, 1, true);
-      if (tex && THREE.NearestFilter) { tex.magFilter = THREE.NearestFilter; tex.needsUpdate = true; }   // pixel-art ship (tools/hd2d/)
       if (tex && tex.repeat && tex.repeat.set) { tex.repeat.set(1, 1); if (THREE.ClampToEdgeWrapping) { tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping; } }
       var pm = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
       if (pm.depthWrite !== undefined) pm.depthWrite = false;
@@ -2979,7 +2977,7 @@
 
   var CC_CSS = '<style>' +
     '.cc-root{position:absolute;inset:0;overflow:hidden;font-family:Montserrat,Arial,sans-serif;color:#F2F2F7;background:radial-gradient(120% 100% at 50% -10%,#15152a 0%,#0a0a16 55%,#05050b 100%);}' +
-    '.cc-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;}' +
+    '.cc-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}' +
     '.cc-fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;color:#AC9BFD;font-size:14px;}' +
     '.cc-hud{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:14px;align-items:center;z-index:5;pointer-events:none;flex-wrap:wrap;}' +
     '.cc-shieldwrap{display:flex;flex-direction:column;gap:3px;}' +

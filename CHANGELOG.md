@@ -5,22 +5,6 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
-## v2.93.0 — HD-2D in StarNix: pixel-art ships, station and canyon (2026-10-31)
-
-**The same HD-2D look as the WWTBANE studio, applied to all three StarNix games without touching their rules.**
-
-- **Kuiper Belt Battle.** The three hero ships, the BCM raider and warship and the asteroids are redrawn as 64 px pixel
-  art (drawn as code with the pxl tool: `starnix/tools/hd2d/kbb.px.js`, written into the inlined `assets.js` by
-  `build-kbb.mjs`), and drawn with image smoothing off so the pixels stay crisp.
-- **Acropolis Rescue.** The fighter, the BCM fighter and its dive variant, the Acropolis station (now a ring habitat
-  with a spire and solar wings, so the shatter animation still cuts it into its 3x3 pieces) and the BCM warship are pixel
-  art too (`arm.px.js`, `build-arm.mjs`). The shared player ship (`ccShip`, `armWarp`) uses the same fighter.
-- **Chasm Chase.** The canyon is drawn at about a third of the screen resolution and scaled up with hard edges
-  (`image-rendering: pixelated`), and its rock and ground textures are reduced to small palettes
-  (`build-cc.mjs`), so the 3D scene reads as chunky pixel art next to the sprites.
-- Smaller assets: the art for these files went from about 1.25 MB to about 1.0 MB. Questions, scoring, balance and
-  controls are untouched (StarNix's own suites all pass: build verify 556, ARM 163, CC 124, KBB 156 + 16 + balance).
-
 ## v2.92.0 — HD-2D: pixel-art people in the 3D studio (2026-10-30)
 
 **Direction change after the v2.91 feedback: instead of making realistic 3D humans look good, the people become pixel art standing in the lit 3D set (the "HD-2D" look of Octopath Traveler).**

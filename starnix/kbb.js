@@ -1601,7 +1601,6 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
         var img = assetImg(s, ASSET_ASTEROIDS[o.sprite]);
         g.save(); g.translate(x, y); g.rotate(rot); g.globalAlpha = depthA;
         if (img) {
-          g.imageSmoothingEnabled = false;
           g.drawImage(img, -sz, -sz, sz * 2, sz * 2);
         } else {
           g.fillStyle = 'rgba(46,46,64,.6)'; g.strokeStyle = 'rgba(96,96,128,.55)'; g.lineWidth = 1;
@@ -1652,7 +1651,6 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
       g.save(); g.translate(x, y);
       if (glow > 0) { g.shadowColor = col; g.shadowBlur = glow; }
       if (faceLeft) g.scale(-1, 1);
-      g.imageSmoothingEnabled = false;      // pixel-art sprites stay crisp (the art is drawn at 64px, see tools/hd2d/)
       g.drawImage(img, -size / 2, -size / 2, size, size);
       g.restore();
     }
@@ -1960,7 +1958,7 @@ else if (id === 'intel') { run.flags.showAllIntent = true; fireSide(run, 'onCons
     }
     function texFor(s, THREE, key, kind, col, faceLeft, created) {
       var img = assetImg(s, key), tex;
-      if (img) { tex = new THREE.Texture(img); tex.magFilter = THREE.NearestFilter; tex.needsUpdate = true; }
+      if (img) { tex = new THREE.Texture(img); tex.needsUpdate = true; }
       else { tex = makeSpriteTexture(s, THREE, kind, col, faceLeft); }
       if (tex) created.push(tex);
       return tex;
