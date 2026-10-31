@@ -233,24 +233,29 @@ try {
         };
       });
 
+      // The exam draws its questions at random, so the first multi-answer question may ask for two, three or more:
+      // every expectation below is written in terms of `need`, never a literal 2.
+      const optCount = await page.evaluate(() => document.querySelectorAll('.pe-opt').length);
+      ok('and it has an option to spare, so one too many can be chosen', optCount > need, `${optCount} options, needs ${need}`);
+
       await pick(0);
       let st = await state();
-      ok('one of two: the chip is not marked answered', !/\banswered\b/.test(st.cls), st.cls);
+      ok('one chosen: the chip is not marked answered', !/\banswered\b/.test(st.cls), st.cls);
       ok('it is marked incomplete instead', /incomplete/.test(st.cls), st.cls);
-      ok('and a screen reader is told the numbers', /1 of 2 chosen/.test(st.aria), st.aria);
-      ok('the card shows a running tally', /1 of 2 chosen/.test(st.tally || ''), st.tally);
+      ok('and a screen reader is told the numbers', new RegExp(`1 of ${need} chosen`).test(st.aria), st.aria);
+      ok('the card shows a running tally', new RegExp(`1 of ${need} chosen`).test(st.tally || ''), st.tally);
 
-      await pick(1);
+      for (let i = 1; i < need; i++) await pick(i);
       st = await state();
-      ok('two of two: now it is answered', /\banswered\b/.test(st.cls) && !/incomplete/.test(st.cls), st.cls);
-      ok('the tally says so', /2 of 2 chosen/.test(st.tally || '') && /\bok\b/.test(st.tallyCls), st.tally);
+      ok('all of them chosen: now it is answered', /\banswered\b/.test(st.cls) && !/incomplete/.test(st.cls), st.cls);
+      ok('the tally says so', new RegExp(`${need} of ${need} chosen`).test(st.tally || '') && /\bok\b/.test(st.tallyCls), st.tally);
       ok('and the counter counts it', /1 answered/.test(st.meta), st.meta);
 
-      await pick(2);
+      await pick(need);
       st = await state();
-      ok('three of two: the chip stops claiming answered', !/\banswered\b/.test(st.cls), st.cls);
+      ok('one too many: the chip stops claiming answered', !/\banswered\b/.test(st.cls), st.cls);
       ok('it is marked incomplete', /incomplete/.test(st.cls), st.cls);
-      ok('the aria-label says what is wrong', /3 chosen, needs 2/.test(st.aria), st.aria);
+      ok('the aria-label says what is wrong', new RegExp(`${need + 1} chosen, needs ${need}`).test(st.aria), st.aria);
       ok('the tally is marked over, not merely different', /over/.test(st.tallyCls), st.tallyCls);
       ok('and the counter stops counting it', /0 answered/.test(st.meta), st.meta);
 
