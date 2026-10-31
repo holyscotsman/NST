@@ -16,6 +16,7 @@
 // actually is) — so it costs no geometry, bloom picks it up, and it recolours
 // with the mood for free.
 import * as THREE from 'three';
+import { pbrTexture } from './pbr.js';
 
 const COMMON_VERT = [
   'varying vec3 vWorld; varying vec2 vLocal;',
@@ -36,6 +37,7 @@ const COMMON_VERT = [
 const COMMON_FRAG = [
   'uniform vec3 color; uniform sampler2D tDiffuse; uniform mat4 textureMatrix;',
   'uniform vec3 uAccent, uAlt, uGold;',
+  'uniform sampler2D tMarble; uniform float uMarble;',
   'uniform float uTime, uLevel, uPulse;',
   'varying vec3 vWorld; varying vec2 vLocal;',
   '#ifdef MIRROR',
@@ -81,13 +83,21 @@ const COMMON_FRAG = [
   // deck edge strip + its halo
   '  emit += uAccent * ring(r, 8.92, 0.035) * 3.4;',
   '  emit += uAccent * 0.4 * smoothstep(0.4, 0.0, abs(r - 8.92));',
-  '  vec3 col = base + refl * F * brush + emit * uLevel * (1.0 + uPulse * 1.6);',
+  // dark veined marble under the glass: the veins catch a little light and break the reflection up
+  '  vec3 mt = texture2D(tMarble, vWorld.xz * 0.11).rgb;',
+  '  float vein = smoothstep(0.12, 0.65, dot(mt, vec3(0.333)));',
+  '  base += uMarble * (mt * mt * 0.10 + vein * vec3(0.012, 0.014, 0.03));',
+  '  float polish = mix(1.0, 0.62 + 0.55 * (1.0 - vein), uMarble);',
+  '  vec3 col = base + refl * F * brush * polish + emit * uLevel * (1.0 + uPulse * 1.6);',
   '  col *= smoothstep(9.3, 7.2, r) * 0.25 + 0.75;',
   '  gl_FragColor = vec4(col, 1.0);',
   '  #include <tonemapping_fragment>',
   '  #include <colorspace_fragment>',
   '}',
 ].join('\n');
+
+const WHITE = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+WHITE.needsUpdate = true;
 
 function uniforms(accent) {
   return {
@@ -98,6 +108,7 @@ function uniforms(accent) {
     uAlt: { value: accent.alt },
     uGold: { value: accent.gold },
     uTime: { value: 0 }, uLevel: { value: 1 }, uPulse: { value: 0 },
+    tMarble: { value: WHITE }, uMarble: { value: 0 },        // the marble maps arrive a moment after the stage (see buildFloor)
   };
 }
 
@@ -130,6 +141,7 @@ export async function buildFloor({ tier, accent, radius = 9 }) {
     });
     deck = new THREE.Mesh(geo, material);
   }
+  pbrTexture('marble', 'color').then((t) => { if (t) { material.uniforms.tMarble.value = t; material.uniforms.uMarble.value = 1; } });
   deck.rotation.x = -Math.PI / 2;
   deck.position.y = 0;
   group.add(deck);

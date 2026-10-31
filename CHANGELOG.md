@@ -5,6 +5,19 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.95.0 — Real surface textures on the set (2026-11-01)
+
+**Following "better textures for everything else": the studio's materials now carry real, free (CC0) PBR texture sets instead of plain colours.**
+
+- **Five ambientCG sets** (CC0; `assets/textures/ATTRIBUTIONS.md`), resized to 512-1024 px WebP (about 600 KB in all) by
+  `tools/textures-build.mjs` (dev-only): dark veined marble, dark swirled onyx, brushed steel, carbon weave and leather,
+  each as colour, normal and roughness maps.
+- **Where.** The deck's polished glass gets marble veins under the reflection (they catch a little light and break the
+  mirror up); the contestants' and host's seats are leather; the stool posts, bases and the lighting truss are brushed
+  steel; the broadcast cameras are carbon weave; the money pedestal is onyx.
+- **How.** `stage/pbr.js` hangs a set's maps on an existing material as they arrive, so nothing waits on a download and a
+  failed one leaves the plain material. `?textures=0` switches every set off for diagnosis.
+
 ## v2.94.0 — Voxel people in the studio (2026-10-31)
 
 **Direction change after the v2.93 feedback (StarNix as pixel art "looks 8-bit", not wanted): StarNix stays fully 3D, and WWTBANE gets voxel people with real textures for everything else.** The pixel-art StarNix work was reverted before it merged.
