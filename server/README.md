@@ -80,7 +80,7 @@ roughly a 59% saving across what the site actually sends:
 
 | | on disk | over the wire |
 |---|---|---|
-| StarNix (one self-contained file) | 2868 KB | 1350 KB |
+| StarNix (one self-contained file) | 2246 KB | 881 KB |
 | The NCP-MCI question bank | 367 KB | 98 KB |
 | WWTBANE's 3D library | 652 KB | 155 KB |
 
