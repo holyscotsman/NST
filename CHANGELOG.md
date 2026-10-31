@@ -5,6 +5,25 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.94.0 — Voxel people in the studio (2026-10-31)
+
+**Direction change after the v2.93 feedback (StarNix as pixel art "looks 8-bit", not wanted): StarNix stays fully 3D, and WWTBANE gets voxel people with real textures for everything else.** The pixel-art StarNix work was reverted before it merged.
+
+- **Voxel people.** The host, contestant, two crew and the crowd stand-in are now figures built from 2.5 cm voxels with
+  the kiln tool (`wwtbane/tools/voxel/people.kx.js`, built into `assets/voxel/people/*.glb`, about 190 KB each by
+  `build-people.mjs`; dev-only, not published): a head with eyes, brows, nose, mouth, ears and hair (short, buzz, bun,
+  long), a clothed torso (suit with lapels and tie, hoodie with hood and pocket, shirt with collar and buttons, tee),
+  arms with hands, and legs with knees and shoes, each material speckled so flat colours carry texture. Five looks.
+- **Posable.** A person is eight named parts that turn about their joints; `stage/voxelActors.js` poses them in code
+  (breathing, talking gestures, cheering, waving, a worried hand to the chin, a walking swing, thighs forward with the
+  shins hanging when seated). It has exactly the interface of the other actors, so `studio.js`, the green room and every
+  scene are unchanged. Each part merges its colours into one vertex-coloured mesh (eight draw calls a person) and is
+  shaded flat, so the faces catch the stage lights crisply.
+- **Choice of people.** Voxel is the default. `?people=sprite` brings back the pixel-art cards (with their pixel-art
+  audience), `?people=3d` the rigged bodies, `?people=procedural` the capsules. The audience is still the baked 3D crowd
+  under the voxel default.
+- **Test fix.** The Practice Exams palette test no longer assumes the first multi-answer question asks for two.
+
 ## v2.92.0 — HD-2D: pixel-art people in the 3D studio (2026-10-30)
 
 **Direction change after the v2.91 feedback: instead of making realistic 3D humans look good, the people become pixel art standing in the lit 3D set (the "HD-2D" look of Octopath Traveler).**

@@ -173,7 +173,9 @@ for (const tier of ['low', 'medium', 'high']) {
   await page.click('button.primary.big');
   await page.waitForSelector('.q-card .stem', { timeout: 60000 });
   await page.waitForFunction(() => [...document.querySelectorAll('.option')].every((b) => !b.classList.contains('unrevealed')), { timeout: 60000 });
-  await page.waitForTimeout(3500); // the shift eases in over about a second
+  // the shift eases in over about a second of rendered time; software GL renders slowly, so wait for it to arrive (the assertions below still decide)
+  await page.waitForFunction(() => { const v = window.__wwt.gfx().view; return v.dy < -40 && v.dx < -40; }, null, { timeout: 60000 }).catch(() => {});
+  await page.waitForTimeout(500);
   const q = await page.evaluate(() => window.__wwt.gfx());
   ok(`${tier}: with the question card up, the shot is shifted UP into the free area`, q.view.dy < -40, JSON.stringify(q.view));
   ok(`${tier}: and LEFT of the money ladder`, q.view.dx < -40, JSON.stringify(q.view));
@@ -251,11 +253,11 @@ function diffFraction(a, b) {
   await ctx.close();
 }
 
-/* The people. The set is built with capsule people and, once the sprite sheets (a few KB of pixel art drawn with pxl, see
- * wwtbane/tools/hd2d/) have loaded, the host, the contestant, the two crew and the crowd stand-in become pixel-art
- * cards that face the camera, and the audience becomes pixel-art cards too. Prove the swap happens, that they stand
- * where the set expects, that they animate, and that ?people=3d (rigged bodies) and ?people=procedural (capsules)
- * still work. */
+/* The people. The set is built with capsule people and, once the voxel figures (about 190 KB each, built with kiln, see
+ * wwtbane/tools/voxel/) have loaded, the host, the contestant, the two crew and the crowd stand-in become voxel
+ * people. Prove the swap happens, that they stand where the set expects, that they animate, that the pixel-art sprites
+ * (?people=sprite) still work with their pixel-art audience, and that ?people=3d (rigged bodies) and
+ * ?people=procedural (capsules) still work. */
 {
   const { ctx, page } = await boot('low');
   const failed = [];
@@ -264,22 +266,39 @@ function diffFraction(a, b) {
   await page.waitForFunction(() => window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 5, null, { timeout: 240000 });
   const info = await page.evaluate(() => {
     const s = window.__wwt.studio(); const out = {};
-    for (const e of s._studioPeople.filter((x) => x.skeletal)) out[e.role + (out[e.role] ? '2' : '')] = { sprite: !!e.g.userData.sprite, look: e.g.userData.look, y: +e.g.position.y.toFixed(2) };
+    for (const e of s._studioPeople.filter((x) => x.skeletal)) out[e.role + (out[e.role] ? '2' : '')] = { voxel: !!e.g.userData.voxel, look: e.g.userData.look, y: +e.g.position.y.toFixed(2) };
     return out;
   });
-  ok('the host, the contestant, both crew and the crowd stand-in are swapped for pixel-art people', Object.keys(info).length === 5 && Object.values(info).every((v) => v.sprite), JSON.stringify(info));
-  ok('the host sits on the cushion and has the host sheet', info.host.look === 'host' && info.host.y > 0.8 && info.host.y < 1.1, JSON.stringify(info.host));
+  ok('the host, the contestant, both crew and the crowd stand-in are swapped for voxel people', Object.keys(info).length === 5 && Object.values(info).every((v) => v.voxel), JSON.stringify(info));
+  ok('the host sits on the cushion and has the host figure', info.host.look === 'host' && info.host.y > 0.02 && info.host.y < 0.6, JSON.stringify(info.host));
   ok('the crew stand on the deck', info.crew.y === 0, JSON.stringify(info.crew));
-  const frames = await page.evaluate(async () => {
-    const m = window.__wwt.studio()._studioPeople.find((e) => e.role === 'crew').g.children[0]; const seen = new Set();
-    for (let i = 0; i < 12; i++) { seen.add(m.material.map.offset.x + ',' + m.material.map.offset.y); await new Promise((r) => setTimeout(r, 250)); }
+  const moved = await page.evaluate(async () => {
+    const g = window.__wwt.studio()._studioPeople.find((e) => e.role === 'crew').g; let arm = null;
+    g.traverse((o) => { if (/armL$/.test(o.name)) arm = o; });
+    const seen = new Set();
+    for (let i = 0; i < 12; i++) { seen.add(arm.rotation.z.toFixed(4)); await new Promise((r) => setTimeout(r, 250)); }
     return [...seen];
   });
-  ok('they are animating: a crew member shows more than one frame over three seconds', frames.length > 1, frames.join(' | '));
-  const crowd = await page.evaluate(async () => { const s = window.__wwt.studio(); await s._crowdReady; return { geo: s._crowd.meshes[0].geometry.type, count: s._crowd.meshes[0].count }; });
-  ok('the audience is pixel-art cards, one per seat', crowd.geo === 'PlaneGeometry' && crowd.count > 50, JSON.stringify(crowd));
+  ok('they are animating: a crew member\'s arm moves over three seconds (breathing)', moved.length > 1, moved.join(' | '));
+  const parts = await page.evaluate(() => { const g = window.__wwt.studio()._studioPeople.find((e) => e.role === 'host').g; let n = 0, meshes = 0; g.traverse((o) => { if (/(legL|legR|shinL|shinR|torso|head|armL|armR)$/.test(o.name)) n++; if (o.isMesh) meshes++; }); return { n, meshes }; });
+  ok('a person is eight posable parts, one mesh each (eight draw calls)', parts.n === 8 && parts.meshes === 8, JSON.stringify(parts));
   ok('every asset request succeeded', failed.length === 0, failed.slice(0, 3).join(' | '));
   await ctx.close();
+
+  const ctxS = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await ctxS.addInitScript(() => { try { localStorage.setItem('wwtbane.e2e', '1'); localStorage.setItem('nst.activeBank', 'ncp-mci'); localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } })); } catch { /* storage blocked */ } });
+  const pS = await ctxS.newPage();
+  await pS.goto(`${B}/wwtbane/?quality=low&people=sprite`, { waitUntil: 'load', timeout: 90000 });
+  await pS.waitForFunction(() => window.__wwt && window.__wwt.studio && window.__wwt.studio()._studioPeople.filter((e) => e.skeletal).length === 5, null, { timeout: 240000 });
+  const sprites = await pS.evaluate(async () => {
+    const s = window.__wwt.studio(); await s._crowdReady;
+    const m = s._studioPeople.find((e) => e.role === 'crew').g.children[0]; const seen = new Set();
+    for (let i = 0; i < 12; i++) { seen.add(m.material.map.offset.x + ',' + m.material.map.offset.y); await new Promise((r) => setTimeout(r, 250)); }
+    return { sprite: !!s._studioPeople[0].g.userData.sprite, frames: [...seen].length, geo: s._crowd.meshes[0].geometry.type, count: s._crowd.meshes[0].count };
+  });
+  ok('?people=sprite brings the pixel-art people: they animate frame to frame', sprites.sprite && sprites.frames > 1, JSON.stringify(sprites));
+  ok('and a pixel-art audience, one card per seat', sprites.geo === 'PlaneGeometry' && sprites.count > 50, JSON.stringify(sprites));
+  await ctxS.close();
 
   const ctx3d = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await ctx3d.addInitScript(() => { try { localStorage.setItem('wwtbane.e2e', '1'); localStorage.setItem('nst.activeBank', 'ncp-mci'); localStorage.setItem('wwtbane.save.v1', JSON.stringify({ version: 1, flags: { seenIntro: true }, settings: { motion: 'full', music: false, sound: false } })); } catch { /* storage blocked */ } });
