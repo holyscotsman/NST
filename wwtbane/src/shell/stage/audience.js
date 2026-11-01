@@ -19,8 +19,10 @@ import * as THREE from 'three';
 import { PAL, mat, mergeGeos, rimLit } from './kit.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { crowdSprites } from './spriteActors.js';
+import { mergeNodeGeometry } from './voxelActors.js';
 
 const CROWD_ROOT = new URL('../../../assets/people/crowd/', import.meta.url).href;
+const VOXEL_CROWD_ROOT = new URL('../../../assets/voxel/crowd/', import.meta.url).href;
 
 export function buildAudience({ tier, accent }) {
   const group = new THREE.Group();
@@ -174,5 +176,36 @@ export function buildAudience({ tier, accent }) {
     } catch (e) { console.warn('[wwtbane] sprite crowd unavailable', e); return false; }
   }
 
-  return { group, meshes, chairs, seats, voteCards, total, phones, upgrade, useSprites, bob: (t) => spriteBob && spriteBob(t) };
+  // The voxel crowd: seated 5 cm-voxel figures (assets/voxel/crowd, built with kiln), one tintable geometry each for
+  // the clothes, the skin and the hair, so the seat colours set above still decide who wears and looks like what.
+  async function useVoxel() {
+    try {
+      const L = new GLTFLoader(), got = {};
+      for (const v of ['m', 'f']) {
+        const gltf = await L.loadAsync(`${VOXEL_CROWD_ROOT}crowd_${v}.glb`);
+        const parts = {};
+        gltf.scene.traverse((o) => { const m = /(clothes|skin|hair)$/.exec(o.name); if (m && !o.isMesh) parts[m[1]] = mergeNodeGeometry(o); });
+        if (!parts.clothes || !parts.skin || !parts.hair) throw new Error(`crowd_${v}: missing parts`);
+        got[v] = parts;
+      }
+      const mk = (strength) => rimOn(new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0.02 }), strength);
+      const mats = { clothes: mk(0.2), skin: mk(0.14), hair: mk(0.32) };
+      for (const v of ['m', 'f']) for (const [k, part] of [['body', 'clothes'], ['head', 'skin'], ['hair', 'hair']]) {
+        const mesh = variants[v][k], old = mesh.geometry;
+        mesh.geometry = got[v][part]; mesh.material = mats[part]; old.dispose();
+      }
+      // the crowd is dark by design, but a voxel figure is lit like a person, so lift the seat colours a little
+      const lift = { body: 2.6, head: 1.25, hair: 2.0 };
+      seats.forEach((st, i) => {
+        const V = variants[st.v], k = V.body.userData.map[i]; if (k < 0) return;
+        V.body.setColorAt(k, col.setHex(st.shirt).multiplyScalar(lift.body));
+        V.head.setColorAt(k, col.setHex(st.skin).multiplyScalar(lift.head));
+        V.hair.setColorAt(k, col.setHex(st.hair).multiplyScalar(lift.hair));
+      });
+      for (const v of ['m', 'f']) for (const k of ['body', 'head', 'hair']) variants[v][k].instanceColor.needsUpdate = true;
+      return true;
+    } catch (e) { console.warn('[wwtbane] voxel crowd unavailable', e); return false; }
+  }
+
+  return { group, meshes, chairs, seats, voteCards, total, phones, upgrade, useVoxel, useSprites, bob: (t) => spriteBob && spriteBob(t) };
 }

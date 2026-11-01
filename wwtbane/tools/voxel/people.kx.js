@@ -145,4 +145,81 @@ for (const [name, L] of Object.entries(LOOKS)) {
       part("armL", { pivot: [0.222, 1.3, 0] }, mk(arm(1))),
       part("armR", { pivot: [-0.222, 1.3, 0] }, mk(arm(-1)))))
 }
+
+// ---- the crowd: seated figures in three tintable parts (clothes, skin, hair), 5 cm voxels ----
+// Colours here are greys: the audience tints each instance with the seat's own shirt, skin and hair colours, so the
+// crowd's variety costs nothing. Everyone faces +Z with the knees forward and the forearms on the lap.
+const CS = 0.05, CNX = 24, CNY = 38, CNZ = 26
+const SKINKEYS = "sStbewmy", HAIRKEYS = "hHg"
+function seatedLeg(side) {
+  return (x, y, z, L, ix, iy, iz) => {
+    const hx = side * 0.088
+    if (seg(x, y, z, [hx, 0.86, 0.0], [hx, 0.86, 0.4]) <= 0.08) return pick(ix, iy, iz, "p", "P", "q")          // thigh
+    if (y > 0.2 && seg(x, y, z, [hx, 0.86, 0.42], [hx, 0.3, 0.44]) <= 0.07) return pick(ix, iy, iz, "p", "P", "q") // shin
+    if (y <= 0.24 && ell(x, y, z, hx, 0.17, 0.5, 0.07, 0.07, 0.12)) return pick(ix, iy, iz, "o", "O", "u")         // shoe
+    return null
+  }
+}
+function seatedArm(side) {
+  return (x, y, z, L, ix, iy, iz) => {
+    const a = [side * 0.222, 1.3, 0], b = [side * 0.236, 1.05, 0.1], c = [side * 0.14, 0.96, 0.3]
+    if (ell(x, y, z, c[0], c[1] - 0.02, c[2] + 0.04, 0.045, 0.04, 0.06)) return pick(ix, iy, iz, "s", "S", "t")    // hand
+    if (seg(x, y, z, a, b) <= 0.054 || seg(x, y, z, b, c) <= 0.05) return pick(ix, iy, iz, "c", "C", "d")           // sleeve
+    return null
+  }
+}
+const CROWD = {
+  crowd_m: { sex: "m", hairStyle: "short", top: "tee", tieC: null },
+  crowd_f: { sex: "f", hairStyle: "long", top: "shirt", tieC: null },
+}
+pal({ c: "#e6e6e6", C: "#c4c4c4", d: "#ffffff", i: "#f2f2f2", I: "#d8d8d8", r: "#e6e6e6", p: "#d0d0d0", P: "#a8a8a8", q: "#e0e0e0", o: "#9a9a9a", O: "#6a6a6a", u: "#c8c8c8",
+  s: "#ffffff", S: "#d8d8d8", t: "#ffffff", b: "#f0d8d8", e: "#101010", w: "#ffffff", m: "#d8a8a8", y: "#a87878", h: "#ffffff", H: "#c8c8c8", g: "#ffffff", k: "#101010" })
+for (const [name, L] of Object.entries(CROWD)) {
+  const fns = [torso, head, arm(1), arm(-1), seatedArm(1), seatedArm(-1), seatedLeg(1), seatedLeg(-1)]
+  const parts = [torso, head, seatedArm(1), seatedArm(-1), seatedLeg(1), seatedLeg(-1)]
+  const mkClass = (cls) => voxfn([CNX, CNY, CNZ], (ix, iy, iz) => {
+    const x = (ix - CNX / 2 + 0.5) * CS, y = (iy + 0.5) * CS, z = (iz - CNZ / 2 + 0.5) * CS
+    for (const f of parts) {
+      const k = f(x, y, z, L, ix, iy, iz); if (!k) continue
+      const c = SKINKEYS.includes(k) ? "skin" : HAIRKEYS.includes(k) ? "hair" : "clothes"
+      if (c === cls) return k
+    }
+    return null
+  }, { size: CS })
+  model(name, part("clothes", { pivot: [0, 0, 0] }, mkClass("clothes")), part("skin", { pivot: [0, 0, 0] }, mkClass("skin")), part("hair", { pivot: [0, 0, 0] }, mkClass("hair")))
+}
+
+// ---- the money pedestal's piggy bank: a hammered-gold voxel pig, snout toward +Z, with coin stacks (3 cm voxels) ----
+{
+  const PS = 0.03, PX = 44, PY = 30, PZ = 40
+  pal({ g: "#e8b23a", G: "#ffd66b", D: "#a8741a", k: "#1a1208", e: "#120a04", w: "#fff8e0", n: "#8a5a10" })
+  const piggyFn = (x, y, z, ix, iy, iz) => {
+    const ax = Math.abs(x)
+    // coin stacks either side of the pig
+    for (const [cx, cz, h] of [[0.46, 0.1, 0.1], [-0.46, -0.1, 0.07], [0.42, -0.22, 0.04]]) if (Math.hypot(x - cx, z - cz) < 0.07 && y < h) return y > h - 0.02 ? "G" : (iy % 2 ? "D" : "g")
+    if (y < 0.02) return null
+    const skin = (base) => { const t = (y - 0.1) / 0.6, r = hash(ix, iy, iz); return r < 0.05 ? "D" : r > 0.95 ? "G" : t > 0.62 ? (r > 0.35 ? "G" : "g") : t < 0.12 ? "D" : base }
+    // eyes and nostrils first (they sit on the surface)
+    if (z > 0.36 && ax > 0.07 && ax < 0.13 && Math.abs(y - 0.53) < 0.02 && ell(ax, y, z, 0, 0.47, 0.38, 0.21, 0.21, 0.2) && z > 0.5 - ax * 0.9) return y > 0.535 && ax < 0.1 ? "w" : "e"
+    if (z > 0.6 && ax > 0.02 && ax < 0.055 && Math.abs(y - 0.4) < 0.02) return "n"
+    // coin slot
+    if (ax < 0.012 && y > 0.66 && y < 0.78 && Math.abs(z + 0.02) < 0.08 && y > 0.68) return "k"
+    // ears
+    if (ell(ax, y, z, 0.13, 0.7, 0.33, 0.07, 0.1, 0.035)) return skin("g")
+    // snout
+    if (ell(ax, y, z, 0, 0.4, 0.58, 0.1, 0.085, 0.07)) return skin("g")
+    // head
+    if (ell(ax, y, z, 0, 0.47, 0.38, 0.2, 0.2, 0.19)) return skin("g")
+    // body
+    if (ell(ax, y, z, 0, 0.4, -0.04, 0.31, 0.3, 0.43)) return skin("g")
+    // legs
+    for (const [lx, lz] of [[0.18, 0.24], [0.18, -0.26]]) if (Math.hypot(ax - lx, z - lz) < 0.075 && y < 0.2) return skin("D")
+    // curly tail
+    const a = Math.atan2(y - 0.52, z + 0.46)
+    if (Math.abs(x) < 0.03 && Math.hypot(z + 0.5, y - 0.56) < 0.09 && Math.hypot(z + 0.5, y - 0.56) > 0.05 && Math.cos(a) < 0.6) return "g"
+    return null
+  }
+  model("piggy", voxfn([PX, PY, PZ], (ix, iy, iz) => piggyFn((ix - PX / 2 + 0.5) * PS, (iy + 0.5) * PS, (iz - PZ / 2 + 0.5) * PS, ix, iy, iz), { size: PS }))
+}
+
 pack("people", Object.keys(LOOKS).map((n) => "vox_" + n))

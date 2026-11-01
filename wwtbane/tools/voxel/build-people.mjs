@@ -14,15 +14,15 @@ const kiln = process.argv[2] || path.join(process.env.HOME || '', '.claude/skill
 const require = createRequire(import.meta.url);
 const { NodeIO } = require('@gltf-transform/core');
 const { dedup, prune } = require('@gltf-transform/functions');
-const out = path.join(here, '../../assets/voxel/people');
+const out = path.join(here, '../../assets/voxel/people'), outCrowd = path.join(here, '../../assets/voxel/crowd'), outSet = path.join(here, '../../assets/voxel/set');
 const work = mkdtempSync(path.join(tmpdir(), 'voxel-'));
-mkdirSync(out, { recursive: true });
+mkdirSync(out, { recursive: true }); mkdirSync(outCrowd, { recursive: true }); mkdirSync(outSet, { recursive: true });
 execFileSync('node', [kiln, 'build', path.join(here, 'people.kx.js'), '--out', work], { stdio: 'inherit' });
 const io = new NodeIO();
-for (const look of ['host', 'player', 'op', 'stage', 'fan']) {
-  const doc = await io.read(path.join(work, 'models', `vox_${look}.glb`));
+for (const [model, dest, file] of [...['host', 'player', 'op', 'stage', 'fan'].map((l) => [`vox_${l}`, out, l]), ['crowd_m', outCrowd, 'crowd_m'], ['crowd_f', outCrowd, 'crowd_f'], ['piggy', outSet, 'piggy']]) {
+  const doc = await io.read(path.join(work, 'models', `${model}.glb`));
   for (const mesh of doc.getRoot().listMeshes()) for (const prim of mesh.listPrimitives()) { prim.setAttribute('NORMAL', null); prim.setAttribute('TEXCOORD_0', null); }
   await doc.transform(dedup(), prune());
-  await io.write(path.join(out, `${look}.glb`), doc);
+  await io.write(path.join(dest, `${file}.glb`), doc);
 }
-console.log('voxel people ->', out);
+console.log('voxel people ->', out, outCrowd);
