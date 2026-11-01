@@ -5,6 +5,22 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.96.0 — StarNix in 3D: lit models with real textures (2026-11-01)
+
+**Following "StarNix fully 3D with good graphics and textures" (the pixel-art attempt was dropped): StarNix's ships, rocks and station are now real 3D models and the canyon uses real photographic rock.**
+
+- **Real 3D models, rendered to the sprites the games already draw.** The three hero ships (Talon, Aegis, Mender),
+  the BCM raider and warship, three asteroids, the Acropolis station and the player ship are modelled in three.js with
+  bevelled plates, lathed fuselages, glass canopies and glowing engines (`starnix/tools/ships/ships.js`), textured with
+  plated-hull PBR sets drawn in code with the loom tool and a real CC0 rock set (ambientCG Rock030) for the asteroids,
+  and lit by a small studio (key, rim, coloured softboxes reflected by the metals). `tools/ships/build.mjs` renders each
+  from the view its game uses (side for Kuiper Belt, top-down for Acropolis Rescue, three-quarter for the station) into
+  `assets.js`. The games' rules, controls and drawing code are untouched, so every StarNix suite passes unchanged (build
+  verify 556, ARM 163, CC 124, KBB 156 and 16, balance, audio).
+- **Chasm Chase canyon.** Walls and obstacle rocks use ambientCG Rock029 (colour and normal map) and the road uses
+  Asphalt025C, in place of the old photo textures (`tools/ships/build-canyon.mjs`).
+- Sources are recorded in `starnix/tools/ships/ATTRIBUTIONS.md`. The tooling is dev-only and is not published.
+
 ## v2.95.0 — Real surface textures on the set (2026-11-01)
 
 **Following "better textures for everything else": the studio's materials now carry real, free (CC0) PBR texture sets instead of plain colours.**
