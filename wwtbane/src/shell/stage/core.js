@@ -11,11 +11,12 @@
 // looking at the old monitors for, which then did nothing.
 import * as THREE from 'three';
 import { PAL, mat } from './kit.js';
+import { pbr } from './pbr.js';
 
 export function buildCore({ accent }) {
   const group = new THREE.Group();
   const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.64, 0.34, 56),
-    new THREE.MeshStandardMaterial({ color: 0x0a0b14, metalness: 0.92, roughness: 0.28 }));
+    pbr(new THREE.MeshStandardMaterial({ color: 0x0a0b14, metalness: 0.92, roughness: 0.28 }), 'onyx', { repeat: [3, 1], color: 0x8a8aa8, rough: 0.7, metal: 0.55 }));
   plinth.position.y = 0.17; group.add(plinth);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.016, 8, 72),
     accent.track(new THREE.MeshStandardMaterial({ color: 0x000000, emissiveIntensity: 1 }), 3.2));
@@ -23,19 +24,23 @@ export function buildCore({ accent }) {
 
   const ringMat = (partner, scale) => accent.track(new THREE.MeshStandardMaterial({ color: 0x000000, emissiveIntensity: 1, transparent: true, opacity: 0.95 }), scale, partner);
   const rings = [
-    { m: new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.012, 8, 120), ringMat(false, 3.0)), ax: [1, 0.2, 0], sp: 0.5 },
-    { m: new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.011, 8, 120), ringMat(true, 3.0)), ax: [0.1, 1, 0.3], sp: -0.7 },
-    { m: new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.010, 8, 120), ringMat(false, 3.4)), ax: [0.3, 0.2, 1], sp: 0.95 },
+    { m: new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.018, 10, 120), ringMat(false, 3.0)), ax: [1, 0.2, 0], sp: 0.5 },
+    { m: new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.016, 10, 120), ringMat(true, 3.0)), ax: [0.1, 1, 0.3], sp: -0.7 },
+    { m: new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.014, 10, 120), ringMat(false, 3.4)), ax: [0.3, 0.2, 1], sp: 0.95 },
   ];
   const spin = new THREE.Group(); spin.position.y = 1.18; group.add(spin);
   for (const r of rings) { r.m.userData.ax = new THREE.Vector3(...r.ax).normalize(); spin.add(r.m); }
 
   // the crystal at the heart of it
-  const heart = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13, 1),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.9, toneMapped: false }));
+  // a faceted glass crystal with a bright core, and a thin wireframe cage around it
+  const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0),
+    new THREE.MeshStandardMaterial({ color: 0xbfe8ff, metalness: 0.1, roughness: 0.08, transparent: true, opacity: 0.55, flatShading: true, emissive: 0x4fd8ff, emissiveIntensity: 0.55 }));
+  crystal.scale.set(0.8, 1.25, 0.8);
+  const heart = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 1),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.35, toneMapped: false }));
   const glow = new THREE.Mesh(new THREE.SphereGeometry(0.09, 20, 14),
     accent.track(new THREE.MeshStandardMaterial({ color: 0x000000, emissiveIntensity: 1 }), 4.0));
-  spin.add(heart, glow);
+  spin.add(heart, glow, crystal);
 
   // orbiting nodes
   const NN = 9;

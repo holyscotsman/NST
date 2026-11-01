@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { PAL, mat, cyl, box, sph } from './kit.js';
 import { pbr } from './pbr.js';
+import { loadVoxelProp } from './voxelActors.js';
 
 // A broadcast pedestal camera for the fourth wall — body, lens, red tally
 // light, and a little operator monitor on the back.
@@ -25,23 +26,24 @@ export function piggyBank(x, z) {
   const g = new THREE.Group();
   const pedestal = cyl(0.5, 0.62, 1.0, pbr(mat(0x101020, 0x1FDDE9, 0.08, 0.4, 0.6), 'onyx', { repeat: [2, 1], color: 0x9a9ab8, rough: 0.8, metal: 0.3 })); pedestal.position.y = 0.5; g.add(pedestal);
   const top = cyl(0.56, 0.5, 0.08, mat(0x000000, 0xFFC857, 0.35)); top.position.y = 1.02; g.add(top);
+  const old = new THREE.Group(); g.add(old);                     // the smooth pig; replaced by the voxel one once that loads
   const goldM = mat(0xffc857, 0xFFC857, 0.28, 0.35, 0.35);
-  const body = sph(0.42, goldM); body.scale.set(1.18, 0.92, 1); body.position.y = 1.48; g.add(body);
-  const snout = cyl(0.13, 0.16, 0.14, goldM); snout.rotation.z = Math.PI / 2; snout.position.set(-0.52, 1.44, 0); g.add(snout);
-  const earL = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 12), goldM); earL.position.set(-0.18, 1.82, 0.2); earL.scale.set(1.5, 0.8, 0.8); earL.rotation.x = 0.5; g.add(earL);
-  const earR = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 12), goldM); earR.position.set(-0.18, 1.82, -0.2); earR.scale.set(1.5, 0.8, 0.8); earR.rotation.x = -0.5; g.add(earR);
+  const body = sph(0.42, goldM); body.scale.set(1.18, 0.92, 1); body.position.y = 1.48; old.add(body);
+  const snout = cyl(0.13, 0.16, 0.14, goldM); snout.rotation.z = Math.PI / 2; snout.position.set(-0.52, 1.44, 0); old.add(snout);
+  const earL = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 12), goldM); earL.position.set(-0.18, 1.82, 0.2); earL.scale.set(1.5, 0.8, 0.8); earL.rotation.x = 0.5; old.add(earL);
+  const earR = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.16, 12), goldM); earR.position.set(-0.18, 1.82, -0.2); earR.scale.set(1.5, 0.8, 0.8); earR.rotation.x = -0.5; old.add(earR);
   for (const [lx, lz] of [[-0.24, 0.2], [0.24, 0.2], [-0.24, -0.2], [0.24, -0.2]]) {
-    const leg = cyl(0.07, 0.08, 0.18, goldM); leg.position.set(lx, 1.12, lz); g.add(leg);
+    const leg = cyl(0.07, 0.08, 0.18, goldM); leg.position.set(lx, 1.12, lz); old.add(leg);
   }
-  const slot = box(0.2, 0.03, 0.06, mat(0x0a0a14, 0x000000, 0, 0.5)); slot.position.set(0.05, 1.88, 0); g.add(slot);
+  const slot = box(0.2, 0.03, 0.06, mat(0x0a0a14, 0x000000, 0, 0.5)); slot.position.set(0.05, 1.88, 0); old.add(slot);
   const tail = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.022, 8, 20, Math.PI * 1.4), goldM);
-  tail.position.set(0.52, 1.52, 0); tail.rotation.y = Math.PI / 2; g.add(tail);
+  tail.position.set(0.52, 1.52, 0); tail.rotation.y = Math.PI / 2; old.add(tail);
   // a face: dark eyes with a glint, and nostrils on the snout
   const eyeM = mat(0x120a04, 0x000000, 0, 0.3);
   for (const sz of [-1, 1]) {
-    const e = sph(0.035, eyeM); e.position.set(-0.31, 1.61, sz * 0.31); g.add(e);
-    const gl = sph(0.011, new THREE.MeshBasicMaterial({ color: 0xffffff })); gl.position.set(-0.335, 1.625, sz * 0.335); g.add(gl);
-    const n = sph(0.018, eyeM); n.position.set(-0.6, 1.45, sz * 0.05); g.add(n);
+    const e = sph(0.035, eyeM); e.position.set(-0.31, 1.61, sz * 0.31); old.add(e);
+    const gl = sph(0.011, new THREE.MeshBasicMaterial({ color: 0xffffff })); gl.position.set(-0.335, 1.625, sz * 0.335); old.add(gl);
+    const n = sph(0.018, eyeM); n.position.set(-0.6, 1.45, sz * 0.05); old.add(n);
   }
   // Bank squash: every coin banked makes the pig give a little. `bump()` starts
   // it, `update(dt)` runs it (a damped spring on the body's squash). Rest pose
@@ -59,6 +61,13 @@ export function piggyBank(x, z) {
   g.userData.baseScale = 1;
   g.position.set(x, 0, z);
   g.rotation.y = 0.5; // snout angled toward the stage center
+  // the voxel pig (assets/voxel/set/piggy.glb, built with kiln): kiln's +Z front is the pig's snout, which points to -X here
+  loadVoxelProp('piggy').then((geo) => {
+    if (!geo) return;
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, metalness: 0.25, roughness: 0.38, emissive: 0xffc857, emissiveIntensity: 0.3 }));
+    m.castShadow = true; m.position.y = 1.06; m.rotation.y = -Math.PI / 2; m.scale.setScalar(1.3);
+    g.remove(old); g.add(m);
+  });
   return g;
 }
 

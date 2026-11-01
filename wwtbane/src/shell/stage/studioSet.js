@@ -67,7 +67,7 @@ export async function buildStudioSet(studio) {
   floor.hide.push(...audience.meshes, audience.chairs, audience.voteCards, audience.phones);
   // small files; swaps the geometry in when they arrive (the promise lets tests wait for the finished crowd)
   studio._crowdReady = /[?&]people=procedural/.test(window.location.search) ? Promise.resolve(false)
-    : loadPeople().then((p) => (p && p.kind === 'sprite' ? loadSpriteKit().then((k) => audience.useSprites(k)) : audience.upgrade())).catch(() => audience.upgrade());
+    : loadPeople().then((p) => (p && p.kind === 'sprite' ? loadSpriteKit().then((k) => audience.useSprites(k)) : p && p.kind === 'voxel' ? audience.useVoxel().then((ok) => ok || audience.upgrade()) : audience.upgrade())).catch(() => audience.upgrade());
 
   // glowing monitor face shared by the panels and the broadcast cameras
   const screenTex = screenTexture();

@@ -5,6 +5,21 @@ cycle. Each cycle: a 10-surface survey selects 10 improvements, every item
 passes an adversarial change review before implementation, and the cycle ships
 only after the full QA gate (unit suites, browser E2E, security checks).
 
+## v2.97.0 — A voxel audience, a voxel piggy bank, a crystal at the centre of the deck (2026-11-01)
+
+**The rest of WWTBANE's "voxel for the people, textures for everything else" pass.**
+
+- **Voxel audience.** The dark realistic crowd is now seated voxel figures (5 cm voxels, two body types, built with
+  kiln: `assets/voxel/crowd/crowd_m.glb` and `crowd_f.glb`, about 60 KB each). Each is split into clothes, skin and hair
+  so the seat colours still decide who wears what; the same instanced meshes, seat map and moments (a wave, a cough, a
+  walk-out) as before, so nothing in `studio.js` changed. Faces, hair and hands are visible instead of silhouettes.
+- **A voxel piggy bank.** A hammered-gold voxel pig with a coin slot, ears, snout, curly tail and coin stacks replaces the
+  smooth sphere pig (`assets/voxel/set/piggy.glb`); the pedestal, the squash-when-a-coin-banks spring and every hook are
+  unchanged, and the old pig remains if the file cannot load.
+- **The centre of the deck.** The hologram's heart is a faceted glass crystal inside a wireframe cage, its rings are
+  thicker, and its plinth is onyx (real texture from v2.95).
+- `docs/POLISH_AUDIT.md` ticks W1 and W2; `docs/ART_DIRECTION.md` records the looks and the rules. The NCM-MCI Lab now defaults to its dark theme to match the rest of the site.
+
 ## v2.96.0 — StarNix in 3D: lit models with real textures (2026-11-01)
 
 **Following "StarNix fully 3D with good graphics and textures" (the pixel-art attempt was dropped): StarNix's ships, rocks and station are now real 3D models and the canyon uses real photographic rock.**

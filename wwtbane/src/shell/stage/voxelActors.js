@@ -19,10 +19,11 @@ const HIP_Y = 0.9;                      // where the legs and torso meet, in met
 
 let kitPromise = null;
 
-// Merge every primitive directly under a part node into one vertex-coloured mesh.
-function bake(node) {
+// One vertex-coloured geometry from every primitive directly under a node (each primitive's material colour is baked
+// into its vertices); null if there are none. The primitives are left where they are.
+export function mergeNodeGeometry(node) {
   const meshes = node.children.filter((c) => c.isMesh);
-  if (!meshes.length) return;
+  if (!meshes.length) return null;
   const geos = meshes.map((m) => {
     const g = m.geometry.clone(), c = m.material.color || new THREE.Color(1, 1, 1), n = g.attributes.position.count;
     const col = new Float32Array(n * 3); for (let i = 0; i < n; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
@@ -30,7 +31,14 @@ function bake(node) {
     for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'color') g.deleteAttribute(k);
     return g;
   });
-  const merged = mergeGeometries(geos, false);
+  return mergeGeometries(geos, false);
+}
+
+// Replace a part node's primitives with one merged vertex-coloured mesh.
+function bake(node) {
+  const meshes = node.children.filter((c) => c.isMesh);
+  const merged = mergeNodeGeometry(node);
+  if (!merged) return;
   for (const m of meshes) { node.remove(m); m.material.dispose?.(); }
   const mesh = new THREE.Mesh(merged, null); mesh.name = node.name + '.mesh';
   node.add(mesh);
@@ -131,4 +139,17 @@ export function createVoxelActor(kit, opts = {}) {
   };
   Object.assign(g.userData, api);
   return g;
+}
+
+// A voxel prop (assets/voxel/set/<name>.glb, built with kiln) as one vertex-coloured geometry, or null if it cannot be
+// loaded. Cached, so every user of a prop shares one download.
+const props = new Map();
+export function loadVoxelProp(name) {
+  if (!props.has(name)) {
+    props.set(name, new GLTFLoader().loadAsync(new URL(`../../../assets/voxel/set/${name}.glb`, import.meta.url).href).then((gltf) => {
+      let node = null; gltf.scene.traverse((o) => { if (!node && o.children.some((c) => c.isMesh)) node = o; });
+      return node ? mergeNodeGeometry(node) : null;
+    }).catch((e) => { console.warn(`[wwtbane] voxel prop ${name} unavailable`, e); return null; }));
+  }
+  return props.get(name);
 }
